@@ -1,0 +1,318 @@
+[[case]]
+name = "equal"
+kind = "lexer"
+source = """
+=
+"""
+expected_tokens = """
+Equal:=
+Eof:
+"""
+
+[[case]]
+name = "equal_equal"
+kind = "lexer"
+source = """
+==
+"""
+expected_tokens = """
+EqualEqual:==
+Eof:
+"""
+
+[[case]]
+name = "star"
+kind = "lexer"
+source = """
+*
+"""
+expected_tokens = """
+Star:*
+Eof:
+"""
+
+[[case]]
+name = "ampersand"
+kind = "lexer"
+source = """
+&
+"""
+expected_tokens = """
+Ampersand:&
+Eof:
+"""
+
+[[case]]
+name = "ampersand_ampersand"
+kind = "lexer"
+source = """
+&&
+"""
+expected_tokens = """
+AmpersandAmpersand:&&
+Eof:
+"""
+
+[[case]]
+name = "pipe"
+kind = "lexer"
+source = """
+|
+"""
+expected_tokens = """
+Pipe:|
+Eof:
+"""
+
+[[case]]
+name = "pipe_pipe"
+kind = "lexer"
+source = """
+||
+"""
+expected_tokens = """
+PipePipe:||
+Eof:
+"""
+
+[[case]]
+name = "bang"
+kind = "lexer"
+source = """
+!
+"""
+expected_tokens = """
+Bang:!
+Eof:
+"""
+
+[[case]]
+name = "bang_equal"
+kind = "lexer"
+source = """
+!=
+"""
+expected_tokens = """
+BangEqual:!=
+Eof:
+"""
+
+[[case]]
+name = "hash"
+kind = "lexer"
+source = """
+#
+"""
+expected_tokens = """
+Hash:#
+Eof:
+"""
+
+[[case]]
+name = "dot"
+kind = "lexer"
+source = """
+.
+"""
+expected_tokens = """
+Dot:.
+Eof:
+"""
+
+[[case]]
+name = "carrot"
+kind = "lexer"
+source = """
+^
+"""
+expected_tokens = """
+Carrot:^
+Eof:
+"""
+
+[[case]]
+name = "plus"
+kind = "lexer"
+source = """
++
+"""
+expected_tokens = """
+Plus:+
+Eof:
+"""
+
+[[case]]
+name = "minus"
+kind = "lexer"
+source = """
+-
+"""
+expected_tokens = """
+Minus:-
+Eof:
+"""
+
+[[case]]
+name = "less_than"
+kind = "lexer"
+source = """
+<
+"""
+expected_tokens = """
+LessThan:<
+Eof:
+"""
+
+[[case]]
+name = "less_than_less_than"
+kind = "lexer"
+source = """
+<<
+"""
+expected_tokens = """
+LessThanLessThan:<<
+Eof:
+"""
+
+[[case]]
+name = "less_than_less_than_equal"
+kind = "lexer"
+source = """
+<<=
+"""
+expected_tokens = """
+LessThanLessThanEqual:<<=
+Eof:
+"""
+
+[[case]]
+name = "less_than_equal"
+kind = "lexer"
+source = """
+<=
+"""
+expected_tokens = """
+LessThanEqual:<=
+Eof:
+"""
+
+[[case]]
+name = "less_than_percent"
+kind = "lexer"
+source = """
+<%
+"""
+expected_tokens = """
+LessThanPercent:<%
+Eof:
+"""
+
+[[case]]
+name = "greater_than"
+kind = "lexer"
+source = """
+>
+"""
+expected_tokens = """
+GreaterThan:>
+Eof:
+"""
+
+[[case]]
+name = "greater_than_greater_than"
+kind = "lexer"
+source = """
+>>
+"""
+expected_tokens = """
+GreaterThanGreaterThan:>>
+Eof:
+"""
+
+[[case]]
+name = "greater_than_greater_than_equal"
+kind = "lexer"
+source = """
+>>=
+"""
+expected_tokens = """
+GreaterThanGreaterThanEqual:>>=
+Eof:
+"""
+
+[[case]]
+name = "greater_than_equal"
+kind = "lexer"
+source = """
+>=
+"""
+expected_tokens = """
+GreaterThanEqual:>=
+Eof:
+"""
+
+[[case]]
+name = "greater_than_percent"
+kind = "lexer"
+source = """
+>%
+"""
+expected_tokens = """
+GreaterThanPercent:>%
+Eof:
+"""
+
+[[case]]
+name = "plus_equal"
+kind = "lexer"
+source = """
++=
+"""
+expected_tokens = """
+PlusEqual:+=
+Eof:
+"""
+
+[[case]]
+name = "minus_equal"
+kind = "lexer"
+source = """
+-=
+"""
+expected_tokens = """
+MinusEqual:-=
+Eof:
+"""
+
+[[case]]
+name = "ampersand_equal"
+kind = "lexer"
+source = """
+&=
+"""
+expected_tokens = """
+AmpersandEqual:&=
+Eof:
+"""
+
+[[case]]
+name = "pipe_equal"
+kind = "lexer"
+source = """
+|=
+"""
+expected_tokens = """
+PipeEqual:|=
+Eof:
+"""
+
+[[case]]
+name = "carrot_equal"
+kind = "lexer"
+source = """
+^=
+"""
+expected_tokens = """
+CarrotEqual:^=
+Eof:
+"""

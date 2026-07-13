@@ -1,0 +1,80 @@
+[[case]]
+name = "zero"
+kind = "lexer"
+source = """
+0
+"""
+expected_tokens = """
+Number:0
+Eof:
+"""
+
+[[case]]
+name = "decimal"
+kind = "lexer"
+source = """
+12 34 56 78 90
+"""
+expected_tokens = """
+Number:12
+Number:34
+Number:56
+Number:78
+Number:90
+Eof:
+"""
+
+[[case]]
+name = "hex"
+kind = "lexer"
+source = """
+0xff
+"""
+expected_tokens = """
+Number:0xff
+Eof:
+"""
+
+[[case]]
+name = "octal"
+kind = "lexer"
+source = """
+0o77
+"""
+expected_tokens = """
+Number:0o77
+Eof:
+"""
+
+[[case]]
+name = "binary_zero"
+kind = "lexer"
+source = """
+0b0
+"""
+expected_tokens = """
+Number:0b0
+Eof:
+"""
+
+[[case]]
+name = "binary_striped"
+kind = "lexer"
+source = """
+0b10101010
+"""
+expected_tokens = """
+Number:0b10101010
+Eof:
+"""
+
+[[case]]
+name = "binary_striped_underscored"
+kind = "lexer"
+source = """
+0b1010_1010
+"""
+expected_tokens = """
+Number:0b1010_1010
+Eof:
+"""

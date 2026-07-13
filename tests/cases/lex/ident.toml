@@ -1,0 +1,186 @@
+[[case]]
+name = "single_char"
+kind = "lexer"
+source = """
+a
+"""
+expected_tokens = """
+Ident:a
+Eof:
+"""
+
+[[case]]
+name = "two_chars"
+kind = "lexer"
+source = """
+ab
+"""
+expected_tokens = """
+Ident:ab
+Eof:
+"""
+
+[[case]]
+name = "char_digit"
+kind = "lexer"
+source = """
+a1
+"""
+expected_tokens = """
+Ident:a1
+Eof:
+"""
+
+[[case]]
+name = "underscore"
+kind = "lexer"
+source = """
+_
+"""
+expected_tokens = """
+Ident:_
+Eof:
+"""
+
+[[case]]
+name = "underscore_prefix"
+kind = "lexer"
+source = """
+_a
+"""
+expected_tokens = """
+Ident:_a
+Eof:
+"""
+
+[[case]]
+name = "underscore_suffix"
+kind = "lexer"
+source = """
+a_
+"""
+expected_tokens = """
+Ident:a_
+Eof:
+"""
+
+[[case]]
+name = "chinese_variable"
+kind = "lexer"
+source = """
+变量
+"""
+expected_tokens = """
+Ident:\\u{53d8}\\u{91cf}
+Eof:
+"""
+
+[[case]]
+name = "hindi_javascript"
+kind = "lexer"
+source = """
+जावास्क्रिप्ट
+"""
+expected_tokens = """
+Ident:\\u{91c}\\u{93e}\\u{935}\\u{93e}\\u{938}\\u{94d}\\u{915}\\u{94d}\\u{930}\\u{93f}\\u{92a}\\u{94d}\\u{91f}
+Eof:
+"""
+
+[[case]]
+name = "japanese_username"
+kind = "lexer"
+source = """
+ユーザー名
+"""
+expected_tokens = """
+Ident:\\u{30e6}\\u{30fc}\\u{30b6}\\u{30fc}\\u{540d}
+Eof:
+"""
+
+[[case]]
+name = "german_size"
+kind = "lexer"
+source = """
+Größe
+"""
+expected_tokens = """
+Ident:Gr\\u{f6}\\u{df}e
+Eof:
+"""
+
+[[case]]
+name = "delta"
+kind = "lexer"
+source = """
+Δ
+"""
+expected_tokens = """
+Ident:\\u{394}
+Eof:
+"""
+
+[[case]]
+name = "pi"
+kind = "lexer"
+source = """
+π
+"""
+expected_tokens = """
+Ident:\\u{3c0}
+Eof:
+"""
+
+[[case]]
+name = "lambda"
+kind = "lexer"
+source = """
+λ
+"""
+expected_tokens = """
+Ident:\\u{3bb}
+Eof:
+"""
+
+[[case]]
+name = "theta"
+kind = "lexer"
+source = """
+θ
+"""
+expected_tokens = """
+Ident:\\u{3b8}
+Eof:
+"""
+
+[[case]]
+name = "ascent"
+kind = "lexer"
+source = """
+café_count
+"""
+expected_tokens = """
+Ident:caf\\u{e9}_count
+Eof:
+"""
+
+[[case]]
+name = "macrons_and_breves"
+kind = "lexer"
+source = """
+ĦĔĽĻŎ
+"""
+expected_tokens = """
+Ident:\\u{126}\\u{114}\\u{13d}\\u{13b}\\u{14e}
+Eof:
+"""
+
+[[case]]
+name = "roman_numeral"
+kind = "lexer"
+source = """
+KingGeorgeⅦ
+"""
+expected_tokens = """
+Ident:KingGeorge\\u{2166}
+Eof:
+"""

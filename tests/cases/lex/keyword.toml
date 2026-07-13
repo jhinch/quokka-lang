@@ -1,0 +1,153 @@
+[[case]]
+name = "fn"
+kind = "lexer"
+source = """
+fn
+"""
+expected_tokens = """
+Fn:fn
+Eof:
+"""
+
+[[case]]
+name = "return"
+kind = "lexer"
+source = """
+return
+"""
+expected_tokens = """
+Return:return
+Eof:
+"""
+
+[[case]]
+name = "break"
+kind = "lexer"
+source = """
+break
+"""
+expected_tokens = """
+Break:break
+Eof:
+"""
+
+[[case]]
+name = "yield"
+kind = "lexer"
+source = """
+yield
+"""
+expected_tokens = """
+Yield:yield
+Eof:
+"""
+
+[[case]]
+name = "continue"
+kind = "lexer"
+source = """
+continue
+"""
+expected_tokens = """
+Continue:continue
+Eof:
+"""
+
+[[case]]
+name = "if"
+kind = "lexer"
+source = """
+if
+"""
+expected_tokens = """
+If:if
+Eof:
+"""
+
+[[case]]
+name = "then"
+kind = "lexer"
+source = """
+then
+"""
+expected_tokens = """
+Then:then
+Eof:
+"""
+
+[[case]]
+name = "else"
+kind = "lexer"
+source = """
+else
+"""
+expected_tokens = """
+Else:else
+Eof:
+"""
+
+[[case]]
+name = "loop"
+kind = "lexer"
+source = """
+loop
+"""
+expected_tokens = """
+Loop:loop
+Eof:
+"""
+
+[[case]]
+name = "let"
+kind = "lexer"
+source = """
+let
+"""
+expected_tokens = """
+Let:let
+Eof:
+"""
+
+[[case]]
+name = "struct"
+kind = "lexer"
+source = """
+struct
+"""
+expected_tokens = """
+Struct:struct
+Eof:
+"""
+
+[[case]]
+name = "global"
+kind = "lexer"
+source = """
+global
+"""
+expected_tokens = """
+Global:global
+Eof:
+"""
+
+[[case]]
+name = "const"
+kind = "lexer"
+source = """
+const
+"""
+expected_tokens = """
+Const:const
+Eof:
+"""
+
+[[case]]
+name = "asm"
+kind = "lexer"
+source = """
+asm
+"""
+expected_tokens = """
+Asm:asm
+Eof:
+"""

@@ -1,0 +1,76 @@
+[[case]]
+name = "left_brace"
+kind = "lexer"
+source = """
+{
+"""
+expected_tokens = """
+LeftBrace:{
+Eof:
+"""
+
+[[case]]
+name = "right_brace"
+kind = "lexer"
+source = """
+}
+"""
+expected_tokens = """
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "left_bracket"
+kind = "lexer"
+source = """
+[
+"""
+expected_tokens = """
+LeftBracket:[
+Eof:
+"""
+
+[[case]]
+name = "right_bracket"
+kind = "lexer"
+source = """
+]
+"""
+expected_tokens = """
+RightBracket:]
+Eof:
+"""
+
+[[case]]
+name = "left_paren"
+kind = "lexer"
+source = """
+(
+"""
+expected_tokens = """
+LeftParen:(
+Eof:
+"""
+
+[[case]]
+name = "right_paren"
+kind = "lexer"
+source = """
+)
+"""
+expected_tokens = """
+RightParen:)
+Eof:
+"""
+
+[[case]]
+name = "minus_greater_than"
+kind = "lexer"
+source = """
+->
+"""
+expected_tokens = """
+MinusGreaterThan:->
+Eof:
+"""

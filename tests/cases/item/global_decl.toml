@@ -1,0 +1,20 @@
+[[case]]
+name = "builtin_global"
+kind = "parser"
+source = """
+global A: u8;
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("A", 7, 1),
+        ty: TyRef(
+          name: ("u8", 10, 2),
+        ),
+      )),
+    ),
+  ],
+)
+"""

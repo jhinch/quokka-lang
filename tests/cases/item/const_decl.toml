@@ -1,0 +1,23 @@
+[[case]]
+name = "builtin_const"
+kind = "parser"
+source = """
+const A: u8 = 1;
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: ConstDecl(ConstDecl(
+        name: ("A", 6, 1),
+        ty: TyRef(
+          name: ("u8", 9, 2),
+        ),
+        value: Integer((IntegerLiteral(
+          value: 1,
+        ), 14, 1)),
+      )),
+    ),
+  ],
+)
+"""

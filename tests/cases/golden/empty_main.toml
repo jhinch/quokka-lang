@@ -1,0 +1,38 @@
+[[case]]
+name = "lex"
+kind = "lexer"
+source = """
+fn main() {}
+"""
+expected_tokens = """
+Fn:fn
+Ident:main
+LeftParen:(
+RightParen:)
+LeftBrace:{
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "parse"
+kind = "parser"
+source = """
+fn main() {}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 3, 4),
+        ),
+        body: Block(
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""

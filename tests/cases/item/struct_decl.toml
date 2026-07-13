@@ -1,0 +1,27 @@
+[[case]]
+name = "single_field"
+kind = "parser"
+source = """
+struct Name {
+    field: u8,
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: StructDecl(StructDecl(
+        name: ("Name", 7, 4),
+        fields: [
+          FieldDecl(
+            name: ("field", 18, 5),
+            ty: TyRef(
+              name: ("u8", 25, 2),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""

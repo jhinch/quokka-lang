@@ -1,0 +1,63 @@
+[[case]]
+name = "empty_if"
+kind = "parser"
+entrypoint = "expr"
+source = """
+if 1 then {
+}
+"""
+expected_ast = """
+If(If(
+  condition: Integer((IntegerLiteral(
+    value: 1,
+  ), 3, 1)),
+  true_block: Block(Block(
+    statements: [],
+  )),
+  false_block: None,
+))
+"""
+
+[[case]]
+name = "empty_if_else"
+kind = "parser"
+entrypoint = "expr"
+source = """
+if 1 then {
+} else {
+}
+"""
+expected_ast = """
+If(If(
+  condition: Integer((IntegerLiteral(
+    value: 1,
+  ), 3, 1)),
+  true_block: Block(Block(
+    statements: [],
+  )),
+  false_block: Some(Block(Block(
+    statements: [],
+  ))),
+))
+"""
+
+[[case]]
+name = "let_if_else"
+kind = "parser"
+entrypoint = "expr"
+source = """
+if 1 then 2 else 3
+"""
+expected_ast = """
+If(If(
+  condition: Integer((IntegerLiteral(
+    value: 1,
+  ), 3, 1)),
+  true_block: Integer((IntegerLiteral(
+    value: 2,
+  ), 10, 1)),
+  false_block: Some(Integer((IntegerLiteral(
+    value: 3,
+  ), 17, 1))),
+))
+"""

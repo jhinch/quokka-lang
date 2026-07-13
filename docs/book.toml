@@ -1,0 +1,12 @@
+[book]
+title = "The Quokka Programming Language"
+authors = ["Jason Hinch"]
+language = "en"
+
+[output.html]
+
+additional-js = [
+    "assets/js/highlightjs-language-ebnf.js",
+    "assets/js/highlightjs-language-quokka.js",
+    "assets/js/late-highlight.js",
+]

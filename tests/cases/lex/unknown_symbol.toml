@@ -1,0 +1,89 @@
+[[case]]
+name = "double_quote"
+kind = "lexer"
+source = """
+"
+"""
+expected_errors = [
+    """Unexpected character '"' @ [0:1]""",
+]
+
+[[case]]
+name = "dollar"
+kind = "lexer"
+source = """
+$
+"""
+expected_errors = [
+    "Unexpected character '$' @ [0:1]",
+]
+
+[[case]]
+name = "percent"
+kind = "lexer"
+source = """
+%
+"""
+expected_errors = [
+    "Unexpected character '%' @ [0:1]",
+]
+
+[[case]]
+name = "single_quote"
+kind = "lexer"
+source = """
+'
+"""
+expected_errors = [
+    '''Unexpected character '\'' @ [0:1]''',
+]
+
+[[case]]
+name = "slash"
+kind = "lexer"
+source = """
+/
+"""
+expected_errors = [
+    "Unexpected character '/' @ [0:1]",
+]
+
+[[case]]
+name = "question_mark"
+kind = "lexer"
+source = """
+?
+"""
+expected_errors = [
+    "Unexpected character '?' @ [0:1]",
+]
+
+[[case]]
+name = "at_sign"
+kind = "lexer"
+source = """
+@
+"""
+expected_errors = [
+    "Unexpected character '@' @ [0:1]",
+]
+
+[[case]]
+name = "back_tick"
+kind = "lexer"
+source = """
+`
+"""
+expected_errors = [
+    "Unexpected character '`' @ [0:1]",
+]
+
+[[case]]
+name = "tilde"
+kind = "lexer"
+source = """
+~
+"""
+expected_errors = [
+    "Unexpected character '~' @ [0:1]",
+]

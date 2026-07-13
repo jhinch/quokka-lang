@@ -1,0 +1,76 @@
+[[case]]
+name = "empty_fn"
+kind = "parser"
+source = """
+fn main() {}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 3, 4),
+        ),
+        body: Block(
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "missing_closing_brace"
+kind = "parser"
+source = """
+fn main() {
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [RightBrace] @ [12:12]",
+]
+
+[[case]]
+name = "expression_without_body"
+kind = "parser"
+source = """
+fn main() 1 + 2
+"""
+expected_errors = [
+    "Syntax error: found Number when expecting [LeftBrace] @ [10:11]",
+]
+
+[[case]]
+name = "fn_with_return"
+kind = "parser"
+source = """
+fn that_function() -> u8 {
+    return 1;
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("that_function", 3, 13),
+          ty: Some(TyRef(
+            name: ("u8", 22, 2),
+          )),
+        ),
+        body: Block(
+          statements: [
+            Return(ReturnSmt(
+              value: Some(Integer((IntegerLiteral(
+                value: 1,
+              ), 38, 1))),
+            )),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
