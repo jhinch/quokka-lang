@@ -13,9 +13,12 @@ pub enum Error {
     Syntax(#[from] SyntaxError),
     #[error(transparent)]
     #[diagnostic(transparent)]
+    ChainedComparison(#[from] ChainedComparisonError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     Preview(#[from] PreviewFeatureError),
     #[error("Multiple errors detected")]
-    Multi(#[related] Vec<SyntaxError>),
+    Multi(#[related] Vec<Error>),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -26,6 +29,14 @@ pub struct SyntaxError {
     pub span: SourceSpan,
     pub unexpected: TokenKind,
     pub expected: Vec<TokenKind>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: cannot chain comparisons")]
+#[diagnostic()]
+pub struct ChainedComparisonError {
+    #[label("this comparison")]
+    pub span: SourceSpan,
 }
 
 pub struct Parser<'de> {
@@ -104,12 +115,11 @@ impl Parser<'_> {
                     continue;
                 }
                 Err(Error::Lex(e)) => return Err(Error::Lex(e)),
-                Err(Error::Preview(e)) => return Err(Error::Preview(e)),
-                Err(Error::Syntax(e)) => {
-                    errors.push(e);
-                }
                 Err(Error::Multi(other)) => {
                     errors.extend(other);
+                }
+                Err(e) => {
+                    errors.push(e);
                 }
             };
             self.parse_item_error()?;
@@ -398,7 +408,7 @@ impl Parser<'_> {
             TokenKind::LeftParen => {
                 let expr = self.parse_expr_above(0)?;
                 self.expect(TokenKind::RightParen)?;
-                expr
+                Expr::Paren(Box::new(expr))
             }
             TokenKind::If => {
                 let condition = Box::new(self.parse_expr()?);
@@ -434,7 +444,7 @@ impl Parser<'_> {
                     TokenKind::Star => UnaryOpKind::Deref,
                     _ => unreachable!(),
                 };
-                let bp = self.prefix_binding_power(OpKind::Unary(kind));
+                let bp = prefix_binding_power(OpKind::Unary(kind));
                 let expr = Box::new(self.parse_expr_above(bp)?);
                 Expr::from(UnaryOp { kind, expr })
             }
@@ -533,9 +543,16 @@ impl Parser<'_> {
                     }));
                 }
             };
-            let (lhs_bp, rhs_bp) = self.infix_binding_power(OpKind::Binary(kind));
+            let (lhs_bp, rhs_bp) = infix_binding_power(OpKind::Binary(kind));
             if lhs_bp < min_bp {
                 break;
+            }
+            if is_comparison(kind)
+                && matches!(lhs, Expr::Binary(BinaryOp { kind: left_kind, .. }) if is_comparison(left_kind))
+            {
+                return Err(Error::ChainedComparison(ChainedComparisonError {
+                    span: op_token.span(),
+                }));
             }
             self.chomp()?;
             let rhs = self.parse_expr_above(rhs_bp)?;
@@ -547,38 +564,50 @@ impl Parser<'_> {
         }
         Ok(lhs)
     }
+}
 
-    fn prefix_binding_power(&self, op: OpKind) -> u8 {
-        match op {
-            OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg | UnaryOpKind::Deref) => 18,
-            _ => unimplemented!("{op:?} is not a prefix op"),
-        }
+fn prefix_binding_power(op: OpKind) -> u8 {
+    match op {
+        OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg | UnaryOpKind::Deref) => 19,
+        _ => unimplemented!("{op:?} is not a prefix op"),
     }
+}
 
-    fn infix_binding_power(&self, op: OpKind) -> (u8, u8) {
-        match op {
-            OpKind::Binary(BinaryOpKind::Assign) => (2, 1),
-            OpKind::Binary(BinaryOpKind::Or) => (3, 4),
-            OpKind::Binary(BinaryOpKind::And) => (5, 6),
-            OpKind::Binary(
-                BinaryOpKind::Equal
-                | BinaryOpKind::NotEqual
-                | BinaryOpKind::Lt
-                | BinaryOpKind::Gt
-                | BinaryOpKind::Le
-                | BinaryOpKind::Ge,
-            ) => (7, 7),
-            OpKind::Binary(BinaryOpKind::BitOr) => (8, 9),
-            OpKind::Binary(BinaryOpKind::Xor) => (10, 11),
-            OpKind::Binary(BinaryOpKind::BitAnd) => (12, 13),
-            OpKind::Binary(
-                BinaryOpKind::ShiftLeft
-                | BinaryOpKind::ShiftRight
-                | BinaryOpKind::RotateLeft
-                | BinaryOpKind::RotateRight,
-            ) => (14, 15),
-            OpKind::Binary(BinaryOpKind::Add | BinaryOpKind::Sub) => (16, 17),
-            _ => unimplemented!("{op:?} is not an infix op"),
-        }
+fn infix_binding_power(op: OpKind) -> (u8, u8) {
+    match op {
+        OpKind::Binary(BinaryOpKind::Assign) => (2, 1),
+        OpKind::Binary(BinaryOpKind::Or) => (3, 4),
+        OpKind::Binary(BinaryOpKind::And) => (5, 6),
+        OpKind::Binary(
+            BinaryOpKind::Equal
+            | BinaryOpKind::NotEqual
+            | BinaryOpKind::Lt
+            | BinaryOpKind::Gt
+            | BinaryOpKind::Le
+            | BinaryOpKind::Ge,
+        ) => (7, 8),
+        OpKind::Binary(BinaryOpKind::BitOr) => (9, 10),
+        OpKind::Binary(BinaryOpKind::Xor) => (11, 12),
+        OpKind::Binary(BinaryOpKind::BitAnd) => (13, 14),
+        OpKind::Binary(
+            BinaryOpKind::ShiftLeft
+            | BinaryOpKind::ShiftRight
+            | BinaryOpKind::RotateLeft
+            | BinaryOpKind::RotateRight,
+        ) => (15, 16),
+        OpKind::Binary(BinaryOpKind::Add | BinaryOpKind::Sub) => (17, 18),
+        _ => unimplemented!("{op:?} is not an infix op"),
     }
+}
+
+pub fn is_comparison(op: BinaryOpKind) -> bool {
+    matches!(
+        op,
+        BinaryOpKind::Equal
+            | BinaryOpKind::NotEqual
+            | BinaryOpKind::Lt
+            | BinaryOpKind::Le
+            | BinaryOpKind::Gt
+            | BinaryOpKind::Ge
+    )
 }

@@ -183,6 +183,7 @@ pub enum Expr {
     Block(Block),
     If(If),
     Loop(Loop),
+    Paren(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

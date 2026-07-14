@@ -1,0 +1,48 @@
+[[case]]
+name = "equal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 == 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Equal,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "not_equal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 != 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: NotEqual,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "chained_comparison"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 == 2 == 1
+"""
+expected_errors = [
+    "Syntax error: cannot chain comparisons @ [7:9]",
+]
