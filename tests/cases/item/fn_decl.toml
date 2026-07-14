@@ -74,3 +74,91 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "fn_with_attribute"
+kind = "parser"
+source = """
+#[no_startup_code]
+fn main() -> never {
+    loop {}
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      attributes: [
+        AttributeDecl(
+          name: ("no_startup_code", 2, 15),
+        ),
+      ],
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 22, 4),
+          ty: Some(TyRef(
+            name: ("never", 32, 5),
+          )),
+        ),
+        body: Block(
+          statements: [
+            Expr(ExprSmt(
+              value: Loop(Loop(
+                body: Block(
+                  statements: [],
+                ),
+              )),
+            )),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "fn_with_multiple_attributes"
+kind = "parser"
+source = """
+#[no_startup_code]
+#[entrypoint]
+fn main() -> never {
+    loop {}
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      attributes: [
+        AttributeDecl(
+          name: ("no_startup_code", 2, 15),
+        ),
+        AttributeDecl(
+          name: ("entrypoint", 21, 10),
+        ),
+      ],
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 36, 4),
+          ty: Some(TyRef(
+            name: ("never", 46, 5),
+          )),
+        ),
+        body: Block(
+          statements: [
+            Expr(ExprSmt(
+              value: Loop(Loop(
+                body: Block(
+                  statements: [],
+                ),
+              )),
+            )),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""

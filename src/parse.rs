@@ -242,11 +242,16 @@ impl Parser<'_> {
     }
 
     fn parse_field_decl(&mut self) -> Result<FieldDecl, Error> {
+        let attributes = self.parse_attributes()?;
         let name = self.parse_identifier()?;
         self.expect(TokenKind::Colon)?;
         let ty = self.parse_ty_ref()?;
 
-        Ok(FieldDecl { name, ty })
+        Ok(FieldDecl {
+            attributes,
+            name,
+            ty,
+        })
     }
 
     fn parse_ty_ref(&mut self) -> Result<TyRef, Error> {

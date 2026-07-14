@@ -49,6 +49,8 @@ pub struct StructDecl {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldDecl {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<AttributeDecl>,
     pub name: SpannedIdentifier,
     pub ty: TyRef,
 }

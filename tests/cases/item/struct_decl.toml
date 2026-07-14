@@ -25,3 +25,148 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "struct_with_attribute"
+kind = "parser"
+source = """
+#[this_attribute]
+struct Name {
+    field: u8,
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      attributes: [
+        AttributeDecl(
+          name: ("this_attribute", 2, 14),
+        ),
+      ],
+      data: StructDecl(StructDecl(
+        name: ("Name", 25, 4),
+        fields: [
+          FieldDecl(
+            name: ("field", 36, 5),
+            ty: TyRef(
+              name: ("u8", 43, 2),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
+
+
+[[case]]
+name = "struct_multiple_attributes"
+kind = "parser"
+source = """
+#[this_attribute]
+#[that_attribute]
+struct Name {
+    field: u8,
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      attributes: [
+        AttributeDecl(
+          name: ("this_attribute", 2, 14),
+        ),
+        AttributeDecl(
+          name: ("that_attribute", 20, 14),
+        ),
+      ],
+      data: StructDecl(StructDecl(
+        name: ("Name", 43, 4),
+        fields: [
+          FieldDecl(
+            name: ("field", 54, 5),
+            ty: TyRef(
+              name: ("u8", 61, 2),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "struct_with_field_attribute"
+kind = "parser"
+source = """
+struct Name {
+    #[this_attribute]
+    field: u8,
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: StructDecl(StructDecl(
+        name: ("Name", 7, 4),
+        fields: [
+          FieldDecl(
+            attributes: [
+              AttributeDecl(
+                name: ("this_attribute", 20, 14),
+              ),
+            ],
+            name: ("field", 40, 5),
+            ty: TyRef(
+              name: ("u8", 47, 2),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "struct_with_multiple_field_attributes"
+kind = "parser"
+source = """
+struct Name {
+    #[this_attribute]
+    #[that_attribute]
+    field: u8,
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: StructDecl(StructDecl(
+        name: ("Name", 7, 4),
+        fields: [
+          FieldDecl(
+            attributes: [
+              AttributeDecl(
+                name: ("this_attribute", 20, 14),
+              ),
+              AttributeDecl(
+                name: ("that_attribute", 42, 14),
+              ),
+            ],
+            name: ("field", 62, 5),
+            ty: TyRef(
+              name: ("u8", 69, 2),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
