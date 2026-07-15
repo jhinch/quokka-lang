@@ -1,5 +1,6 @@
 # Loop expressions
 
 ```ebnf
-LoopExpression    =     "loop" BlockExpression  ;
+LoopExpression      =     "loop" , BlockExpression
+                    ;
 ```

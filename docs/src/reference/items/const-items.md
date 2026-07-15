@@ -1,7 +1,8 @@
 # Const items
 
 ```ebnf
-ConstItem   =   "const" Identifier ":" TypeUse "=" Expression ";"   ;
+ConstItem   =   "const" , Identifier , ":" , TypeUse , "=" , Expression , ";"
+            ;
 ```
 
 ```quokka

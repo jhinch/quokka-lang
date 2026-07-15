@@ -9,4 +9,9 @@ additional-js = [
     "assets/js/highlightjs-language-ebnf.js",
     "assets/js/highlightjs-language-quokka.js",
     "assets/js/late-highlight.js",
+    "assets/js/ebnf-renderer.js",
+]
+
+additional-css = [
+    "assets/css/railroad.css"
 ]

@@ -10,41 +10,41 @@ OperatorExpression      =   NotExpression
                         |   RotateExpression
                         |   AssignExpression
                         ;
-NotExpression           =   "!" Expression
+NotExpression           =   "!" , Expression
                         ;
-BooleanExpression       =   Expression "&&" Expression
-                        |   Expression "||" Expression
+BooleanExpression       =   Expression , "&&" , Expression
+                        |   Expression , "||" , Expression
                         ;
-LogicalExpression       =   Expression "&" Expression
-                        |   Expression "|" Expression
-                        |   Expression "^" Expression
+LogicalExpression       =   Expression , "&" , Expression
+                        |   Expression , "|" , Expression
+                        |   Expression , "^" , Expression
                         ;
-ArithmeticExpression    =   Expression "+" Expression
-                        |   Expression "-" Expression
+ArithmeticExpression    =   Expression , "+" , Expression
+                        |   Expression , "-" , Expression
                         ;
-ComparisonExpression    =   Expression "==" Expression
-                        |   Expression "!=" Expression
-                        |   Expression "<" Expression
-                        |   Expression "<=" Expression
-                        |   Expression ">=" Expression
-                        |   Expression ">" Expression
+ComparisonExpression    =   Expression , "==" , Expression
+                        |   Expression , "!=" , Expression
+                        |   Expression , "<" , Expression
+                        |   Expression , "<=" , Expression
+                        |   Expression , ">=" , Expression
+                        |   Expression , ">" , Expression
                         ;
-ShiftExpression         =   Expression "<<" ShiftRhsOperand
-                        |   Expression ">>" ShiftRhsOperand
+ShiftExpression         =   Expression , "<<" , ShiftRhsOperand
+                        |   Expression , ">>" , ShiftRhsOperand
                         ;
-RotateExpression        =   Expression "<%" RotateRhsOperand
-                        |   Expression ">%" RotateRhsOperand
+RotateExpression        =   Expression , "<%" , RotateRhsOperand
+                        |   Expression , ">%" , RotateRhsOperand
                         ;
-AssignExpression        =   Expression "=" Expression
-                        |   Expression "+=" Expression
-                        |   Expression "-=" Expression
-                        |   Expression "&=" Expression
-                        |   Expression "|=" Expression
-                        |   Expression "^=" Expression
-                        |   Expression "<<=" ShiftRhsOperand
-                        |   Expression ">>=" ShiftRhsOperand
-                        |   Expression "<%=" RotateRhsOperand
-                        |   Expression ">%=" RotateRhsOperand
+AssignExpression        =   Expression , "=" , Expression
+                        |   Expression , "+=" , Expression
+                        |   Expression , "-=" , Expression
+                        |   Expression , "&=" , Expression
+                        |   Expression , "|=" , Expression
+                        |   Expression , "^=" , Expression
+                        |   Expression , "<<=" , ShiftRhsOperand
+                        |   Expression , ">>=" , ShiftRhsOperand
+                        |   Expression , "<%=" , RotateRhsOperand
+                        |   Expression , ">%=" , RotateRhsOperand
                         ;
 ShiftRhsOperand         =   "1"
                         ;

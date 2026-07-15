@@ -1,5 +1,6 @@
 # Literal expressions
 
 ```ebnf
-LiteralExpression   = NumberLiteral     ;
+LiteralExpression   = NumberLiteral
+                    ;
 ```

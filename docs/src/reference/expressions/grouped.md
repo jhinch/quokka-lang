@@ -1,5 +1,6 @@
 # Grouped expressions
 
 ```ebnf
-GroupedExpression   =   "(" Expression ")"  ;
+GroupedExpression   =   "(" , Expression , ")"
+                    ;
 ```

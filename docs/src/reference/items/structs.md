@@ -1,12 +1,15 @@
 # Structs
 
 ```ebnf
-Struct              =   "struct" Identifier "{" [ StructFields ] "}"    ;
-StructFields        =   StructField { "," StructField } [ "," ]         ;
-StructField         =   SimpleStructField
-                    |   Attribute { Attribute } SimpleStructField
+Struct              =   "struct" , Identifier , "{" , [ StructFields ] , "}"
                     ;
-SimpleStructField   =   Identifier ":" TypeUse                          ;
+StructFields        =   StructField , { "," , StructField } , [ "," ]
+                    ;
+StructField         =   SimpleStructField
+                    |   Attribute , { Attribute } , SimpleStructField
+                    ;
+SimpleStructField   =   Identifier , ":" , TypeUse
+                    ;
 ```
 
 ```quokka

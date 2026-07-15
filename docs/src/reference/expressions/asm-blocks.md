@@ -4,5 +4,6 @@
 > Requires `inline-asm` preview feature enabled.
 
 ```ebnf
-AsmBlockExpression  =   "asm" "{" AsmInstruction { AsmInstruction } "}"   ;
+AsmBlockExpression  =   "asm" , "{" , AsmInstruction , { AsmInstruction } , "}"
+                    ;
 ```

@@ -1,7 +1,8 @@
 # Functions
 
 ```ebnf
-Function    =   "fn" Identifier "(" ")" [ "->" TypeUse ] BlockExpression     ;
+Function    =   "fn" , Identifier , "(" , ")" , [ "->" , TypeUse ] , BlockExpression
+            ;
 ```
 
 ```quokka

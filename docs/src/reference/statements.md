@@ -8,7 +8,7 @@ Statement           =   LetStatement
                     |   ContinueStatement
                     |   ExpressionStatement
                     ;
-LetStatement        =   "let" , Identifier , [ ":" , TypeUse ] , "=" , Expression ";"
+LetStatement        =   "let" , Identifier , [ ":" , TypeUse ] , "=" , Expression , ";"
                     ;
 ReturnStatement     =   "return" , [ Expression ] , ";"
                     ;

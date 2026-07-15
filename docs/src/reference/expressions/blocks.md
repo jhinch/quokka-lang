@@ -1,8 +1,9 @@
 # Block expressions
 
 ```ebnf
-BlockExpression     =   "{" [ Statements ] "}"                          ;
-Statements          =   Statement { Statement } ExpressionWithoutBlock
+BlockExpression     =   "{" , [ Statements ] , "}"
+                    ;
+Statements          =   Statement , { Statement } , ExpressionWithoutBlock
                     |   ExpressionWithoutBlock
                     ;
 ```
