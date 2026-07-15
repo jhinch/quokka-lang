@@ -1,0 +1,87 @@
+[[case]]
+name = "empty_root"
+kind = "parser"
+entrypoint = "root"
+source = """
+"""
+expected_ast = """
+Root(
+  items: [],
+)
+"""
+
+[[case]]
+name = "multiple_items"
+kind = "parser"
+entrypoint = "root"
+source = """
+const A: u8 = 1;
+global B: u8;
+fn main() {}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: ConstDecl(ConstDecl(
+        name: ("A", 6, 1),
+        ty: TyRef(
+          name: ("u8", 9, 2),
+        ),
+        value: Integer((IntegerLiteral(
+          value: 1,
+        ), 14, 1)),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("B", 24, 1),
+        ty: TyRef(
+          name: ("u8", 27, 2),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 34, 4),
+        ),
+        body: Block(
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+# NOTE: `Parser::parse_item` (src/parse.rs) builds this error's `expected` list
+# as `vec![TokenKind::Fn, TokenKind::Global, TokenKind::Struct]`, omitting
+# `TokenKind::Const` even though `const` is a valid item start (see the match
+# arms directly above it, and docs/src/reference/items.md's `SimpleItem`
+# production which includes `ConstItem`). Captured here as current behavior;
+# worth fixing the diagnostic to include `Const`.
+[[case]]
+name = "invalid_item_start"
+kind = "parser"
+entrypoint = "root"
+source = """
+let x = 1;
+"""
+expected_errors = [
+    "Syntax error: found Let when expecting [Fn, Global, Struct] @ [0:3]",
+]
+
+[[case]]
+name = "error_recovery_skips_to_next_item"
+kind = "parser"
+entrypoint = "root"
+source = """
+1 + 1
+fn ok() {}
+weird_token
+"""
+expected_errors = [
+    "Syntax error: found Number when expecting [Fn, Global, Struct] @ [0:1]",
+    "Syntax error: found Ident when expecting [Fn, Global, Struct] @ [17:28]",
+]

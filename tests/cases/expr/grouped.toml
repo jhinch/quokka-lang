@@ -1,0 +1,92 @@
+[[case]]
+name = "grouped_number"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1)
+"""
+expected_ast = """
+Paren(Integer((IntegerLiteral(
+  value: 1,
+), 1, 1)))
+"""
+
+[[case]]
+name = "grouped_overrides_precedence"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1 + 2) << 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftLeft,
+  left: Paren(Binary(BinaryOp(
+    kind: Add,
+    left: Integer((IntegerLiteral(
+      value: 1,
+    ), 1, 1)),
+    right: Integer((IntegerLiteral(
+      value: 2,
+    ), 5, 1)),
+  ))),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 11, 1)),
+))
+"""
+
+[[case]]
+name = "grouped_allows_chained_comparison"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1 == 1) == (2 == 2)
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Equal,
+  left: Paren(Binary(BinaryOp(
+    kind: Equal,
+    left: Integer((IntegerLiteral(
+      value: 1,
+    ), 1, 1)),
+    right: Integer((IntegerLiteral(
+      value: 1,
+    ), 6, 1)),
+  ))),
+  right: Paren(Binary(BinaryOp(
+    kind: Equal,
+    left: Integer((IntegerLiteral(
+      value: 2,
+    ), 13, 1)),
+    right: Integer((IntegerLiteral(
+      value: 2,
+    ), 18, 1)),
+  ))),
+))
+"""
+
+[[case]]
+name = "nested_grouped"
+kind = "parser"
+entrypoint = "expr"
+source = """
+((1))
+"""
+expected_ast = """
+Paren(Paren(Integer((IntegerLiteral(
+  value: 1,
+), 2, 1))))
+"""
+
+[[case]]
+name = "missing_closing_paren"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [RightParen] @ [3:3]",
+]

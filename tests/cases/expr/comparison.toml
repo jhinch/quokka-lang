@@ -37,6 +37,82 @@ Binary(BinaryOp(
 """
 
 [[case]]
+name = "less_than"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 < 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Lt,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 4, 1)),
+))
+"""
+
+[[case]]
+name = "less_than_equal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 <= 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Le,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "greater_than"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 > 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Gt,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 4, 1)),
+))
+"""
+
+[[case]]
+name = "greater_than_equal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 >= 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Ge,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
 name = "chained_comparison"
 kind = "parser"
 entrypoint = "expr"
@@ -46,3 +122,45 @@ source = """
 expected_errors = [
     "Syntax error: cannot chain comparisons @ [7:9]",
 ]
+
+[[case]]
+name = "chained_comparison_mixed_kinds"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 < 2 == 1
+"""
+expected_errors = [
+    "Syntax error: cannot chain comparisons @ [6:8]",
+]
+
+[[case]]
+name = "grouped_comparison_chain_allowed"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1 == 1) == (2 == 2)
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Equal,
+  left: Paren(Binary(BinaryOp(
+    kind: Equal,
+    left: Integer((IntegerLiteral(
+      value: 1,
+    ), 1, 1)),
+    right: Integer((IntegerLiteral(
+      value: 1,
+    ), 6, 1)),
+  ))),
+  right: Paren(Binary(BinaryOp(
+    kind: Equal,
+    left: Integer((IntegerLiteral(
+      value: 2,
+    ), 13, 1)),
+    right: Integer((IntegerLiteral(
+      value: 2,
+    ), 18, 1)),
+  ))),
+))
+"""

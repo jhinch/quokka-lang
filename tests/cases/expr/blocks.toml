@@ -1,0 +1,102 @@
+[[case]]
+name = "empty_block_as_fn_body"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", 3, 4),
+    ),
+    body: Block(
+      statements: [],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "block_with_multiple_statements"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    let x = 1;
+    x;
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", 3, 4),
+    ),
+    body: Block(
+      statements: [
+        Let(LetSmt(
+          name: ("x", 20, 1),
+          value: Integer((IntegerLiteral(
+            value: 1,
+          ), 24, 1)),
+        )),
+        Expr(ExprSmt(
+          value: Place(Place(
+            name: ("x", 31, 1),
+            field: [],
+          )),
+        )),
+      ],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "block_as_if_branch"
+kind = "parser"
+entrypoint = "expr"
+source = """
+if 1 then {
+    loop {
+        break;
+    }
+} else {
+}
+"""
+expected_ast = """
+If(If(
+  condition: Integer((IntegerLiteral(
+    value: 1,
+  ), 3, 1)),
+  true_block: Block(Block(
+    statements: [
+      Expr(ExprSmt(
+        value: Loop(Loop(
+          body: Block(
+            statements: [
+              Break(BreakSmt()),
+            ],
+          ),
+        )),
+      )),
+    ],
+  )),
+  false_block: Some(Block(Block(
+    statements: [],
+  ))),
+))
+"""
+
+[[case]]
+name = "missing_closing_brace"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [RightBrace] @ [12:12]",
+]

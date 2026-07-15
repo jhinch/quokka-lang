@@ -1,0 +1,138 @@
+[[case]]
+name = "empty_loop"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [],
+  ),
+))
+"""
+
+[[case]]
+name = "loop_with_break"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {
+    break;
+}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [
+      Break(BreakSmt()),
+    ],
+  ),
+))
+"""
+
+[[case]]
+name = "loop_with_break_value"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {
+    break 1;
+}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [
+      Break(BreakSmt(
+        value: Some(Integer((IntegerLiteral(
+          value: 1,
+        ), 17, 1))),
+      )),
+    ],
+  ),
+))
+"""
+
+[[case]]
+name = "loop_with_continue"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {
+    continue;
+}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [
+      Continue(ContinueSmt),
+    ],
+  ),
+))
+"""
+
+[[case]]
+name = "loop_with_yield"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {
+    yield 1;
+}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [
+      Yield(YieldSmt(
+        value: Integer((IntegerLiteral(
+          value: 1,
+        ), 17, 1)),
+      )),
+    ],
+  ),
+))
+"""
+
+[[case]]
+name = "nested_loop"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {
+    loop {
+        break;
+    }
+}
+"""
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [
+      Expr(ExprSmt(
+        value: Loop(Loop(
+          body: Block(
+            statements: [
+              Break(BreakSmt()),
+            ],
+          ),
+        )),
+      )),
+    ],
+  ),
+))
+"""
+
+[[case]]
+name = "loop_missing_body"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [LeftBrace] @ [5:5]",
+]

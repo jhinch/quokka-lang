@@ -580,7 +580,18 @@ fn prefix_binding_power(op: OpKind) -> u8 {
 
 fn infix_binding_power(op: OpKind) -> (u8, u8) {
     match op {
-        OpKind::Binary(BinaryOpKind::Assign) => (2, 1),
+        OpKind::Binary(
+            BinaryOpKind::Assign
+            | BinaryOpKind::AddAssign
+            | BinaryOpKind::RotateRightAssign
+            | BinaryOpKind::ShiftRightAssign
+            | BinaryOpKind::RotateLeftAssign
+            | BinaryOpKind::ShiftLeftAssign
+            | BinaryOpKind::XOrAssign
+            | BinaryOpKind::SubAssign
+            | BinaryOpKind::BitOrAssign
+            | BinaryOpKind::BitAndAssign,
+        ) => (2, 1),
         OpKind::Binary(BinaryOpKind::Or) => (3, 4),
         OpKind::Binary(BinaryOpKind::And) => (5, 6),
         OpKind::Binary(

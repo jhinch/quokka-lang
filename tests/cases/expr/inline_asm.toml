@@ -1,0 +1,35 @@
+[[case]]
+name = "without_preview_feature"
+kind = "parser"
+entrypoint = "expr"
+source = """
+asm {}
+"""
+expected_errors = [
+    "Preview feature error: use --preview inline-asm @ [0:3]",
+]
+
+[[case]]
+name = "without_preview_feature_in_fn_body"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    asm {};
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview inline-asm @ [16:19]",
+]
+
+[[case]]
+name = "with_preview_feature"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["inline-asm"]
+ignored = true # ICE currently, not implemented yet
+source = """
+asm {}
+"""
+expected_ast = """
+"""

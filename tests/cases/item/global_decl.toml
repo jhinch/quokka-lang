@@ -18,3 +18,49 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "global_with_attribute"
+kind = "parser"
+entrypoint = "item"
+source = """
+#[this_attribute]
+global A: u8;
+"""
+expected_ast = """
+Item(
+  attributes: [
+    AttributeDecl(
+      name: ("this_attribute", 2, 14),
+    ),
+  ],
+  data: GlobalDecl(GlobalDecl(
+    name: ("A", 25, 1),
+    ty: TyRef(
+      name: ("u8", 28, 2),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "missing_type"
+kind = "parser"
+entrypoint = "item"
+source = """
+global A;
+"""
+expected_errors = [
+    "Syntax error: found Semicolon when expecting [Colon] @ [8:9]",
+]
+
+[[case]]
+name = "missing_semicolon"
+kind = "parser"
+entrypoint = "item"
+source = """
+global A: u8
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [13:13]",
+]

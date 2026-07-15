@@ -1,0 +1,160 @@
+[[case]]
+name = "bare_path"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [],
+))
+"""
+
+[[case]]
+name = "single_field_access"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a.b
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Field(("b", 2, 1)),
+  ],
+))
+"""
+
+[[case]]
+name = "chained_field_access"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a.b.c
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Field(("b", 2, 1)),
+    Field(("c", 4, 1)),
+  ],
+))
+"""
+
+[[case]]
+name = "field_access_within_arithmetic"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a.b + c.d
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Add,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [
+      Field(("b", 2, 1)),
+    ],
+  )),
+  right: Place(Place(
+    name: ("c", 6, 1),
+    field: [
+      Field(("d", 8, 1)),
+    ],
+  )),
+))
+"""
+
+[[case]]
+name = "assign_to_field"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a.b = 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Assign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [
+      Field(("b", 2, 1)),
+    ],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 6, 1)),
+))
+"""
+
+[[case]]
+name = "index_without_preview_feature"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a[0]
+"""
+expected_errors = [
+    "Preview feature error: use --preview array @ [1:2]",
+]
+
+[[case]]
+name = "index_with_preview_feature"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+ignored = false
+source = """
+a[0]
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Index(0),
+  ],
+))
+"""
+
+[[case]]
+name = "field_then_index"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+ignored = false
+source = """
+a.b[0]
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Field(("b", 2, 1)),
+    Index(0),
+  ],
+))
+"""
+
+[[case]]
+name = "index_then_field"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+ignored = false
+source = """
+a[0].b
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Index(0),
+    Field(("b", 5, 1)),
+  ],
+))
+"""

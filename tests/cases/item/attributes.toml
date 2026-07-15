@@ -1,0 +1,74 @@
+[[case]]
+name = "attribute_on_const"
+kind = "parser"
+entrypoint = "item"
+source = """
+#[this_attribute]
+const A: u8 = 1;
+"""
+expected_ast = """
+Item(
+  attributes: [
+    AttributeDecl(
+      name: ("this_attribute", 2, 14),
+    ),
+  ],
+  data: ConstDecl(ConstDecl(
+    name: ("A", 24, 1),
+    ty: TyRef(
+      name: ("u8", 27, 2),
+    ),
+    value: Integer((IntegerLiteral(
+      value: 1,
+    ), 32, 1)),
+  )),
+)
+"""
+
+[[case]]
+name = "attribute_on_global"
+kind = "parser"
+entrypoint = "item"
+source = """
+#[this_attribute]
+global A: u8;
+"""
+expected_ast = """
+Item(
+  attributes: [
+    AttributeDecl(
+      name: ("this_attribute", 2, 14),
+    ),
+  ],
+  data: GlobalDecl(GlobalDecl(
+    name: ("A", 25, 1),
+    ty: TyRef(
+      name: ("u8", 28, 2),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "missing_closing_bracket"
+kind = "parser"
+entrypoint = "item"
+source = """
+#[this_attribute
+fn main() {}
+"""
+expected_errors = [
+    "Syntax error: found Fn when expecting [RightBracket] @ [17:19]",
+]
+
+[[case]]
+name = "missing_attribute_name"
+kind = "parser"
+entrypoint = "item"
+source = """
+#[]
+fn main() {}
+"""
+expected_errors = [
+    "Syntax error: found RightBracket when expecting [Ident] @ [2:3]",
+]

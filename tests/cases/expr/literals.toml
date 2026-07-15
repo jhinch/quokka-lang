@@ -1,0 +1,77 @@
+[[case]]
+name = "zero"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 0,
+), 0, 1))
+"""
+
+[[case]]
+name = "decimal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+123
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 123,
+), 0, 3))
+"""
+
+[[case]]
+name = "decimal_with_underscore_separator"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1_000
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 1000,
+), 0, 5))
+"""
+
+[[case]]
+name = "hex"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0x1F
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 31,
+), 0, 4))
+"""
+
+[[case]]
+name = "octal"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0o17
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 15,
+), 0, 4))
+"""
+
+[[case]]
+name = "binary"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0b101
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 5,
+), 0, 5))
+"""

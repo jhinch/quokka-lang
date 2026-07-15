@@ -1,0 +1,967 @@
+[[case]]
+name = "not_bool_operand"
+kind = "parser"
+entrypoint = "expr"
+source = """
+!a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Not,
+  expr: Place(Place(
+    name: ("a", 1, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "not_not"
+kind = "parser"
+entrypoint = "expr"
+source = """
+!!a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Not,
+  expr: Unary(UnaryOp(
+    kind: Not,
+    expr: Place(Place(
+      name: ("a", 2, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "neg"
+kind = "parser"
+entrypoint = "expr"
+source = """
+-a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Neg,
+  expr: Place(Place(
+    name: ("a", 1, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "neg_neg"
+kind = "parser"
+entrypoint = "expr"
+source = """
+--a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Neg,
+  expr: Unary(UnaryOp(
+    kind: Neg,
+    expr: Place(Place(
+      name: ("a", 2, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "deref"
+kind = "parser"
+entrypoint = "expr"
+source = """
+*a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Deref,
+  expr: Place(Place(
+    name: ("a", 1, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "deref_deref"
+kind = "parser"
+entrypoint = "expr"
+source = """
+**a
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Deref,
+  expr: Unary(UnaryOp(
+    kind: Deref,
+    expr: Place(Place(
+      name: ("a", 2, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "unary_binds_tighter_than_binary"
+kind = "parser"
+entrypoint = "expr"
+source = """
+-a + b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Add,
+  left: Unary(UnaryOp(
+    kind: Neg,
+    expr: Place(Place(
+      name: ("a", 1, 1),
+      field: [],
+    )),
+  )),
+  right: Place(Place(
+    name: ("b", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "unary_before_field_access"
+kind = "parser"
+entrypoint = "expr"
+source = """
+-a.b
+"""
+expected_ast = """
+Unary(UnaryOp(
+  kind: Neg,
+  expr: Place(Place(
+    name: ("a", 1, 1),
+    field: [
+      Field(("b", 3, 1)),
+    ],
+  )),
+))
+"""
+
+[[case]]
+name = "and"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a && b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: And,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "or"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a || b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Or,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "and_binds_tighter_than_or"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a || b && c
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Or,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Binary(BinaryOp(
+    kind: And,
+    left: Place(Place(
+      name: ("b", 5, 1),
+      field: [],
+    )),
+    right: Place(Place(
+      name: ("c", 10, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "comparison_binds_tighter_than_and"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 == 1 && 2 == 2 || 3 == 3
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Or,
+  left: Binary(BinaryOp(
+    kind: And,
+    left: Binary(BinaryOp(
+      kind: Equal,
+      left: Integer((IntegerLiteral(
+        value: 1,
+      ), 0, 1)),
+      right: Integer((IntegerLiteral(
+        value: 1,
+      ), 5, 1)),
+    )),
+    right: Binary(BinaryOp(
+      kind: Equal,
+      left: Integer((IntegerLiteral(
+        value: 2,
+      ), 10, 1)),
+      right: Integer((IntegerLiteral(
+        value: 2,
+      ), 15, 1)),
+    )),
+  )),
+  right: Binary(BinaryOp(
+    kind: Equal,
+    left: Integer((IntegerLiteral(
+      value: 3,
+    ), 20, 1)),
+    right: Integer((IntegerLiteral(
+      value: 3,
+    ), 25, 1)),
+  )),
+))
+"""
+
+[[case]]
+name = "not_and"
+kind = "parser"
+entrypoint = "expr"
+source = """
+!a && b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: And,
+  left: Unary(UnaryOp(
+    kind: Not,
+    expr: Place(Place(
+      name: ("a", 1, 1),
+      field: [],
+    )),
+  )),
+  right: Place(Place(
+    name: ("b", 6, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "bit_and"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a & b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitAnd,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 4, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "bit_or"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a | b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitOr,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 4, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "bit_xor"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a ^ b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Xor,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 4, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "logical_operator_precedence"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 | 2 ^ 3 & 4
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitOr,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Binary(BinaryOp(
+    kind: Xor,
+    left: Integer((IntegerLiteral(
+      value: 2,
+    ), 4, 1)),
+    right: Binary(BinaryOp(
+      kind: BitAnd,
+      left: Integer((IntegerLiteral(
+        value: 3,
+      ), 8, 1)),
+      right: Integer((IntegerLiteral(
+        value: 4,
+      ), 12, 1)),
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "bool_operators_bind_looser_than_logical"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a & b && c | d
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: And,
+  left: Binary(BinaryOp(
+    kind: BitAnd,
+    left: Place(Place(
+      name: ("a", 0, 1),
+      field: [],
+    )),
+    right: Place(Place(
+      name: ("b", 4, 1),
+      field: [],
+    )),
+  )),
+  right: Binary(BinaryOp(
+    kind: BitOr,
+    left: Place(Place(
+      name: ("c", 9, 1),
+      field: [],
+    )),
+    right: Place(Place(
+      name: ("d", 13, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "add"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 + 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Add,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 4, 1)),
+))
+"""
+
+[[case]]
+name = "sub"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 - 2
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Sub,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Integer((IntegerLiteral(
+    value: 2,
+  ), 4, 1)),
+))
+"""
+
+[[case]]
+name = "sub_is_left_associative"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 - 2 - 3
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Sub,
+  left: Binary(BinaryOp(
+    kind: Sub,
+    left: Integer((IntegerLiteral(
+      value: 1,
+    ), 0, 1)),
+    right: Integer((IntegerLiteral(
+      value: 2,
+    ), 4, 1)),
+  )),
+  right: Integer((IntegerLiteral(
+    value: 3,
+  ), 8, 1)),
+))
+"""
+
+[[case]]
+name = "arithmetic_binds_tighter_than_logical"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 & 2 + 3
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitAnd,
+  left: Integer((IntegerLiteral(
+    value: 1,
+  ), 0, 1)),
+  right: Binary(BinaryOp(
+    kind: Add,
+    left: Integer((IntegerLiteral(
+      value: 2,
+    ), 4, 1)),
+    right: Integer((IntegerLiteral(
+      value: 3,
+    ), 8, 1)),
+  )),
+))
+"""
+
+[[case]]
+name = "shift_left"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a << 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftLeft,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "shift_right"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >> 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftRight,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "shift_is_left_associative"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a << 1 << 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftLeft,
+  left: Binary(BinaryOp(
+    kind: ShiftLeft,
+    left: Place(Place(
+      name: ("a", 0, 1),
+      field: [],
+    )),
+    right: Integer((IntegerLiteral(
+      value: 1,
+    ), 5, 1)),
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 10, 1)),
+))
+"""
+
+[[case]]
+name = "shift_binds_tighter_than_logical_and"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a & b << 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitAnd,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Binary(BinaryOp(
+    kind: ShiftLeft,
+    left: Place(Place(
+      name: ("b", 4, 1),
+      field: [],
+    )),
+    right: Integer((IntegerLiteral(
+      value: 1,
+    ), 9, 1)),
+  )),
+))
+"""
+
+[[case]]
+name = "shift_binds_looser_than_arithmetic"
+kind = "parser"
+entrypoint = "expr"
+source = """
+1 + 2 << 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftLeft,
+  left: Binary(BinaryOp(
+    kind: Add,
+    left: Integer((IntegerLiteral(
+      value: 1,
+    ), 0, 1)),
+    right: Integer((IntegerLiteral(
+      value: 2,
+    ), 4, 1)),
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 9, 1)),
+))
+"""
+
+[[case]]
+name = "rotate_left"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a <% b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateLeft,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "rotate_right"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >% b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateRight,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "rotate_left_in_place"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a <% _
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateLeft,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("_", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "rotate_right_in_place"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >% _
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateRight,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("_", 5, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a = 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Assign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 4, 1)),
+))
+"""
+
+[[case]]
+name = "assign_is_right_associative"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a = b = c
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Assign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Binary(BinaryOp(
+    kind: Assign,
+    left: Place(Place(
+      name: ("b", 4, 1),
+      field: [],
+    )),
+    right: Place(Place(
+      name: ("c", 8, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "assign_binds_loosest"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a = b || c
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: Assign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Binary(BinaryOp(
+    kind: Or,
+    left: Place(Place(
+      name: ("b", 4, 1),
+      field: [],
+    )),
+    right: Place(Place(
+      name: ("c", 9, 1),
+      field: [],
+    )),
+  )),
+))
+"""
+
+[[case]]
+name = "add_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a += 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: AddAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "sub_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a -= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: SubAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "bit_and_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a &= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitAndAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "bit_or_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a |= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: BitOrAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "xor_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a ^= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: XOrAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 5, 1)),
+))
+"""
+
+[[case]]
+name = "shift_left_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a <<= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftLeftAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 6, 1)),
+))
+"""
+
+[[case]]
+name = "shift_right_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >>= 1
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: ShiftRightAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Integer((IntegerLiteral(
+    value: 1,
+  ), 6, 1)),
+))
+"""
+
+[[case]]
+name = "rotate_left_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a <%= _
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateLeftAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("_", 6, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "rotate_right_assign"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >%= _
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateRightAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("_", 6, 1),
+    field: [],
+  )),
+))
+"""

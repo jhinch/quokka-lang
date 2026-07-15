@@ -1,4 +1,5 @@
 use miette::{SourceOffset, SourceSpan};
+use std::borrow::Cow;
 use std::num::{NonZeroU32, ParseIntError};
 use std::str::Chars;
 
@@ -23,7 +24,18 @@ impl Token<'_> {
     }
 
     pub fn try_parse_u32(&self) -> Result<u32, Error> {
-        self.text.parse::<u32>().map_err(|source| {
+        let text = if self.text.contains('_') {
+            Cow::Owned(self.text.replace('_', ""))
+        } else {
+            Cow::Borrowed(self.text)
+        };
+        match &text[0..2.min(text.len())] {
+            "0x" => u32::from_str_radix(&text[2..], 16),
+            "0o" => u32::from_str_radix(&text[2..], 8),
+            "0b" => u32::from_str_radix(&text[2..], 2),
+            _ => u32::from_str_radix(&text, 10),
+        }
+        .map_err(|source| {
             Error::from(InvalidNumberError {
                 span: self.span(),
                 source,
