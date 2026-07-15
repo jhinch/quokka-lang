@@ -6,8 +6,8 @@ program will produce a binary executable (a "ROM").
 ## Source file
 
 ```ebnf
-SourceFile =   <EOF>
-           |   Item { Item } <EOF>
+SourceFile =   ? EOF ?
+           |   Item , { Item } , ? EOF ?
            ;
 ```
 

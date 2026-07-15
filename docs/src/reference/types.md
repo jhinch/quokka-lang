@@ -4,6 +4,8 @@
 TypeUse         =   SimpleTypeUse
                 |   ArrayTypeUse
                 ;
-SimpleTypeUse   =   Identifier                          ;
-ArrayTypeUse    =   "[" TypeUse ";" NumberLiteral "]"   ;
+SimpleTypeUse   =   Identifier
+                ;
+ArrayTypeUse    =   "[" , TypeUse , ";" , NumberLiteral , "]"
+                ;
 ```

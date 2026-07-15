@@ -4,16 +4,23 @@
 > Requires `inline-asm` preview feature enabled.
 
 ```ebnf
-ADCInstruction      =   "ADC" Identifier IdentDerefOrNum                        ;
-ADDInstruction      =   "ADD" (Identifier | "SP") ( IdentDerefOrNum | "SP" )    ;
-ANDInstruction      =   "AND" Identifier IdentDerefOrNum                        ;
-BITInstruction      =   "BIT" NumberLiteral IdentOrDeref                        ;
-CALLInstruction     =   "CALL" [ JumpCondition ] Path                           ;
-CCFInstruction      =   "CCF"                                                   ;
-CPInstruction       =   "CP" Identifier IdentDerefOrNum                         ;
+ADCInstruction      =   "ADC" , Identifier , IdentDerefOrNum
+                    ;
+ADDInstruction      =   "ADD" , (Identifier | "SP") , ( IdentDerefOrNum | "SP" )
+                    ;
+ANDInstruction      =   "AND" , Identifier , IdentDerefOrNum
+                    ;
+BITInstruction      =   "BIT" , NumberLiteral , IdentOrDeref
+                    ;
+CALLInstruction     =   "CALL" , [ JumpCondition ] , Path
+                    ;
+CCFInstruction      =   "CCF"
+                    ;
+CPInstruction       =   "CP" , Identifier , IdentDerefOrNum
+                    ;
 
 IdentOrDeref        =   Identifier
-                    |   "[" Identifier "]"
+                    |   "[" , Identifier , "]"
                     ;
 IdentDerefOrNum     =   IdentOrDeref
                     |   NumberLiteral

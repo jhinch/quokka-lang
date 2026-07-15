@@ -1,7 +1,8 @@
 # Global items
 
 ```ebnf
-GlobalItem  =   "global" Identifier ":" TypeUse ";"     ;
+GlobalItem  =   "global" , Identifier , ":" , TypeUse , ";"
+            ;
 ```
 
 ```quokka

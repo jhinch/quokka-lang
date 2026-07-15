@@ -1,7 +1,8 @@
 # Attributes
 
 ```ebnf
-Attribute   =   "#" "[" Identifier "]"  ;
+Attribute   =   "#" , "[" , Identifier , "]"
+            ;
 ```
 
 ```quokka

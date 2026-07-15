@@ -8,12 +8,17 @@ Statement           =   LetStatement
                     |   ContinueStatement
                     |   ExpressionStatement
                     ;
-LetStatement        =   "let" Identifier [ ":" TypeUse ] "=" Expression ";"     ;
-ReturnStatement     =   "return" [ Expression ] ";"                             ;
-YieldStatement      =   "yield" Expression ";"                                  ;
-BreakStatement      =   "break" [ Expression ] ";"                              ;
-ContinueStatement   =   "continue" ";"                                          ;
-ExpressionStatement =   ExpressionWithoutBlock ";"
+LetStatement        =   "let" , Identifier , [ ":" , TypeUse ] , "=" , Expression ";"
+                    ;
+ReturnStatement     =   "return" , [ Expression ] , ";"
+                    ;
+YieldStatement      =   "yield" , Expression , ";"
+                    ;
+BreakStatement      =   "break" , [ Expression ] , ";"
+                    ;
+ContinueStatement   =   "continue" , ";"
+                    ;
+ExpressionStatement =   ExpressionWithoutBlock , ";"
                     |   ExpressionWithBlock
                     ;
 ```

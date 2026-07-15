@@ -42,10 +42,14 @@ UnusedReserved      =    "_" | "as" | "while" | "do" | "match"
 ## Identifiers
 
 ```ebnf
-Identifier              = IdentifierOrReserved - Reserved                                   ;
-IdentiiferOrReserved    = ( XID_Start | "_" ) { XID_Continue }                              ;
-XID_Start               = <as define in https://www.unicode.org/reports/tr31/tr31-41.html>  ;
-XID_Continue            = <as define in https://www.unicode.org/reports/tr31/tr31-41.html>  ;
+Identifier              = IdentifierOrReserved - Reserved
+                        ;
+IdentiiferOrReserved    = ( XID_Start | "_" ) , { XID_Continue }
+                        ;
+XID_Start               = ? as define in https://www.unicode.org/reports/tr31/tr31-41.html ?
+                        ;
+XID_Continue            = ? as define in https://www.unicode.org/reports/tr31/tr31-41.html ?
+                        ;
 ```
 
 Identifiers follow the [Unicode Identifier Standard](https://www.unicode.org/reports/tr31/tr31-41.html) with the one
@@ -64,16 +68,20 @@ NumberLiteral   =   DecimalNumber
                 |   HexNumber
                 ;
 
-DecimalNumber   =   DecimalDigit { DecimalDigit | "_" }                             ;
-BinaryNumber    =   "0b" { BinaryDigit | "_" } BinaryDigit { BinaryDigit | "_" }    ;
-OctalNumber     =   "0o" { OctalDigit | "_" } OctalDigit { OctalDigit | "_" }       ;
-HexNumber       =   "0x" { HexDigit | "_" } HexDigit { HexDigit | "_" }             ;
-
-BinaryDigit     =   "0" | "1"                                                       ;
-OctalDigit      =   "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7"                   ;
-
-DecimalDigit    =   "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"       ;
-
+DecimalNumber   =   DecimalDigit , { DecimalDigit | "_" }
+                ;
+BinaryNumber    =   "0b" , { BinaryDigit | "_" } , BinaryDigit , { BinaryDigit | "_" }
+                ;
+OctalNumber     =   "0o" , { OctalDigit | "_" } , OctalDigit , { OctalDigit | "_" }
+                ;
+HexNumber       =   "0x" , { HexDigit | "_" } , HexDigit , { HexDigit | "_" }             
+                ;
+BinaryDigit     =   "0" | "1"
+                ;
+OctalDigit      =   "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7"
+                ;
+DecimalDigit    =   "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+                ;
 HexDigit        =   "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" 
                 |   "a" | "b" | "c" | "d" | "e" | "f" 
                 |   "A" | "B" | "C" | "D" | "E" | "F"
