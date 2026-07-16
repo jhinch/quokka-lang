@@ -137,6 +137,8 @@ Binary(BinaryOp(
 name = "unary_before_field_access"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
 source = """
 -a.b
 """

@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::feature::{PreviewFeature, PreviewFeatureError, PreviewFeatureSet};
 use crate::lex::{self, Token, TokenKind};
 use crate::multi::{MultiResult, MultiResultBuilder};
-use miette::SourceSpan;
+use miette::{SourceOffset, SourceSpan};
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -164,6 +164,13 @@ impl Parser<'_> {
             self.expect(TokenKind::Hash)?;
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
+            if name.value.value == "example" {
+                self.features.check_enabled(
+                    PreviewFeature::Example,
+                    name.span,
+                    &mut self.result_builder,
+                );
+            }
             attributes.push(AttributeDecl { name });
             self.expect(TokenKind::RightBracket)?;
         }
@@ -414,34 +421,43 @@ impl Parser<'_> {
             )),
             TokenKind::Ident => {
                 let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
-                let mut field = Vec::new();
-                loop {
-                    field.push(match self.peek_token()?.kind() {
-                        TokenKind::Dot => {
-                            // field
-                            self.expect(TokenKind::Dot)?;
-                            let field_name = self.parse_identifier()?;
-                            FieldPathPart::Field(field_name)
-                        }
-                        TokenKind::LeftBracket => {
-                            let span = self.peek_token()?.span();
-                            self.features.require_enabled(PreviewFeature::Array, span)?;
-                            // index
-                            self.expect(TokenKind::LeftBracket)?;
-                            let index = self.expect(TokenKind::Number)?.try_parse_u32()?;
-                            self.expect(TokenKind::RightBracket)?;
-                            FieldPathPart::Index(index)
-                        }
-                        _ => break,
-                    });
+                if self.peek_token()?.kind() == TokenKind::LeftParen {
+                    let start_span = self.expect(TokenKind::LeftParen)?.span();
+                    let end_span = self.expect(TokenKind::RightParen)?.span();
+                    let span = SourceSpan::new(SourceOffset::from(start_span.offset()), end_span.offset() + end_span.len() - start_span.offset());
+                    self.features.check_enabled(PreviewFeature::FunctionCall, span, &mut self.result_builder);
+                    Expr::from(Call { name })
+                } else {
+                    let mut field = Vec::new();
+                    loop {
+                        field.push(match self.peek_token()?.kind() {
+                            TokenKind::Dot => {
+                                // field
+                                let span = self.expect(TokenKind::Dot)?.span();
+                                self.features.check_enabled(PreviewFeature::FieldAccess, span, &mut self.result_builder);
+                                let field_name = self.parse_identifier()?;
+                                FieldPathPart::Field(field_name)
+                            }
+                            TokenKind::LeftBracket => {
+                                // index
+                                let start_span = self.expect(TokenKind::LeftBracket)?.span();
+                                let index = self.expect(TokenKind::Number)?.try_parse_u32()?;
+                                let end_span = self.expect(TokenKind::RightBracket)?.span();
+                                let span = SourceSpan::new(SourceOffset::from(start_span.offset()), end_span.offset() + end_span.len() - start_span.offset());
+                                self.features.check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
+                                FieldPathPart::Index(index)
+                            }
+                            _ => break,
+                        });
+                    }
+                    Expr::from(Place { name, field })
                 }
-                Expr::from(Place { name, field })
             }
             // group
             TokenKind::LeftParen => {
                 let expr = self.parse_expr_above(0)?;
                 self.expect(TokenKind::RightParen)?;
-                Expr::Paren(Box::new(expr))
+                Expr::from(Box::new(expr))
             }
             TokenKind::If => {
                 let condition = Box::new(self.parse_expr()?);
@@ -454,6 +470,9 @@ impl Parser<'_> {
                     None
                 };
 
+                self.features
+                    .check_enabled(PreviewFeature::IfElse, lhs_token.span(), &mut self.result_builder);
+
                 Expr::from(If {
                     condition,
                     true_block,
@@ -462,6 +481,8 @@ impl Parser<'_> {
             }
             TokenKind::Loop => {
                 let body = self.parse_body()?;
+                self.features
+                    .check_enabled(PreviewFeature::Loop, lhs_token.span(), &mut self.result_builder);
                 Expr::from(Loop { body })
             }
             TokenKind::Asm => {

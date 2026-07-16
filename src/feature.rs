@@ -7,6 +7,10 @@ use std::fmt;
 pub enum PreviewFeature {
     Example,
     Array,
+    FieldAccess,
+    FunctionCall,
+    Loop,
+    IfElse,
     InlineAsm,
     CustomEntrypoint,
     NoStartupCode,

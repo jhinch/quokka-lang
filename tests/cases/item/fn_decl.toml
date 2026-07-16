@@ -88,6 +88,8 @@ Root(
 [[case]]
 name = "fn_with_attribute"
 kind = "parser"
+preview_features = ["if-else", "loop"]
+ignored = false
 source = """
 #[no_startup_code]
 fn main() -> never {
@@ -130,6 +132,8 @@ Root(
 [[case]]
 name = "fn_with_multiple_attributes"
 kind = "parser"
+preview_features = ["loop"]
+ignored = false
 source = """
 #[no_startup_code]
 #[entrypoint]

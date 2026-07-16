@@ -185,6 +185,7 @@ pub enum Expr {
     Block(Block),
     If(If),
     Loop(Loop),
+    Call(Call),
     Paren(Box<Expr>),
 }
 
@@ -280,4 +281,9 @@ pub struct If {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Loop {
     pub body: Block,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Call {
+    pub name: SpannedIdentifier,
 }

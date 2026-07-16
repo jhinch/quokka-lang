@@ -58,6 +58,8 @@ Item(
 name = "block_as_if_branch"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["if-else", "loop"]
+ignored = false
 source = """
 if 1 then {
     loop {

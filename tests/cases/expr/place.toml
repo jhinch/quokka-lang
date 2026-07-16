@@ -16,6 +16,8 @@ Place(Place(
 name = "single_field_access"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
 source = """
 a.b
 """
@@ -32,6 +34,8 @@ Place(Place(
 name = "chained_field_access"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
 source = """
 a.b.c
 """
@@ -49,6 +53,8 @@ Place(Place(
 name = "field_access_within_arithmetic"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
 source = """
 a.b + c.d
 """
@@ -74,6 +80,8 @@ Binary(BinaryOp(
 name = "assign_to_field"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
 source = """
 a.b = 1
 """
@@ -100,8 +108,16 @@ source = """
 a[0]
 """
 expected_errors = [
-    "Preview feature error: use --preview array @ [1:2]",
+    "Preview feature error: use --preview array @ [1:4]",
 ]
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Index(0),
+  ],
+))
+"""
 
 [[case]]
 name = "index_with_preview_feature"
@@ -125,7 +141,7 @@ Place(Place(
 name = "field_then_index"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
+preview_features = ["array", "field-access"]
 ignored = false
 source = """
 a.b[0]
@@ -144,7 +160,7 @@ Place(Place(
 name = "index_then_field"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
+preview_features = ["array", "field-access"]
 ignored = false
 source = """
 a[0].b
@@ -158,3 +174,22 @@ Place(Place(
   ],
 ))
 """
+
+[[case]]
+name = "field_access_without_preview"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a.b
+"""
+expected_ast = """
+Place(Place(
+  name: ("a", 0, 1),
+  field: [
+    Field(("b", 2, 1)),
+  ],
+))
+"""
+expected_errors = [
+    "Preview feature error: use --preview field-access @ [1:2]",
+]

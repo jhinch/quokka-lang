@@ -2,6 +2,8 @@
 name = "empty_loop"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {}
 """
@@ -17,6 +19,8 @@ Loop(Loop(
 name = "loop_with_break"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {
     break;
@@ -36,6 +40,8 @@ Loop(Loop(
 name = "loop_with_break_value"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {
     break 1;
@@ -59,6 +65,8 @@ Loop(Loop(
 name = "loop_with_continue"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {
     continue;
@@ -78,6 +86,8 @@ Loop(Loop(
 name = "loop_with_yield"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {
     yield 1;
@@ -101,6 +111,8 @@ Loop(Loop(
 name = "nested_loop"
 kind = "parser"
 entrypoint = "expr"
+preview_features = ["loop"]
+ignored = false
 source = """
 loop {
     loop {
@@ -136,3 +148,21 @@ loop
 expected_errors = [
     "Syntax error: found Eof when expecting [LeftBrace] @ [5:5]",
 ]
+
+[[case]]
+name = "loop_without_preview"
+kind = "parser"
+entrypoint = "expr"
+source = """
+loop {}
+"""
+expected_errors = [
+    "Preview feature error: use --preview loop @ [0:4]",
+]
+expected_ast = """
+Loop(Loop(
+  body: Block(
+    statements: [],
+  ),
+))
+"""
