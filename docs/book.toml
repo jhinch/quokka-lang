@@ -13,5 +13,6 @@ additional-js = [
 ]
 
 additional-css = [
-    "assets/css/railroad.css"
+    "assets/css/railroad.css",
+    "assets/css/railroad-theme.css",
 ]

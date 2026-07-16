@@ -2,6 +2,7 @@
 
 ```ebnf
 OperatorExpression      =   NotExpression
+                        |   NegateExpression
                         |   BooleanExpression
                         |   LogicalExpression
                         |   ArithmeticExpression
@@ -11,6 +12,8 @@ OperatorExpression      =   NotExpression
                         |   AssignExpression
                         ;
 NotExpression           =   "!" , Expression
+                        ;
+NegateExpression        =   "-" , Expression
                         ;
 BooleanExpression       =   Expression , "&&" , Expression
                         |   Expression , "||" , Expression
@@ -57,6 +60,11 @@ RotateRhsOperand        =   "_"
 
 - `!` is logical NOT for booleans and bitwise NOT for integers
 - results in same type as input
+
+## Negate operator
+
+- `-` negates
+- results in integer
 
 ## Boolean operators
 

@@ -1,5 +1,25 @@
 # Expressions
 
+```ebnf
+Expression              = ExpressionWithoutBlock
+                        | ExpressionWithBlock
+                        ;
+ExpressionWithBlock     = BlockExpression
+                        | IfExpressionWithBlock
+                        | AsmBlockExpression
+                        | LoopExpression
+                        ;
+ExpressionWithoutBlock  = GroupedExpression
+                        | IfExpressionWithoutBlock
+                        | LiteralExpression
+                        | OperatorExpression
+                        | ArrayIndexExpression
+                        | PathExpression
+                        | FieldAccessExpression
+                        | FunctionCallExpression
+                        ;
+```
+
 An expression is an element of the program which can be evaluated to produce a value.
 
 An expression can have effects ("side effects") during evaluation.
@@ -22,19 +42,19 @@ The order in which expressions are evaluated is governed by a set of conventions
   either from _left to right_, from _right to left_, or neither in which case they _require parentheses_
 - expression precedence can be overridden using parentheses forming a [grouped expression](expressions/grouped.md)
 
-| Expression type                                                | Associativity        |
-|----------------------------------------------------------------|----------------------|
-| [Grouped](expressions/grouped.md)                              | N/A                  |
-| Paths                                                          | N/A                  |
-| Method calls                                                   | N/A                  |
-| Field access                                                   | left to right        |
-| Unary `-`, `!`                                                 | N/A                  |
-| Binary `-`, `+`                                                | left to right        |
-| `<<`, `>>`, `<%`, `>%`                                         | left to right        |
-| `&`                                                            | left to right        |
-| `^`                                                            | left to right        |
-| `\|`                                                           | left to right        |
-| `==`, `!=`, `<`, `>`, `<=`, `>=`                               | requires parentheses |
-| `&&`                                                           | left to right        |
-| `\|\|`                                                         | left to right        |
-| `=`, `+=`, `-=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`, `<%=`, `>%=` | right to left        |
+| Expression type                                                                                                 | Associativity        |
+|-----------------------------------------------------------------------------------------------------------------|----------------------|
+| [Grouped](expressions/grouped.md)                                                                               | N/A                  |
+| [Paths](expressions/paths.md)                                                                                   | N/A                  |
+| [Field access](expressions/field-access.md)                                                                     | left to right        |
+| [Function calls](expressions/function-calls.md), [Arrary index](expressions/array-index.md)                     | N/A                  |
+| [Unary `-`](expressions/operators.md#negate-operator), [`!`](expressions/operators.md#not-operator)             | N/A                  |
+| [Binary `-`, `+`](expressions/operators.md#arithmetic-operators)                                                | left to right        |
+| [`<<`, `>>`](expressions/operators.md#shift-operators), [`<%`, `>%`](expressions/operators.md#rotate-operators) | left to right        |
+| [`&`](expressions/operators.md#logical-operators)                                                               | left to right        |
+| [`^`](expressions/operators.md#logical-operators)                                                               | left to right        |
+| [`\|`](expressions/operators.md#logical-operators)                                                              | left to right        |
+| [`==`, `!=`, `<`, `>`, `<=`, `>=`](expressions/operators.md#comparison-operators)                               | requires parentheses |
+| [`&&`](expressions/operators.md#boolean-operators)                                                              | left to right        |
+| [`\|\|`](expressions/operators.md#boolean-operators)                                                            | left to right        |
+| [`=`, `+=`, `-=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`, `<%=`, `>%=`](expressions/operators.md#assign-operators)     | right to left        |

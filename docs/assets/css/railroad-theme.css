@@ -1,0 +1,35 @@
+/* dark theme */
+.navy, .coal, .ayu {
+    svg.railroad-diagram {
+        background-color: #1d1f21;
+    }
+    svg.railroad-diagram path {
+        stroke: var(--icons);
+    }
+
+    svg.railroad-diagram rect {
+        stroke: var(--icons);
+        fill: var(--sidebar-bg);
+    }
+
+    svg.railroad-diagram rect.group-box {
+        fill: none;
+        stroke: none; /*remove dashed border */
+    }
+
+    svg.railroad-diagram text {
+        stroke: var(--fg);
+        fill: var(--fg);
+        font-weight: normal;
+    }
+}
+
+.light, .rust {
+    svg.railroad-diagram {
+        background-color: #f6f7f6;
+    }
+
+    svg.railroad-diagram rect.group-box {
+        stroke: none; /*remove dashed border */
+    }
+}
