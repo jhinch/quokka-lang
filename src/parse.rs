@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::feature::{PreviewFeature, PreviewFeatureError, PreviewFeatureSet};
 use crate::lex::{self, Token, TokenKind};
+use crate::multi::{MultiResult, MultiResultBuilder};
 use miette::SourceSpan;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -17,8 +18,6 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Preview(#[from] PreviewFeatureError),
-    #[error("Multiple errors detected")]
-    Multi(#[related] Vec<Error>),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -42,6 +41,7 @@ pub struct ChainedComparisonError {
 pub struct Parser<'de> {
     lexer: lex::Lexer<'de>,
     features: PreviewFeatureSet,
+    result_builder: MultiResultBuilder,
 }
 
 impl<'de> From<&'de str> for Parser<'de> {
@@ -49,6 +49,7 @@ impl<'de> From<&'de str> for Parser<'de> {
         Parser {
             lexer: lex::Lexer::from(value),
             features: PreviewFeatureSet::default(),
+            result_builder: MultiResultBuilder::default(),
         }
     }
 }
@@ -70,9 +71,9 @@ impl<'de> Parser<'de> {
     }
 
     fn expect(&mut self, kind: TokenKind) -> Result<Token<'de>, Error> {
-        let token = self.consume_token()?;
+        let token = self.peek_token()?;
         if token.kind() == kind {
-            Ok(token)
+            self.consume_token()
         } else {
             Err(Error::Syntax(SyntaxError {
                 span: token.span(),
@@ -90,13 +91,6 @@ impl<'de> Parser<'de> {
 }
 
 impl Parser<'_> {
-    fn chomp(&mut self) -> Result<(), Error> {
-        self.consume_token()?;
-        Ok(())
-    }
-}
-
-impl Parser<'_> {
     pub fn enable_feature(&mut self, feature: PreviewFeature) {
         self.features.enable(feature)
     }
@@ -105,9 +99,48 @@ impl Parser<'_> {
         self.features.extend(features)
     }
 
-    pub fn parse_root(&mut self) -> Result<Root, Error> {
+    fn chomp(&mut self) -> Result<(), Error> {
+        self.consume_token()?;
+        Ok(())
+    }
+}
+
+impl Parser<'_> {
+    pub fn parse(&mut self) -> MultiResult<Root> {
+        match self.parse_root() {
+            Ok(root) => self.result_builder.take().finish(root),
+            Err(error) => self.result_builder.take().finish_with_error(error),
+        }
+    }
+
+    pub fn parse_item_as_root(&mut self) -> MultiResult<Item> {
+        self.parse_as_root(Parser::parse_item)
+    }
+
+    pub fn parse_statement_as_root(&mut self) -> MultiResult<Statement> {
+        self.parse_as_root(Parser::parse_statement)
+    }
+
+    pub fn parse_expr_as_root(&mut self) -> MultiResult<Expr> {
+        self.parse_as_root(Parser::parse_expr)
+    }
+
+    fn parse_as_root<A>(
+        &mut self,
+        f: impl FnOnce(&mut Self) -> Result<A, Error>,
+    ) -> MultiResult<A> {
+        let item = match f(self) {
+            Ok(item) => item,
+            Err(error) => return self.result_builder.take().finish_with_error(error),
+        };
+        match self.expect(TokenKind::Eof) {
+            Err(error) => self.result_builder.take().finish_with_error(error),
+            Ok(_) => self.result_builder.take().finish(item),
+        }
+    }
+
+    fn parse_root(&mut self) -> Result<Root, Error> {
         let mut items = Vec::new();
-        let mut errors = Vec::new();
         while self.lexer.peek().is_some() && self.peek_token()?.kind() != TokenKind::Eof {
             match self.parse_item() {
                 Ok(item) => {
@@ -115,17 +148,11 @@ impl Parser<'_> {
                     continue;
                 }
                 Err(Error::Lex(e)) => return Err(Error::Lex(e)),
-                Err(Error::Multi(other)) => {
-                    errors.extend(other);
-                }
                 Err(e) => {
-                    errors.push(e);
+                    self.result_builder.add_error(e);
+                    self.parse_item_error()?;
                 }
             };
-            self.parse_item_error()?;
-        }
-        if !errors.is_empty() {
-            return Err(Error::Multi(errors));
         }
         self.expect(TokenKind::Eof)?;
         Ok(Root { items })
@@ -143,7 +170,7 @@ impl Parser<'_> {
         Ok(attributes)
     }
 
-    pub fn parse_item(&mut self) -> Result<Item, Error> {
+    fn parse_item(&mut self) -> Result<Item, Error> {
         let attributes = self.parse_attributes()?;
         let token = self.peek_token()?;
         let data = match token.kind() {
@@ -258,7 +285,8 @@ impl Parser<'_> {
         let (name, count) = if self.peek_token()?.kind() == TokenKind::LeftBracket {
             // fixed size array
             let span = self.peek_token()?.span();
-            self.features.require_enabled(PreviewFeature::Array, span)?;
+            self.features
+                .check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
             self.expect(TokenKind::Semicolon)?;
@@ -289,7 +317,7 @@ impl Parser<'_> {
         Ok(Block { statements })
     }
 
-    pub fn parse_statement(&mut self) -> Result<Statement, Error> {
+    fn parse_statement(&mut self) -> Result<Statement, Error> {
         let token = self.peek_token()?;
         Ok(match token.kind() {
             TokenKind::Let => Statement::from(self.parse_local_decl()?),
@@ -364,7 +392,7 @@ impl Parser<'_> {
         Ok(ExprSmt { value })
     }
 
-    pub fn parse_expr_or_block(&mut self) -> Result<Expr, Error> {
+    fn parse_expr_or_block(&mut self) -> Result<Expr, Error> {
         Ok(if self.peek_token()?.kind() == TokenKind::LeftBrace {
             Expr::from(self.parse_body()?)
         } else {
@@ -372,7 +400,7 @@ impl Parser<'_> {
         })
     }
 
-    pub fn parse_expr(&mut self) -> Result<Expr, Error> {
+    fn parse_expr(&mut self) -> Result<Expr, Error> {
         self.parse_expr_above(0)
     }
 

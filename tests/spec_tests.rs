@@ -1,5 +1,6 @@
 use libtest_mimic::{Arguments, Trial};
 use miette::LabeledSpan;
+use quokka_lang::multi::MultiResult;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
@@ -304,10 +305,10 @@ fn test_parser(case: TestCase) {
         parser.enable_feature(feature);
     }
     let (actual_ast, actual_errors) = match case.entrypoint {
-        ParseEntrypointKind::Root => prepare_parse_results(parser.parse_root()),
-        ParseEntrypointKind::Item => prepare_parse_results(parser.parse_item()),
-        ParseEntrypointKind::Statement => prepare_parse_results(parser.parse_statement()),
-        ParseEntrypointKind::Expr => prepare_parse_results(parser.parse_expr()),
+        ParseEntrypointKind::Root => prepare_parse_results(parser.parse()),
+        ParseEntrypointKind::Item => prepare_parse_results(parser.parse_item_as_root()),
+        ParseEntrypointKind::Statement => prepare_parse_results(parser.parse_statement_as_root()),
+        ParseEntrypointKind::Expr => prepare_parse_results(parser.parse_expr_as_root()),
     };
     if let Some(tx) = case.updates_tx {
         if actual_errors != case.expected_errors {
@@ -341,32 +342,24 @@ fn test_parser(case: TestCase) {
     );
 }
 
-fn prepare_parse_results<T: serde::Serialize>(
-    result: Result<T, quokka_lang::parse::Error>,
-) -> (String, Vec<String>) {
-    match result {
-        Ok(actual) => {
-            let actual = ron::ser::to_string_pretty(
-                &actual,
-                ron::ser::PrettyConfig::new()
-                    .struct_names(true)
-                    .indentor("  "),
-            )
-            .unwrap();
-            (actual, Vec::new())
-        }
-        Err(quokka_lang::parse::Error::Multi(actual_errors)) => {
-            let actual_errors = actual_errors
-                .into_iter()
-                .map(|e| format!("{}", DiagnosticTreeDisplay(&e)))
-                .collect();
-            (String::new(), actual_errors)
-        }
-        Err(e) => (
-            String::new(),
-            vec![format!("{}", DiagnosticTreeDisplay(&e))],
-        ),
-    }
+fn prepare_parse_results<T: serde::Serialize>(result: MultiResult<T>) -> (String, Vec<String>) {
+    let (actual, actual_errors) = result.into_parts();
+    let actual = match actual {
+        Some(actual) => ron::ser::to_string_pretty(
+            &actual,
+            ron::ser::PrettyConfig::new()
+                .struct_names(true)
+                .indentor("  "),
+        )
+        .unwrap(),
+        None => String::new(),
+    };
+    let actual_errors = actual_errors
+        .errors
+        .into_iter()
+        .map(|e| format!("{}", DiagnosticTreeDisplay(&*e)))
+        .collect();
+    (actual, actual_errors)
 }
 
 struct DiagnosticTreeDisplay<'a>(&'a dyn miette::Diagnostic);

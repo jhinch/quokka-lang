@@ -16,7 +16,7 @@ impl Execute for ParseCommand {
             std::fs::read_to_string(&self.filename).map_err(|e| miette::miette!(e))?;
 
         let mut parser = Parser::from(file_contents.as_str());
-        let ast = parser.parse_root().map_err(|e| {
+        let ast = parser.parse().into_result().map_err(|e| {
             miette::Report::new(e)
                 .with_source_code(miette::NamedSource::new(&self.filename, file_contents))
         })?;

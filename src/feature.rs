@@ -1,3 +1,4 @@
+use crate::multi::MultiResultBuilder;
 use miette::SourceSpan;
 use std::fmt;
 
@@ -76,6 +77,17 @@ impl PreviewFeatureSet {
             Ok(())
         } else {
             Err(PreviewFeatureError { span, feature })
+        }
+    }
+
+    pub fn check_enabled(
+        &self,
+        feature: PreviewFeature,
+        span: SourceSpan,
+        result_builder: &mut MultiResultBuilder,
+    ) {
+        if !self.features.contains(&feature) {
+            result_builder.add_error(PreviewFeatureError { span, feature });
         }
     }
 

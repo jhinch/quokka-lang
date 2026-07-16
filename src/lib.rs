@@ -4,5 +4,6 @@ pub mod ast;
 pub mod feature;
 pub mod highlight;
 pub mod lex;
+pub mod multi;
 pub mod parse;
 pub mod source;

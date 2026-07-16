@@ -9,6 +9,26 @@ struct Name {
 expected_errors = [
     "Preview feature error: use --preview array @ [25:26]",
 ]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: StructDecl(StructDecl(
+        name: ("Name", 7, 4),
+        fields: [
+          FieldDecl(
+            name: ("field", 18, 5),
+            ty: TyRef(
+              name: ("u8", 26, 2),
+              count: Some(3),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
 
 [[case]]
 name = "with_preview"

@@ -30,6 +30,11 @@ fn main() {
 expected_errors = [
     "Syntax error: found Eof when expecting [RightBrace] @ [12:12]",
 ]
+expected_ast = """
+Root(
+  items: [],
+)
+"""
 
 [[case]]
 name = "expression_without_body"
@@ -40,6 +45,11 @@ fn main() 1 + 2
 expected_errors = [
     "Syntax error: found Number when expecting [LeftBrace] @ [10:11]",
 ]
+expected_ast = """
+Root(
+  items: [],
+)
+"""
 
 [[case]]
 name = "fn_with_return"

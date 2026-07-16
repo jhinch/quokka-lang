@@ -71,6 +71,11 @@ let x = 1;
 expected_errors = [
     "Syntax error: found Let when expecting [Fn, Global, Struct] @ [0:3]",
 ]
+expected_ast = """
+Root(
+  items: [],
+)
+"""
 
 [[case]]
 name = "error_recovery_skips_to_next_item"
@@ -85,3 +90,19 @@ expected_errors = [
     "Syntax error: found Number when expecting [Fn, Global, Struct] @ [0:1]",
     "Syntax error: found Ident when expecting [Fn, Global, Struct] @ [17:28]",
 ]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("ok", 9, 2),
+        ),
+        body: Block(
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""
