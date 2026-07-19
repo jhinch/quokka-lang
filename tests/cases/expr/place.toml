@@ -201,3 +201,81 @@ Place(Place(
 expected_errors = [
     "Preview feature error: use --preview field-access @ [1:3]",
 ]
+
+[[case]]
+name = "index_on_literal_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+ignored = false
+source = """
+1[0]
+"""
+expected_errors = [
+    "Syntax error: array index requires array @ [1:4]",
+]
+
+[[case]]
+name = "index_on_grouped_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+ignored = false
+source = """
+(1 + 2)[0]
+"""
+expected_errors = [
+    "Syntax error: array index requires array @ [7:10]",
+]
+
+[[case]]
+name = "index_on_call_result"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array", "function-call"]
+ignored = false
+source = """
+a()[0]
+"""
+expected_errors = [
+    "Syntax error: array index requires array @ [3:6]",
+]
+
+[[case]]
+name = "field_access_on_literal_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
+source = """
+1.b
+"""
+expected_errors = [
+    "Syntax error: field access requires struct @ [1:3]",
+]
+
+[[case]]
+name = "field_access_on_grouped_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["field-access"]
+ignored = false
+source = """
+(1 + 2).b
+"""
+expected_errors = [
+    "Syntax error: field access requires struct @ [7:9]",
+]
+
+[[case]]
+name = "field_access_on_call_result"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["field-access", "function-call"]
+ignored = false
+source = """
+a().b
+"""
+expected_errors = [
+    "Syntax error: field access requires struct @ [3:5]",
+]

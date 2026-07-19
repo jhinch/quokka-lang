@@ -34,3 +34,42 @@ Call(Call(
   ),
 ))
 """
+
+[[case]]
+name = "call_on_literal_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["function-call"]
+ignored = false
+source = """
+1()
+"""
+expected_errors = [
+    "Syntax error: callee is not a function @ [1:3]",
+]
+
+[[case]]
+name = "call_on_grouped_value"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["function-call"]
+ignored = false
+source = """
+(1 + 2)()
+"""
+expected_errors = [
+    "Syntax error: callee is not a function @ [7:9]",
+]
+
+[[case]]
+name = "call_on_call_result"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["function-call"]
+ignored = false
+source = """
+a()()
+"""
+expected_errors = [
+    "Syntax error: callee is not a function @ [3:5]",
+]
