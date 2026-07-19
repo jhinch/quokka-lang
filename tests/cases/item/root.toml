@@ -55,12 +55,6 @@ Root(
 )
 """
 
-# NOTE: `Parser::parse_item` (src/parse.rs) builds this error's `expected` list
-# as `vec![TokenKind::Fn, TokenKind::Global, TokenKind::Struct]`, omitting
-# `TokenKind::Const` even though `const` is a valid item start (see the match
-# arms directly above it, and docs/src/reference/items.md's `SimpleItem`
-# production which includes `ConstItem`). Captured here as current behavior;
-# worth fixing the diagnostic to include `Const`.
 [[case]]
 name = "invalid_item_start"
 kind = "parser"
@@ -69,7 +63,7 @@ source = """
 let x = 1;
 """
 expected_errors = [
-    "Syntax error: found Let when expecting [Fn, Global, Struct] @ [0:3]",
+    "Syntax error: found Let when expecting [Fn, Global, Const, Struct] @ [0:3]",
 ]
 expected_ast = """
 Root(
@@ -87,8 +81,8 @@ fn ok() {}
 weird_token
 """
 expected_errors = [
-    "Syntax error: found Number when expecting [Fn, Global, Struct] @ [0:1]",
-    "Syntax error: found Ident when expecting [Fn, Global, Struct] @ [17:28]",
+    "Syntax error: found Number when expecting [Fn, Global, Const, Struct] @ [0:1]",
+    "Syntax error: found Ident when expecting [Fn, Global, Const, Struct] @ [17:28]",
 ]
 expected_ast = """
 Root(

@@ -47,7 +47,7 @@ The order in which expressions are evaluated is governed by a set of conventions
 | [Grouped](expressions/grouped.md)                                                                               | N/A                  |
 | [Paths](expressions/paths.md)                                                                                   | N/A                  |
 | [Field access](expressions/field-access.md)                                                                     | left to right        |
-| [Function calls](expressions/function-calls.md), [Arrary index](expressions/array-index.md)                     | N/A                  |
+| [Function calls](expressions/function-calls.md), [Array index](expressions/array-index.md)                      | N/A                  |
 | [Unary `-`](expressions/operators.md#negate-operator), [`!`](expressions/operators.md#not-operator)             | N/A                  |
 | [Binary `-`, `+`](expressions/operators.md#arithmetic-operators)                                                | left to right        |
 | [`<<`, `>>`](expressions/operators.md#shift-operators), [`<%`, `>%`](expressions/operators.md#rotate-operators) | left to right        |

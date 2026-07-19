@@ -21,4 +21,3 @@ fn main() {
 
 - `yield` cannot be used in the top level block of a function (its body)
 - `yield` cannot be used in a loop block. Use `break` instead
-- `if` expressions without a 

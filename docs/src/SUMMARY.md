@@ -2,8 +2,6 @@
 
 [Introduction](introduction.md)
 
-# User Guide
-
 # Reference
 
 - [Lexical Structure](reference/lexical-structure.md)

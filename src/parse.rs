@@ -189,7 +189,7 @@ impl Parser<'_> {
                 return Err(Error::from(SyntaxError {
                     span: token.span(),
                     unexpected,
-                    expected: vec![TokenKind::Fn, TokenKind::Global, TokenKind::Struct],
+                    expected: vec![TokenKind::Fn, TokenKind::Global, TokenKind::Const, TokenKind::Struct],
                 }));
             }
         };
