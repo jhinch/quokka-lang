@@ -58,3 +58,13 @@ The order in which expressions are evaluated is governed by a set of conventions
 | [`&&`](expressions/operators.md#boolean-operators)                                                              | left to right        |
 | [`\|\|`](expressions/operators.md#boolean-operators)                                                            | left to right        |
 | [`=`, `+=`, `-=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`, `<%=`, `>%=`](expressions/operators.md#assign-operators)     | right to left        |
+
+## Place expressions
+
+_Place expressions_ are expressions which represent a location in memory or on a register.
+
+They include:
+
+- [Paths](expressions/paths.md) which resolve to a [local](statements/lets.md) or [global](items/global-items.md) variable
+- [Field access](expressions/field-access.md)
+- [Array index](expressions/array-index.md)

@@ -113,3 +113,4 @@ RotateRhsOperand        =   "_"
 ## Assign operators
 
 - Operates the same as respective operator but assigns result left operand
+- left operand must be a place expression
