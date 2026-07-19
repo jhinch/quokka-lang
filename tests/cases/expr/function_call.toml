@@ -7,7 +7,10 @@ a()
 """
 expected_ast = """
 Call(Call(
-  name: ("a", 0, 1),
+  callee: Place(
+    name: ("a", 0, 1),
+    field: [],
+  ),
 ))
 """
 expected_errors = [
@@ -25,6 +28,9 @@ a()
 """
 expected_ast = """
 Call(Call(
-  name: ("a", 0, 1),
+  callee: Place(
+    name: ("a", 0, 1),
+    field: [],
+  ),
 ))
 """

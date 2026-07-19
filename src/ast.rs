@@ -198,7 +198,7 @@ pub struct Place {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FieldPathPart {
     Field(SpannedIdentifier),
-    Index(u32),
+    Index(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -218,6 +218,9 @@ pub type SpannedIntegerLiteral = Spanned<IntegerLiteral>;
 pub enum OpKind {
     Unary(UnaryOpKind),
     Binary(BinaryOpKind),
+    FieldAccess,
+    ArrayIndex,
+    FunctionCall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -285,5 +288,5 @@ pub struct Loop {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Call {
-    pub name: SpannedIdentifier,
+    pub callee: Place,
 }

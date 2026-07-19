@@ -114,7 +114,9 @@ expected_ast = """
 Place(Place(
   name: ("a", 0, 1),
   field: [
-    Index(0),
+    Index(Integer((IntegerLiteral(
+      value: 0,
+    ), 2, 1))),
   ],
 ))
 """
@@ -132,7 +134,9 @@ expected_ast = """
 Place(Place(
   name: ("a", 0, 1),
   field: [
-    Index(0),
+    Index(Integer((IntegerLiteral(
+      value: 0,
+    ), 2, 1))),
   ],
 ))
 """
@@ -151,7 +155,9 @@ Place(Place(
   name: ("a", 0, 1),
   field: [
     Field(("b", 2, 1)),
-    Index(0),
+    Index(Integer((IntegerLiteral(
+      value: 0,
+    ), 4, 1))),
   ],
 ))
 """
@@ -169,7 +175,9 @@ expected_ast = """
 Place(Place(
   name: ("a", 0, 1),
   field: [
-    Index(0),
+    Index(Integer((IntegerLiteral(
+      value: 0,
+    ), 2, 1))),
     Field(("b", 5, 1)),
   ],
 ))
@@ -191,5 +199,5 @@ Place(Place(
 ))
 """
 expected_errors = [
-    "Preview feature error: use --preview field-access @ [1:2]",
+    "Preview feature error: use --preview field-access @ [1:3]",
 ]

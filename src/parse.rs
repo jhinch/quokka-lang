@@ -14,10 +14,19 @@ pub enum Error {
     Syntax(#[from] SyntaxError),
     #[error(transparent)]
     #[diagnostic(transparent)]
+    Preview(#[from] PreviewFeatureError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     ChainedComparison(#[from] ChainedComparisonError),
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Preview(#[from] PreviewFeatureError),
+    CallOnValue(#[from] CallOnValueError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ArrayIndexOnValue(#[from] ArrayIndexOnValueError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    FieldAccessOnValue(#[from] FieldAccessOnValueError),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -35,6 +44,30 @@ pub struct SyntaxError {
 #[diagnostic()]
 pub struct ChainedComparisonError {
     #[label("this comparison")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: callee is not a function")]
+#[diagnostic()]
+pub struct CallOnValueError {
+    #[label("this call")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: array index requires array")]
+#[diagnostic()]
+pub struct ArrayIndexOnValueError {
+    #[label("this index")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: field access requires struct")]
+#[diagnostic()]
+pub struct FieldAccessOnValueError {
+    #[label("this field access")]
     pub span: SourceSpan,
 }
 
@@ -189,7 +222,12 @@ impl Parser<'_> {
                 return Err(Error::from(SyntaxError {
                     span: token.span(),
                     unexpected,
-                    expected: vec![TokenKind::Fn, TokenKind::Global, TokenKind::Const, TokenKind::Struct],
+                    expected: vec![
+                        TokenKind::Fn,
+                        TokenKind::Global,
+                        TokenKind::Const,
+                        TokenKind::Struct,
+                    ],
                 }));
             }
         };
@@ -421,55 +459,10 @@ impl Parser<'_> {
             )),
             TokenKind::Ident => {
                 let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
-                if self.peek_token()?.kind() == TokenKind::LeftParen {
-                    let start_span = self.expect(TokenKind::LeftParen)?.span();
-                    let end_span = self.expect(TokenKind::RightParen)?.span();
-                    let span = SourceSpan::new(
-                        SourceOffset::from(start_span.offset()),
-                        end_span.offset() + end_span.len() - start_span.offset(),
-                    );
-                    self.features.check_enabled(
-                        PreviewFeature::FunctionCall,
-                        span,
-                        &mut self.result_builder,
-                    );
-                    Expr::from(Call { name })
-                } else {
-                    let mut field = Vec::new();
-                    loop {
-                        field.push(match self.peek_token()?.kind() {
-                            TokenKind::Dot => {
-                                // field
-                                let span = self.expect(TokenKind::Dot)?.span();
-                                self.features.check_enabled(
-                                    PreviewFeature::FieldAccess,
-                                    span,
-                                    &mut self.result_builder,
-                                );
-                                let field_name = self.parse_identifier()?;
-                                FieldPathPart::Field(field_name)
-                            }
-                            TokenKind::LeftBracket => {
-                                // index
-                                let start_span = self.expect(TokenKind::LeftBracket)?.span();
-                                let index = self.expect(TokenKind::Number)?.try_parse_u32()?;
-                                let end_span = self.expect(TokenKind::RightBracket)?.span();
-                                let span = SourceSpan::new(
-                                    SourceOffset::from(start_span.offset()),
-                                    end_span.offset() + end_span.len() - start_span.offset(),
-                                );
-                                self.features.check_enabled(
-                                    PreviewFeature::Array,
-                                    span,
-                                    &mut self.result_builder,
-                                );
-                                FieldPathPart::Index(index)
-                            }
-                            _ => break,
-                        });
-                    }
-                    Expr::from(Place { name, field })
-                }
+                Expr::from(Place {
+                    name,
+                    field: Vec::new(),
+                })
             }
             // group
             TokenKind::LeftParen => {
@@ -520,7 +513,9 @@ impl Parser<'_> {
                     TokenKind::Bang => UnaryOpKind::Not,
                     TokenKind::Minus => UnaryOpKind::Neg,
                     TokenKind::Star => UnaryOpKind::Deref,
-                    _ => unreachable!(),
+                    _ => unreachable!(
+                        "{kind:?} is matched as a unary prefix expression but has no op kind"
+                    ),
                 };
                 let bp = prefix_binding_power(OpKind::Unary(kind));
                 let expr = Box::new(self.parse_expr_above(bp)?);
@@ -551,36 +546,45 @@ impl Parser<'_> {
                 | TokenKind::RightParen
                 | TokenKind::Semicolon
                 | TokenKind::RightBrace
+                | TokenKind::RightBracket
                 | TokenKind::Then
                 | TokenKind::Else => break,
+                // postfix
+                TokenKind::LeftParen => OpKind::FunctionCall,
+                TokenKind::LeftBracket => OpKind::ArrayIndex,
+                TokenKind::Dot => OpKind::FieldAccess,
                 // binary infix
-                TokenKind::Equal => BinaryOpKind::Assign,
-                TokenKind::EqualEqual => BinaryOpKind::Equal,
-                TokenKind::BangEqual => BinaryOpKind::NotEqual,
-                TokenKind::Ampersand => BinaryOpKind::BitAnd,
-                TokenKind::AmpersandAmpersand => BinaryOpKind::And,
-                TokenKind::AmpersandEqual => BinaryOpKind::BitAndAssign,
-                TokenKind::Pipe => BinaryOpKind::BitOr,
-                TokenKind::PipePipe => BinaryOpKind::Or,
-                TokenKind::PipeEqual => BinaryOpKind::BitOrAssign,
-                TokenKind::Plus => BinaryOpKind::Add,
-                TokenKind::PlusEqual => BinaryOpKind::AddAssign,
-                TokenKind::Minus => BinaryOpKind::Sub,
-                TokenKind::MinusEqual => BinaryOpKind::SubAssign,
-                TokenKind::Carrot => BinaryOpKind::Xor,
-                TokenKind::CarrotEqual => BinaryOpKind::XOrAssign,
-                TokenKind::LessThan => BinaryOpKind::Lt,
-                TokenKind::LessThanEqual => BinaryOpKind::Le,
-                TokenKind::LessThanLessThan => BinaryOpKind::ShiftLeft,
-                TokenKind::LessThanLessThanEqual => BinaryOpKind::ShiftLeftAssign,
-                TokenKind::LessThanPercent => BinaryOpKind::RotateLeft,
-                TokenKind::LessThanPercentEqual => BinaryOpKind::RotateLeftAssign,
-                TokenKind::GreaterThan => BinaryOpKind::Gt,
-                TokenKind::GreaterThanEqual => BinaryOpKind::Ge,
-                TokenKind::GreaterThanGreaterThan => BinaryOpKind::ShiftRight,
-                TokenKind::GreaterThanGreaterThanEqual => BinaryOpKind::ShiftRightAssign,
-                TokenKind::GreaterThanPercent => BinaryOpKind::RotateRight,
-                TokenKind::GreaterThanPercentEqual => BinaryOpKind::RotateRightAssign,
+                TokenKind::Equal => OpKind::Binary(BinaryOpKind::Assign),
+                TokenKind::EqualEqual => OpKind::Binary(BinaryOpKind::Equal),
+                TokenKind::BangEqual => OpKind::Binary(BinaryOpKind::NotEqual),
+                TokenKind::Ampersand => OpKind::Binary(BinaryOpKind::BitAnd),
+                TokenKind::AmpersandAmpersand => OpKind::Binary(BinaryOpKind::And),
+                TokenKind::AmpersandEqual => OpKind::Binary(BinaryOpKind::BitAndAssign),
+                TokenKind::Pipe => OpKind::Binary(BinaryOpKind::BitOr),
+                TokenKind::PipePipe => OpKind::Binary(BinaryOpKind::Or),
+                TokenKind::PipeEqual => OpKind::Binary(BinaryOpKind::BitOrAssign),
+                TokenKind::Plus => OpKind::Binary(BinaryOpKind::Add),
+                TokenKind::PlusEqual => OpKind::Binary(BinaryOpKind::AddAssign),
+                TokenKind::Minus => OpKind::Binary(BinaryOpKind::Sub),
+                TokenKind::MinusEqual => OpKind::Binary(BinaryOpKind::SubAssign),
+                TokenKind::Carrot => OpKind::Binary(BinaryOpKind::Xor),
+                TokenKind::CarrotEqual => OpKind::Binary(BinaryOpKind::XOrAssign),
+                TokenKind::LessThan => OpKind::Binary(BinaryOpKind::Lt),
+                TokenKind::LessThanEqual => OpKind::Binary(BinaryOpKind::Le),
+                TokenKind::LessThanLessThan => OpKind::Binary(BinaryOpKind::ShiftLeft),
+                TokenKind::LessThanLessThanEqual => OpKind::Binary(BinaryOpKind::ShiftLeftAssign),
+                TokenKind::LessThanPercent => OpKind::Binary(BinaryOpKind::RotateLeft),
+                TokenKind::LessThanPercentEqual => OpKind::Binary(BinaryOpKind::RotateLeftAssign),
+                TokenKind::GreaterThan => OpKind::Binary(BinaryOpKind::Gt),
+                TokenKind::GreaterThanEqual => OpKind::Binary(BinaryOpKind::Ge),
+                TokenKind::GreaterThanGreaterThan => OpKind::Binary(BinaryOpKind::ShiftRight),
+                TokenKind::GreaterThanGreaterThanEqual => {
+                    OpKind::Binary(BinaryOpKind::ShiftRightAssign)
+                }
+                TokenKind::GreaterThanPercent => OpKind::Binary(BinaryOpKind::RotateRight),
+                TokenKind::GreaterThanPercentEqual => {
+                    OpKind::Binary(BinaryOpKind::RotateRightAssign)
+                }
                 unexpected => {
                     let span = op_token.span();
                     if self.is_proceeding_block() {
@@ -621,24 +625,105 @@ impl Parser<'_> {
                     }));
                 }
             };
-            let (lhs_bp, rhs_bp) = infix_binding_power(OpKind::Binary(kind));
-            if lhs_bp < min_bp {
-                break;
-            }
-            if is_comparison(kind)
-                && matches!(lhs, Expr::Binary(BinaryOp { kind: left_kind, .. }) if is_comparison(left_kind))
-            {
-                return Err(Error::ChainedComparison(ChainedComparisonError {
-                    span: op_token.span(),
-                }));
-            }
-            self.chomp()?;
-            let rhs = self.parse_expr_above(rhs_bp)?;
-            lhs = Expr::from(BinaryOp {
-                kind,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            });
+
+            lhs = match postfix_binding_power(kind) {
+                Some(bp) => {
+                    // postfix handling
+                    if bp < min_bp {
+                        break;
+                    }
+                    let op_token = self.consume_token()?;
+                    match kind {
+                        OpKind::FunctionCall => {
+                            let end_span = self.expect(TokenKind::RightParen)?.span();
+                            let span = SourceSpan::new(
+                                SourceOffset::from(op_token.span().offset()),
+                                end_span.offset() + end_span.len() - op_token.span().offset(),
+                            );
+                            self.features.check_enabled(
+                                PreviewFeature::FunctionCall,
+                                span,
+                                &mut self.result_builder,
+                            );
+                            match lhs {
+                                Expr::Place(callee) => Expr::from(Call { callee }),
+                                _ => return Err(Error::from(CallOnValueError { span })),
+                            }
+                        }
+                        OpKind::ArrayIndex => {
+                            let index = Box::new(self.parse_expr()?);
+                            let end_span = self.expect(TokenKind::RightBracket)?.span();
+                            let span = SourceSpan::new(
+                                SourceOffset::from(op_token.span().offset()),
+                                end_span.offset() + end_span.len() - op_token.span().offset(),
+                            );
+                            self.features.check_enabled(
+                                PreviewFeature::Array,
+                                span,
+                                &mut self.result_builder,
+                            );
+                            match lhs {
+                                Expr::Place(mut place) => {
+                                    place.field.push(FieldPathPart::Index(index));
+                                    Expr::from(place)
+                                }
+                                _ => return Err(Error::from(ArrayIndexOnValueError { span })),
+                            }
+                        }
+                        OpKind::FieldAccess => {
+                            let token = self.expect(TokenKind::Ident)?;
+                            let name = SpannedIdentifier::new(token.text(), token.span());
+                            let span = SourceSpan::new(
+                                SourceOffset::from(op_token.span().offset()),
+                                token.span().offset() + token.span().len()
+                                    - op_token.span().offset(),
+                            );
+                            self.features.check_enabled(
+                                PreviewFeature::FieldAccess,
+                                span,
+                                &mut self.result_builder,
+                            );
+                            match lhs {
+                                Expr::Place(mut place) => {
+                                    place.field.push(FieldPathPart::Field(name));
+                                    Expr::from(place)
+                                }
+                                _ => return Err(Error::from(FieldAccessOnValueError { span })),
+                            }
+                        }
+                        _ => unimplemented!("{kind:?} is not a postfix op"),
+                    }
+                }
+                None => {
+                    // infix handling
+                    let (lhs_bp, rhs_bp) = infix_binding_power(kind);
+                    if lhs_bp < min_bp {
+                        break;
+                    }
+                    let op_token = self.consume_token()?;
+
+                    let rhs = self.parse_expr_above(rhs_bp)?;
+
+                    match kind {
+                        OpKind::Binary(kind) => {
+                            if is_comparison(kind)
+                                && matches!(lhs, Expr::Binary(BinaryOp { kind: left_kind, .. }) if is_comparison(left_kind))
+                            {
+                                return Err(Error::ChainedComparison(ChainedComparisonError {
+                                    span: op_token.span(),
+                                }));
+                            }
+
+                            Expr::from(BinaryOp {
+                                kind,
+                                left: Box::new(lhs),
+                                right: Box::new(rhs),
+                            })
+                        }
+                        _ => unimplemented!("{kind:?} is not a binary infix op"),
+                    }
+                }
+            };
         }
         Ok(lhs)
     }
@@ -649,6 +734,14 @@ fn prefix_binding_power(op: OpKind) -> u8 {
         OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg | UnaryOpKind::Deref) => 19,
         _ => unimplemented!("{op:?} is not a prefix op"),
     }
+}
+
+fn postfix_binding_power(op: OpKind) -> Option<u8> {
+    Some(match op {
+        OpKind::FunctionCall => 20,
+        OpKind::FieldAccess | OpKind::ArrayIndex => 21,
+        _ => return None,
+    })
 }
 
 fn infix_binding_power(op: OpKind) -> (u8, u8) {
