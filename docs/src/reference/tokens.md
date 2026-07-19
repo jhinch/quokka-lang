@@ -44,7 +44,7 @@ UnusedReserved      =    "_" | "as" | "while" | "do" | "match"
 ```ebnf
 Identifier              = IdentifierOrReserved - Reserved
                         ;
-IdentiiferOrReserved    = ( XIDStart | "_" ) , { XIDContinue }
+IdentifierOrReserved    = ( XIDStart | "_" ) , { XIDContinue }
                         ;
 XIDStart                = ? as define in https://www.unicode.org/reports/tr31/tr31-41.html ?
                         ;

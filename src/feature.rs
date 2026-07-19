@@ -5,14 +5,23 @@ use std::fmt;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewFeature {
+    /// example preview feature only used for tests. Provides no meaningful functionally
     Example,
+    /// enable use of arrays in types and expressions
     Array,
+    /// enable use of fields in expressions
     FieldAccess,
+    /// enable function calls in expressions
     FunctionCall,
+    /// enable loop block expressions
     Loop,
+    /// enable if else expressions
     IfElse,
+    /// enable ASM block expressions
     InlineAsm,
+    /// enable custom entrypoint attribute support
     CustomEntrypoint,
+    /// enable no startup code augmentation of entrypoint
     NoStartupCode,
 }
 

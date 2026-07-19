@@ -1,6 +1,6 @@
 use miette::{SourceOffset, SourceSpan};
 use std::borrow::Cow;
-use std::num::{NonZeroU32, ParseIntError};
+use std::num::{IntErrorKind, NonZeroU32};
 use std::str::Chars;
 
 #[derive(Debug, Clone)]
@@ -38,16 +38,17 @@ impl Token<'_> {
         .map_err(|source| {
             Error::from(InvalidNumberError {
                 span: self.span(),
-                source,
+                kind: source.kind().clone(),
             })
         })
     }
 
     pub fn try_parse_non_zero_u32(&self) -> Result<NonZeroU32, Error> {
-        self.text.parse::<NonZeroU32>().map_err(|source| {
+        let value = self.try_parse_u32()?;
+        NonZeroU32::try_from(value).map_err(|_| {
             Error::from(InvalidNumberError {
                 span: self.span(),
-                source,
+                kind: IntErrorKind::Zero,
             })
         })
     }
@@ -144,13 +145,12 @@ pub struct UnexpectedCharError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
-#[error("Invalid number {source:?}")]
+#[error("Invalid number. {kind:?}")]
 #[diagnostic()]
 pub struct InvalidNumberError {
     #[label("this number")]
     pub span: SourceSpan,
-    #[source]
-    pub source: ParseIntError,
+    pub kind: IntErrorKind,
 }
 
 pub struct Lexer<'de> {

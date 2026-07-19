@@ -164,7 +164,7 @@ impl Parser<'_> {
             self.expect(TokenKind::Hash)?;
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
-            if name.value.value == "example" {
+            if name.value.value == "preview_flag_example" {
                 self.features.check_enabled(
                     PreviewFeature::Example,
                     name.span,
@@ -424,8 +424,15 @@ impl Parser<'_> {
                 if self.peek_token()?.kind() == TokenKind::LeftParen {
                     let start_span = self.expect(TokenKind::LeftParen)?.span();
                     let end_span = self.expect(TokenKind::RightParen)?.span();
-                    let span = SourceSpan::new(SourceOffset::from(start_span.offset()), end_span.offset() + end_span.len() - start_span.offset());
-                    self.features.check_enabled(PreviewFeature::FunctionCall, span, &mut self.result_builder);
+                    let span = SourceSpan::new(
+                        SourceOffset::from(start_span.offset()),
+                        end_span.offset() + end_span.len() - start_span.offset(),
+                    );
+                    self.features.check_enabled(
+                        PreviewFeature::FunctionCall,
+                        span,
+                        &mut self.result_builder,
+                    );
                     Expr::from(Call { name })
                 } else {
                     let mut field = Vec::new();
@@ -434,7 +441,11 @@ impl Parser<'_> {
                             TokenKind::Dot => {
                                 // field
                                 let span = self.expect(TokenKind::Dot)?.span();
-                                self.features.check_enabled(PreviewFeature::FieldAccess, span, &mut self.result_builder);
+                                self.features.check_enabled(
+                                    PreviewFeature::FieldAccess,
+                                    span,
+                                    &mut self.result_builder,
+                                );
                                 let field_name = self.parse_identifier()?;
                                 FieldPathPart::Field(field_name)
                             }
@@ -443,8 +454,15 @@ impl Parser<'_> {
                                 let start_span = self.expect(TokenKind::LeftBracket)?.span();
                                 let index = self.expect(TokenKind::Number)?.try_parse_u32()?;
                                 let end_span = self.expect(TokenKind::RightBracket)?.span();
-                                let span = SourceSpan::new(SourceOffset::from(start_span.offset()), end_span.offset() + end_span.len() - start_span.offset());
-                                self.features.check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
+                                let span = SourceSpan::new(
+                                    SourceOffset::from(start_span.offset()),
+                                    end_span.offset() + end_span.len() - start_span.offset(),
+                                );
+                                self.features.check_enabled(
+                                    PreviewFeature::Array,
+                                    span,
+                                    &mut self.result_builder,
+                                );
                                 FieldPathPart::Index(index)
                             }
                             _ => break,
@@ -470,8 +488,11 @@ impl Parser<'_> {
                     None
                 };
 
-                self.features
-                    .check_enabled(PreviewFeature::IfElse, lhs_token.span(), &mut self.result_builder);
+                self.features.check_enabled(
+                    PreviewFeature::IfElse,
+                    lhs_token.span(),
+                    &mut self.result_builder,
+                );
 
                 Expr::from(If {
                     condition,
@@ -481,8 +502,11 @@ impl Parser<'_> {
             }
             TokenKind::Loop => {
                 let body = self.parse_body()?;
-                self.features
-                    .check_enabled(PreviewFeature::Loop, lhs_token.span(), &mut self.result_builder);
+                self.features.check_enabled(
+                    PreviewFeature::Loop,
+                    lhs_token.span(),
+                    &mut self.result_builder,
+                );
                 Expr::from(Loop { body })
             }
             TokenKind::Asm => {
