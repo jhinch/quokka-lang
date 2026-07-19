@@ -55,6 +55,38 @@ Item(
 """
 
 [[case]]
+name = "let_with_type_annotation"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    let x: u8 = 1;
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", 3, 4),
+    ),
+    body: Block(
+      statements: [
+        Let(LetSmt(
+          name: ("x", 20, 1),
+          ty: Some(TyRef(
+            name: ("u8", 23, 2),
+          )),
+          value: Integer((IntegerLiteral(
+            value: 1,
+          ), 28, 1)),
+        )),
+      ],
+    ),
+  )),
+)
+"""
+
+[[case]]
 name = "block_as_if_branch"
 kind = "parser"
 entrypoint = "expr"

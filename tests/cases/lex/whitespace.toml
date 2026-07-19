@@ -1,0 +1,38 @@
+[[case]]
+name = "tab_between_tokens"
+kind = "lexer"
+source = "a\tb"
+expected_tokens = """
+Ident:a
+Ident:b
+Eof:
+"""
+
+[[case]]
+name = "leading_tab"
+kind = "lexer"
+source = "\ta"
+expected_tokens = """
+Ident:a
+Eof:
+"""
+
+[[case]]
+name = "carriage_return_between_tokens"
+kind = "lexer"
+source = "a\rb"
+expected_tokens = """
+Ident:a
+Ident:b
+Eof:
+"""
+
+[[case]]
+name = "crlf_between_tokens"
+kind = "lexer"
+source = "a\r\nb"
+expected_tokens = """
+Ident:a
+Ident:b
+Eof:
+"""

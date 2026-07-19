@@ -967,3 +967,45 @@ Binary(BinaryOp(
   )),
 ))
 """
+
+[[case]]
+name = "rotate_left_assign_through_bool_expr"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a <%= b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateLeftAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 6, 1),
+    field: [],
+  )),
+))
+"""
+
+[[case]]
+name = "rotate_right_assign_through_bool_expr"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a >%= b
+"""
+expected_ast = """
+Binary(BinaryOp(
+  kind: RotateRightAssign,
+  left: Place(Place(
+    name: ("a", 0, 1),
+    field: [],
+  )),
+  right: Place(Place(
+    name: ("b", 6, 1),
+    field: [],
+  )),
+))
+"""

@@ -78,3 +78,25 @@ expected_tokens = """
 Number:0b1010_1010
 Eof:
 """
+
+[[case]]
+name = "hex_underscored"
+kind = "lexer"
+source = """
+0x1_0
+"""
+expected_tokens = """
+Number:0x1_0
+Eof:
+"""
+
+[[case]]
+name = "octal_underscored"
+kind = "lexer"
+source = """
+0o1_0
+"""
+expected_tokens = """
+Number:0o1_0
+Eof:
+"""

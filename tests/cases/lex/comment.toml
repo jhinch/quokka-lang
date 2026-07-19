@@ -1,0 +1,66 @@
+[[case]]
+name = "comment_only"
+kind = "lexer"
+source = """
+// hello world
+"""
+expected_tokens = """
+Eof:
+"""
+
+[[case]]
+name = "comment_then_token"
+kind = "lexer"
+source = """
+// hello world
+a
+"""
+expected_tokens = """
+Ident:a
+Eof:
+"""
+
+[[case]]
+name = "token_then_comment"
+kind = "lexer"
+source = """
+a // trailing comment
+"""
+expected_tokens = """
+Ident:a
+Eof:
+"""
+
+[[case]]
+name = "comment_at_eof_without_trailing_newline"
+kind = "lexer"
+source = "a // trailing comment"
+expected_tokens = """
+Ident:a
+Eof:
+"""
+
+[[case]]
+name = "comment_between_tokens"
+kind = "lexer"
+source = """
+a // comment
+b
+"""
+expected_tokens = """
+Ident:a
+Ident:b
+Eof:
+"""
+
+[[case]]
+name = "empty_comment"
+kind = "lexer"
+source = """
+//
+a
+"""
+expected_tokens = """
+Ident:a
+Eof:
+"""

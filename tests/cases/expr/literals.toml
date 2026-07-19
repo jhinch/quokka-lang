@@ -75,3 +75,97 @@ Integer((IntegerLiteral(
   value: 5,
 ), 0, 5))
 """
+
+[[case]]
+name = "hex_with_underscore_separator"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0x1_0
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 16,
+), 0, 5))
+"""
+
+[[case]]
+name = "octal_with_underscore_separator"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0o1_0
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 8,
+), 0, 5))
+"""
+
+[[case]]
+name = "binary_with_underscore_separator"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0b1_0
+"""
+expected_ast = """
+Integer((IntegerLiteral(
+  value: 2,
+), 0, 5))
+"""
+
+[[case]]
+name = "hex_no_digits"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0x
+"""
+expected_errors = [
+    "Invalid number. Empty @ [0:2]",
+]
+
+[[case]]
+name = "octal_no_digits"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0o
+"""
+expected_errors = [
+    "Invalid number. Empty @ [0:2]",
+]
+
+[[case]]
+name = "binary_no_digits"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0b
+"""
+expected_errors = [
+    "Invalid number. Empty @ [0:2]",
+]
+
+[[case]]
+name = "decimal_overflow"
+kind = "parser"
+entrypoint = "expr"
+source = """
+4294967296
+"""
+expected_errors = [
+    "Invalid number. PosOverflow @ [0:10]",
+]
+
+[[case]]
+name = "hex_overflow"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0x100000000
+"""
+expected_errors = [
+    "Invalid number. PosOverflow @ [0:11]",
+]

@@ -86,6 +86,33 @@ Root(
 """
 
 [[case]]
+name = "fn_with_bare_return"
+kind = "parser"
+source = """
+fn that_function() {
+    return;
+}
+"""
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("that_function", 3, 13),
+        ),
+        body: Block(
+          statements: [
+            Return(ReturnSmt()),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
 name = "fn_with_attribute"
 kind = "parser"
 preview_features = ["if-else", "loop"]
