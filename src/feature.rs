@@ -6,7 +6,7 @@ use std::fmt;
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewFeature {
     /// example preview feature only used for tests. Provides no meaningful functionally
-    Example,
+    ExamplePreview,
     /// enable use of arrays in types and expressions
     Array,
     /// enable use of fields in expressions
@@ -106,5 +106,121 @@ impl PreviewFeatureSet {
 
     pub fn is_enabled(&self, feature: PreviewFeature) -> bool {
         self.features.contains(&feature)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::multi::MultiResultBuilder;
+    use miette::SourceSpan;
+
+    fn dummy_span() -> SourceSpan {
+        SourceSpan::new(0.into(), 0)
+    }
+
+    #[test]
+    fn enable_adds_feature() {
+        let mut set = PreviewFeatureSet::default();
+        assert!(!set.is_enabled(PreviewFeature::ExamplePreview));
+        set.enable(PreviewFeature::ExamplePreview);
+        assert!(set.is_enabled(PreviewFeature::ExamplePreview));
+    }
+
+    #[test]
+    fn enable_is_idempotent() {
+        let mut set = PreviewFeatureSet::default();
+        set.enable(PreviewFeature::ExamplePreview);
+        set.enable(PreviewFeature::ExamplePreview);
+        assert_eq!(
+            set.features.len(),
+            1,
+            "internal list should not grow beyond one entry"
+        );
+    }
+
+    #[test]
+    fn enable_does_not_affect_other_features() {
+        let mut set = PreviewFeatureSet::default();
+        set.enable(PreviewFeature::ExamplePreview);
+        for feature in <PreviewFeature as clap::ValueEnum>::value_variants()
+            .iter()
+            .copied()
+        {
+            if feature != PreviewFeature::ExamplePreview {
+                assert!(!set.is_enabled(feature));
+            }
+        }
+    }
+
+    #[test]
+    fn require_enabled_ok_when_feature_is_present() {
+        let mut set = PreviewFeatureSet::default();
+        set.enable(PreviewFeature::ExamplePreview);
+        assert!(
+            set.require_enabled(PreviewFeature::ExamplePreview, dummy_span())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn require_enabled_err_when_feature_is_absent() {
+        let set = PreviewFeatureSet::default();
+        let result = set.require_enabled(PreviewFeature::ExamplePreview, dummy_span());
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().feature, PreviewFeature::ExamplePreview);
+    }
+
+    #[test]
+    fn check_enabled_adds_no_error_when_feature_present() {
+        let mut set = PreviewFeatureSet::default();
+        set.enable(PreviewFeature::ExamplePreview);
+        let mut builder = MultiResultBuilder::default();
+        set.check_enabled(PreviewFeature::ExamplePreview, dummy_span(), &mut builder);
+        let result = builder.finish(());
+        assert!(!result.has_errors());
+    }
+
+    #[test]
+    fn check_enabled_adds_error_when_feature_absent() {
+        let set = PreviewFeatureSet::default();
+        let mut builder = MultiResultBuilder::default();
+        set.check_enabled(PreviewFeature::ExamplePreview, dummy_span(), &mut builder);
+        let result = builder.finish(());
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn from_iter_enables_all_features() {
+        let set: PreviewFeatureSet = [PreviewFeature::Array, PreviewFeature::FieldAccess]
+            .into_iter()
+            .collect();
+        assert!(set.is_enabled(PreviewFeature::Array));
+        assert!(set.is_enabled(PreviewFeature::FieldAccess));
+        assert!(!set.is_enabled(PreviewFeature::Loop));
+    }
+
+    #[test]
+    fn extend_adds_features_without_duplicates() {
+        let mut set = PreviewFeatureSet::default();
+        set.enable(PreviewFeature::Array);
+        set.extend([PreviewFeature::Array, PreviewFeature::Loop]);
+        assert_eq!(set.features.len(), 2);
+        assert!(set.is_enabled(PreviewFeature::Array));
+        assert!(set.is_enabled(PreviewFeature::Loop));
+    }
+
+    #[test]
+    fn display_uses_kebab_case_name() {
+        assert_eq!(
+            PreviewFeature::ExamplePreview.to_string(),
+            "example-preview"
+        );
+    }
+
+    #[test]
+    fn into_iter_empty_set_yields_nothing() {
+        let set = PreviewFeatureSet::default();
+        assert_eq!(set.into_iter().count(), 0);
     }
 }

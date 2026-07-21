@@ -199,7 +199,7 @@ impl Parser<'_> {
             let name = self.parse_identifier()?;
             if name.value.value == "preview_flag_example" {
                 self.features.check_enabled(
-                    PreviewFeature::Example,
+                    PreviewFeature::ExamplePreview,
                     name.span,
                     &mut self.result_builder,
                 );
@@ -792,4 +792,43 @@ pub fn is_comparison(op: BinaryOpKind) -> bool {
             | BinaryOpKind::Gt
             | BinaryOpKind::Ge
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn comparison_ops_are_comparisons() {
+        for op in [
+            BinaryOpKind::Equal,
+            BinaryOpKind::NotEqual,
+            BinaryOpKind::Lt,
+            BinaryOpKind::Le,
+            BinaryOpKind::Gt,
+            BinaryOpKind::Ge,
+        ] {
+            assert!(is_comparison(op), "{op:?} should be a comparison");
+        }
+    }
+
+    #[test]
+    fn non_comparison_ops_are_not_comparisons() {
+        for op in [
+            BinaryOpKind::Add,
+            BinaryOpKind::Sub,
+            BinaryOpKind::And,
+            BinaryOpKind::Or,
+            BinaryOpKind::BitAnd,
+            BinaryOpKind::BitOr,
+            BinaryOpKind::Xor,
+            BinaryOpKind::Assign,
+            BinaryOpKind::ShiftLeft,
+            BinaryOpKind::ShiftRight,
+            BinaryOpKind::RotateLeft,
+            BinaryOpKind::RotateRight,
+        ] {
+            assert!(!is_comparison(op), "{op:?} should not be a comparison");
+        }
+    }
 }

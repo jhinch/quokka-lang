@@ -290,3 +290,106 @@ pub struct Loop {
 pub struct Call {
     pub callee: Place,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::Spanned;
+    use miette::{SourceOffset, SourceSpan};
+    use std::borrow::Borrow;
+    use std::num::NonZeroU32;
+
+    fn dummy_span() -> SourceSpan {
+        SourceSpan::new(SourceOffset::from(0), 0)
+    }
+
+    fn ident(name: &str) -> SpannedIdentifier {
+        Spanned::new(Identifier::from(name), dummy_span())
+    }
+
+    #[test]
+    fn identifier_display_outputs_value() {
+        let id = Identifier::from("hello");
+        assert_eq!(format!("{id}"), "hello");
+    }
+
+    #[test]
+    fn identifier_display_empty() {
+        let id = Identifier::from("");
+        assert_eq!(format!("{id}"), "");
+    }
+
+    #[test]
+    fn identifier_from_string() {
+        let id = Identifier::from(String::from("foo"));
+        assert_eq!(id.value, "foo");
+    }
+
+    #[test]
+    fn identifier_from_str() {
+        let id = Identifier::from("bar");
+        assert_eq!(id.value, "bar");
+    }
+
+    #[test]
+    fn string_from_identifier() {
+        let id = Identifier::from("baz");
+        let s = String::from(id);
+        assert_eq!(s, "baz");
+    }
+
+    #[test]
+    fn identifier_borrow_str() {
+        let id = Identifier::from("qux");
+        let borrowed: &str = id.borrow();
+        assert_eq!(borrowed, "qux");
+    }
+
+    #[test]
+    fn identifier_borrow_allows_hashmap_str_lookup() {
+        use std::collections::HashMap;
+        let mut map: HashMap<Identifier, i32> = HashMap::new();
+        map.insert(Identifier::from("key"), 42);
+        assert_eq!(map.get("key"), Some(&42));
+    }
+
+    #[test]
+    fn integer_literal_from_u32() {
+        let lit = IntegerLiteral::from(99);
+        assert_eq!(lit.value, 99);
+    }
+
+    #[test]
+    fn integer_literal_from_zero() {
+        let lit = IntegerLiteral::from(0);
+        assert_eq!(lit.value, 0);
+    }
+
+    #[test]
+    fn integer_literal_from_max() {
+        let lit = IntegerLiteral::from(u32::MAX);
+        assert_eq!(lit.value, u32::MAX);
+    }
+
+    #[test]
+    fn ty_ref_new_is_scalar() {
+        let ty = TyRef::new(ident("u32"));
+        assert_eq!(ty.name.value.value, "u32");
+        assert!(ty.count.is_none());
+    }
+
+    #[test]
+    fn ty_ref_array_has_count() {
+        let count = NonZeroU32::new(8).unwrap();
+        let ty = TyRef::array(ident("u8"), count);
+        assert_eq!(ty.name.value.value, "u8");
+        assert_eq!(ty.count, Some(count));
+    }
+
+    #[test]
+    fn ty_ref_array_count_one() {
+        let count = NonZeroU32::new(1).unwrap();
+        let ty = TyRef::array(ident("bool"), count);
+        assert_eq!(ty.count.unwrap().get(), 1);
+    }
+}

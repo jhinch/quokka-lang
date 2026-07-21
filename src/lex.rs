@@ -10,6 +10,23 @@ pub struct Token<'de> {
     kind: TokenKind,
 }
 
+impl<'de> Token<'de> {
+    fn number_text_and_radix(&self) -> (Cow<'de, str>, u32) {
+        let (offset, radix) = match &self.text[0..2.min(self.text.len())] {
+            "0x" => (2, 16),
+            "0o" => (2, 8),
+            "0b" => (2, 2),
+            _ => (0, 10),
+        };
+        let text = if self.text.contains('_') {
+            Cow::Owned(self.text[offset..].replace('_', ""))
+        } else {
+            Cow::Borrowed(&self.text[offset..])
+        };
+        (text, radix)
+    }
+}
+
 impl Token<'_> {
     pub fn span(&self) -> SourceSpan {
         SourceSpan::new(SourceOffset::from(self.offset), self.text.len())
@@ -24,21 +41,11 @@ impl Token<'_> {
     }
 
     pub fn try_parse_u32(&self) -> Result<u32, Error> {
-        let text = if self.text.contains('_') {
-            Cow::Owned(self.text.replace('_', ""))
-        } else {
-            Cow::Borrowed(self.text)
-        };
-        match &text[0..2.min(text.len())] {
-            "0x" => u32::from_str_radix(&text[2..], 16),
-            "0o" => u32::from_str_radix(&text[2..], 8),
-            "0b" => u32::from_str_radix(&text[2..], 2),
-            _ => u32::from_str_radix(&text, 10),
-        }
-        .map_err(|source| {
+        let (text, radix) = self.number_text_and_radix();
+        u32::from_str_radix(text.as_ref(), radix).map_err(|source| {
             Error::from(InvalidNumberError {
                 span: self.span(),
-                kind: source.kind().clone(),
+                kind: *source.kind(),
             })
         })
     }
@@ -368,25 +375,28 @@ impl<'de> Lexer<'de> {
                     let additional_len = match self.remaining.clone().next() {
                         Some('x') => {
                             // hexidecimal
-                            self.remaining.as_str()[1..]
+                            let digits = &self.remaining.as_str()[1..];
+                            digits
                                 .find(
                                     |c: char| !matches!(c, '0'..='9' | 'a'..='f' | 'A'..='F' | '_'),
                                 )
-                                .unwrap_or(self.remaining.as_str().len())
+                                .unwrap_or(digits.len())
                                 + 1
                         }
                         Some('o') => {
                             // octal
-                            self.remaining.as_str()[1..]
+                            let digits = &self.remaining.as_str()[1..];
+                            digits
                                 .find(|c: char| !matches!(c, '0'..='7' | '_'))
-                                .unwrap_or(self.remaining.as_str().len())
+                                .unwrap_or(digits.len())
                                 + 1
                         }
                         Some('b') => {
                             // binary
-                            self.remaining.as_str()[1..]
+                            let digits = &self.remaining.as_str()[1..];
+                            digits
                                 .find(|c: char| !matches!(c, '0'..='1' | '_'))
-                                .unwrap_or(self.remaining.as_str().len())
+                                .unwrap_or(digits.len())
                                 + 1
                         }
                         _ => {
@@ -484,5 +494,192 @@ impl<'de> Iterator for Lexer<'de> {
                 Some(Ok(token))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lex_tokens(src: &str) -> Vec<(TokenKind, String)> {
+        Lexer::from(src)
+            .filter_map(|r| r.ok())
+            .filter(|t| t.kind() != TokenKind::Eof)
+            .map(|t| (t.kind(), t.text().to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn parse_u32_decimal() {
+        let mut lexer = Lexer::from("42");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 42);
+    }
+
+    #[test]
+    fn parse_u32_decimal_with_underscores() {
+        let mut lexer = Lexer::from("1_000_000");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 1_000_000);
+    }
+
+    #[test]
+    fn parse_u32_hex() {
+        let mut lexer = Lexer::from("0xFF");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 255);
+    }
+
+    #[test]
+    fn parse_u32_octal() {
+        let mut lexer = Lexer::from("0o17");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 15);
+    }
+
+    #[test]
+    fn parse_u32_binary() {
+        let mut lexer = Lexer::from("0b1010");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 10);
+    }
+
+    #[test]
+    fn parse_u32_zero() {
+        let mut lexer = Lexer::from("0");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), 0);
+    }
+
+    #[test]
+    fn parse_u32_max() {
+        let mut lexer = Lexer::from("4294967295");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_u32().unwrap(), u32::MAX);
+    }
+
+    #[test]
+    fn parse_u32_overflow_returns_error() {
+        let mut lexer = Lexer::from("4294967296");
+        let token = lexer.next().unwrap().unwrap();
+        assert!(token.try_parse_u32().is_err());
+    }
+
+    #[test]
+    fn parse_non_zero_u32_positive() {
+        let mut lexer = Lexer::from("5");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.try_parse_non_zero_u32().unwrap().get(), 5);
+    }
+
+    #[test]
+    fn parse_non_zero_u32_zero_returns_error() {
+        let mut lexer = Lexer::from("0");
+        let token = lexer.next().unwrap().unwrap();
+        assert!(token.try_parse_non_zero_u32().is_err());
+    }
+
+    #[test]
+    fn token_text_matches_source() {
+        let tokens = lex_tokens("hello 42");
+        assert_eq!(tokens[0], (TokenKind::Ident, "hello".to_string()));
+        assert_eq!(tokens[1], (TokenKind::Number, "42".to_string()));
+    }
+
+    #[test]
+    fn token_span_offset_correct() {
+        let src = "  hello";
+        let mut lexer = Lexer::from(src);
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.span().offset(), 2);
+        assert_eq!(token.span().len(), 5);
+    }
+
+    #[test]
+    fn peek_does_not_advance() {
+        let mut lexer = Lexer::from("a b");
+        let peeked_first = lexer.peek().unwrap().as_ref().unwrap();
+        assert_eq!(peeked_first.text(), "a");
+        let peeked_second = lexer.peek().unwrap().as_ref().unwrap();
+        assert_eq!(peeked_second.text(), "a");
+    }
+
+    #[test]
+    fn peek_then_next_returns_same_token() {
+        let mut lexer = Lexer::from("123");
+        let peeked_text = lexer.peek().unwrap().as_ref().unwrap().text().to_string();
+        let next_text = lexer.next().unwrap().unwrap().text().to_string();
+        assert_eq!(peeked_text, next_text);
+    }
+
+    #[test]
+    fn current_is_none_before_first_next() {
+        let lexer = Lexer::from("x");
+        assert!(lexer.current().is_none());
+    }
+
+    #[test]
+    fn current_reflects_last_consumed_token() {
+        let mut lexer = Lexer::from("abc");
+        let current = lexer.next().unwrap().unwrap();
+        assert_eq!(current.text(), "abc");
+        assert_eq!(lexer.current().unwrap().kind(), current.kind());
+        assert_eq!(lexer.current().unwrap().text(), current.text());
+    }
+
+    #[test]
+    fn current_updates_on_each_next() {
+        let mut lexer = Lexer::from("a 1");
+        lexer.next().unwrap().unwrap();
+        assert_eq!(lexer.current().unwrap().kind(), TokenKind::Ident);
+        lexer.next().unwrap().unwrap();
+        assert_eq!(lexer.current().unwrap().kind(), TokenKind::Number);
+    }
+
+    #[test]
+    fn lexer_emits_eof_then_none() {
+        let mut lexer = Lexer::from("x");
+        let first = lexer.next().unwrap().unwrap();
+        assert_eq!(first.kind(), TokenKind::Ident);
+        let eof = lexer.next().unwrap().unwrap();
+        assert_eq!(eof.kind(), TokenKind::Eof);
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn lexer_from_str_starts_with_no_current() {
+        let lexer = Lexer::from("x");
+        assert!(lexer.current().is_none());
+    }
+
+    #[test]
+    fn lexer_from_empty_str_immediately_produces_eof() {
+        let mut lexer = Lexer::from("");
+        let token = lexer.next().unwrap().unwrap();
+        assert_eq!(token.kind(), TokenKind::Eof);
+        assert_eq!(token.text(), "");
+        assert!(lexer.next().is_none());
+    }
+
+    #[test]
+    fn iterator_next_without_peek_works() {
+        let mut lexer = Lexer::from("a b");
+        let first = lexer.next().unwrap().unwrap();
+        assert_eq!(first.text(), "a");
+        let second = lexer.next().unwrap().unwrap();
+        assert_eq!(second.text(), "b");
+    }
+
+    #[test]
+    fn iterator_next_after_peek_consumes_peeked_token() {
+        let mut lexer = Lexer::from("a b");
+        let peeked_first = lexer.peek().unwrap().as_ref().unwrap();
+        assert_eq!(peeked_first.text(), "a");
+        let peeked_second = lexer.peek().unwrap().as_ref().unwrap();
+        assert_eq!(peeked_second.text(), "a");
+        let first = lexer.next().unwrap().unwrap();
+        assert_eq!(first.text(), "a");
+        let second = lexer.next().unwrap().unwrap();
+        assert_eq!(second.text(), "b");
     }
 }
