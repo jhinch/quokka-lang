@@ -42,6 +42,7 @@ pub struct MultiResultBuilder {
 }
 
 impl MultiResultBuilder {
+    #[must_use]
     pub fn take(&mut self) -> Self {
         std::mem::take(self)
     }

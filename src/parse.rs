@@ -125,11 +125,11 @@ impl<'de> Parser<'de> {
 
 impl Parser<'_> {
     pub fn enable_feature(&mut self, feature: PreviewFeature) {
-        self.features.enable(feature)
+        self.features.enable(feature);
     }
 
     pub fn enable_features(&mut self, features: PreviewFeatureSet) {
-        self.features.extend(features)
+        self.features.extend(features);
     }
 
     fn chomp(&mut self) -> Result<(), Error> {
@@ -178,14 +178,13 @@ impl Parser<'_> {
             match self.parse_item() {
                 Ok(item) => {
                     items.push(item);
-                    continue;
                 }
                 Err(Error::Lex(e)) => return Err(Error::Lex(e)),
                 Err(e) => {
                     self.result_builder.add_error(e);
                     self.parse_item_error()?;
                 }
-            };
+            }
         }
         self.expect(TokenKind::Eof)?;
         Ok(Root { items })
@@ -782,6 +781,7 @@ fn infix_binding_power(op: OpKind) -> (u8, u8) {
     }
 }
 
+#[must_use]
 pub fn is_comparison(op: BinaryOpKind) -> bool {
     matches!(
         op,

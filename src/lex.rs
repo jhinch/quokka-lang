@@ -28,14 +28,17 @@ impl<'de> Token<'de> {
 }
 
 impl Token<'_> {
+    #[must_use]
     pub fn span(&self) -> SourceSpan {
         SourceSpan::new(SourceOffset::from(self.offset), self.text.len())
     }
 
+    #[must_use]
     pub fn kind(&self) -> TokenKind {
         self.kind
     }
 
+    #[must_use]
     pub fn text(&self) -> &str {
         self.text
     }
@@ -177,6 +180,7 @@ impl<'de> Lexer<'de> {
         self.peeked.as_ref()
     }
 
+    #[must_use]
     pub fn current(&self) -> Option<&Token<'de>> {
         self.current.as_ref()
     }

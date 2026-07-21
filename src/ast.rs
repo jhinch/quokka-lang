@@ -76,10 +76,12 @@ pub struct TyRef {
 }
 
 impl TyRef {
+    #[must_use]
     pub const fn new(name: SpannedIdentifier) -> Self {
         TyRef { name, count: None }
     }
 
+    #[must_use]
     pub const fn array(name: SpannedIdentifier, count: NonZeroU32) -> Self {
         TyRef {
             name,

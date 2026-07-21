@@ -59,10 +59,10 @@ impl HighlighterState for QuokkaHighlighterState {
                         );
                         offset = next_offset;
                     }
-                    _ => continue,
+                    _ => {},
                 },
                 Err(_) => break,
-            };
+            }
         }
         parts.push(owo_colors::Style::default().style(&line[offset..]));
         parts

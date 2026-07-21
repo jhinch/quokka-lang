@@ -104,6 +104,7 @@ impl PreviewFeatureSet {
         }
     }
 
+    #[must_use]
     pub fn is_enabled(&self, feature: PreviewFeature) -> bool {
         self.features.contains(&feature)
     }
