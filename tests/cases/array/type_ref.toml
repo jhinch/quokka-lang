@@ -14,12 +14,30 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: ("Name", 7, 4),
+        name: Spanned(
+          data: "Name",
+          span: SourceSpan(
+            offset: SourceOffset(7),
+            length: 4,
+          ),
+        ),
         fields: [
           FieldDecl(
-            name: ("field", 18, 5),
+            name: Spanned(
+              data: "field",
+              span: SourceSpan(
+                offset: SourceOffset(18),
+                length: 5,
+              ),
+            ),
             ty: TyRef(
-              name: ("u8", 26, 2),
+              name: Spanned(
+                data: "u8",
+                span: SourceSpan(
+                  offset: SourceOffset(26),
+                  length: 2,
+                ),
+              ),
               count: Some(3),
             ),
           ),
@@ -45,12 +63,30 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: ("Name", 7, 4),
+        name: Spanned(
+          data: "Name",
+          span: SourceSpan(
+            offset: SourceOffset(7),
+            length: 4,
+          ),
+        ),
         fields: [
           FieldDecl(
-            name: ("field", 18, 5),
+            name: Spanned(
+              data: "field",
+              span: SourceSpan(
+                offset: SourceOffset(18),
+                length: 5,
+              ),
+            ),
             ty: TyRef(
-              name: ("u8", 26, 2),
+              name: Spanned(
+                data: "u8",
+                span: SourceSpan(
+                  offset: SourceOffset(26),
+                  length: 2,
+                ),
+              ),
               count: Some(3),
             ),
           ),

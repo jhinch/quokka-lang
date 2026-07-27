@@ -1,7 +1,8 @@
 use crate::source::Spanned;
+use miette::SourceSpan;
 use std::borrow::Borrow;
 use std::fmt;
-use std::num::NonZeroU32;
+use std::num::NonZeroU16;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Root {
@@ -72,7 +73,7 @@ pub struct ConstDecl {
 pub struct TyRef {
     pub name: SpannedIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub count: Option<NonZeroU32>,
+    pub count: Option<NonZeroU16>,
 }
 
 impl TyRef {
@@ -82,7 +83,7 @@ impl TyRef {
     }
 
     #[must_use]
-    pub const fn array(name: SpannedIdentifier, count: NonZeroU32) -> Self {
+    pub const fn array(name: SpannedIdentifier, count: NonZeroU16) -> Self {
         TyRef {
             name,
             count: Some(count),
@@ -135,8 +136,14 @@ impl Borrow<str> for Identifier {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Statement {
+    pub span: SourceSpan,
+    pub data: StatementData,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
-pub enum Statement {
+pub enum StatementData {
     Expr(ExprSmt),
     Let(LetSmt),
     Return(ReturnSmt),
@@ -178,8 +185,14 @@ pub struct YieldSmt {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ContinueSmt;
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Expr {
+    pub span: SourceSpan,
+    pub data: ExprData,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
-pub enum Expr {
+pub enum ExprData {
     Place(Place),
     Integer(SpannedIntegerLiteral),
     Unary(UnaryOp),
@@ -376,22 +389,22 @@ mod tests {
     #[test]
     fn ty_ref_new_is_scalar() {
         let ty = TyRef::new(ident("u32"));
-        assert_eq!(ty.name.value.value, "u32");
+        assert_eq!(ty.name.data.value, "u32");
         assert!(ty.count.is_none());
     }
 
     #[test]
     fn ty_ref_array_has_count() {
-        let count = NonZeroU32::new(8).unwrap();
+        let count = NonZeroU16::new(8).unwrap();
         let ty = TyRef::array(ident("u8"), count);
-        assert_eq!(ty.name.value.value, "u8");
+        assert_eq!(ty.name.data.value, "u8");
         assert_eq!(ty.count, Some(count));
     }
 
     #[test]
     fn ty_ref_array_count_one() {
-        let count = NonZeroU32::new(1).unwrap();
-        let ty = TyRef::array(ident("bool"), count);
+        let count = NonZeroU16::new(1).unwrap();
+        let ty = TyRef::array(ident("u8"), count);
         assert_eq!(ty.count.unwrap().get(), 1);
     }
 }

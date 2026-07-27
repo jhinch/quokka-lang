@@ -59,7 +59,7 @@ impl HighlighterState for QuokkaHighlighterState {
                         );
                         offset = next_offset;
                     }
-                    _ => {},
+                    _ => {}
                 },
                 Err(_) => break,
             }

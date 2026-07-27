@@ -1,57 +1,30 @@
-use miette::{SourceOffset, SourceSpan};
-use serde::ser::SerializeTuple;
+use miette::SourceSpan;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Spanned<T> {
-    pub value: T,
+    pub data: T,
     pub span: SourceSpan,
 }
 
 impl<T> Spanned<T> {
     pub fn new(value: impl Into<T>, span: SourceSpan) -> Self {
         Spanned {
-            value: value.into(),
+            data: value.into(),
             span,
         }
-    }
-}
-
-impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Spanned<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let (value, offset, len) =
-            <(T, usize, usize) as serde::Deserialize<'de>>::deserialize(deserializer)?;
-        Ok(Spanned {
-            value,
-            span: SourceSpan::new(SourceOffset::from(offset), len),
-        })
-    }
-}
-
-impl<T: serde::Serialize> serde::Serialize for Spanned<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut seq = serializer.serialize_tuple(3)?;
-        seq.serialize_element(&self.value)?;
-        seq.serialize_element(&self.span.offset())?;
-        seq.serialize_element(&self.span.len())?;
-        seq.end()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use miette::SourceOffset;
 
     #[test]
     fn new_stores_value_and_span() {
         let span = SourceSpan::new(SourceOffset::from(5), 10);
         let s: Spanned<u32> = Spanned::new(42u32, span);
-        assert_eq!(s.value, 42);
+        assert_eq!(s.data, 42);
         assert_eq!(s.span.offset(), 5);
         assert_eq!(s.span.len(), 10);
     }
@@ -60,7 +33,7 @@ mod tests {
     fn new_converts_value_via_into() {
         let span = SourceSpan::new(SourceOffset::from(0), 3);
         let s: Spanned<String> = Spanned::new("hi", span);
-        assert_eq!(s.value, "hi");
+        assert_eq!(s.data, "hi");
     }
 
     #[test]
@@ -69,7 +42,7 @@ mod tests {
         let original: Spanned<u32> = Spanned::new(99u32, span);
         let serialized = ron::to_string(&original).unwrap();
         let deserialized: Spanned<u32> = ron::from_str(&serialized).unwrap();
-        assert_eq!(deserialized.value, original.value);
+        assert_eq!(deserialized.data, original.data);
         assert_eq!(deserialized.span.offset(), original.span.offset());
         assert_eq!(deserialized.span.len(), original.span.len());
     }

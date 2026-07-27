@@ -13,12 +13,12 @@ of the compiler are not written yet
 
 The compilation goes through following phases:
 
-- Lexer
-- Parsing
-- Type checking / Semantic analysis
-- Lowering to Quokka IR
+- Lexing (Lexical analysis)
+- Parsing (Syntactic analysis)
+- Analysis (Semantic analysis / type checking)
+- HIR gen (lowering AST to High IR)
 - Conversion to static single assignment form
-- Optimisation (dead code elimination, inlining, etc.)
+- Optimization (dead code elimination, inlining, etc.)
 - Phi elimination
 - Register allocation
 - Assembly Code generation

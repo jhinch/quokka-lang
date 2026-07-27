@@ -6,9 +6,21 @@ source = """
 0
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 0,
-), 0, 1))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 1,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 0,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 1,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -19,9 +31,21 @@ source = """
 123
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 123,
-), 0, 3))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 123,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 3,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -32,9 +56,21 @@ source = """
 1_000
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 1000,
-), 0, 5))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 1000,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 5,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -45,9 +81,21 @@ source = """
 0x1F
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 31,
-), 0, 4))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 4,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 31,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 4,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -58,9 +106,21 @@ source = """
 0o17
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 15,
-), 0, 4))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 4,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 15,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 4,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -71,9 +131,21 @@ source = """
 0b101
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 5,
-), 0, 5))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 5,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 5,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -84,9 +156,21 @@ source = """
 0x1_0
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 16,
-), 0, 5))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 16,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 5,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -97,9 +181,21 @@ source = """
 0o1_0
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 8,
-), 0, 5))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 8,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 5,
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -110,9 +206,21 @@ source = """
 0b1_0
 """
 expected_ast = """
-Integer((IntegerLiteral(
-  value: 2,
-), 0, 5))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Integer(Spanned(
+    data: IntegerLiteral(
+      value: 2,
+    ),
+    span: SourceSpan(
+      offset: SourceOffset(0),
+      length: 5,
+    ),
+  )),
+)
 """
 
 [[case]]

@@ -24,27 +24,69 @@ Root(
   items: [
     Item(
       data: ConstDecl(ConstDecl(
-        name: ("A", 6, 1),
-        ty: TyRef(
-          name: ("u8", 9, 2),
+        name: Spanned(
+          data: "A",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
         ),
-        value: Integer((IntegerLiteral(
-          value: 1,
-        ), 14, 1)),
+        ty: TyRef(
+          name: Spanned(
+            data: "u8",
+            span: SourceSpan(
+              offset: SourceOffset(9),
+              length: 2,
+            ),
+          ),
+        ),
+        value: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(14),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(14),
+              length: 1,
+            ),
+          )),
+        ),
       )),
     ),
     Item(
       data: GlobalDecl(GlobalDecl(
-        name: ("B", 24, 1),
+        name: Spanned(
+          data: "B",
+          span: SourceSpan(
+            offset: SourceOffset(24),
+            length: 1,
+          ),
+        ),
         ty: TyRef(
-          name: ("u8", 27, 2),
+          name: Spanned(
+            data: "u8",
+            span: SourceSpan(
+              offset: SourceOffset(27),
+              length: 2,
+            ),
+          ),
         ),
       )),
     ),
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", 34, 4),
+          name: Spanned(
+            data: "main",
+            span: SourceSpan(
+              offset: SourceOffset(34),
+              length: 4,
+            ),
+          ),
         ),
         body: Block(
           statements: [],
@@ -90,7 +132,13 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("ok", 9, 2),
+          name: Spanned(
+            data: "ok",
+            span: SourceSpan(
+              offset: SourceOffset(9),
+              length: 2,
+            ),
+          ),
         ),
         body: Block(
           statements: [],

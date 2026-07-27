@@ -1,6 +1,6 @@
 use miette::{SourceOffset, SourceSpan};
 use std::borrow::Cow;
-use std::num::{IntErrorKind, NonZeroU32};
+use std::num::{IntErrorKind, NonZeroU16};
 use std::str::Chars;
 
 #[derive(Debug, Clone)]
@@ -53,9 +53,15 @@ impl Token<'_> {
         })
     }
 
-    pub fn try_parse_non_zero_u32(&self) -> Result<NonZeroU32, Error> {
+    pub fn try_parse_non_zero_u16(&self) -> Result<NonZeroU16, Error> {
         let value = self.try_parse_u32()?;
-        NonZeroU32::try_from(value).map_err(|_| {
+        if value > u16::MAX as u32 {
+            return Err(Error::from(InvalidNumberError {
+                span: self.span(),
+                kind: IntErrorKind::PosOverflow,
+            }));
+        }
+        NonZeroU16::try_from(value as u16).map_err(|_| {
             Error::from(InvalidNumberError {
                 span: self.span(),
                 kind: IntErrorKind::Zero,
@@ -570,17 +576,17 @@ mod tests {
     }
 
     #[test]
-    fn parse_non_zero_u32_positive() {
+    fn parse_non_zero_u16_positive() {
         let mut lexer = Lexer::from("5");
         let token = lexer.next().unwrap().unwrap();
-        assert_eq!(token.try_parse_non_zero_u32().unwrap().get(), 5);
+        assert_eq!(token.try_parse_non_zero_u16().unwrap().get(), 5);
     }
 
     #[test]
-    fn parse_non_zero_u32_zero_returns_error() {
+    fn parse_non_zero_u16_zero_returns_error() {
         let mut lexer = Lexer::from("0");
         let token = lexer.next().unwrap().unwrap();
-        assert!(token.try_parse_non_zero_u32().is_err());
+        assert!(token.try_parse_non_zero_u16().is_err());
     }
 
     #[test]

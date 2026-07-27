@@ -6,12 +6,24 @@ source = """
 a()
 """
 expected_ast = """
-Call(Call(
-  callee: Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
   ),
-))
+  data: Call(Call(
+    callee: Place(
+      name: Spanned(
+        data: "a",
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      ),
+      field: [],
+    ),
+  )),
+)
 """
 expected_errors = [
     "Preview feature error: use --preview function-call @ [1:3]",
@@ -27,12 +39,24 @@ source = """
 a()
 """
 expected_ast = """
-Call(Call(
-  callee: Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
   ),
-))
+  data: Call(Call(
+    callee: Place(
+      name: Spanned(
+        data: "a",
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      ),
+      field: [],
+    ),
+  )),
+)
 """
 
 [[case]]

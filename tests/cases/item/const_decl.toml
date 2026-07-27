@@ -9,13 +9,37 @@ Root(
   items: [
     Item(
       data: ConstDecl(ConstDecl(
-        name: ("A", 6, 1),
-        ty: TyRef(
-          name: ("u8", 9, 2),
+        name: Spanned(
+          data: "A",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
         ),
-        value: Integer((IntegerLiteral(
-          value: 1,
-        ), 14, 1)),
+        ty: TyRef(
+          name: Spanned(
+            data: "u8",
+            span: SourceSpan(
+              offset: SourceOffset(9),
+              length: 2,
+            ),
+          ),
+        ),
+        value: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(14),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(14),
+              length: 1,
+            ),
+          )),
+        ),
       )),
     ),
   ],
@@ -32,19 +56,61 @@ const A: u8 = 1 + 2;
 expected_ast = """
 Item(
   data: ConstDecl(ConstDecl(
-    name: ("A", 6, 1),
-    ty: TyRef(
-      name: ("u8", 9, 2),
+    name: Spanned(
+      data: "A",
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
     ),
-    value: Binary(BinaryOp(
-      kind: Add,
-      left: Integer((IntegerLiteral(
-        value: 1,
-      ), 14, 1)),
-      right: Integer((IntegerLiteral(
-        value: 2,
-      ), 18, 1)),
-    )),
+    ty: TyRef(
+      name: Spanned(
+        data: "u8",
+        span: SourceSpan(
+          offset: SourceOffset(9),
+          length: 2,
+        ),
+      ),
+    ),
+    value: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(14),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: Add,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(14),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(14),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(18),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(18),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
   )),
 )
 """
@@ -61,17 +127,47 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
-      name: ("this_attribute", 2, 14),
+      name: Spanned(
+        data: "this_attribute",
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 14,
+        ),
+      ),
     ),
   ],
   data: ConstDecl(ConstDecl(
-    name: ("A", 24, 1),
-    ty: TyRef(
-      name: ("u8", 27, 2),
+    name: Spanned(
+      data: "A",
+      span: SourceSpan(
+        offset: SourceOffset(24),
+        length: 1,
+      ),
     ),
-    value: Integer((IntegerLiteral(
-      value: 1,
-    ), 32, 1)),
+    ty: TyRef(
+      name: Spanned(
+        data: "u8",
+        span: SourceSpan(
+          offset: SourceOffset(27),
+          length: 2,
+        ),
+      ),
+    ),
+    value: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(32),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(32),
+          length: 1,
+        ),
+      )),
+    ),
   )),
 )
 """

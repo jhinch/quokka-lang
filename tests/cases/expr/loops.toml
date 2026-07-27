@@ -8,11 +8,17 @@ source = """
 loop {}
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -27,13 +33,25 @@ loop {
 }
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [
-      Break(BreakSmt()),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 19,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(11),
+            length: 6,
+          ),
+          data: Break(BreakSmt()),
+        ),
+      ],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -48,17 +66,41 @@ loop {
 }
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [
-      Break(BreakSmt(
-        value: Some(Integer((IntegerLiteral(
-          value: 1,
-        ), 17, 1))),
-      )),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 21,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(11),
+            length: 8,
+          ),
+          data: Break(BreakSmt(
+            value: Some(Expr(
+              span: SourceSpan(
+                offset: SourceOffset(17),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 1,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(17),
+                  length: 1,
+                ),
+              )),
+            )),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -73,13 +115,25 @@ loop {
 }
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [
-      Continue(ContinueSmt),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 22,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(11),
+            length: 9,
+          ),
+          data: Continue(ContinueSmt),
+        ),
+      ],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -94,17 +148,41 @@ loop {
 }
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [
-      Yield(YieldSmt(
-        value: Integer((IntegerLiteral(
-          value: 1,
-        ), 17, 1)),
-      )),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 21,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(11),
+            length: 8,
+          ),
+          data: Yield(YieldSmt(
+            value: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(17),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 1,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(17),
+                  length: 1,
+                ),
+              )),
+            ),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -121,21 +199,45 @@ loop {
 }
 """
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [
-      Expr(ExprSmt(
-        value: Loop(Loop(
-          body: Block(
-            statements: [
-              Break(BreakSmt()),
-            ],
-          ),
-        )),
-      )),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 40,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(11),
+            length: 27,
+          ),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(11),
+                length: 27,
+              ),
+              data: Loop(Loop(
+                body: Block(
+                  statements: [
+                    Statement(
+                      span: SourceSpan(
+                        offset: SourceOffset(26),
+                        length: 6,
+                      ),
+                      data: Break(BreakSmt()),
+                    ),
+                  ],
+                ),
+              )),
+            ),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -160,9 +262,15 @@ expected_errors = [
     "Preview feature error: use --preview loop @ [0:4]",
 ]
 expected_ast = """
-Loop(Loop(
-  body: Block(
-    statements: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
   ),
-))
+  data: Loop(Loop(
+    body: Block(
+      statements: [],
+    ),
+  )),
+)
 """

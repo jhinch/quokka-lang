@@ -6,10 +6,22 @@ source = """
 a
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 1,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [],
+  )),
+)
 """
 
 [[case]]
@@ -22,12 +34,30 @@ source = """
 a.b
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Field(("b", 2, 1)),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Field(Spanned(
+        data: "b",
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -40,13 +70,37 @@ source = """
 a.b.c
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Field(("b", 2, 1)),
-    Field(("c", 4, 1)),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Field(Spanned(
+        data: "b",
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+      )),
+      Field(Spanned(
+        data: "c",
+        span: SourceSpan(
+          offset: SourceOffset(4),
+          length: 1,
+        ),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -59,21 +113,63 @@ source = """
 a.b + c.d
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Add,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [
-      Field(("b", 2, 1)),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 9,
+  ),
+  data: Binary(BinaryOp(
+    kind: Add,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 3,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [
+          Field(Spanned(
+            data: "b",
+            span: SourceSpan(
+              offset: SourceOffset(2),
+              length: 1,
+            ),
+          )),
+        ],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 3,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "c",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [
+          Field(Spanned(
+            data: "d",
+            span: SourceSpan(
+              offset: SourceOffset(8),
+              length: 1,
+            ),
+          )),
+        ],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("c", 6, 1),
-    field: [
-      Field(("d", 8, 1)),
-    ],
-  )),
-))
+)
 """
 
 [[case]]
@@ -86,18 +182,54 @@ source = """
 a.b = 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Assign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [
-      Field(("b", 2, 1)),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: Assign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 3,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [
+          Field(Spanned(
+            data: "b",
+            span: SourceSpan(
+              offset: SourceOffset(2),
+              length: 1,
+            ),
+          )),
+        ],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(6),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 6, 1)),
-))
+)
 """
 
 [[case]]
@@ -111,14 +243,38 @@ expected_errors = [
     "Preview feature error: use --preview array @ [1:4]",
 ]
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Index(Integer((IntegerLiteral(
-      value: 0,
-    ), 2, 1))),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 4,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Index(Expr(
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+        data: Integer(Spanned(
+          data: IntegerLiteral(
+            value: 0,
+          ),
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+        )),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -131,14 +287,38 @@ source = """
 a[0]
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Index(Integer((IntegerLiteral(
-      value: 0,
-    ), 2, 1))),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 4,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Index(Expr(
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+        data: Integer(Spanned(
+          data: IntegerLiteral(
+            value: 0,
+          ),
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+        )),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -151,15 +331,45 @@ source = """
 a.b[0]
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Field(("b", 2, 1)),
-    Index(Integer((IntegerLiteral(
-      value: 0,
-    ), 4, 1))),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Field(Spanned(
+        data: "b",
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+      )),
+      Index(Expr(
+        span: SourceSpan(
+          offset: SourceOffset(4),
+          length: 1,
+        ),
+        data: Integer(Spanned(
+          data: IntegerLiteral(
+            value: 0,
+          ),
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+        )),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -172,15 +382,45 @@ source = """
 a[0].b
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Index(Integer((IntegerLiteral(
-      value: 0,
-    ), 2, 1))),
-    Field(("b", 5, 1)),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Index(Expr(
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+        data: Integer(Spanned(
+          data: IntegerLiteral(
+            value: 0,
+          ),
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+        )),
+      )),
+      Field(Spanned(
+        data: "b",
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ],
+  )),
+)
 """
 
 [[case]]
@@ -191,12 +431,30 @@ source = """
 a.b
 """
 expected_ast = """
-Place(Place(
-  name: ("a", 0, 1),
-  field: [
-    Field(("b", 2, 1)),
-  ],
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Place(Place(
+    name: Spanned(
+      data: "a",
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+    ),
+    field: [
+      Field(Spanned(
+        data: "b",
+        span: SourceSpan(
+          offset: SourceOffset(2),
+          length: 1,
+        ),
+      )),
+    ],
+  )),
+)
 """
 expected_errors = [
     "Preview feature error: use --preview field-access @ [1:3]",

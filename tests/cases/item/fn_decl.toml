@@ -10,7 +10,13 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", 3, 4),
+          name: Spanned(
+            data: "main",
+            span: SourceSpan(
+              offset: SourceOffset(3),
+              length: 4,
+            ),
+          ),
         ),
         body: Block(
           statements: [],
@@ -65,18 +71,48 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("that_function", 3, 13),
+          name: Spanned(
+            data: "that_function",
+            span: SourceSpan(
+              offset: SourceOffset(3),
+              length: 13,
+            ),
+          ),
           ty: Some(TyRef(
-            name: ("u8", 22, 2),
+            name: Spanned(
+              data: "u8",
+              span: SourceSpan(
+                offset: SourceOffset(22),
+                length: 2,
+              ),
+            ),
           )),
         ),
         body: Block(
           statements: [
-            Return(ReturnSmt(
-              value: Some(Integer((IntegerLiteral(
-                value: 1,
-              ), 38, 1))),
-            )),
+            Statement(
+              span: SourceSpan(
+                offset: SourceOffset(31),
+                length: 9,
+              ),
+              data: Return(ReturnSmt(
+                value: Some(Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(38),
+                    length: 1,
+                  ),
+                  data: Integer(Spanned(
+                    data: IntegerLiteral(
+                      value: 1,
+                    ),
+                    span: SourceSpan(
+                      offset: SourceOffset(38),
+                      length: 1,
+                    ),
+                  )),
+                )),
+              )),
+            ),
           ],
         ),
       )),
@@ -99,11 +135,23 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("that_function", 3, 13),
+          name: Spanned(
+            data: "that_function",
+            span: SourceSpan(
+              offset: SourceOffset(3),
+              length: 13,
+            ),
+          ),
         ),
         body: Block(
           statements: [
-            Return(ReturnSmt()),
+            Statement(
+              span: SourceSpan(
+                offset: SourceOffset(25),
+                length: 7,
+              ),
+              data: Return(ReturnSmt()),
+            ),
           ],
         ),
       )),
@@ -129,25 +177,55 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          name: ("no_startup_code", 2, 15),
+          name: Spanned(
+            data: "no_startup_code",
+            span: SourceSpan(
+              offset: SourceOffset(2),
+              length: 15,
+            ),
+          ),
         ),
       ],
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", 22, 4),
+          name: Spanned(
+            data: "main",
+            span: SourceSpan(
+              offset: SourceOffset(22),
+              length: 4,
+            ),
+          ),
           ty: Some(TyRef(
-            name: ("never", 32, 5),
+            name: Spanned(
+              data: "never",
+              span: SourceSpan(
+                offset: SourceOffset(32),
+                length: 5,
+              ),
+            ),
           )),
         ),
         body: Block(
           statements: [
-            Expr(ExprSmt(
-              value: Loop(Loop(
-                body: Block(
-                  statements: [],
+            Statement(
+              span: SourceSpan(
+                offset: SourceOffset(44),
+                length: 7,
+              ),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(44),
+                    length: 7,
+                  ),
+                  data: Loop(Loop(
+                    body: Block(
+                      statements: [],
+                    ),
+                  )),
                 ),
               )),
-            )),
+            ),
           ],
         ),
       )),
@@ -174,28 +252,64 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          name: ("no_startup_code", 2, 15),
+          name: Spanned(
+            data: "no_startup_code",
+            span: SourceSpan(
+              offset: SourceOffset(2),
+              length: 15,
+            ),
+          ),
         ),
         AttributeDecl(
-          name: ("entrypoint", 21, 10),
+          name: Spanned(
+            data: "entrypoint",
+            span: SourceSpan(
+              offset: SourceOffset(21),
+              length: 10,
+            ),
+          ),
         ),
       ],
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", 36, 4),
+          name: Spanned(
+            data: "main",
+            span: SourceSpan(
+              offset: SourceOffset(36),
+              length: 4,
+            ),
+          ),
           ty: Some(TyRef(
-            name: ("never", 46, 5),
+            name: Spanned(
+              data: "never",
+              span: SourceSpan(
+                offset: SourceOffset(46),
+                length: 5,
+              ),
+            ),
           )),
         ),
         body: Block(
           statements: [
-            Expr(ExprSmt(
-              value: Loop(Loop(
-                body: Block(
-                  statements: [],
+            Statement(
+              span: SourceSpan(
+                offset: SourceOffset(58),
+                length: 7,
+              ),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(58),
+                    length: 7,
+                  ),
+                  data: Loop(Loop(
+                    body: Block(
+                      statements: [],
+                    ),
+                  )),
                 ),
               )),
-            )),
+            ),
           ],
         ),
       )),

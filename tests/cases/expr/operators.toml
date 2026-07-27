@@ -6,13 +6,31 @@ source = """
 !a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Not,
-  expr: Place(Place(
-    name: ("a", 1, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 2,
+  ),
+  data: Unary(UnaryOp(
+    kind: Not,
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -23,16 +41,40 @@ source = """
 !!a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Not,
-  expr: Unary(UnaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Unary(UnaryOp(
     kind: Not,
-    expr: Place(Place(
-      name: ("a", 2, 1),
-      field: [],
-    )),
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 2,
+      ),
+      data: Unary(UnaryOp(
+        kind: Not,
+        expr: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(2),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -43,13 +85,31 @@ source = """
 -a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Neg,
-  expr: Place(Place(
-    name: ("a", 1, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 2,
+  ),
+  data: Unary(UnaryOp(
+    kind: Neg,
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -60,16 +120,40 @@ source = """
 --a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Neg,
-  expr: Unary(UnaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Unary(UnaryOp(
     kind: Neg,
-    expr: Place(Place(
-      name: ("a", 2, 1),
-      field: [],
-    )),
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 2,
+      ),
+      data: Unary(UnaryOp(
+        kind: Neg,
+        expr: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(2),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -80,13 +164,31 @@ source = """
 *a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Deref,
-  expr: Place(Place(
-    name: ("a", 1, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 2,
+  ),
+  data: Unary(UnaryOp(
+    kind: Deref,
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -97,16 +199,40 @@ source = """
 **a
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Deref,
-  expr: Unary(UnaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 3,
+  ),
+  data: Unary(UnaryOp(
     kind: Deref,
-    expr: Place(Place(
-      name: ("a", 2, 1),
-      field: [],
-    )),
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 2,
+      ),
+      data: Unary(UnaryOp(
+        kind: Deref,
+        expr: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(2),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(2),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -117,20 +243,56 @@ source = """
 -a + b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Add,
-  left: Unary(UnaryOp(
-    kind: Neg,
-    expr: Place(Place(
-      name: ("a", 1, 1),
-      field: [],
-    )),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: Add,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 2,
+      ),
+      data: Unary(UnaryOp(
+        kind: Neg,
+        expr: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(1),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -143,15 +305,39 @@ source = """
 -a.b
 """
 expected_ast = """
-Unary(UnaryOp(
-  kind: Neg,
-  expr: Place(Place(
-    name: ("a", 1, 1),
-    field: [
-      Field(("b", 3, 1)),
-    ],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 4,
+  ),
+  data: Unary(UnaryOp(
+    kind: Neg,
+    expr: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(1),
+        length: 3,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+        ),
+        field: [
+          Field(Spanned(
+            data: "b",
+            span: SourceSpan(
+              offset: SourceOffset(3),
+              length: 1,
+            ),
+          )),
+        ],
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -162,17 +348,47 @@ source = """
 a && b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: And,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: And,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -183,17 +399,47 @@ source = """
 a || b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Or,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: Or,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -204,24 +450,72 @@ source = """
 a || b && c
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Or,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 11,
+  ),
+  data: Binary(BinaryOp(
+    kind: Or,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 6,
+      ),
+      data: Binary(BinaryOp(
+        kind: And,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "b",
+              span: SourceSpan(
+                offset: SourceOffset(5),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(10),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "c",
+              span: SourceSpan(
+                offset: SourceOffset(10),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-  right: Binary(BinaryOp(
-    kind: And,
-    left: Place(Place(
-      name: ("b", 5, 1),
-      field: [],
-    )),
-    right: Place(Place(
-      name: ("c", 10, 1),
-      field: [],
-    )),
-  )),
-))
+)
 """
 
 [[case]]
@@ -232,39 +526,141 @@ source = """
 1 == 1 && 2 == 2 || 3 == 3
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Or,
-  left: Binary(BinaryOp(
-    kind: And,
-    left: Binary(BinaryOp(
-      kind: Equal,
-      left: Integer((IntegerLiteral(
-        value: 1,
-      ), 0, 1)),
-      right: Integer((IntegerLiteral(
-        value: 1,
-      ), 5, 1)),
-    )),
-    right: Binary(BinaryOp(
-      kind: Equal,
-      left: Integer((IntegerLiteral(
-        value: 2,
-      ), 10, 1)),
-      right: Integer((IntegerLiteral(
-        value: 2,
-      ), 15, 1)),
-    )),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 26,
+  ),
+  data: Binary(BinaryOp(
+    kind: Or,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 16,
+      ),
+      data: Binary(BinaryOp(
+        kind: And,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 6,
+          ),
+          data: Binary(BinaryOp(
+            kind: Equal,
+            left: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(0),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 1,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(0),
+                  length: 1,
+                ),
+              )),
+            ),
+            right: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(5),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 1,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(5),
+                  length: 1,
+                ),
+              )),
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(10),
+            length: 6,
+          ),
+          data: Binary(BinaryOp(
+            kind: Equal,
+            left: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(10),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 2,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(10),
+                  length: 1,
+                ),
+              )),
+            ),
+            right: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(15),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 2,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(15),
+                  length: 1,
+                ),
+              )),
+            ),
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(20),
+        length: 6,
+      ),
+      data: Binary(BinaryOp(
+        kind: Equal,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(20),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 3,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(20),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(25),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 3,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(25),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
   )),
-  right: Binary(BinaryOp(
-    kind: Equal,
-    left: Integer((IntegerLiteral(
-      value: 3,
-    ), 20, 1)),
-    right: Integer((IntegerLiteral(
-      value: 3,
-    ), 25, 1)),
-  )),
-))
+)
 """
 
 [[case]]
@@ -275,20 +671,56 @@ source = """
 !a && b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: And,
-  left: Unary(UnaryOp(
-    kind: Not,
-    expr: Place(Place(
-      name: ("a", 1, 1),
-      field: [],
-    )),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: And,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 2,
+      ),
+      data: Unary(UnaryOp(
+        kind: Not,
+        expr: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(1),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(1),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 6, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -299,17 +731,47 @@ source = """
 a & b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitAnd,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitAnd,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 4, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -320,17 +782,47 @@ source = """
 a | b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitOr,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitOr,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 4, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -341,17 +833,47 @@ source = """
 a ^ b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Xor,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: Xor,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 4, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -362,27 +884,93 @@ source = """
 1 | 2 ^ 3 & 4
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitOr,
-  left: Integer((IntegerLiteral(
-    value: 1,
-  ), 0, 1)),
-  right: Binary(BinaryOp(
-    kind: Xor,
-    left: Integer((IntegerLiteral(
-      value: 2,
-    ), 4, 1)),
-    right: Binary(BinaryOp(
-      kind: BitAnd,
-      left: Integer((IntegerLiteral(
-        value: 3,
-      ), 8, 1)),
-      right: Integer((IntegerLiteral(
-        value: 4,
-      ), 12, 1)),
-    )),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 13,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitOr,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 9,
+      ),
+      data: Binary(BinaryOp(
+        kind: Xor,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(4),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(8),
+            length: 5,
+          ),
+          data: Binary(BinaryOp(
+            kind: BitAnd,
+            left: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(8),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 3,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(8),
+                  length: 1,
+                ),
+              )),
+            ),
+            right: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(12),
+                length: 1,
+              ),
+              data: Integer(Spanned(
+                data: IntegerLiteral(
+                  value: 4,
+                ),
+                span: SourceSpan(
+                  offset: SourceOffset(12),
+                  length: 1,
+                ),
+              )),
+            ),
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -393,31 +981,97 @@ source = """
 a & b && c | d
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: And,
-  left: Binary(BinaryOp(
-    kind: BitAnd,
-    left: Place(Place(
-      name: ("a", 0, 1),
-      field: [],
-    )),
-    right: Place(Place(
-      name: ("b", 4, 1),
-      field: [],
-    )),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 14,
+  ),
+  data: Binary(BinaryOp(
+    kind: And,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: BitAnd,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(0),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "b",
+              span: SourceSpan(
+                offset: SourceOffset(4),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(9),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: BitOr,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(9),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "c",
+              span: SourceSpan(
+                offset: SourceOffset(9),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(13),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "d",
+              span: SourceSpan(
+                offset: SourceOffset(13),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-  right: Binary(BinaryOp(
-    kind: BitOr,
-    left: Place(Place(
-      name: ("c", 9, 1),
-      field: [],
-    )),
-    right: Place(Place(
-      name: ("d", 13, 1),
-      field: [],
-    )),
-  )),
-))
+)
 """
 
 [[case]]
@@ -428,15 +1082,45 @@ source = """
 1 + 2
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Add,
-  left: Integer((IntegerLiteral(
-    value: 1,
-  ), 0, 1)),
-  right: Integer((IntegerLiteral(
-    value: 2,
-  ), 4, 1)),
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: Add,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(4),
+          length: 1,
+        ),
+      )),
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -447,15 +1131,45 @@ source = """
 1 - 2
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Sub,
-  left: Integer((IntegerLiteral(
-    value: 1,
-  ), 0, 1)),
-  right: Integer((IntegerLiteral(
-    value: 2,
-  ), 4, 1)),
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: Sub,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(4),
+          length: 1,
+        ),
+      )),
+    ),
+  )),
+)
 """
 
 [[case]]
@@ -466,21 +1180,69 @@ source = """
 1 - 2 - 3
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Sub,
-  left: Binary(BinaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 9,
+  ),
+  data: Binary(BinaryOp(
     kind: Sub,
-    left: Integer((IntegerLiteral(
-      value: 1,
-    ), 0, 1)),
-    right: Integer((IntegerLiteral(
-      value: 2,
-    ), 4, 1)),
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: Sub,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(0),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(4),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(8),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 3,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(8),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 3,
-  ), 8, 1)),
-))
+)
 """
 
 [[case]]
@@ -491,21 +1253,69 @@ source = """
 1 & 2 + 3
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitAnd,
-  left: Integer((IntegerLiteral(
-    value: 1,
-  ), 0, 1)),
-  right: Binary(BinaryOp(
-    kind: Add,
-    left: Integer((IntegerLiteral(
-      value: 2,
-    ), 4, 1)),
-    right: Integer((IntegerLiteral(
-      value: 3,
-    ), 8, 1)),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 9,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitAnd,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(0),
+          length: 1,
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: Add,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(4),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(8),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 3,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(8),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -516,16 +1326,46 @@ source = """
 a << 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftLeft,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: ShiftLeft,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -536,16 +1376,46 @@ source = """
 a >> 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftRight,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: ShiftRight,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -556,22 +1426,70 @@ source = """
 a << 1 << 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftLeft,
-  left: Binary(BinaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 11,
+  ),
+  data: Binary(BinaryOp(
     kind: ShiftLeft,
-    left: Place(Place(
-      name: ("a", 0, 1),
-      field: [],
-    )),
-    right: Integer((IntegerLiteral(
-      value: 1,
-    ), 5, 1)),
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 6,
+      ),
+      data: Binary(BinaryOp(
+        kind: ShiftLeft,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "a",
+              span: SourceSpan(
+                offset: SourceOffset(0),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(5),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(10),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 10, 1)),
-))
+)
 """
 
 [[case]]
@@ -582,23 +1500,71 @@ source = """
 a & b << 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitAnd,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 10,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitAnd,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 6,
+      ),
+      data: Binary(BinaryOp(
+        kind: ShiftLeft,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "b",
+              span: SourceSpan(
+                offset: SourceOffset(4),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(9),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(9),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
   )),
-  right: Binary(BinaryOp(
-    kind: ShiftLeft,
-    left: Place(Place(
-      name: ("b", 4, 1),
-      field: [],
-    )),
-    right: Integer((IntegerLiteral(
-      value: 1,
-    ), 9, 1)),
-  )),
-))
+)
 """
 
 [[case]]
@@ -609,21 +1575,69 @@ source = """
 1 + 2 << 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftLeft,
-  left: Binary(BinaryOp(
-    kind: Add,
-    left: Integer((IntegerLiteral(
-      value: 1,
-    ), 0, 1)),
-    right: Integer((IntegerLiteral(
-      value: 2,
-    ), 4, 1)),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 10,
+  ),
+  data: Binary(BinaryOp(
+    kind: ShiftLeft,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: Add,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(0),
+              length: 1,
+            ),
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(4),
+              length: 1,
+            ),
+          )),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(9),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(9),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 9, 1)),
-))
+)
 """
 
 [[case]]
@@ -634,17 +1648,47 @@ source = """
 a <% b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateLeft,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateLeft,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -655,17 +1699,47 @@ source = """
 a >% b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateRight,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateRight,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -676,17 +1750,47 @@ source = """
 a <% _
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateLeft,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateLeft,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "_",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("_", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -697,17 +1801,47 @@ source = """
 a >% _
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateRight,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateRight,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "_",
+          span: SourceSpan(
+            offset: SourceOffset(5),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("_", 5, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -718,16 +1852,46 @@ source = """
 a = 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Assign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 5,
+  ),
+  data: Binary(BinaryOp(
+    kind: Assign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(4),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 4, 1)),
-))
+)
 """
 
 [[case]]
@@ -738,24 +1902,72 @@ source = """
 a = b = c
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Assign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
-  )),
-  right: Binary(BinaryOp(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 9,
+  ),
+  data: Binary(BinaryOp(
     kind: Assign,
-    left: Place(Place(
-      name: ("b", 4, 1),
-      field: [],
-    )),
-    right: Place(Place(
-      name: ("c", 8, 1),
-      field: [],
-    )),
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 5,
+      ),
+      data: Binary(BinaryOp(
+        kind: Assign,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "b",
+              span: SourceSpan(
+                offset: SourceOffset(4),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(8),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "c",
+              span: SourceSpan(
+                offset: SourceOffset(8),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-))
+)
 """
 
 [[case]]
@@ -766,24 +1978,72 @@ source = """
 a = b || c
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: Assign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 10,
+  ),
+  data: Binary(BinaryOp(
+    kind: Assign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(4),
+        length: 6,
+      ),
+      data: Binary(BinaryOp(
+        kind: Or,
+        left: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(4),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "b",
+              span: SourceSpan(
+                offset: SourceOffset(4),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(9),
+            length: 1,
+          ),
+          data: Place(Place(
+            name: Spanned(
+              data: "c",
+              span: SourceSpan(
+                offset: SourceOffset(9),
+                length: 1,
+              ),
+            ),
+            field: [],
+          )),
+        ),
+      )),
+    ),
   )),
-  right: Binary(BinaryOp(
-    kind: Or,
-    left: Place(Place(
-      name: ("b", 4, 1),
-      field: [],
-    )),
-    right: Place(Place(
-      name: ("c", 9, 1),
-      field: [],
-    )),
-  )),
-))
+)
 """
 
 [[case]]
@@ -794,16 +2054,46 @@ source = """
 a += 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: AddAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: AddAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -814,16 +2104,46 @@ source = """
 a -= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: SubAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: SubAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -834,16 +2154,46 @@ source = """
 a &= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitAndAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitAndAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -854,16 +2204,46 @@ source = """
 a |= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: BitOrAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: BitOrAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -874,16 +2254,46 @@ source = """
 a ^= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: XOrAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 6,
+  ),
+  data: Binary(BinaryOp(
+    kind: XOrAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(5),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(5),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 5, 1)),
-))
+)
 """
 
 [[case]]
@@ -894,16 +2304,46 @@ source = """
 a <<= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftLeftAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: ShiftLeftAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(6),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 6, 1)),
-))
+)
 """
 
 [[case]]
@@ -914,16 +2354,46 @@ source = """
 a >>= 1
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: ShiftRightAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: ShiftRightAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(6),
+          length: 1,
+        ),
+      )),
+    ),
   )),
-  right: Integer((IntegerLiteral(
-    value: 1,
-  ), 6, 1)),
-))
+)
 """
 
 [[case]]
@@ -934,17 +2404,47 @@ source = """
 a <%= _
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateLeftAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateLeftAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "_",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("_", 6, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -955,17 +2455,47 @@ source = """
 a >%= _
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateRightAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateRightAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "_",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("_", 6, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -976,17 +2506,47 @@ source = """
 a <%= b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateLeftAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateLeftAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 6, 1),
-    field: [],
-  )),
-))
+)
 """
 
 [[case]]
@@ -997,15 +2557,45 @@ source = """
 a >%= b
 """
 expected_ast = """
-Binary(BinaryOp(
-  kind: RotateRightAssign,
-  left: Place(Place(
-    name: ("a", 0, 1),
-    field: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 7,
+  ),
+  data: Binary(BinaryOp(
+    kind: RotateRightAssign,
+    left: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(0),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "a",
+          span: SourceSpan(
+            offset: SourceOffset(0),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
+    right: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(6),
+        length: 1,
+      ),
+      data: Place(Place(
+        name: Spanned(
+          data: "b",
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+        ),
+        field: [],
+      )),
+    ),
   )),
-  right: Place(Place(
-    name: ("b", 6, 1),
-    field: [],
-  )),
-))
+)
 """

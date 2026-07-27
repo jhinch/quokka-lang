@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::feature::{PreviewFeature, PreviewFeatureError, PreviewFeatureSet};
 use crate::lex::{self, Token, TokenKind};
 use crate::multi::{MultiResult, MultiResultBuilder};
-use miette::{SourceOffset, SourceSpan};
+use miette::SourceSpan;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -196,7 +196,7 @@ impl Parser<'_> {
             self.expect(TokenKind::Hash)?;
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
-            if name.value.value == "preview_flag_example" {
+            if name.data.value == "preview_flag_example" {
                 self.features.check_enabled(
                     PreviewFeature::ExamplePreview,
                     name.span,
@@ -334,7 +334,7 @@ impl Parser<'_> {
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
             self.expect(TokenKind::Semicolon)?;
-            let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u32()?;
+            let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
             self.expect(TokenKind::RightBracket)?;
             (name, Some(count))
         } else {
@@ -363,13 +363,19 @@ impl Parser<'_> {
 
     fn parse_statement(&mut self) -> Result<Statement, Error> {
         let token = self.peek_token()?;
-        Ok(match token.kind() {
-            TokenKind::Let => Statement::from(self.parse_local_decl()?),
-            TokenKind::Return => Statement::from(self.parse_return()?),
-            TokenKind::Break => Statement::from(self.parse_break()?),
-            TokenKind::Yield => Statement::from(self.parse_yield()?),
-            TokenKind::Continue => Statement::from(self.parse_continue()?),
-            _ => Statement::from(self.parse_expr_smt()?),
+        let start_span = token.span();
+        let data = match token.kind() {
+            TokenKind::Let => StatementData::from(self.parse_local_decl()?),
+            TokenKind::Return => StatementData::from(self.parse_return()?),
+            TokenKind::Break => StatementData::from(self.parse_break()?),
+            TokenKind::Yield => StatementData::from(self.parse_yield()?),
+            TokenKind::Continue => StatementData::from(self.parse_continue()?),
+            _ => StatementData::from(self.parse_expr_smt()?),
+        };
+        let end_span = self.lexer.current().unwrap().span();
+        Ok(Statement {
+            span: SourceSpan::from(start_span.offset()..(end_span.offset() + end_span.len())),
+            data,
         })
     }
 
@@ -437,8 +443,15 @@ impl Parser<'_> {
     }
 
     fn parse_expr_or_block(&mut self) -> Result<Expr, Error> {
-        Ok(if self.peek_token()?.kind() == TokenKind::LeftBrace {
-            Expr::from(self.parse_body()?)
+        let peeked_token = self.peek_token()?;
+        Ok(if peeked_token.kind() == TokenKind::LeftBrace {
+            let start_span = peeked_token.span();
+            let block = self.parse_body()?;
+            let end_span = self.lexer.current().unwrap().span();
+            Expr {
+                span: SourceSpan::from(start_span.offset()..(end_span.offset() + end_span.len())),
+                data: ExprData::Block(block),
+            }
         } else {
             self.parse_expr_above(0)?
         })
@@ -450,91 +463,101 @@ impl Parser<'_> {
 
     fn parse_expr_above(&mut self, min_bp: u8) -> Result<Expr, Error> {
         let lhs_token = self.consume_token()?;
-        let mut lhs = match lhs_token.kind() {
-            // atoms
-            TokenKind::Number => Expr::from(SpannedIntegerLiteral::new(
-                lhs_token.try_parse_u32()?,
-                lhs_token.span(),
-            )),
-            TokenKind::Ident => {
-                let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
-                Expr::from(Place {
-                    name,
-                    field: Vec::new(),
-                })
-            }
-            // group
-            TokenKind::LeftParen => {
-                let expr = self.parse_expr_above(0)?;
-                self.expect(TokenKind::RightParen)?;
-                Expr::from(Box::new(expr))
-            }
-            TokenKind::If => {
-                let condition = Box::new(self.parse_expr()?);
-                self.expect(TokenKind::Then)?;
-                let true_block = Box::new(self.parse_expr_or_block()?);
-                let false_block = if self.peek_token()?.kind() == TokenKind::Else {
-                    self.chomp()?;
-                    Some(Box::new(self.parse_expr_or_block()?))
-                } else {
-                    None
-                };
-
-                self.features.check_enabled(
-                    PreviewFeature::IfElse,
+        let lhs_start_span = lhs_token.span();
+        let mut lhs = {
+            let data = match lhs_token.kind() {
+                // atoms
+                TokenKind::Number => ExprData::from(SpannedIntegerLiteral::new(
+                    lhs_token.try_parse_u32()?,
                     lhs_token.span(),
-                    &mut self.result_builder,
-                );
+                )),
+                TokenKind::Ident => {
+                    let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
+                    ExprData::from(Place {
+                        name,
+                        field: Vec::new(),
+                    })
+                }
+                // group
+                TokenKind::LeftParen => {
+                    let expr = self.parse_expr_above(0)?;
+                    self.expect(TokenKind::RightParen)?;
+                    ExprData::from(Box::new(expr))
+                }
+                TokenKind::If => {
+                    let condition = Box::new(self.parse_expr()?);
+                    self.expect(TokenKind::Then)?;
+                    let true_block = Box::new(self.parse_expr_or_block()?);
+                    let false_block = if self.peek_token()?.kind() == TokenKind::Else {
+                        self.chomp()?;
+                        Some(Box::new(self.parse_expr_or_block()?))
+                    } else {
+                        None
+                    };
 
-                Expr::from(If {
-                    condition,
-                    true_block,
-                    false_block,
-                })
-            }
-            TokenKind::Loop => {
-                let body = self.parse_body()?;
-                self.features.check_enabled(
-                    PreviewFeature::Loop,
-                    lhs_token.span(),
-                    &mut self.result_builder,
-                );
-                Expr::from(Loop { body })
-            }
-            TokenKind::Asm => {
-                self.features
-                    .require_enabled(PreviewFeature::InlineAsm, lhs_token.span())?;
-                todo!("parse inline-asm");
-            }
-            // unary prefix expression
-            kind @ (TokenKind::Star | TokenKind::Bang | TokenKind::Minus) => {
-                let kind = match kind {
-                    TokenKind::Bang => UnaryOpKind::Not,
-                    TokenKind::Minus => UnaryOpKind::Neg,
-                    TokenKind::Star => UnaryOpKind::Deref,
-                    _ => unreachable!(
-                        "{kind:?} is matched as a unary prefix expression but has no op kind"
-                    ),
-                };
-                let bp = prefix_binding_power(OpKind::Unary(kind));
-                let expr = Box::new(self.parse_expr_above(bp)?);
-                Expr::from(UnaryOp { kind, expr })
-            }
-            unexpected => {
-                return Err(Error::from(SyntaxError {
-                    span: lhs_token.span(),
-                    unexpected,
-                    expected: vec![
-                        TokenKind::Number,
-                        TokenKind::Ident,
-                        TokenKind::LeftParen,
-                        TokenKind::Star,
-                        TokenKind::Bang,
-                        TokenKind::Minus,
-                        TokenKind::If,
-                        TokenKind::Loop,
-                    ],
-                }));
+                    self.features.check_enabled(
+                        PreviewFeature::IfElse,
+                        lhs_token.span(),
+                        &mut self.result_builder,
+                    );
+
+                    ExprData::from(If {
+                        condition,
+                        true_block,
+                        false_block,
+                    })
+                }
+                TokenKind::Loop => {
+                    let body = self.parse_body()?;
+                    self.features.check_enabled(
+                        PreviewFeature::Loop,
+                        lhs_token.span(),
+                        &mut self.result_builder,
+                    );
+                    ExprData::from(Loop { body })
+                }
+                TokenKind::Asm => {
+                    self.features
+                        .require_enabled(PreviewFeature::InlineAsm, lhs_token.span())?;
+                    todo!("parse inline-asm");
+                }
+                // unary prefix expression
+                kind @ (TokenKind::Star | TokenKind::Bang | TokenKind::Minus) => {
+                    let kind = match kind {
+                        TokenKind::Bang => UnaryOpKind::Not,
+                        TokenKind::Minus => UnaryOpKind::Neg,
+                        TokenKind::Star => UnaryOpKind::Deref,
+                        _ => unreachable!(
+                            "{kind:?} is matched as a unary prefix expression but has no op kind"
+                        ),
+                    };
+                    let bp = prefix_binding_power(OpKind::Unary(kind));
+                    let expr = Box::new(self.parse_expr_above(bp)?);
+                    ExprData::from(UnaryOp { kind, expr })
+                }
+                unexpected => {
+                    return Err(Error::from(SyntaxError {
+                        span: lhs_token.span(),
+                        unexpected,
+                        expected: vec![
+                            TokenKind::Number,
+                            TokenKind::Ident,
+                            TokenKind::LeftParen,
+                            TokenKind::Star,
+                            TokenKind::Bang,
+                            TokenKind::Minus,
+                            TokenKind::If,
+                            TokenKind::Loop,
+                        ],
+                    }));
+                }
+            };
+            let end_span = self.lexer.current().unwrap().span();
+            Expr {
+                span: SourceSpan::from(
+                    lhs_start_span.offset()..(end_span.offset() + end_span.len()),
+                ),
+                data,
             }
         };
 
@@ -625,104 +648,110 @@ impl Parser<'_> {
                 }
             };
 
-            lhs = match postfix_binding_power(kind) {
-                Some(bp) => {
-                    // postfix handling
-                    if bp < min_bp {
-                        break;
-                    }
-                    let op_token = self.consume_token()?;
-                    match kind {
-                        OpKind::FunctionCall => {
-                            let end_span = self.expect(TokenKind::RightParen)?.span();
-                            let span = SourceSpan::new(
-                                SourceOffset::from(op_token.span().offset()),
-                                end_span.offset() + end_span.len() - op_token.span().offset(),
-                            );
-                            self.features.check_enabled(
-                                PreviewFeature::FunctionCall,
-                                span,
-                                &mut self.result_builder,
-                            );
-                            match lhs {
-                                Expr::Place(callee) => Expr::from(Call { callee }),
-                                _ => return Err(Error::from(CallOnValueError { span })),
-                            }
+            lhs = {
+                let data = match postfix_binding_power(kind) {
+                    Some(bp) => {
+                        // postfix handling
+                        if bp < min_bp {
+                            break;
                         }
-                        OpKind::ArrayIndex => {
-                            let index = Box::new(self.parse_expr()?);
-                            let end_span = self.expect(TokenKind::RightBracket)?.span();
-                            let span = SourceSpan::new(
-                                SourceOffset::from(op_token.span().offset()),
-                                end_span.offset() + end_span.len() - op_token.span().offset(),
-                            );
-                            self.features.check_enabled(
-                                PreviewFeature::Array,
-                                span,
-                                &mut self.result_builder,
-                            );
-                            match lhs {
-                                Expr::Place(mut place) => {
-                                    place.field.push(FieldPathPart::Index(index));
-                                    Expr::from(place)
+                        let op_token = self.consume_token()?;
+                        match kind {
+                            OpKind::FunctionCall => {
+                                let end_span = self.expect(TokenKind::RightParen)?.span();
+                                let span = SourceSpan::from(
+                                    op_token.span().offset()..(end_span.offset() + end_span.len()),
+                                );
+                                self.features.check_enabled(
+                                    PreviewFeature::FunctionCall,
+                                    span,
+                                    &mut self.result_builder,
+                                );
+                                match lhs.data {
+                                    ExprData::Place(callee) => ExprData::from(Call { callee }),
+                                    _ => return Err(Error::from(CallOnValueError { span })),
                                 }
-                                _ => return Err(Error::from(ArrayIndexOnValueError { span })),
                             }
-                        }
-                        OpKind::FieldAccess => {
-                            let token = self.expect(TokenKind::Ident)?;
-                            let name = SpannedIdentifier::new(token.text(), token.span());
-                            let span = SourceSpan::new(
-                                SourceOffset::from(op_token.span().offset()),
-                                token.span().offset() + token.span().len()
-                                    - op_token.span().offset(),
-                            );
-                            self.features.check_enabled(
-                                PreviewFeature::FieldAccess,
-                                span,
-                                &mut self.result_builder,
-                            );
-                            match lhs {
-                                Expr::Place(mut place) => {
-                                    place.field.push(FieldPathPart::Field(name));
-                                    Expr::from(place)
+                            OpKind::ArrayIndex => {
+                                let index = Box::new(self.parse_expr()?);
+                                let end_span = self.expect(TokenKind::RightBracket)?.span();
+                                let span = SourceSpan::from(
+                                    op_token.span().offset()..(end_span.offset() + end_span.len()),
+                                );
+                                self.features.check_enabled(
+                                    PreviewFeature::Array,
+                                    span,
+                                    &mut self.result_builder,
+                                );
+                                match lhs.data {
+                                    ExprData::Place(mut place) => {
+                                        place.field.push(FieldPathPart::Index(index));
+                                        ExprData::from(place)
+                                    }
+                                    _ => return Err(Error::from(ArrayIndexOnValueError { span })),
                                 }
-                                _ => return Err(Error::from(FieldAccessOnValueError { span })),
                             }
-                        }
-                        _ => unimplemented!("{kind:?} is not a postfix op"),
-                    }
-                }
-                None => {
-                    // infix handling
-                    let (lhs_bp, rhs_bp) = infix_binding_power(kind);
-                    if lhs_bp < min_bp {
-                        break;
-                    }
-                    let op_token = self.consume_token()?;
-
-                    let rhs = self.parse_expr_above(rhs_bp)?;
-
-                    match kind {
-                        OpKind::Binary(kind) => {
-                            if is_comparison(kind)
-                                && matches!(lhs, Expr::Binary(BinaryOp { kind: left_kind, .. }) if is_comparison(left_kind))
-                            {
-                                return Err(Error::ChainedComparison(ChainedComparisonError {
-                                    span: op_token.span(),
-                                }));
+                            OpKind::FieldAccess => {
+                                let token = self.expect(TokenKind::Ident)?;
+                                let name = SpannedIdentifier::new(token.text(), token.span());
+                                let span = SourceSpan::from(
+                                    op_token.span().offset()
+                                        ..(token.span().offset() + token.span().len()),
+                                );
+                                self.features.check_enabled(
+                                    PreviewFeature::FieldAccess,
+                                    span,
+                                    &mut self.result_builder,
+                                );
+                                match lhs.data {
+                                    ExprData::Place(mut place) => {
+                                        place.field.push(FieldPathPart::Field(name));
+                                        ExprData::from(place)
+                                    }
+                                    _ => return Err(Error::from(FieldAccessOnValueError { span })),
+                                }
                             }
-
-                            Expr::from(BinaryOp {
-                                kind,
-                                left: Box::new(lhs),
-                                right: Box::new(rhs),
-                            })
+                            _ => unimplemented!("{kind:?} is not a postfix op"),
                         }
-                        _ => unimplemented!("{kind:?} is not a binary infix op"),
                     }
+                    None => {
+                        // infix handling
+                        let (lhs_bp, rhs_bp) = infix_binding_power(kind);
+                        if lhs_bp < min_bp {
+                            break;
+                        }
+                        let op_token = self.consume_token()?;
+
+                        let rhs = self.parse_expr_above(rhs_bp)?;
+
+                        match kind {
+                            OpKind::Binary(kind) => {
+                                if is_comparison(kind)
+                                    && matches!(lhs.data, ExprData::Binary(BinaryOp { kind: left_kind, .. }) if is_comparison(left_kind))
+                                {
+                                    return Err(Error::ChainedComparison(ChainedComparisonError {
+                                        span: op_token.span(),
+                                    }));
+                                }
+
+                                ExprData::from(BinaryOp {
+                                    kind,
+                                    left: Box::new(lhs),
+                                    right: Box::new(rhs),
+                                })
+                            }
+                            _ => unimplemented!("{kind:?} is not a binary infix op"),
+                        }
+                    }
+                };
+                let end_span = self.lexer.current().unwrap().span();
+                Expr {
+                    span: SourceSpan::from(
+                        lhs_start_span.offset()..(end_span.offset() + end_span.len()),
+                    ),
+                    data,
                 }
-            };
+            }
         }
         Ok(lhs)
     }

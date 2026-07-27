@@ -9,15 +9,39 @@ if 1 then {
 }
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Block(Block(
-    statements: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 13,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 3,
+      ),
+      data: Block(Block(
+        statements: [],
+      )),
+    ),
+    false_block: None,
   )),
-  false_block: None,
-))
+)
 """
 
 [[case]]
@@ -32,17 +56,47 @@ if 1 then {
 }
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Block(Block(
-    statements: [],
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 22,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 3,
+      ),
+      data: Block(Block(
+        statements: [],
+      )),
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(19),
+        length: 3,
+      ),
+      data: Block(Block(
+        statements: [],
+      )),
+    )),
   )),
-  false_block: Some(Block(Block(
-    statements: [],
-  ))),
-))
+)
 """
 
 [[case]]
@@ -55,17 +109,59 @@ source = """
 if 1 then 2 else 3
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Integer((IntegerLiteral(
-    value: 2,
-  ), 10, 1)),
-  false_block: Some(Integer((IntegerLiteral(
-    value: 3,
-  ), 17, 1))),
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 18,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(10),
+          length: 1,
+        ),
+      )),
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(17),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 3,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(17),
+          length: 1,
+        ),
+      )),
+    )),
+  )),
+)
 """
 
 [[case]]
@@ -78,15 +174,45 @@ source = """
 if 1 then 2
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Integer((IntegerLiteral(
-    value: 2,
-  ), 10, 1)),
-  false_block: None,
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 11,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(10),
+          length: 1,
+        ),
+      )),
+    ),
+    false_block: None,
+  )),
+)
 """
 
 [[case]]
@@ -99,25 +225,97 @@ source = """
 if if 1 then 2 else 3 then 4 else 5
 """
 expected_ast = """
-If(If(
-  condition: If(If(
-    condition: Integer((IntegerLiteral(
-      value: 1,
-    ), 6, 1)),
-    true_block: Integer((IntegerLiteral(
-      value: 2,
-    ), 13, 1)),
-    false_block: Some(Integer((IntegerLiteral(
-      value: 3,
-    ), 20, 1))),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 35,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 18,
+      ),
+      data: If(If(
+        condition: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(6),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 1,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(6),
+              length: 1,
+            ),
+          )),
+        ),
+        true_block: Expr(
+          span: SourceSpan(
+            offset: SourceOffset(13),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 2,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(13),
+              length: 1,
+            ),
+          )),
+        ),
+        false_block: Some(Expr(
+          span: SourceSpan(
+            offset: SourceOffset(20),
+            length: 1,
+          ),
+          data: Integer(Spanned(
+            data: IntegerLiteral(
+              value: 3,
+            ),
+            span: SourceSpan(
+              offset: SourceOffset(20),
+              length: 1,
+            ),
+          )),
+        )),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(27),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 4,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(27),
+          length: 1,
+        ),
+      )),
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(34),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 5,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(34),
+          length: 1,
+        ),
+      )),
+    )),
   )),
-  true_block: Integer((IntegerLiteral(
-    value: 4,
-  ), 27, 1)),
-  false_block: Some(Integer((IntegerLiteral(
-    value: 5,
-  ), 34, 1))),
-))
+)
 """
 
 [[case]]
@@ -130,23 +328,77 @@ source = """
 if 1 then 2 else { yield 3; }
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Integer((IntegerLiteral(
-    value: 2,
-  ), 10, 1)),
-  false_block: Some(Block(Block(
-    statements: [
-      Yield(YieldSmt(
-        value: Integer((IntegerLiteral(
-          value: 3,
-        ), 25, 1)),
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 29,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
       )),
-    ],
-  ))),
-))
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(10),
+          length: 1,
+        ),
+      )),
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(17),
+        length: 12,
+      ),
+      data: Block(Block(
+        statements: [
+          Statement(
+            span: SourceSpan(
+              offset: SourceOffset(19),
+              length: 8,
+            ),
+            data: Yield(YieldSmt(
+              value: Expr(
+                span: SourceSpan(
+                  offset: SourceOffset(25),
+                  length: 1,
+                ),
+                data: Integer(Spanned(
+                  data: IntegerLiteral(
+                    value: 3,
+                  ),
+                  span: SourceSpan(
+                    offset: SourceOffset(25),
+                    length: 1,
+                  ),
+                )),
+              ),
+            )),
+          ),
+        ],
+      )),
+    )),
+  )),
+)
 """
 
 [[case]]
@@ -164,36 +416,126 @@ if 1 then {
 }
 """
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Block(Block(
-    statements: [
-      Let(LetSmt(
-        name: ("x", 20, 1),
-        value: Integer((IntegerLiteral(
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 63,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
           value: 1,
-        ), 24, 1)),
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
       )),
-      Yield(YieldSmt(
-        value: Place(Place(
-          name: ("x", 37, 1),
-          field: [],
-        )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 31,
+      ),
+      data: Block(Block(
+        statements: [
+          Statement(
+            span: SourceSpan(
+              offset: SourceOffset(16),
+              length: 10,
+            ),
+            data: Let(LetSmt(
+              name: Spanned(
+                data: "x",
+                span: SourceSpan(
+                  offset: SourceOffset(20),
+                  length: 1,
+                ),
+              ),
+              value: Expr(
+                span: SourceSpan(
+                  offset: SourceOffset(24),
+                  length: 1,
+                ),
+                data: Integer(Spanned(
+                  data: IntegerLiteral(
+                    value: 1,
+                  ),
+                  span: SourceSpan(
+                    offset: SourceOffset(24),
+                    length: 1,
+                  ),
+                )),
+              ),
+            )),
+          ),
+          Statement(
+            span: SourceSpan(
+              offset: SourceOffset(31),
+              length: 8,
+            ),
+            data: Yield(YieldSmt(
+              value: Expr(
+                span: SourceSpan(
+                  offset: SourceOffset(37),
+                  length: 1,
+                ),
+                data: Place(Place(
+                  name: Spanned(
+                    data: "x",
+                    span: SourceSpan(
+                      offset: SourceOffset(37),
+                      length: 1,
+                    ),
+                  ),
+                  field: [],
+                )),
+              ),
+            )),
+          ),
+        ],
       )),
-    ],
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(47),
+        length: 16,
+      ),
+      data: Block(Block(
+        statements: [
+          Statement(
+            span: SourceSpan(
+              offset: SourceOffset(53),
+              length: 8,
+            ),
+            data: Yield(YieldSmt(
+              value: Expr(
+                span: SourceSpan(
+                  offset: SourceOffset(59),
+                  length: 1,
+                ),
+                data: Integer(Spanned(
+                  data: IntegerLiteral(
+                    value: 2,
+                  ),
+                  span: SourceSpan(
+                    offset: SourceOffset(59),
+                    length: 1,
+                  ),
+                )),
+              ),
+            )),
+          ),
+        ],
+      )),
+    )),
   )),
-  false_block: Some(Block(Block(
-    statements: [
-      Yield(YieldSmt(
-        value: Integer((IntegerLiteral(
-          value: 2,
-        ), 59, 1)),
-      )),
-    ],
-  ))),
-))
+)
 """
 
 [[case]]
@@ -213,23 +555,65 @@ expected_ast = """
 Item(
   data: FnDecl(FnDecl(
     signature: FnSig(
-      name: ("main", 3, 4),
+      name: Spanned(
+        data: "main",
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 4,
+        ),
+      ),
     ),
     body: Block(
       statements: [
-        Expr(ExprSmt(
-          value: If(If(
-            condition: Integer((IntegerLiteral(
-              value: 1,
-            ), 19, 1)),
-            true_block: Block(Block(
-              statements: [],
-            )),
-            false_block: Some(Block(Block(
-              statements: [],
-            ))),
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(16),
+            length: 30,
+          ),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(16),
+                length: 30,
+              ),
+              data: If(If(
+                condition: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(19),
+                    length: 1,
+                  ),
+                  data: Integer(Spanned(
+                    data: IntegerLiteral(
+                      value: 1,
+                    ),
+                    span: SourceSpan(
+                      offset: SourceOffset(19),
+                      length: 1,
+                    ),
+                  )),
+                ),
+                true_block: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(26),
+                    length: 7,
+                  ),
+                  data: Block(Block(
+                    statements: [],
+                  )),
+                ),
+                false_block: Some(Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(39),
+                    length: 7,
+                  ),
+                  data: Block(Block(
+                    statements: [],
+                  )),
+                )),
+              )),
+            ),
           )),
-        )),
+        ),
       ],
     ),
   )),
@@ -253,32 +637,104 @@ expected_ast = """
 Item(
   data: FnDecl(FnDecl(
     signature: FnSig(
-      name: ("main", 3, 4),
+      name: Spanned(
+        data: "main",
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 4,
+        ),
+      ),
     ),
     body: Block(
       statements: [
-        Expr(ExprSmt(
-          value: If(If(
-            condition: Integer((IntegerLiteral(
-              value: 1,
-            ), 19, 1)),
-            true_block: Block(Block(
-              statements: [],
-            )),
-            false_block: None,
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(16),
+            length: 17,
+          ),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(16),
+                length: 17,
+              ),
+              data: If(If(
+                condition: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(19),
+                    length: 1,
+                  ),
+                  data: Integer(Spanned(
+                    data: IntegerLiteral(
+                      value: 1,
+                    ),
+                    span: SourceSpan(
+                      offset: SourceOffset(19),
+                      length: 1,
+                    ),
+                  )),
+                ),
+                true_block: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(26),
+                    length: 7,
+                  ),
+                  data: Block(Block(
+                    statements: [],
+                  )),
+                ),
+                false_block: None,
+              )),
+            ),
           )),
-        )),
-        Expr(ExprSmt(
-          value: Binary(BinaryOp(
-            kind: Add,
-            left: Integer((IntegerLiteral(
-              value: 1,
-            ), 38, 1)),
-            right: Integer((IntegerLiteral(
-              value: 2,
-            ), 42, 1)),
+        ),
+        Statement(
+          span: SourceSpan(
+            offset: SourceOffset(38),
+            length: 6,
+          ),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: SourceSpan(
+                offset: SourceOffset(38),
+                length: 5,
+              ),
+              data: Binary(BinaryOp(
+                kind: Add,
+                left: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(38),
+                    length: 1,
+                  ),
+                  data: Integer(Spanned(
+                    data: IntegerLiteral(
+                      value: 1,
+                    ),
+                    span: SourceSpan(
+                      offset: SourceOffset(38),
+                      length: 1,
+                    ),
+                  )),
+                ),
+                right: Expr(
+                  span: SourceSpan(
+                    offset: SourceOffset(42),
+                    length: 1,
+                  ),
+                  data: Integer(Spanned(
+                    data: IntegerLiteral(
+                      value: 2,
+                    ),
+                    span: SourceSpan(
+                      offset: SourceOffset(42),
+                      length: 1,
+                    ),
+                  )),
+                ),
+              )),
+            ),
           )),
-        )),
+        ),
       ],
     ),
   )),
@@ -323,15 +779,57 @@ expected_errors = [
     "Preview feature error: use --preview if-else @ [0:2]",
 ]
 expected_ast = """
-If(If(
-  condition: Integer((IntegerLiteral(
-    value: 1,
-  ), 3, 1)),
-  true_block: Integer((IntegerLiteral(
-    value: 2,
-  ), 10, 1)),
-  false_block: Some(Integer((IntegerLiteral(
-    value: 3,
-  ), 17, 1))),
-))
+Expr(
+  span: SourceSpan(
+    offset: SourceOffset(0),
+    length: 18,
+  ),
+  data: If(If(
+    condition: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(3),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 1,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(3),
+          length: 1,
+        ),
+      )),
+    ),
+    true_block: Expr(
+      span: SourceSpan(
+        offset: SourceOffset(10),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 2,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(10),
+          length: 1,
+        ),
+      )),
+    ),
+    false_block: Some(Expr(
+      span: SourceSpan(
+        offset: SourceOffset(17),
+        length: 1,
+      ),
+      data: Integer(Spanned(
+        data: IntegerLiteral(
+          value: 3,
+        ),
+        span: SourceSpan(
+          offset: SourceOffset(17),
+          length: 1,
+        ),
+      )),
+    )),
+  )),
+)
 """

@@ -10,8 +10,8 @@ pub struct MultiResult<A> {
 impl<A> MultiResult<A> {
     pub fn into_result(self) -> Result<A, MultiError> {
         match self.value {
-            Some(success) => Ok(success),
-            None => Err(self.errors),
+            Some(success) if self.errors.errors.is_empty() => Ok(success),
+            _ => Err(self.errors),
         }
     }
 
@@ -76,6 +76,7 @@ impl MultiResultBuilder {
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("Multiple errors found")]
+#[diagnostic()]
 pub struct MultiError {
     #[related]
     pub errors: Vec<Box<dyn miette::Diagnostic + Send + Sync + 'static>>,
@@ -87,6 +88,7 @@ mod tests {
 
     #[derive(Debug, thiserror::Error, miette::Diagnostic)]
     #[error("test error")]
+    #[diagnostic()]
     struct TestError;
 
     #[test]
@@ -148,6 +150,14 @@ mod tests {
     #[test]
     fn into_result_err_when_no_value() {
         let result: MultiResult<i32> = MultiResultBuilder::default().finish_with_error(TestError);
+        assert!(result.into_result().is_err());
+    }
+
+    #[test]
+    fn into_result_err_when_value_and_errors() {
+        let mut builder = MultiResultBuilder::default();
+        builder.add_error(TestError);
+        let result = builder.finish(5);
         assert!(result.into_result().is_err());
     }
 
