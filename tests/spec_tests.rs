@@ -1,6 +1,7 @@
 use libtest_mimic::{Arguments, Trial};
 use miette::LabeledSpan;
-use quokka_lang::multi::MultiResult;
+use quokka_lang::analyze::Analyzer;
+use quokka_lang::multi::{MultiResult, MultiResultBuilder};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
@@ -47,6 +48,7 @@ struct TestCase {
 enum TestCaseKind {
     Lexer,
     Parser,
+    Analyzer,
 }
 
 /// Deserialized representation of the kind entrypoint for a parser test
@@ -106,7 +108,13 @@ fn main() {
                     move || {
                         match case.kind {
                             TestCaseKind::Lexer => test_lexer(case),
-                            TestCaseKind::Parser => test_parser(case),
+                            TestCaseKind::Parser => test_parser(case, false),
+                            TestCaseKind::Analyzer => {
+                                // eventually, the analyzer test will assert the HIR
+                                // rather than the AST, but for now, it is just a modified
+                                // version of a parser tests which also runs the analyzer
+                                test_parser(case, true)
+                            }
                         };
                         Ok(())
                     },
@@ -299,13 +307,27 @@ fn test_lexer(case: TestCase) {
     );
 }
 
-fn test_parser(case: TestCase) {
+fn test_parser(case: TestCase, include_analyzer: bool) {
     let mut parser = quokka_lang::parse::Parser::from(&*case.source);
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
     }
     let (actual_ast, actual_errors) = match case.entrypoint {
-        ParseEntrypointKind::Root => prepare_parse_results(parser.parse()),
+        ParseEntrypointKind::Root => {
+            let mut root_result = parser.parse();
+            if include_analyzer && root_result.value().is_some() && !root_result.has_errors() {
+                let (root, errors) = root_result.into_parts();
+                let root = root.unwrap();
+                let mut result_builder = MultiResultBuilder::default();
+                result_builder.add_errors(errors);
+                let mut analyzer = Analyzer::default();
+                if let Err(errors) = analyzer.analyze(&root) {
+                    result_builder.add_errors(errors);
+                }
+                root_result = result_builder.finish(root);
+            }
+            prepare_parse_results(root_result)
+        }
         ParseEntrypointKind::Item => prepare_parse_results(parser.parse_item_as_root()),
         ParseEntrypointKind::Statement => prepare_parse_results(parser.parse_statement_as_root()),
         ParseEntrypointKind::Expr => prepare_parse_results(parser.parse_expr_as_root()),

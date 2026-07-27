@@ -60,6 +60,10 @@ impl MultiResultBuilder {
         self.errors.push(Box::new(error));
     }
 
+    pub fn add_errors(&mut self, errors: MultiError) {
+        self.errors.extend(errors.errors);
+    }
+
     pub fn finish_with_error<A>(
         mut self,
         error: impl miette::Diagnostic + Send + Sync + 'static,

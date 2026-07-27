@@ -118,6 +118,49 @@ expected_errors = []
 # ...
 ```
 
+#### Analyzer test
+
+```toml
+[[case]]
+# name (required) of the test case
+name = "case_name"
+# kind (required) always "analyzer" for parser test
+kind = "analyzer"
+# preview_features (optional) which preview features to activate for this test. defaults to empty
+preview_features = []
+# ignored (optional) ignores the test case. Defaults to true when preview_features is not empty, false otherwise
+ignored = false
+# source (required) the source code for the program
+source = """
+fn main() {
+}
+"""
+# either expected_ast or expected_errors is required
+# expected_ast a string for the RON representation of the AST
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", 3, 4),
+        ),
+        body: Block(
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+# expected_errors array or strings for each of the errors expected
+expected_errors = []
+
+# More than one case can be defined per test suite file
+[[case]]
+# ...
+```
+
 ### Regenerate expectations
 
 It is common that the expectations in test suites no longer match the compiler's internal and that the expectations

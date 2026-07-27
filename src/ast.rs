@@ -312,7 +312,6 @@ mod tests {
     use crate::source::Spanned;
     use miette::{SourceOffset, SourceSpan};
     use std::borrow::Borrow;
-    use std::num::NonZeroU32;
 
     fn dummy_span() -> SourceSpan {
         SourceSpan::new(SourceOffset::from(0), 0)
