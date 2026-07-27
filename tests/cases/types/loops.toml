@@ -1,0 +1,93 @@
+[[case]]
+name = "infinite_loop_as_fn_body_satisfies_non_unit_return_ty"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn foo() -> u8 {
+    loop {
+    }
+}
+"""
+
+[[case]]
+name = "code_after_infinite_loop_statement_is_unreachable"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn main() {
+    loop {
+    }
+    let x: u8 = 1;
+}
+"""
+expected_errors = [
+    "unreachable code @ [33:47]",
+]
+
+[[case]]
+name = "loop_with_break_value_used_by_let"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn main() {
+    let x: u8 = 1;
+    let r: u8 = loop {
+        break x;
+    };
+}
+"""
+
+[[case]]
+name = "loop_break_type_mismatch_across_multiple_breaks"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn main() {
+    let x: u8 = 1;
+    let c: u1 = 1;
+    loop {
+        break x;
+        break c;
+    }
+}
+"""
+expected_errors = [
+    "unreachable code @ [86:94]",
+    "`u8` is not equal to `u1` @ [92:93]",
+]
+
+[[case]]
+name = "nested_loop_break_targets_innermost_loop"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn main() {
+    let x: u1 = 1;
+    loop {
+        loop {
+            break x;
+        }
+        break x;
+    }
+}
+"""
+
+[[case]]
+name = "loop_without_break_used_as_value_is_never"
+kind = "analyzer"
+preview_features = ["loop"]
+ignored = false
+source = """
+fn main() {
+    let r: u8 = loop {
+    };
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `never` @ [28:40]",
+]

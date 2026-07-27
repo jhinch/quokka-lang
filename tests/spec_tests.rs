@@ -1,7 +1,7 @@
 use libtest_mimic::{Arguments, Trial};
 use miette::LabeledSpan;
 use quokka_lang::analyze::Analyzer;
-use quokka_lang::multi::{MultiResult, MultiResultBuilder};
+use quokka_lang::multi::{MultiError, MultiResult};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
@@ -11,12 +11,16 @@ use std::sync::mpsc;
 /// Deserialized representation of a test suite TOML file
 #[derive(serde::Deserialize)]
 struct TestSuite {
+    #[serde(skip)]
+    category: String,
+    #[serde(skip)]
+    name: String,
     #[serde(rename = "case")]
     cases: Vec<TestCase>,
 }
 
 /// Deserialized representation of a test case within test suite
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TestCase {
     #[serde(skip)]
@@ -43,7 +47,7 @@ struct TestCase {
 }
 
 /// Deserialized representation of the kind of case
-#[derive(serde::Deserialize)]
+#[derive(Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum TestCaseKind {
     Lexer,
@@ -52,7 +56,7 @@ enum TestCaseKind {
 }
 
 /// Deserialized representation of the kind entrypoint for a parser test
-#[derive(serde::Deserialize)]
+#[derive(Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum ParseEntrypointKind {
     Root,
@@ -96,6 +100,19 @@ fn main() {
     };
     let mut tests = Vec::new();
     for suite in suites {
+        {
+            let cases = suite.cases.clone();
+            tests.push(Trial::test(format!("{}::{}::_lint_cases", suite.category, suite.name), move || {
+                let counts = cases.iter().map(|case| &case.name).fold(HashMap::<&str, u32>::new(), |mut counts, name| {
+                    *counts.entry(name).or_default() += 1;
+                    counts
+                });
+                let duplicate_cases = counts.into_iter().filter_map(|(name, count)| if count > 1 { Some(name) } else { None })
+                    .collect::<Vec<_>>();
+                assert!(duplicate_cases.is_empty(), "duplicate test cases: {duplicate_cases:?}. Ensure that all names are unique within a TOML file");
+                Ok(())
+            }));
+        }
         for mut case in suite.cases {
             case.updates_tx = tx.clone();
             let ignored_flag = case
@@ -108,13 +125,8 @@ fn main() {
                     move || {
                         match case.kind {
                             TestCaseKind::Lexer => test_lexer(case),
-                            TestCaseKind::Parser => test_parser(case, false),
-                            TestCaseKind::Analyzer => {
-                                // eventually, the analyzer test will assert the HIR
-                                // rather than the AST, but for now, it is just a modified
-                                // version of a parser tests which also runs the analyzer
-                                test_parser(case, true)
-                            }
+                            TestCaseKind::Parser => test_parser(case),
+                            TestCaseKind::Analyzer => test_analyzer(case),
                         };
                         Ok(())
                     },
@@ -172,6 +184,8 @@ fn load_suites() -> Result<Vec<TestSuite>, Box<dyn std::error::Error + Send + Sy
                     .to_string_lossy();
                 let mut suite: TestSuite =
                     toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
+                suite.category = category.to_string();
+                suite.name = name.to_string();
                 for case in suite.cases.iter_mut() {
                     case.category = category.to_string();
                     case.suite = name.to_string();
@@ -294,6 +308,15 @@ fn test_lexer(case: TestCase) {
             })
             .unwrap();
         }
+        if !case.expected_ast.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateAst(String::new()),
+            })
+            .unwrap();
+        }
         return;
     }
     assert_eq!(
@@ -307,27 +330,13 @@ fn test_lexer(case: TestCase) {
     );
 }
 
-fn test_parser(case: TestCase, include_analyzer: bool) {
+fn test_parser(case: TestCase) {
     let mut parser = quokka_lang::parse::Parser::from(&*case.source);
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
     }
     let (actual_ast, actual_errors) = match case.entrypoint {
-        ParseEntrypointKind::Root => {
-            let mut root_result = parser.parse();
-            if include_analyzer && root_result.value().is_some() && !root_result.has_errors() {
-                let (root, errors) = root_result.into_parts();
-                let root = root.unwrap();
-                let mut result_builder = MultiResultBuilder::default();
-                result_builder.add_errors(errors);
-                let mut analyzer = Analyzer::default();
-                if let Err(errors) = analyzer.analyze(&root) {
-                    result_builder.add_errors(errors);
-                }
-                root_result = result_builder.finish(root);
-            }
-            prepare_parse_results(root_result)
-        }
+        ParseEntrypointKind::Root => prepare_parse_results(parser.parse()),
         ParseEntrypointKind::Item => prepare_parse_results(parser.parse_item_as_root()),
         ParseEntrypointKind::Statement => prepare_parse_results(parser.parse_statement_as_root()),
         ParseEntrypointKind::Expr => prepare_parse_results(parser.parse_expr_as_root()),
@@ -351,6 +360,15 @@ fn test_parser(case: TestCase, include_analyzer: bool) {
             })
             .unwrap();
         }
+        if !case.expected_tokens.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateTokens(String::new()),
+            })
+            .unwrap();
+        }
         return;
     }
     assert_eq!(
@@ -361,6 +379,56 @@ fn test_parser(case: TestCase, include_analyzer: bool) {
         actual_ast.trim(),
         case.expected_ast.trim(),
         "actual_ast == expected_ast"
+    );
+}
+
+fn test_analyzer(case: TestCase) {
+    let mut parser = quokka_lang::parse::Parser::from(&*case.source);
+    for feature in case.preview_features.iter().copied() {
+        parser.enable_feature(feature);
+    }
+    let root = parser
+        .parse()
+        .into_result()
+        .unwrap_or_else(|e| panic!("Failed to parse. {e}"));
+    let mut analyzer = Analyzer::default();
+    let actual_errors = match analyzer.analyze(&root) {
+        Ok(()) => Vec::new(),
+        Err(errors) => prepare_multi_error(errors),
+    };
+    if let Some(tx) = case.updates_tx {
+        if actual_errors != case.expected_errors {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateErrors(actual_errors),
+            })
+            .unwrap();
+        }
+        if !case.expected_tokens.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateTokens(String::new()),
+            })
+            .unwrap();
+        }
+        if !case.expected_ast.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateAst(String::new()),
+            })
+            .unwrap();
+        }
+        return;
+    }
+    assert_eq!(
+        actual_errors, case.expected_errors,
+        "actual_errors == expected_errors"
     );
 }
 
@@ -376,12 +444,16 @@ fn prepare_parse_results<T: serde::Serialize>(result: MultiResult<T>) -> (String
         .unwrap(),
         None => String::new(),
     };
-    let actual_errors = actual_errors
+    let actual_errors = prepare_multi_error(actual_errors);
+    (actual, actual_errors)
+}
+
+fn prepare_multi_error(actual_errors: MultiError) -> Vec<String> {
+    actual_errors
         .errors
         .into_iter()
         .map(|e| format!("{}", DiagnosticTreeDisplay(&*e)))
-        .collect();
-    (actual, actual_errors)
+        .collect()
 }
 
 struct DiagnosticTreeDisplay<'a>(&'a dyn miette::Diagnostic);

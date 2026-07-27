@@ -1,0 +1,75 @@
+[[case]]
+name = "let_infers_from_literal_and_matches_annotation"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+}
+"""
+
+[[case]]
+name = "let_type_mismatch_between_two_int_types"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u1 = x;
+}
+"""
+expected_errors = [
+    "`u1` is not equal to `u8` @ [47:48]",
+]
+
+[[case]]
+name = "let_undefined_type"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: NotAType = 1;
+}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [23:31]",
+]
+
+[[case]]
+name = "let_redefinition_same_scope_currently_accepted"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let x: u1 = 2;
+}
+"""
+
+[[case]]
+name = "let_shadowing_in_nested_block_is_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let inner: u1 = {
+        let x: u1 = 1;
+        yield x;
+    };
+}
+"""
+
+[[case]]
+name = "let_literal_value_out_of_range_for_declared_type"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 200;
+}
+"""
+
+[[case]]
+name = "let_infers_type_var_used_later"
+kind = "analyzer"
+source = """
+fn main() {
+    let x = 1;
+    let y: u8 = x;
+}
+"""

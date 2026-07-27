@@ -36,11 +36,21 @@ impl Inferrer {
         self.prune(&mut ty1);
         self.prune(&mut ty2);
         match (ty1, ty2) {
+            (InferredTy::Variable(ty1), InferredTy::Variable(ty2)) if ty1 == ty2 => Ok(()),
             (InferredTy::Variable(var), other) | (other, InferredTy::Variable(var)) => {
                 self.bind_without_pruning(var, other);
                 Ok(())
             }
-            (InferredTy::Concrete(Ty::ERROR), _) | (_, InferredTy::Concrete(Ty::ERROR)) => Ok(()),
+            (InferredTy::Concrete(Ty::ERROR), _) | (_, InferredTy::Concrete(Ty::ERROR)) => {
+                // This branch intentionally ignores Ty::NEVER, allowing it to be checked by a simple equality check.
+                // It isn't a true bottom type, constraining how never types coerce to other types.
+                // For example:
+                //      let a: u8 = 1;
+                //      let b = a + (loop {});
+                // should intentionally produce a type mismatch error. Currently only branching
+                // expressions like if-else coerce
+                Ok(())
+            }
             (InferredTy::Concrete(ty1), InferredTy::Concrete(ty2)) if ty1 == ty2 => Ok(()),
             (ty1, ty2) => Err(UnificationError { ty1, ty2 }),
         }

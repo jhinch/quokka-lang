@@ -4,6 +4,7 @@ use crate::ast::{self, BinaryOpKind, FieldPathPart, Identifier, SpannedIdentifie
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use miette::SourceSpan;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 
 pub mod error;
@@ -18,7 +19,10 @@ pub struct Analyzer {
 impl Analyzer {
     pub fn analyze(&mut self, root: &ast::Root) -> Result<(), MultiError> {
         self.register_types(root)?;
-        let (mut scopes, fn_decls) = self.define_global_scope(root);
+        let (mut scopes, fn_decls, const_decls) = self.define_global_scope(root);
+        for (const_decl, ty) in const_decls {
+            self.type_check_const_decl(const_decl, ty, &mut scopes);
+        }
         for (fn_decl, ty) in fn_decls {
             self.type_check_fn_decl(fn_decl, ty, &mut scopes);
         }
@@ -41,23 +45,43 @@ impl Analyzer {
         }
         for item in &root.items {
             if let ast::ItemData::StructDecl(decl) = &item.data {
-                let fields = decl
-                    .fields
-                    .iter()
-                    .map(|field| {
-                        let ty = match self.ty_registry.resolve(&field.ty.name.data) {
-                            Some(ty) => ty,
-                            None => {
-                                self.result_builder.add_error(TypeNotFoundError {
-                                    name: field.ty.name.data.clone(),
-                                    span: field.ty.name.span,
-                                });
-                                Ty::ERROR
-                            }
-                        };
-                        (field.name.data.clone(), ty)
-                    })
-                    .collect();
+                let mut fields = HashMap::new();
+                for field in &decl.fields {
+                    let ty = match self.ty_registry.resolve(&field.ty.name.data) {
+                        Some(ty) => ty,
+                        None => {
+                            self.result_builder.add_error(TypeNotFoundError {
+                                name: field.ty.name.data.clone(),
+                                span: field.ty.name.span,
+                            });
+                            Ty::ERROR
+                        }
+                    };
+                    match fields.entry(field.name.data.clone()) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(ty);
+                        }
+                        Entry::Occupied(_) => {
+                            let defined = decl
+                                .fields
+                                .iter()
+                                .find_map(|f| {
+                                    if f.name.data == field.name.data {
+                                        Some(f.name.span)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .unwrap();
+                            self.result_builder.add_error(FieldRedefinedError {
+                                ty: decl.name.data.clone(),
+                                name: field.name.data.clone(),
+                                defined,
+                                redefined: field.name.span,
+                            });
+                        }
+                    }
+                }
                 self.ty_registry.register_struct_fields(&decl.name, fields);
             }
         }
@@ -67,10 +91,15 @@ impl Analyzer {
     fn define_global_scope<'ast>(
         &mut self,
         root: &'ast ast::Root,
-    ) -> (Scopes, Vec<(&'ast ast::FnDecl, Ty)>) {
+    ) -> (
+        Scopes,
+        Vec<(&'ast ast::FnDecl, Ty)>,
+        Vec<(&'ast ast::ConstDecl, Ty)>,
+    ) {
         let mut scopes = Scopes::default();
         scopes.enter_global_scope();
         let mut fn_decls = Vec::new();
+        let mut const_decls = Vec::new();
         for item in &root.items {
             let (name, ty) = match &item.data {
                 ast::ItemData::FnDecl(decl) => {
@@ -87,10 +116,11 @@ impl Analyzer {
                     &decl.name,
                     InferredTy::Concrete(self.resolve_ty_ref(&decl.ty)),
                 ),
-                ast::ItemData::ConstDecl(decl) => (
-                    &decl.name,
-                    InferredTy::Concrete(self.resolve_ty_ref(&decl.ty)),
-                ),
+                ast::ItemData::ConstDecl(decl) => {
+                    let const_ty = self.resolve_ty_ref(&decl.ty);
+                    const_decls.push((decl, const_ty));
+                    (&decl.name, InferredTy::Concrete(const_ty))
+                }
             };
             if let Some(existing) = scopes.insert_place(name.clone(), ty) {
                 self.result_builder.add_error(RedefinedError {
@@ -101,7 +131,7 @@ impl Analyzer {
             }
         }
         scopes.freeze_global_scope();
-        (scopes, fn_decls)
+        (scopes, fn_decls, const_decls)
     }
 
     fn resolve_ty_ref(&mut self, ty_ref: &ast::TyRef) -> Ty {
@@ -118,6 +148,26 @@ impl Analyzer {
         } else {
             ty
         }
+    }
+
+    fn type_check_const_decl(
+        &mut self,
+        const_decl: &ast::ConstDecl,
+        const_ty: Ty,
+        scopes: &mut Scopes,
+    ) {
+        let mut inferrer = Inferrer::default();
+        let mut constraints = VecDeque::new();
+
+        let inferred_ty =
+            self.infer_expr(&const_decl.value, &mut inferrer, &mut constraints, scopes);
+        constraints.push_back(InferenceConstraint::Equal {
+            ty1: inferred_ty,
+            ty1_span: const_decl.value.span,
+            ty2: InferredTy::Concrete(const_ty),
+            ty2_span: const_decl.ty.name.span,
+        });
+        self.process_constraints(&mut inferrer, constraints);
     }
 
     fn type_check_fn_decl(&mut self, fn_decl: &ast::FnDecl, fn_ptr_ty: Ty, scopes: &mut Scopes) {
@@ -202,8 +252,7 @@ impl Analyzer {
     ) -> InferredTy {
         match &statement.data {
             ast::StatementData::Expr(stmt) => {
-                self.infer_expr(&stmt.value, inferrer, constraints, scopes);
-                InferredTy::Concrete(Ty::UNIT)
+                self.infer_expr(&stmt.value, inferrer, constraints, scopes)
             }
             ast::StatementData::Let(stmt) => {
                 let let_ty = match &stmt.ty {
@@ -221,7 +270,8 @@ impl Analyzer {
                     ty2: expr_ty,
                     ty2_span: stmt.value.span,
                 });
-                scopes.insert_place(stmt.name.clone(), let_ty);
+                // ignored the result to allow for local variable shadowing
+                let _ = scopes.insert_place(stmt.name.clone(), let_ty);
                 InferredTy::Concrete(Ty::UNIT)
             }
             ast::StatementData::Return(stmt) => {
@@ -342,10 +392,6 @@ impl Analyzer {
                         });
                     }
                     UnaryOpKind::Neg => {
-                        constraints.push_back(InferenceConstraint::IsInt {
-                            ty: expr_ty.clone(),
-                            span: expr.span,
-                        });
                         constraints.push_back(InferenceConstraint::IsSignedInt {
                             ty: expr_ty.clone(),
                             span: expr.span,
@@ -364,7 +410,9 @@ impl Analyzer {
                     | BinaryOpKind::Lt
                     | BinaryOpKind::Le
                     | BinaryOpKind::Ge
-                    | BinaryOpKind::Gt => InferredTy::Concrete(Ty::U1),
+                    | BinaryOpKind::Gt
+                    | BinaryOpKind::Equal
+                    | BinaryOpKind::NotEqual => InferredTy::Concrete(Ty::U1),
                     BinaryOpKind::RotateLeft
                     | BinaryOpKind::RotateRight
                     | BinaryOpKind::ShiftLeft
@@ -390,7 +438,12 @@ impl Analyzer {
                             ty2_span: expr.span,
                         });
                     }
-                    BinaryOpKind::Lt | BinaryOpKind::Le | BinaryOpKind::Gt | BinaryOpKind::Ge => {
+                    BinaryOpKind::Lt
+                    | BinaryOpKind::Le
+                    | BinaryOpKind::Gt
+                    | BinaryOpKind::Ge
+                    | BinaryOpKind::Equal
+                    | BinaryOpKind::NotEqual => {
                         constraints.push_back(InferenceConstraint::Equal {
                             ty1: left_ty,
                             ty1_span: op.left.span,
@@ -405,8 +458,6 @@ impl Analyzer {
                         });
                     }
                     BinaryOpKind::Assign
-                    | BinaryOpKind::Equal
-                    | BinaryOpKind::NotEqual
                     | BinaryOpKind::BitAnd
                     | BinaryOpKind::BitOr
                     | BinaryOpKind::Xor
@@ -417,6 +468,9 @@ impl Analyzer {
                     | BinaryOpKind::BitAndAssign
                     | BinaryOpKind::BitOrAssign
                     | BinaryOpKind::XOrAssign => {
+                        // currently, assign-like operands assert that the LHS is an int
+                        // to ensure that it can fit in a register. Eventually we need
+                        // to calculate size of types and assert it can fit in 1 or 2 bytes
                         constraints.push_back(InferenceConstraint::IsInt {
                             ty: expr_ty.clone(),
                             span: expr.span,
@@ -431,12 +485,6 @@ impl Analyzer {
                             ty1: expr_ty.clone(),
                             ty1_span: expr.span,
                             ty2: right_ty.clone(),
-                            ty2_span: op.right.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: left_ty,
-                            ty1_span: op.left.span,
-                            ty2: right_ty,
                             ty2_span: op.right.span,
                         });
                     }
@@ -623,9 +671,11 @@ impl Analyzer {
                 }
                 FieldPathPart::Index(index) => {
                     let index_expr_ty = self.infer_expr(index, inferrer, constraints, scopes);
-                    constraints.push_back(InferenceConstraint::IsUnsignedInt {
-                        ty: index_expr_ty,
-                        span: index.span,
+                    constraints.push_back(InferenceConstraint::Equal {
+                        ty1: index_expr_ty,
+                        ty1_span: index.span,
+                        ty2: InferredTy::Concrete(Ty::U16),
+                        ty2_span: index.span,
                     });
                     let item_ty = inferrer.fresh();
                     constraints.push_back(InferenceConstraint::IsArray {
@@ -700,29 +750,14 @@ impl Analyzer {
                     match ty {
                         InferredTy::Concrete(ty) => {
                             if !ty.is_signed_int() && ty != Ty::ERROR {
-                                self.result_builder.add_error(NotIntError {
+                                self.result_builder.add_error(NotSignedIntError {
                                     ty: ty.display(&self.ty_registry).into_detached(),
                                     span,
                                 });
                             }
                             None
                         }
-                        ty => Some(InferenceConstraint::IsInt { ty, span }),
-                    }
-                }
-                InferenceConstraint::IsUnsignedInt { mut ty, span } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            if !ty.is_unsigned_int() && ty != Ty::ERROR {
-                                self.result_builder.add_error(NotIntError {
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                    span,
-                                });
-                            }
-                            None
-                        }
-                        ty => Some(InferenceConstraint::IsInt { ty, span }),
+                        ty => Some(InferenceConstraint::IsSignedInt { ty, span }),
                     }
                 }
                 InferenceConstraint::HasField {
@@ -867,7 +902,6 @@ impl Analyzer {
                     }
                     InferenceConstraint::IsInt { span, .. }
                     | InferenceConstraint::IsSignedInt { span, .. }
-                    | InferenceConstraint::IsUnsignedInt { span, .. }
                     | InferenceConstraint::IsArray { span, .. }
                     | InferenceConstraint::IsFnPtr { span, .. } => {
                         self.result_builder.add_error(TypeUnresolvedError { span });
@@ -901,6 +935,7 @@ impl Scopes {
         None
     }
 
+    #[must_use]
     fn insert_place(&mut self, name: SpannedIdentifier, ty: InferredTy) -> Option<PlaceScope> {
         if self.global_frozen {
             assert!(self.place_scopes.len() > 1, "global scope is frozen");
@@ -1032,10 +1067,6 @@ enum InferenceConstraint {
         span: SourceSpan,
     },
     IsSignedInt {
-        ty: InferredTy,
-        span: SourceSpan,
-    },
-    IsUnsignedInt {
         ty: InferredTy,
         span: SourceSpan,
     },

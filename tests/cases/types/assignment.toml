@@ -1,0 +1,50 @@
+[[case]]
+name = "assign_to_place_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    x = 2;
+}
+"""
+
+[[case]]
+name = "assign_struct_typed_place_currently_rejected_as_non_int"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+global A: Point;
+global B: Point;
+fn main() {
+    A = B;
+}
+"""
+expected_errors = [
+    "`Point` is not an integer type @ [78:83]",
+]
+
+[[case]]
+name = "compound_assign_add_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    x += 1;
+}
+"""
+
+[[case]]
+name = "compound_assign_type_mismatch"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u1 = 1;
+    x += y;
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [59:60]",
+]

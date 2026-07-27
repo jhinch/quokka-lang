@@ -194,7 +194,7 @@ pub struct Expr {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
 pub enum ExprData {
     Place(Place),
-    Integer(SpannedIntegerLiteral),
+    Integer(IntegerLiteral),
     Unary(UnaryOp),
     Binary(BinaryOp),
     Block(Block),
@@ -226,8 +226,6 @@ impl From<u32> for IntegerLiteral {
         IntegerLiteral { value }
     }
 }
-
-pub type SpannedIntegerLiteral = Spanned<IntegerLiteral>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::From)]
 pub enum OpKind {

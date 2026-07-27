@@ -1,0 +1,87 @@
+[[case]]
+name = "array_index_with_bare_literal"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: [u8; 3];
+fn main() {
+    let v: u8 = A[0];
+}
+"""
+
+[[case]]
+name = "array_index_requires_unsigned_int"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: [u8; 3];
+fn main() {
+    let idx: i8 = 1;
+    let v: u8 = A[idx];
+}
+"""
+expected_errors = [
+    "`i8` is not equal to `u16` @ [70:73]",
+]
+
+[[case]]
+name = "array_index_with_unsigned_place_ok"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: [u8; 3];
+fn main() {
+    let idx: u8 = 1;
+    let v: u8 = A[idx];
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u16` @ [70:73]",
+]
+
+[[case]]
+name = "index_on_non_array"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: u8;
+fn main() {
+    let v: u8 = A[0];
+}
+"""
+expected_errors = [
+    "`u8` is not an array type @ [42:43]",
+]
+
+[[case]]
+name = "array_item_type_mismatch"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: [u8; 3];
+fn main() {
+    let idx: u8 = 0;
+    let v: u1 = A[idx];
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u16` @ [70:73]",
+    "`u1` is not equal to `u8` @ [68:74]",
+]
+
+[[case]]
+name = "bare_literal_index_type"
+kind = "analyzer"
+preview_features = ["array"]
+ignored = false
+source = """
+global A: [u8; 3];
+fn main() {
+    A[0];
+}
+"""

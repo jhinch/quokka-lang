@@ -85,14 +85,8 @@ Expr(
                 offset: SourceOffset(17),
                 length: 1,
               ),
-              data: Integer(Spanned(
-                data: IntegerLiteral(
-                  value: 1,
-                ),
-                span: SourceSpan(
-                  offset: SourceOffset(17),
-                  length: 1,
-                ),
+              data: Integer(IntegerLiteral(
+                value: 1,
               )),
             )),
           )),
@@ -167,14 +161,8 @@ Expr(
                 offset: SourceOffset(17),
                 length: 1,
               ),
-              data: Integer(Spanned(
-                data: IntegerLiteral(
-                  value: 1,
-                ),
-                span: SourceSpan(
-                  offset: SourceOffset(17),
-                  length: 1,
-                ),
+              data: Integer(IntegerLiteral(
+                value: 1,
               )),
             ),
           )),

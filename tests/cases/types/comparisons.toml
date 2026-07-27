@@ -1,0 +1,83 @@
+[[case]]
+name = "relational_ops_yield_bool"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let b: u1 = x < y;
+}
+"""
+
+[[case]]
+name = "relational_ops_mismatched_operands"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u1 = 1;
+    let b: u1 = x < y;
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [70:71]",
+]
+
+[[case]]
+name = "equality_ops_between_matching_int_types_assigned_to_bool"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let b: u1 = x == y;
+}
+"""
+
+[[case]]
+name = "not_equal_between_matching_int_types_assigned_to_bool"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let b: u1 = x != y;
+}
+"""
+
+[[case]]
+name = "boolean_and_requires_bool_operands"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let b = x && y;
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [62:68]",
+    "`u8` is not equal to `u1` @ [62:68]",
+]
+
+[[case]]
+name = "boolean_and_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 1;
+    let y: u1 = 0;
+    let b: u1 = x && y;
+}
+"""
+
+[[case]]
+name = "boolean_or_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 1;
+    let y: u1 = 0;
+    let b: u1 = x || y;
+}
+"""

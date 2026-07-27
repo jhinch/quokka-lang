@@ -66,14 +66,8 @@ Item(
                 offset: SourceOffset(24),
                 length: 1,
               ),
-              data: Integer(Spanned(
-                data: IntegerLiteral(
-                  value: 1,
-                ),
-                span: SourceSpan(
-                  offset: SourceOffset(24),
-                  length: 1,
-                ),
+              data: Integer(IntegerLiteral(
+                value: 1,
               )),
             ),
           )),
@@ -158,14 +152,8 @@ Item(
                 offset: SourceOffset(28),
                 length: 1,
               ),
-              data: Integer(Spanned(
-                data: IntegerLiteral(
-                  value: 1,
-                ),
-                span: SourceSpan(
-                  offset: SourceOffset(28),
-                  length: 1,
-                ),
+              data: Integer(IntegerLiteral(
+                value: 1,
               )),
             ),
           )),
@@ -202,14 +190,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(

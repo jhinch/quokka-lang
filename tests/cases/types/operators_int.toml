@@ -1,0 +1,84 @@
+[[case]]
+name = "add_matching_types_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let z: u8 = x + y;
+}
+"""
+
+[[case]]
+name = "add_mismatched_types_error"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u1 = 1;
+    let z = x + y;
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [66:67]",
+]
+
+[[case]]
+name = "unary_not_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 1;
+    let y: u1 = !x;
+}
+"""
+
+[[case]]
+name = "unary_neg_on_unsigned_concrete_type_is_error"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = -x;
+}
+"""
+expected_errors = [
+    "`u8` is not a signed integer type @ [47:49]",
+]
+
+[[case]]
+name = "unary_neg_on_signed_concrete_type_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: i8 = 1;
+    let y: i8 = -x;
+}
+"""
+
+[[case]]
+name = "unary_neg_on_deferred_unsigned_type_variable"
+kind = "analyzer"
+source = """
+fn main() {
+    let x = 1;
+    let y = -x;
+    let z: u8 = x;
+}
+"""
+expected_errors = [
+    "`u8` is not a signed integer type @ [39:41]",
+]
+
+[[case]]
+name = "bitwise_ops_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let a: u8 = x & y;
+    let b: u8 = x | y;
+    let c: u8 = x ^ y;
+}
+"""

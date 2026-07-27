@@ -42,3 +42,10 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "analyze"
+kind = "analyzer"
+source = """
+fn main() {}
+"""

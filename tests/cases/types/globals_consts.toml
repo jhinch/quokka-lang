@@ -1,0 +1,89 @@
+[[case]]
+name = "const_ok"
+kind = "analyzer"
+source = """
+const A: u8 = 1;
+fn main() {}
+"""
+
+[[case]]
+name = "global_ok"
+kind = "analyzer"
+source = """
+global A: u8;
+fn main() {}
+"""
+
+[[case]]
+name = "const_undefined_type"
+kind = "analyzer"
+source = """
+const A: NotAType = 1;
+fn main() {}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [9:17]",
+]
+
+[[case]]
+name = "global_undefined_type"
+kind = "analyzer"
+source = """
+global A: NotAType;
+fn main() {}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [10:18]",
+]
+
+[[case]]
+name = "const_initializer_referencing_undefined_name_is_not_checked"
+kind = "analyzer"
+source = """
+const A: u8 = undefined_name;
+fn main() {}
+"""
+expected_errors = [
+    "name `undefined_name` not defined in scope @ [14:28]",
+]
+
+[[case]]
+name = "const_initializer_type_mismatch_is_not_checked"
+kind = "analyzer"
+preview_features = ["field-access"]
+ignored = false
+source = """
+struct Point {
+    x: u8,
+}
+global P: Point;
+const A: u1 = P.x;
+fn main() {}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [54:56]",
+]
+
+[[case]]
+name = "global_and_fn_name_collision"
+kind = "analyzer"
+source = """
+global A: u8;
+fn A() {}
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [17:18]",
+]
+
+[[case]]
+name = "const_and_fn_name_collision"
+kind = "analyzer"
+source = """
+const A: u8 = 1;
+fn A() {}
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [20:21]",
+]

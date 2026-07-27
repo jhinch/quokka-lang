@@ -1,0 +1,67 @@
+[[case]]
+name = "shift_left_by_literal_one_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = x << 1;
+}
+"""
+
+[[case]]
+name = "shift_left_by_literal_zero_currently_accepted"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = x << 0;
+}
+"""
+
+[[case]]
+name = "shift_left_by_non_literal_bool_place_currently_accepted"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let amount: u1 = 1;
+    let y: u8 = x << amount;
+}
+"""
+
+[[case]]
+name = "shift_result_type_matches_left_operand"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u1 = x << 1;
+}
+"""
+expected_errors = [
+    "`u1` is not equal to `u8` @ [47:53]",
+]
+
+[[case]]
+name = "rotate_left_by_bool_place_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let cond: u1 = 1;
+    let y: u8 = x <% cond;
+}
+"""
+
+[[case]]
+name = "rotate_left_by_non_bool_is_error"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u8 = 1;
+    let y: u8 = x <% x;
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [47:53]",
+]

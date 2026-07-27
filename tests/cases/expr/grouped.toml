@@ -16,14 +16,8 @@ Expr(
       offset: SourceOffset(1),
       length: 1,
     ),
-    data: Integer(Spanned(
-      data: IntegerLiteral(
-        value: 1,
-      ),
-      span: SourceSpan(
-        offset: SourceOffset(1),
-        length: 1,
-      ),
+    data: Integer(IntegerLiteral(
+      value: 1,
     )),
   )),
 )
@@ -61,14 +55,8 @@ Expr(
               offset: SourceOffset(1),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 1,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(1),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 1,
             )),
           ),
           right: Expr(
@@ -76,14 +64,8 @@ Expr(
               offset: SourceOffset(5),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 2,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(5),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 2,
             )),
           ),
         )),
@@ -94,14 +76,8 @@ Expr(
         offset: SourceOffset(11),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(11),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
   )),
@@ -140,14 +116,8 @@ Expr(
               offset: SourceOffset(1),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 1,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(1),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 1,
             )),
           ),
           right: Expr(
@@ -155,14 +125,8 @@ Expr(
               offset: SourceOffset(6),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 1,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(6),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 1,
             )),
           ),
         )),
@@ -185,14 +149,8 @@ Expr(
               offset: SourceOffset(13),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 2,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(13),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 2,
             )),
           ),
           right: Expr(
@@ -200,14 +158,8 @@ Expr(
               offset: SourceOffset(18),
               length: 1,
             ),
-            data: Integer(Spanned(
-              data: IntegerLiteral(
-                value: 2,
-              ),
-              span: SourceSpan(
-                offset: SourceOffset(18),
-                length: 1,
-              ),
+            data: Integer(IntegerLiteral(
+              value: 2,
             )),
           ),
         )),
@@ -240,14 +192,8 @@ Expr(
         offset: SourceOffset(2),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     )),
   )),

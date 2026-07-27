@@ -103,12 +103,33 @@ pub struct NotIntError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`{ty}` is not a signed integer type")]
+#[diagnostic()]
+pub struct NotSignedIntError {
+    #[label("has type `{ty}`")]
+    pub span: SourceSpan,
+    pub ty: TyDisplay<'static>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("`{ty}` is not a struct type")]
 #[diagnostic()]
 pub struct NotStructError {
     #[label("has type `{ty}`")]
     pub span: SourceSpan,
     pub ty: TyDisplay<'static>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("field `{name}` defined multiple times on `{ty}`")]
+#[diagnostic()]
+pub struct FieldRedefinedError {
+    pub name: Identifier,
+    pub ty: Identifier,
+    #[label("previously defined here")]
+    pub defined: SourceSpan,
+    #[label("redefined here")]
+    pub redefined: SourceSpan,
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]

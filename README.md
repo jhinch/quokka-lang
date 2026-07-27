@@ -124,7 +124,7 @@ expected_errors = []
 [[case]]
 # name (required) of the test case
 name = "case_name"
-# kind (required) always "analyzer" for parser test
+# kind (required) always "analyzer" for analyzer test
 kind = "analyzer"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
@@ -135,25 +135,7 @@ source = """
 fn main() {
 }
 """
-# either expected_ast or expected_errors is required
-# expected_ast a string for the RON representation of the AST
-expected_ast = """
-Root(
-  items: [
-    Item(
-      data: FnDecl(FnDecl(
-        signature: FnSig(
-          name: ("main", 3, 4),
-        ),
-        body: Block(
-          statements: [],
-        ),
-      )),
-    ),
-  ],
-)
-"""
-# expected_errors array or strings for each of the errors expected
+# expected_errors (optional) array or strings for each of the errors expected
 expected_errors = []
 
 # More than one case can be defined per test suite file

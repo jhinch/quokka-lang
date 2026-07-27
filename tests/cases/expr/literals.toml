@@ -11,14 +11,8 @@ Expr(
     offset: SourceOffset(0),
     length: 1,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 0,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 1,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 0,
   )),
 )
 """
@@ -36,14 +30,8 @@ Expr(
     offset: SourceOffset(0),
     length: 3,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 123,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 3,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 123,
   )),
 )
 """
@@ -61,14 +49,8 @@ Expr(
     offset: SourceOffset(0),
     length: 5,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 1000,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 5,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 1000,
   )),
 )
 """
@@ -86,14 +68,8 @@ Expr(
     offset: SourceOffset(0),
     length: 4,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 31,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 4,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 31,
   )),
 )
 """
@@ -111,14 +87,8 @@ Expr(
     offset: SourceOffset(0),
     length: 4,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 15,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 4,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 15,
   )),
 )
 """
@@ -136,14 +106,8 @@ Expr(
     offset: SourceOffset(0),
     length: 5,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 5,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 5,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 5,
   )),
 )
 """
@@ -161,14 +125,8 @@ Expr(
     offset: SourceOffset(0),
     length: 5,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 16,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 5,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 16,
   )),
 )
 """
@@ -186,14 +144,8 @@ Expr(
     offset: SourceOffset(0),
     length: 5,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 8,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 5,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 8,
   )),
 )
 """
@@ -211,14 +163,8 @@ Expr(
     offset: SourceOffset(0),
     length: 5,
   ),
-  data: Integer(Spanned(
-    data: IntegerLiteral(
-      value: 2,
-    ),
-    span: SourceSpan(
-      offset: SourceOffset(0),
-      length: 5,
-    ),
+  data: Integer(IntegerLiteral(
+    value: 2,
   )),
 )
 """

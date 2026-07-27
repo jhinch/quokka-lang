@@ -1,0 +1,110 @@
+[[case]]
+name = "if_condition_not_bool"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let x: u8 = 1;
+    if x then {
+    } else {
+    }
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [38:39]",
+]
+
+[[case]]
+name = "if_condition_bool_ok"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let c: u1 = 1;
+    if c then {
+    } else {
+    }
+}
+"""
+
+[[case]]
+name = "if_without_else_yields_unit_ok"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let c: u1 = 1;
+    if c then {
+    }
+}
+"""
+
+[[case]]
+name = "if_branches_mismatched_types"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let c: u1 = 1;
+    let a: u8 = 1;
+    let b: u1 = 1;
+    let r = if c then { yield a; } else { yield b; };
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `u1` @ [109:121]",
+    "`u8` is not equal to `u1` @ [109:121]",
+]
+
+[[case]]
+name = "if_branches_matching_types_ok"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let c: u1 = 1;
+    let a: u8 = 1;
+    let b: u8 = 2;
+    let r: u8 = if c then { yield a; } else { yield b; };
+}
+"""
+
+[[case]]
+name = "if_no_else_but_used_as_value"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn main() {
+    let c: u1 = 1;
+    let x: u8 = if c then { yield 1; };
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `unit` @ [47:69]",
+    "`unit` is not an integer type @ [65:66]",
+]
+
+[[case]]
+name = "if_true_branch_diverges_is_ok"
+kind = "analyzer"
+preview_features = ["if-else"]
+ignored = false
+source = """
+fn foo() -> u8 {
+    let c: u1 = 1;
+    if c then {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+"""
+expected_errors = [
+    "`u8` is not equal to `unit` @ [3:6]",
+]

@@ -1,0 +1,128 @@
+[[case]]
+name = "empty_main_ok"
+kind = "analyzer"
+source = """
+fn main() {}
+"""
+
+[[case]]
+name = "redefined_fn"
+kind = "analyzer"
+source = """
+fn foo() {}
+fn foo() {}
+fn main() {}
+"""
+expected_errors = [
+    "name `foo` defined multiple times in scope @ [15:18]",
+]
+
+[[case]]
+name = "redefined_global_and_const"
+kind = "analyzer"
+source = """
+global A: u8;
+const A: u8 = 1;
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [20:21]",
+]
+
+[[case]]
+name = "not_defined_place"
+kind = "analyzer"
+source = """
+fn main() {
+    x;
+}
+"""
+expected_errors = [
+    "name `x` not defined in scope @ [16:17]",
+]
+
+[[case]]
+name = "break_outside_loop"
+kind = "analyzer"
+source = """
+fn main() {
+    break;
+}
+"""
+expected_errors = [
+    "`break` outside of a loop @ [16:22]",
+]
+
+[[case]]
+name = "continue_outside_loop"
+kind = "analyzer"
+source = """
+fn main() {
+    continue;
+}
+"""
+expected_errors = [
+    "`continue` outside of a loop @ [16:25]",
+]
+
+[[case]]
+name = "yield_outside_block"
+kind = "analyzer"
+source = """
+fn main() {
+    yield 1;
+}
+"""
+expected_errors = [
+    "`yield` outside of a block @ [16:24]",
+]
+
+[[case]]
+name = "return_value_type_mismatch"
+kind = "analyzer"
+source = """
+fn foo() -> u8 {
+    return;
+}
+fn main() {}
+"""
+expected_errors = [
+    "`u8` is not equal to `unit` @ [21:28]",
+]
+
+[[case]]
+name = "return_with_no_value_matches_unit_return_ty"
+kind = "analyzer"
+source = """
+fn foo() {
+    return;
+}
+fn main() {}
+"""
+
+[[case]]
+name = "fn_falls_through_without_return_is_error"
+kind = "analyzer"
+source = """
+fn foo() -> u8 {
+}
+fn main() {}
+"""
+expected_errors = [
+    "`u8` is not equal to `unit` @ [3:6]",
+]
+
+[[case]]
+name = "unreachable_code_after_return"
+kind = "analyzer"
+source = """
+fn main() {
+    return;
+    let x = 1;
+    x;
+}
+"""
+expected_errors = [
+    "unreachable code @ [28:45]",
+    "type cannot be determined by inference @ [36:37]",
+]

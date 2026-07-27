@@ -27,6 +27,9 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     FieldAccessOnValue(#[from] FieldAccessOnValueError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    AssignOnValue(#[from] AssignOnValueError),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -69,6 +72,16 @@ pub struct ArrayIndexOnValueError {
 pub struct FieldAccessOnValueError {
     #[label("this field access")]
     pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: cannot assign to a value")]
+#[diagnostic()]
+pub struct AssignOnValueError {
+    #[label("this value")]
+    pub value_span: SourceSpan,
+    #[label("this assignment")]
+    pub op_span: SourceSpan,
 }
 
 pub struct Parser<'de> {
@@ -289,7 +302,7 @@ impl Parser<'_> {
         self.expect(TokenKind::Colon)?;
         let ty = self.parse_ty_ref()?;
         self.expect(TokenKind::Equal)?;
-        let value = self.parse_expr()?;
+        let value = self.parse_expr_or_block()?;
         self.expect(TokenKind::Semicolon)?;
 
         Ok(ConstDecl { name, ty, value })
@@ -388,8 +401,8 @@ impl Parser<'_> {
         } else {
             None
         };
-        self.expect(lex::TokenKind::Equal)?;
-        let value = self.parse_expr()?;
+        self.expect(TokenKind::Equal)?;
+        let value = self.parse_expr_or_block()?;
         self.expect(TokenKind::Semicolon)?;
 
         Ok(LetSmt { name, ty, value })
@@ -401,7 +414,7 @@ impl Parser<'_> {
             self.expect(TokenKind::Semicolon)?;
             None
         } else {
-            let value = self.parse_expr()?;
+            let value = self.parse_expr_or_block()?;
             self.expect(TokenKind::Semicolon)?;
             Some(value)
         };
@@ -414,7 +427,7 @@ impl Parser<'_> {
             self.expect(TokenKind::Semicolon)?;
             None
         } else {
-            let value = self.parse_expr()?;
+            let value = self.parse_expr_or_block()?;
             self.expect(TokenKind::Semicolon)?;
             Some(value)
         };
@@ -423,7 +436,7 @@ impl Parser<'_> {
 
     fn parse_yield(&mut self) -> Result<YieldSmt, Error> {
         self.expect(TokenKind::Yield)?;
-        let value = self.parse_expr()?;
+        let value = self.parse_expr_or_block()?;
         self.expect(TokenKind::Semicolon)?;
         Ok(YieldSmt { value })
     }
@@ -467,10 +480,9 @@ impl Parser<'_> {
         let mut lhs = {
             let data = match lhs_token.kind() {
                 // atoms
-                TokenKind::Number => ExprData::from(SpannedIntegerLiteral::new(
-                    lhs_token.try_parse_u32()?,
-                    lhs_token.span(),
-                )),
+                TokenKind::Number => {
+                    ExprData::from(IntegerLiteral::from(lhs_token.try_parse_u32()?))
+                }
                 TokenKind::Ident => {
                     let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
                     ExprData::from(Place {
@@ -734,6 +746,13 @@ impl Parser<'_> {
                                     }));
                                 }
 
+                                if is_assign(kind) && !matches!(lhs.data, ExprData::Place(_)) {
+                                    return Err(Error::AssignOnValue(AssignOnValueError {
+                                        value_span: lhs.span,
+                                        op_span: op_token.span(),
+                                    }));
+                                }
+
                                 ExprData::from(BinaryOp {
                                     kind,
                                     left: Box::new(lhs),
@@ -820,6 +839,23 @@ pub fn is_comparison(op: BinaryOpKind) -> bool {
             | BinaryOpKind::Le
             | BinaryOpKind::Gt
             | BinaryOpKind::Ge
+    )
+}
+
+#[must_use]
+pub fn is_assign(op: BinaryOpKind) -> bool {
+    matches!(
+        op,
+        BinaryOpKind::Assign
+            | BinaryOpKind::AddAssign
+            | BinaryOpKind::SubAssign
+            | BinaryOpKind::BitAndAssign
+            | BinaryOpKind::BitOrAssign
+            | BinaryOpKind::XOrAssign
+            | BinaryOpKind::ShiftLeftAssign
+            | BinaryOpKind::ShiftRightAssign
+            | BinaryOpKind::RotateLeftAssign
+            | BinaryOpKind::RotateRightAssign
     )
 }
 

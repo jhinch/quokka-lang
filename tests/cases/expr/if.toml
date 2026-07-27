@@ -20,14 +20,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -67,14 +61,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -120,14 +108,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -135,14 +117,8 @@ Expr(
         offset: SourceOffset(10),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 2,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(10),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 2,
       )),
     ),
     false_block: Some(Expr(
@@ -150,14 +126,8 @@ Expr(
         offset: SourceOffset(17),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 3,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(17),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 3,
       )),
     )),
   )),
@@ -185,14 +155,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -200,14 +164,8 @@ Expr(
         offset: SourceOffset(10),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 2,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(10),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 2,
       )),
     ),
     false_block: None,
@@ -242,14 +200,8 @@ Expr(
             offset: SourceOffset(6),
             length: 1,
           ),
-          data: Integer(Spanned(
-            data: IntegerLiteral(
-              value: 1,
-            ),
-            span: SourceSpan(
-              offset: SourceOffset(6),
-              length: 1,
-            ),
+          data: Integer(IntegerLiteral(
+            value: 1,
           )),
         ),
         true_block: Expr(
@@ -257,14 +209,8 @@ Expr(
             offset: SourceOffset(13),
             length: 1,
           ),
-          data: Integer(Spanned(
-            data: IntegerLiteral(
-              value: 2,
-            ),
-            span: SourceSpan(
-              offset: SourceOffset(13),
-              length: 1,
-            ),
+          data: Integer(IntegerLiteral(
+            value: 2,
           )),
         ),
         false_block: Some(Expr(
@@ -272,14 +218,8 @@ Expr(
             offset: SourceOffset(20),
             length: 1,
           ),
-          data: Integer(Spanned(
-            data: IntegerLiteral(
-              value: 3,
-            ),
-            span: SourceSpan(
-              offset: SourceOffset(20),
-              length: 1,
-            ),
+          data: Integer(IntegerLiteral(
+            value: 3,
           )),
         )),
       )),
@@ -289,14 +229,8 @@ Expr(
         offset: SourceOffset(27),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 4,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(27),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 4,
       )),
     ),
     false_block: Some(Expr(
@@ -304,14 +238,8 @@ Expr(
         offset: SourceOffset(34),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 5,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(34),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 5,
       )),
     )),
   )),
@@ -339,14 +267,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -354,14 +276,8 @@ Expr(
         offset: SourceOffset(10),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 2,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(10),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 2,
       )),
     ),
     false_block: Some(Expr(
@@ -382,14 +298,8 @@ Expr(
                   offset: SourceOffset(25),
                   length: 1,
                 ),
-                data: Integer(Spanned(
-                  data: IntegerLiteral(
-                    value: 3,
-                  ),
-                  span: SourceSpan(
-                    offset: SourceOffset(25),
-                    length: 1,
-                  ),
+                data: Integer(IntegerLiteral(
+                  value: 3,
                 )),
               ),
             )),
@@ -427,14 +337,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -462,14 +366,8 @@ Expr(
                   offset: SourceOffset(24),
                   length: 1,
                 ),
-                data: Integer(Spanned(
-                  data: IntegerLiteral(
-                    value: 1,
-                  ),
-                  span: SourceSpan(
-                    offset: SourceOffset(24),
-                    length: 1,
-                  ),
+                data: Integer(IntegerLiteral(
+                  value: 1,
                 )),
               ),
             )),
@@ -519,14 +417,8 @@ Expr(
                   offset: SourceOffset(59),
                   length: 1,
                 ),
-                data: Integer(Spanned(
-                  data: IntegerLiteral(
-                    value: 2,
-                  ),
-                  span: SourceSpan(
-                    offset: SourceOffset(59),
-                    length: 1,
-                  ),
+                data: Integer(IntegerLiteral(
+                  value: 2,
                 )),
               ),
             )),
@@ -582,14 +474,8 @@ Item(
                     offset: SourceOffset(19),
                     length: 1,
                   ),
-                  data: Integer(Spanned(
-                    data: IntegerLiteral(
-                      value: 1,
-                    ),
-                    span: SourceSpan(
-                      offset: SourceOffset(19),
-                      length: 1,
-                    ),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
                   )),
                 ),
                 true_block: Expr(
@@ -664,14 +550,8 @@ Item(
                     offset: SourceOffset(19),
                     length: 1,
                   ),
-                  data: Integer(Spanned(
-                    data: IntegerLiteral(
-                      value: 1,
-                    ),
-                    span: SourceSpan(
-                      offset: SourceOffset(19),
-                      length: 1,
-                    ),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
                   )),
                 ),
                 true_block: Expr(
@@ -706,14 +586,8 @@ Item(
                     offset: SourceOffset(38),
                     length: 1,
                   ),
-                  data: Integer(Spanned(
-                    data: IntegerLiteral(
-                      value: 1,
-                    ),
-                    span: SourceSpan(
-                      offset: SourceOffset(38),
-                      length: 1,
-                    ),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
                   )),
                 ),
                 right: Expr(
@@ -721,14 +595,8 @@ Item(
                     offset: SourceOffset(42),
                     length: 1,
                   ),
-                  data: Integer(Spanned(
-                    data: IntegerLiteral(
-                      value: 2,
-                    ),
-                    span: SourceSpan(
-                      offset: SourceOffset(42),
-                      length: 1,
-                    ),
+                  data: Integer(IntegerLiteral(
+                    value: 2,
                   )),
                 ),
               )),
@@ -790,14 +658,8 @@ Expr(
         offset: SourceOffset(3),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 1,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 1,
       )),
     ),
     true_block: Expr(
@@ -805,14 +667,8 @@ Expr(
         offset: SourceOffset(10),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 2,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(10),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 2,
       )),
     ),
     false_block: Some(Expr(
@@ -820,14 +676,8 @@ Expr(
         offset: SourceOffset(17),
         length: 1,
       ),
-      data: Integer(Spanned(
-        data: IntegerLiteral(
-          value: 3,
-        ),
-        span: SourceSpan(
-          offset: SourceOffset(17),
-          length: 1,
-        ),
+      data: Integer(IntegerLiteral(
+        value: 3,
       )),
     )),
   )),

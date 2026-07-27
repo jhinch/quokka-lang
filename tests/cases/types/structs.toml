@@ -1,0 +1,139 @@
+[[case]]
+name = "field_access_ok"
+kind = "analyzer"
+preview_features = ["field-access"]
+ignored = false
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+global P: Point;
+fn main() {
+    let v: u8 = P.x;
+}
+"""
+
+[[case]]
+name = "field_not_defined"
+kind = "analyzer"
+preview_features = ["field-access"]
+ignored = false
+source = """
+struct Point {
+    x: u8,
+}
+global P: Point;
+fn main() {
+    let v: u8 = P.z;
+}
+"""
+expected_errors = [
+    "field `z` is not defined on `Point` @ [75:76]",
+]
+
+[[case]]
+name = "field_access_on_non_struct"
+kind = "analyzer"
+preview_features = ["field-access"]
+ignored = false
+source = """
+global A: u8;
+fn main() {
+    let v: u8 = A.x;
+}
+"""
+expected_errors = [
+    "`u8` is not a struct type @ [42:43]",
+]
+
+[[case]]
+name = "field_access_wrong_type_annotation"
+kind = "analyzer"
+preview_features = ["field-access"]
+ignored = false
+source = """
+struct Point {
+    x: u8,
+}
+global P: Point;
+fn main() {
+    let v: u1 = P.x;
+}
+"""
+expected_errors = [
+    "`u1` is not equal to `u8` @ [73:76]",
+]
+
+[[case]]
+name = "duplicate_struct_name"
+kind = "analyzer"
+source = """
+struct Point {}
+struct Point {}
+fn main() {}
+"""
+expected_errors = [
+    "name `Point` defined multiple times in scope @ [23:28]",
+]
+
+[[case]]
+name = "duplicate_field_name_in_same_struct"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    x: u16,
+}
+fn main() {}
+"""
+expected_errors = [
+    "field `x` defined multiple times on `Point` @ [30:31]",
+]
+
+[[case]]
+name = "undefined_field_type"
+kind = "analyzer"
+source = """
+struct Point {
+    x: NotAType,
+}
+fn main() {}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [22:30]",
+]
+
+[[case]]
+name = "struct_field_referencing_undeclared_later_struct"
+kind = "analyzer"
+source = """
+struct Wrapper {
+    inner: Inner,
+}
+struct Inner {
+    value: u8,
+}
+fn main() {}
+"""
+
+[[case]]
+name = "self_referential_struct_field"
+kind = "analyzer"
+source = """
+struct Node {
+    next: Node,
+}
+fn main() {}
+"""
+
+[[case]]
+name = "struct_name_and_value_name_do_not_collide"
+kind = "analyzer"
+source = """
+struct Foo {
+    x: u8,
+}
+global Foo: u8;
+fn main() {}
+"""
