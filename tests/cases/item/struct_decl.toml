@@ -8,13 +8,7 @@ struct Name {}
 expected_ast = """
 Item(
   data: StructDecl(StructDecl(
-    name: Spanned(
-      data: "Name",
-      span: SourceSpan(
-        offset: SourceOffset(7),
-        length: 4,
-      ),
-    ),
+    name: ("Name", (7, 4)),
     fields: [],
   )),
 )
@@ -33,48 +27,20 @@ struct Point {
 expected_ast = """
 Item(
   data: StructDecl(StructDecl(
-    name: Spanned(
-      data: "Point",
-      span: SourceSpan(
-        offset: SourceOffset(7),
-        length: 5,
-      ),
-    ),
+    name: ("Point", (7, 5)),
     fields: [
       FieldDecl(
-        name: Spanned(
-          data: "x",
-          span: SourceSpan(
-            offset: SourceOffset(19),
-            length: 1,
-          ),
-        ),
+        name: ("x", (19, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(22),
-              length: 2,
-            ),
-          ),
+          span: (22, 2),
+          name: ("u8", (22, 2)),
         ),
       ),
       FieldDecl(
-        name: Spanned(
-          data: "y",
-          span: SourceSpan(
-            offset: SourceOffset(30),
-            length: 1,
-          ),
-        ),
+        name: ("y", (30, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(33),
-              length: 2,
-            ),
-          ),
+          span: (33, 2),
+          name: ("u8", (33, 2)),
         ),
       ),
     ],
@@ -95,48 +61,20 @@ struct Point {
 expected_ast = """
 Item(
   data: StructDecl(StructDecl(
-    name: Spanned(
-      data: "Point",
-      span: SourceSpan(
-        offset: SourceOffset(7),
-        length: 5,
-      ),
-    ),
+    name: ("Point", (7, 5)),
     fields: [
       FieldDecl(
-        name: Spanned(
-          data: "x",
-          span: SourceSpan(
-            offset: SourceOffset(19),
-            length: 1,
-          ),
-        ),
+        name: ("x", (19, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(22),
-              length: 2,
-            ),
-          ),
+          span: (22, 2),
+          name: ("u8", (22, 2)),
         ),
       ),
       FieldDecl(
-        name: Spanned(
-          data: "y",
-          span: SourceSpan(
-            offset: SourceOffset(30),
-            length: 1,
-          ),
-        ),
+        name: ("y", (30, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(33),
-              length: 2,
-            ),
-          ),
+          span: (33, 2),
+          name: ("u8", (33, 2)),
         ),
       ),
     ],
@@ -171,30 +109,13 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (7, 4)),
         fields: [
           FieldDecl(
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(18),
-                length: 5,
-              ),
-            ),
+            name: ("field", (18, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(25),
-                  length: 2,
-                ),
-              ),
+              span: (25, 2),
+              name: ("u8", (25, 2)),
             ),
           ),
         ],
@@ -219,40 +140,17 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          name: Spanned(
-            data: "this_attribute",
-            span: SourceSpan(
-              offset: SourceOffset(2),
-              length: 14,
-            ),
-          ),
+          name: ("this_attribute", (2, 14)),
         ),
       ],
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(25),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (25, 4)),
         fields: [
           FieldDecl(
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(36),
-                length: 5,
-              ),
-            ),
+            name: ("field", (36, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(43),
-                  length: 2,
-                ),
-              ),
+              span: (43, 2),
+              name: ("u8", (43, 2)),
             ),
           ),
         ],
@@ -279,49 +177,20 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          name: Spanned(
-            data: "this_attribute",
-            span: SourceSpan(
-              offset: SourceOffset(2),
-              length: 14,
-            ),
-          ),
+          name: ("this_attribute", (2, 14)),
         ),
         AttributeDecl(
-          name: Spanned(
-            data: "that_attribute",
-            span: SourceSpan(
-              offset: SourceOffset(20),
-              length: 14,
-            ),
-          ),
+          name: ("that_attribute", (20, 14)),
         ),
       ],
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(43),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (43, 4)),
         fields: [
           FieldDecl(
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(54),
-                length: 5,
-              ),
-            ),
+            name: ("field", (54, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(61),
-                  length: 2,
-                ),
-              ),
+              span: (61, 2),
+              name: ("u8", (61, 2)),
             ),
           ),
         ],
@@ -345,41 +214,18 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (7, 4)),
         fields: [
           FieldDecl(
             attributes: [
               AttributeDecl(
-                name: Spanned(
-                  data: "this_attribute",
-                  span: SourceSpan(
-                    offset: SourceOffset(20),
-                    length: 14,
-                  ),
-                ),
+                name: ("this_attribute", (20, 14)),
               ),
             ],
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(40),
-                length: 5,
-              ),
-            ),
+            name: ("field", (40, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(47),
-                  length: 2,
-                ),
-              ),
+              span: (47, 2),
+              name: ("u8", (47, 2)),
             ),
           ),
         ],
@@ -404,50 +250,21 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (7, 4)),
         fields: [
           FieldDecl(
             attributes: [
               AttributeDecl(
-                name: Spanned(
-                  data: "this_attribute",
-                  span: SourceSpan(
-                    offset: SourceOffset(20),
-                    length: 14,
-                  ),
-                ),
+                name: ("this_attribute", (20, 14)),
               ),
               AttributeDecl(
-                name: Spanned(
-                  data: "that_attribute",
-                  span: SourceSpan(
-                    offset: SourceOffset(42),
-                    length: 14,
-                  ),
-                ),
+                name: ("that_attribute", (42, 14)),
               ),
             ],
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(62),
-                length: 5,
-              ),
-            ),
+            name: ("field", (62, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(69),
-                  length: 2,
-                ),
-              ),
+              span: (69, 2),
+              name: ("u8", (69, 2)),
             ),
           ),
         ],

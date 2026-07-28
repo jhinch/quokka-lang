@@ -9,13 +9,7 @@ expected_ast = """
 Item(
   data: FnDecl(FnDecl(
     signature: FnSig(
-      name: Spanned(
-        data: "main",
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 4,
-        ),
-      ),
+      name: ("main", (3, 4)),
     ),
     body: Block(
       statements: [],
@@ -38,34 +32,16 @@ expected_ast = """
 Item(
   data: FnDecl(FnDecl(
     signature: FnSig(
-      name: Spanned(
-        data: "main",
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 4,
-        ),
-      ),
+      name: ("main", (3, 4)),
     ),
     body: Block(
       statements: [
         Statement(
-          span: SourceSpan(
-            offset: SourceOffset(16),
-            length: 10,
-          ),
+          span: (16, 10),
           data: Let(LetSmt(
-            name: Spanned(
-              data: "x",
-              span: SourceSpan(
-                offset: SourceOffset(20),
-                length: 1,
-              ),
-            ),
+            name: ("x", (20, 1)),
             value: Expr(
-              span: SourceSpan(
-                offset: SourceOffset(24),
-                length: 1,
-              ),
+              span: (24, 1),
               data: Integer(IntegerLiteral(
                 value: 1,
               )),
@@ -73,24 +49,12 @@ Item(
           )),
         ),
         Statement(
-          span: SourceSpan(
-            offset: SourceOffset(31),
-            length: 2,
-          ),
+          span: (31, 2),
           data: Expr(ExprSmt(
             value: Expr(
-              span: SourceSpan(
-                offset: SourceOffset(31),
-                length: 1,
-              ),
+              span: (31, 1),
               data: Place(Place(
-                name: Spanned(
-                  data: "x",
-                  span: SourceSpan(
-                    offset: SourceOffset(31),
-                    length: 1,
-                  ),
-                ),
+                name: ("x", (31, 1)),
                 field: [],
               )),
             ),
@@ -115,43 +79,20 @@ expected_ast = """
 Item(
   data: FnDecl(FnDecl(
     signature: FnSig(
-      name: Spanned(
-        data: "main",
-        span: SourceSpan(
-          offset: SourceOffset(3),
-          length: 4,
-        ),
-      ),
+      name: ("main", (3, 4)),
     ),
     body: Block(
       statements: [
         Statement(
-          span: SourceSpan(
-            offset: SourceOffset(16),
-            length: 14,
-          ),
+          span: (16, 14),
           data: Let(LetSmt(
-            name: Spanned(
-              data: "x",
-              span: SourceSpan(
-                offset: SourceOffset(20),
-                length: 1,
-              ),
-            ),
+            name: ("x", (20, 1)),
             ty: Some(TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(23),
-                  length: 2,
-                ),
-              ),
+              span: (23, 2),
+              name: ("u8", (23, 2)),
             )),
             value: Expr(
-              span: SourceSpan(
-                offset: SourceOffset(28),
-                length: 1,
-              ),
+              span: (28, 1),
               data: Integer(IntegerLiteral(
                 value: 1,
               )),
@@ -180,46 +121,28 @@ if 1 then {
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 54,
-  ),
+  span: (0, 54),
   data: If(If(
     condition: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(3),
-        length: 1,
-      ),
+      span: (3, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     true_block: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(10),
-        length: 35,
-      ),
+      span: (10, 35),
       data: Block(Block(
         statements: [
           Statement(
-            span: SourceSpan(
-              offset: SourceOffset(16),
-              length: 27,
-            ),
+            span: (16, 27),
             data: Expr(ExprSmt(
               value: Expr(
-                span: SourceSpan(
-                  offset: SourceOffset(16),
-                  length: 27,
-                ),
+                span: (16, 27),
                 data: Loop(Loop(
                   body: Block(
                     statements: [
                       Statement(
-                        span: SourceSpan(
-                          offset: SourceOffset(31),
-                          length: 6,
-                        ),
+                        span: (31, 6),
                         data: Break(BreakSmt()),
                       ),
                     ],
@@ -232,10 +155,7 @@ Expr(
       )),
     ),
     false_block: Some(Expr(
-      span: SourceSpan(
-        offset: SourceOffset(51),
-        length: 3,
-      ),
+      span: (51, 3),
       data: Block(Block(
         statements: [],
       )),

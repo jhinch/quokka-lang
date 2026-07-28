@@ -7,10 +7,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 1,
-  ),
+  span: (0, 1),
   data: Integer(IntegerLiteral(
     value: 0,
   )),
@@ -26,10 +23,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 3,
-  ),
+  span: (0, 3),
   data: Integer(IntegerLiteral(
     value: 123,
   )),
@@ -45,10 +39,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Integer(IntegerLiteral(
     value: 1000,
   )),
@@ -64,10 +55,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 4,
-  ),
+  span: (0, 4),
   data: Integer(IntegerLiteral(
     value: 31,
   )),
@@ -83,10 +71,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 4,
-  ),
+  span: (0, 4),
   data: Integer(IntegerLiteral(
     value: 15,
   )),
@@ -102,10 +87,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Integer(IntegerLiteral(
     value: 5,
   )),
@@ -121,10 +103,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Integer(IntegerLiteral(
     value: 16,
   )),
@@ -140,10 +119,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Integer(IntegerLiteral(
     value: 8,
   )),
@@ -159,10 +135,7 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Integer(IntegerLiteral(
     value: 2,
   )),

@@ -47,16 +47,7 @@ impl Analyzer {
             if let ast::ItemData::StructDecl(decl) = &item.data {
                 let mut fields = HashMap::new();
                 for field in &decl.fields {
-                    let ty = match self.ty_registry.resolve(&field.ty.name.data) {
-                        Some(ty) => ty,
-                        None => {
-                            self.result_builder.add_error(TypeNotFoundError {
-                                name: field.ty.name.data.clone(),
-                                span: field.ty.name.span,
-                            });
-                            Ty::ERROR
-                        }
-                    };
+                    let ty = self.resolve_ty_ref(&field.ty);
                     match fields.entry(field.name.data.clone()) {
                         Entry::Vacant(entry) => {
                             entry.insert(ty);
@@ -165,7 +156,7 @@ impl Analyzer {
             ty1: inferred_ty,
             ty1_span: const_decl.value.span,
             ty2: InferredTy::Concrete(const_ty),
-            ty2_span: const_decl.ty.name.span,
+            ty2_span: const_decl.ty.span,
         });
         self.process_constraints(&mut inferrer, constraints);
     }
@@ -178,7 +169,7 @@ impl Analyzer {
                 .signature
                 .ty
                 .as_ref()
-                .map(|ty_ref| ty_ref.name.span)
+                .map(|ty_ref| ty_ref.span)
                 .unwrap_or(fn_decl.signature.name.span),
         );
 
@@ -265,7 +256,7 @@ impl Analyzer {
                     ty1_span: stmt
                         .ty
                         .as_ref()
-                        .map(|ty_ref| ty_ref.name.span)
+                        .map(|ty_ref| ty_ref.span)
                         .unwrap_or(statement.span),
                     ty2: expr_ty,
                     ty2_span: stmt.value.span,

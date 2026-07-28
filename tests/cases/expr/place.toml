@@ -7,18 +7,9 @@ a
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 1,
-  ),
+  span: (0, 1),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [],
   )),
 )
@@ -35,26 +26,11 @@ a.b
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 3,
-  ),
+  span: (0, 3),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
-      Field(Spanned(
-        data: "b",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
-      )),
+      Field(("b", (2, 1))),
     ],
   )),
 )
@@ -71,33 +47,12 @@ a.b.c
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
-      Field(Spanned(
-        data: "b",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
-      )),
-      Field(Spanned(
-        data: "c",
-        span: SourceSpan(
-          offset: SourceOffset(4),
-          length: 1,
-        ),
-      )),
+      Field(("b", (2, 1))),
+      Field(("c", (4, 1))),
     ],
   )),
 )
@@ -114,57 +69,24 @@ a.b + c.d
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 9,
-  ),
+  span: (0, 9),
   data: Binary(BinaryOp(
     kind: Add,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 3,
-      ),
+      span: (0, 3),
       data: Place(Place(
-        name: Spanned(
-          data: "a",
-          span: SourceSpan(
-            offset: SourceOffset(0),
-            length: 1,
-          ),
-        ),
+        name: ("a", (0, 1)),
         field: [
-          Field(Spanned(
-            data: "b",
-            span: SourceSpan(
-              offset: SourceOffset(2),
-              length: 1,
-            ),
-          )),
+          Field(("b", (2, 1))),
         ],
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(6),
-        length: 3,
-      ),
+      span: (6, 3),
       data: Place(Place(
-        name: Spanned(
-          data: "c",
-          span: SourceSpan(
-            offset: SourceOffset(6),
-            length: 1,
-          ),
-        ),
+        name: ("c", (6, 1)),
         field: [
-          Field(Spanned(
-            data: "d",
-            span: SourceSpan(
-              offset: SourceOffset(8),
-              length: 1,
-            ),
-          )),
+          Field(("d", (8, 1))),
         ],
       )),
     ),
@@ -183,41 +105,20 @@ a.b = 1
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 7,
-  ),
+  span: (0, 7),
   data: Binary(BinaryOp(
     kind: Assign,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 3,
-      ),
+      span: (0, 3),
       data: Place(Place(
-        name: Spanned(
-          data: "a",
-          span: SourceSpan(
-            offset: SourceOffset(0),
-            length: 1,
-          ),
-        ),
+        name: ("a", (0, 1)),
         field: [
-          Field(Spanned(
-            data: "b",
-            span: SourceSpan(
-              offset: SourceOffset(2),
-              length: 1,
-            ),
-          )),
+          Field(("b", (2, 1))),
         ],
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(6),
-        length: 1,
-      ),
+      span: (6, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
@@ -238,24 +139,12 @@ expected_errors = [
 ]
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 4,
-  ),
+  span: (0, 4),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
       Index(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
+        span: (2, 1),
         data: Integer(IntegerLiteral(
           value: 0,
         )),
@@ -276,24 +165,12 @@ a[0]
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 4,
-  ),
+  span: (0, 4),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
       Index(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
+        span: (2, 1),
         data: Integer(IntegerLiteral(
           value: 0,
         )),
@@ -314,31 +191,13 @@ a.b[0]
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
-      Field(Spanned(
-        data: "b",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
-      )),
+      Field(("b", (2, 1))),
       Index(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(4),
-          length: 1,
-        ),
+        span: (4, 1),
         data: Integer(IntegerLiteral(
           value: 0,
         )),
@@ -359,35 +218,17 @@ a[0].b
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
       Index(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
+        span: (2, 1),
         data: Integer(IntegerLiteral(
           value: 0,
         )),
       )),
-      Field(Spanned(
-        data: "b",
-        span: SourceSpan(
-          offset: SourceOffset(5),
-          length: 1,
-        ),
-      )),
+      Field(("b", (5, 1))),
     ],
   )),
 )
@@ -402,26 +243,11 @@ a.b
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 3,
-  ),
+  span: (0, 3),
   data: Place(Place(
-    name: Spanned(
-      data: "a",
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
-    ),
+    name: ("a", (0, 1)),
     field: [
-      Field(Spanned(
-        data: "b",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 1,
-        ),
-      )),
+      Field(("b", (2, 1))),
     ],
   )),
 )

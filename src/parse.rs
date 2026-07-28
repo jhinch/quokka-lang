@@ -339,23 +339,25 @@ impl Parser<'_> {
     }
 
     fn parse_ty_ref(&mut self) -> Result<TyRef, Error> {
-        let (name, count) = if self.peek_token()?.kind() == TokenKind::LeftBracket {
+        Ok(if self.peek_token()?.kind() == TokenKind::LeftBracket {
             // fixed size array
-            let span = self.peek_token()?.span();
-            self.features
-                .check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
+            let start_span = self.peek_token()?.span();
             self.expect(TokenKind::LeftBracket)?;
             let name = self.parse_identifier()?;
             self.expect(TokenKind::Semicolon)?;
             let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
             self.expect(TokenKind::RightBracket)?;
-            (name, Some(count))
+            let end_span = self.lexer.current().unwrap().span();
+            let span = SourceSpan::from(start_span.offset()..(end_span.offset() + end_span.len()));
+            self.features
+                .check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
+
+            TyRef::array(span, name, count)
         } else {
             // regular type is equivalent to an array of size 1
             let name = self.parse_identifier()?;
-            (name, None)
-        };
-        Ok(TyRef { name, count })
+            TyRef::new(name)
+        })
     }
 
     fn parse_body(&mut self) -> Result<Block, Error> {

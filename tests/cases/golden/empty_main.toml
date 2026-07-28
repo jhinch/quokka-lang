@@ -26,13 +26,7 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: Spanned(
-            data: "main",
-            span: SourceSpan(
-              offset: SourceOffset(3),
-              length: 4,
-            ),
-          ),
+          name: ("main", (3, 4)),
         ),
         body: Block(
           statements: [],

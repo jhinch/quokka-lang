@@ -7,37 +7,20 @@ struct Name {
 }
 """
 expected_errors = [
-    "Preview feature error: use --preview array @ [25:26]",
+    "Preview feature error: use --preview array @ [25:32]",
 ]
 expected_ast = """
 Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (7, 4)),
         fields: [
           FieldDecl(
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(18),
-                length: 5,
-              ),
-            ),
+            name: ("field", (18, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(26),
-                  length: 2,
-                ),
-              ),
+              span: (25, 7),
+              name: ("u8", (26, 2)),
               count: Some(3),
             ),
           ),
@@ -63,30 +46,13 @@ Root(
   items: [
     Item(
       data: StructDecl(StructDecl(
-        name: Spanned(
-          data: "Name",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 4,
-          ),
-        ),
+        name: ("Name", (7, 4)),
         fields: [
           FieldDecl(
-            name: Spanned(
-              data: "field",
-              span: SourceSpan(
-                offset: SourceOffset(18),
-                length: 5,
-              ),
-            ),
+            name: ("field", (18, 5)),
             ty: TyRef(
-              name: Spanned(
-                data: "u8",
-                span: SourceSpan(
-                  offset: SourceOffset(26),
-                  length: 2,
-                ),
-              ),
+              span: (25, 7),
+              name: ("u8", (26, 2)),
               count: Some(3),
             ),
           ),

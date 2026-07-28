@@ -7,26 +7,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Binary(BinaryOp(
     kind: Equal,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(5),
-        length: 1,
-      ),
+      span: (5, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
@@ -44,26 +35,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Binary(BinaryOp(
     kind: NotEqual,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(5),
-        length: 1,
-      ),
+      span: (5, 1),
       data: Integer(IntegerLiteral(
         value: 2,
       )),
@@ -81,26 +63,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Binary(BinaryOp(
     kind: Lt,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(4),
-        length: 1,
-      ),
+      span: (4, 1),
       data: Integer(IntegerLiteral(
         value: 2,
       )),
@@ -118,26 +91,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Binary(BinaryOp(
     kind: Le,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(5),
-        length: 1,
-      ),
+      span: (5, 1),
       data: Integer(IntegerLiteral(
         value: 2,
       )),
@@ -155,26 +119,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 5,
-  ),
+  span: (0, 5),
   data: Binary(BinaryOp(
     kind: Gt,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(4),
-        length: 1,
-      ),
+      span: (4, 1),
       data: Integer(IntegerLiteral(
         value: 2,
       )),
@@ -192,26 +147,17 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 6,
-  ),
+  span: (0, 6),
   data: Binary(BinaryOp(
     kind: Ge,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 1,
-      ),
+      span: (0, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(5),
-        length: 1,
-      ),
+      span: (5, 1),
       data: Integer(IntegerLiteral(
         value: 2,
       )),
@@ -251,38 +197,23 @@ source = """
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 20,
-  ),
+  span: (0, 20),
   data: Binary(BinaryOp(
     kind: Equal,
     left: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(0),
-        length: 8,
-      ),
+      span: (0, 8),
       data: Paren(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(1),
-          length: 6,
-        ),
+        span: (1, 6),
         data: Binary(BinaryOp(
           kind: Equal,
           left: Expr(
-            span: SourceSpan(
-              offset: SourceOffset(1),
-              length: 1,
-            ),
+            span: (1, 1),
             data: Integer(IntegerLiteral(
               value: 1,
             )),
           ),
           right: Expr(
-            span: SourceSpan(
-              offset: SourceOffset(6),
-              length: 1,
-            ),
+            span: (6, 1),
             data: Integer(IntegerLiteral(
               value: 1,
             )),
@@ -291,31 +222,19 @@ Expr(
       )),
     ),
     right: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(12),
-        length: 8,
-      ),
+      span: (12, 8),
       data: Paren(Expr(
-        span: SourceSpan(
-          offset: SourceOffset(13),
-          length: 6,
-        ),
+        span: (13, 6),
         data: Binary(BinaryOp(
           kind: Equal,
           left: Expr(
-            span: SourceSpan(
-              offset: SourceOffset(13),
-              length: 1,
-            ),
+            span: (13, 1),
             data: Integer(IntegerLiteral(
               value: 2,
             )),
           ),
           right: Expr(
-            span: SourceSpan(
-              offset: SourceOffset(18),
-              length: 1,
-            ),
+            span: (18, 1),
             data: Integer(IntegerLiteral(
               value: 2,
             )),

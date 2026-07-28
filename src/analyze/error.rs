@@ -24,7 +24,7 @@ impl From<SpannedIdentifier> for TypeNotFoundError {
 #[error("`continue` outside of a loop")]
 #[diagnostic()]
 pub struct ContinueOutsideLoopError {
-    #[label("cannot `continue` outside of a loop")]
+    #[label("`continue` not allowed here")]
     pub span: SourceSpan,
 }
 
@@ -32,7 +32,7 @@ pub struct ContinueOutsideLoopError {
 #[error("`break` outside of a loop")]
 #[diagnostic()]
 pub struct BreakOutsideLoopError {
-    #[label("cannot `break` outside of a loop")]
+    #[label("`break` not allowed here")]
     pub span: SourceSpan,
 }
 
@@ -40,7 +40,7 @@ pub struct BreakOutsideLoopError {
 #[error("`return` outside of a function")]
 #[diagnostic()]
 pub struct ReturnOutsideFnError {
-    #[label("cannot `return` outside of a function")]
+    #[label("`return` not allowed here")]
     pub span: SourceSpan,
 }
 
@@ -48,7 +48,7 @@ pub struct ReturnOutsideFnError {
 #[error("`yield` outside of a block")]
 #[diagnostic()]
 pub struct YieldOutsideBlockError {
-    #[label("cannot `yield` outside of a block")]
+    #[label("`yield` not allowed here")]
     pub span: SourceSpan,
 }
 

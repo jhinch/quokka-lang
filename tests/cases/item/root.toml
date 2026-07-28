@@ -24,27 +24,13 @@ Root(
   items: [
     Item(
       data: ConstDecl(ConstDecl(
-        name: Spanned(
-          data: "A",
-          span: SourceSpan(
-            offset: SourceOffset(6),
-            length: 1,
-          ),
-        ),
+        name: ("A", (6, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(9),
-              length: 2,
-            ),
-          ),
+          span: (9, 2),
+          name: ("u8", (9, 2)),
         ),
         value: Expr(
-          span: SourceSpan(
-            offset: SourceOffset(14),
-            length: 1,
-          ),
+          span: (14, 1),
           data: Integer(IntegerLiteral(
             value: 1,
           )),
@@ -53,34 +39,17 @@ Root(
     ),
     Item(
       data: GlobalDecl(GlobalDecl(
-        name: Spanned(
-          data: "B",
-          span: SourceSpan(
-            offset: SourceOffset(24),
-            length: 1,
-          ),
-        ),
+        name: ("B", (24, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(27),
-              length: 2,
-            ),
-          ),
+          span: (27, 2),
+          name: ("u8", (27, 2)),
         ),
       )),
     ),
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: Spanned(
-            data: "main",
-            span: SourceSpan(
-              offset: SourceOffset(34),
-              length: 4,
-            ),
-          ),
+          name: ("main", (34, 4)),
         ),
         body: Block(
           statements: [],
@@ -126,13 +95,7 @@ Root(
     Item(
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: Spanned(
-            data: "ok",
-            span: SourceSpan(
-              offset: SourceOffset(9),
-              length: 2,
-            ),
-          ),
+          name: ("ok", (9, 2)),
         ),
         body: Block(
           statements: [],

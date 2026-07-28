@@ -71,6 +71,8 @@ pub struct ConstDecl {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TyRef {
+    #[serde(with = "crate::source::span")]
+    pub span: SourceSpan,
     pub name: SpannedIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<NonZeroU16>,
@@ -79,12 +81,13 @@ pub struct TyRef {
 impl TyRef {
     #[must_use]
     pub const fn new(name: SpannedIdentifier) -> Self {
-        TyRef { name, count: None }
+        TyRef { span: name.span, name, count: None }
     }
 
     #[must_use]
-    pub const fn array(name: SpannedIdentifier, count: NonZeroU16) -> Self {
+    pub const fn array(span: SourceSpan, name: SpannedIdentifier, count: NonZeroU16) -> Self {
         TyRef {
+            span,
             name,
             count: Some(count),
         }
@@ -138,6 +141,7 @@ impl Borrow<str> for Identifier {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Statement {
+    #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub data: StatementData,
 }
@@ -187,6 +191,7 @@ pub struct ContinueSmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Expr {
+    #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub data: ExprData,
 }
@@ -393,7 +398,7 @@ mod tests {
     #[test]
     fn ty_ref_array_has_count() {
         let count = NonZeroU16::new(8).unwrap();
-        let ty = TyRef::array(ident("u8"), count);
+        let ty = TyRef::array(dummy_span(), ident("u8"), count);
         assert_eq!(ty.name.data.value, "u8");
         assert_eq!(ty.count, Some(count));
     }
@@ -401,7 +406,7 @@ mod tests {
     #[test]
     fn ty_ref_array_count_one() {
         let count = NonZeroU16::new(1).unwrap();
-        let ty = TyRef::array(ident("u8"), count);
+        let ty = TyRef::array(dummy_span(), ident("u8"), count);
         assert_eq!(ty.count.unwrap().get(), 1);
     }
 }

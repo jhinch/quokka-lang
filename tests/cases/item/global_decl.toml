@@ -9,21 +9,10 @@ Root(
   items: [
     Item(
       data: GlobalDecl(GlobalDecl(
-        name: Spanned(
-          data: "A",
-          span: SourceSpan(
-            offset: SourceOffset(7),
-            length: 1,
-          ),
-        ),
+        name: ("A", (7, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(10),
-              length: 2,
-            ),
-          ),
+          span: (10, 2),
+          name: ("u8", (10, 2)),
         ),
       )),
     ),
@@ -43,31 +32,14 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
-      name: Spanned(
-        data: "this_attribute",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 14,
-        ),
-      ),
+      name: ("this_attribute", (2, 14)),
     ),
   ],
   data: GlobalDecl(GlobalDecl(
-    name: Spanned(
-      data: "A",
-      span: SourceSpan(
-        offset: SourceOffset(25),
-        length: 1,
-      ),
-    ),
+    name: ("A", (25, 1)),
     ty: TyRef(
-      name: Spanned(
-        data: "u8",
-        span: SourceSpan(
-          offset: SourceOffset(28),
-          length: 2,
-        ),
-      ),
+      span: (28, 2),
+      name: ("u8", (28, 2)),
     ),
   )),
 )

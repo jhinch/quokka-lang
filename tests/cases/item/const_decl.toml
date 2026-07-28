@@ -9,27 +9,13 @@ Root(
   items: [
     Item(
       data: ConstDecl(ConstDecl(
-        name: Spanned(
-          data: "A",
-          span: SourceSpan(
-            offset: SourceOffset(6),
-            length: 1,
-          ),
-        ),
+        name: ("A", (6, 1)),
         ty: TyRef(
-          name: Spanned(
-            data: "u8",
-            span: SourceSpan(
-              offset: SourceOffset(9),
-              length: 2,
-            ),
-          ),
+          span: (9, 2),
+          name: ("u8", (9, 2)),
         ),
         value: Expr(
-          span: SourceSpan(
-            offset: SourceOffset(14),
-            length: 1,
-          ),
+          span: (14, 1),
           data: Integer(IntegerLiteral(
             value: 1,
           )),
@@ -50,43 +36,23 @@ const A: u8 = 1 + 2;
 expected_ast = """
 Item(
   data: ConstDecl(ConstDecl(
-    name: Spanned(
-      data: "A",
-      span: SourceSpan(
-        offset: SourceOffset(6),
-        length: 1,
-      ),
-    ),
+    name: ("A", (6, 1)),
     ty: TyRef(
-      name: Spanned(
-        data: "u8",
-        span: SourceSpan(
-          offset: SourceOffset(9),
-          length: 2,
-        ),
-      ),
+      span: (9, 2),
+      name: ("u8", (9, 2)),
     ),
     value: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(14),
-        length: 5,
-      ),
+      span: (14, 5),
       data: Binary(BinaryOp(
         kind: Add,
         left: Expr(
-          span: SourceSpan(
-            offset: SourceOffset(14),
-            length: 1,
-          ),
+          span: (14, 1),
           data: Integer(IntegerLiteral(
             value: 1,
           )),
         ),
         right: Expr(
-          span: SourceSpan(
-            offset: SourceOffset(18),
-            length: 1,
-          ),
+          span: (18, 1),
           data: Integer(IntegerLiteral(
             value: 2,
           )),
@@ -109,37 +75,17 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
-      name: Spanned(
-        data: "this_attribute",
-        span: SourceSpan(
-          offset: SourceOffset(2),
-          length: 14,
-        ),
-      ),
+      name: ("this_attribute", (2, 14)),
     ),
   ],
   data: ConstDecl(ConstDecl(
-    name: Spanned(
-      data: "A",
-      span: SourceSpan(
-        offset: SourceOffset(24),
-        length: 1,
-      ),
-    ),
+    name: ("A", (24, 1)),
     ty: TyRef(
-      name: Spanned(
-        data: "u8",
-        span: SourceSpan(
-          offset: SourceOffset(27),
-          length: 2,
-        ),
-      ),
+      span: (27, 2),
+      name: ("u8", (27, 2)),
     ),
     value: Expr(
-      span: SourceSpan(
-        offset: SourceOffset(32),
-        length: 1,
-      ),
+      span: (32, 1),
       data: Integer(IntegerLiteral(
         value: 1,
       )),

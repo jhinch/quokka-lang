@@ -7,19 +7,10 @@ a()
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 3,
-  ),
+  span: (0, 3),
   data: Call(Call(
     callee: Place(
-      name: Spanned(
-        data: "a",
-        span: SourceSpan(
-          offset: SourceOffset(0),
-          length: 1,
-        ),
-      ),
+      name: ("a", (0, 1)),
       field: [],
     ),
   )),
@@ -40,19 +31,10 @@ a()
 """
 expected_ast = """
 Expr(
-  span: SourceSpan(
-    offset: SourceOffset(0),
-    length: 3,
-  ),
+  span: (0, 3),
   data: Call(Call(
     callee: Place(
-      name: Spanned(
-        data: "a",
-        span: SourceSpan(
-          offset: SourceOffset(0),
-          length: 1,
-        ),
-      ),
+      name: ("a", (0, 1)),
       field: [],
     ),
   )),
