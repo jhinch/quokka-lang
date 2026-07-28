@@ -1,0 +1,250 @@
+[[case]]
+name = "bare_literal"
+kind = "parser"
+entrypoint = "statement"
+source = """
+1;
+"""
+expected_ast = """
+Statement(
+  span: (0, 2),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bare_place"
+kind = "parser"
+entrypoint = "statement"
+source = """
+x;
+"""
+expected_ast = """
+Statement(
+  span: (0, 2),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("x", (0, 1)),
+        field: [],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "binary_op"
+kind = "parser"
+entrypoint = "statement"
+source = """
+1 + 2;
+"""
+expected_ast = """
+Statement(
+  span: (0, 6),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 5),
+      data: Binary(BinaryOp(
+        kind: Add,
+        left: Expr(
+          span: (0, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        right: Expr(
+          span: (4, 1),
+          data: Integer(IntegerLiteral(
+            value: 2,
+          )),
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "grouped"
+kind = "parser"
+entrypoint = "statement"
+source = """
+(1 + 2);
+"""
+expected_ast = """
+Statement(
+  span: (0, 8),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 7),
+      data: Paren(Expr(
+        span: (1, 5),
+        data: Binary(BinaryOp(
+          kind: Add,
+          left: Expr(
+            span: (1, 1),
+            data: Integer(IntegerLiteral(
+              value: 1,
+            )),
+          ),
+          right: Expr(
+            span: (5, 1),
+            data: Integer(IntegerLiteral(
+              value: 2,
+            )),
+          ),
+        )),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "assignment"
+kind = "parser"
+entrypoint = "statement"
+source = """
+x = 1;
+"""
+expected_ast = """
+Statement(
+  span: (0, 6),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 5),
+      data: Binary(BinaryOp(
+        kind: Assign,
+        left: Expr(
+          span: (0, 1),
+          data: Place(Place(
+            name: ("x", (0, 1)),
+            field: [],
+          )),
+        ),
+        right: Expr(
+          span: (4, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "function_call"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["function-call"]
+ignored = false
+source = """
+foo();
+"""
+expected_ast = """
+Statement(
+  span: (0, 6),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 5),
+      data: Call(Call(
+        callee: Place(
+          name: ("foo", (0, 3)),
+          field: [],
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "field_access"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["field-access"]
+ignored = false
+source = """
+a.b;
+"""
+expected_ast = """
+Statement(
+  span: (0, 4),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 3),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        field: [
+          Field(("b", (2, 1))),
+        ],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "array_index"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["array"]
+ignored = false
+source = """
+a[0];
+"""
+expected_ast = """
+Statement(
+  span: (0, 5),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 4),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        field: [
+          Index(Expr(
+            span: (2, 1),
+            data: Integer(IntegerLiteral(
+              value: 0,
+            )),
+          )),
+        ],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "missing_semicolon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+1 + 2
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [6:6]",
+]
+
+[[case]]
+name = "missing_semicolon_place"
+kind = "parser"
+entrypoint = "statement"
+source = """
+x
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [2:2]",
+]

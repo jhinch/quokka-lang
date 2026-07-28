@@ -81,7 +81,11 @@ pub struct TyRef {
 impl TyRef {
     #[must_use]
     pub const fn new(name: SpannedIdentifier) -> Self {
-        TyRef { span: name.span, name, count: None }
+        TyRef {
+            span: name.span,
+            name,
+            count: None,
+        }
     }
 
     #[must_use]

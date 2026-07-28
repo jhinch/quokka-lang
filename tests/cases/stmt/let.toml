@@ -1,0 +1,375 @@
+[[case]]
+name = "literal_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = 1;
+"""
+expected_ast = """
+Statement(
+  span: (0, 10),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "typed_literal_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x: u8 = 1;
+"""
+expected_ast = """
+Statement(
+  span: (0, 14),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    ty: Some(TyRef(
+      span: (7, 2),
+      name: ("u8", (7, 2)),
+    )),
+    value: Expr(
+      span: (12, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "place_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = y;
+"""
+expected_ast = """
+Statement(
+  span: (0, 10),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 1),
+      data: Place(Place(
+        name: ("y", (8, 1)),
+        field: [],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "grouped_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = (1 + 2);
+"""
+expected_ast = """
+Statement(
+  span: (0, 16),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 7),
+      data: Paren(Expr(
+        span: (9, 5),
+        data: Binary(BinaryOp(
+          kind: Add,
+          left: Expr(
+            span: (9, 1),
+            data: Integer(IntegerLiteral(
+              value: 1,
+            )),
+          ),
+          right: Expr(
+            span: (13, 1),
+            data: Integer(IntegerLiteral(
+              value: 2,
+            )),
+          ),
+        )),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "block_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = {
+    yield 1;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 25),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 16),
+      data: Block(Block(
+        statements: [
+          Statement(
+            span: (14, 8),
+            data: Yield(YieldSmt(
+              value: Expr(
+                span: (20, 1),
+                data: Integer(IntegerLiteral(
+                  value: 1,
+                )),
+              ),
+            )),
+          ),
+        ],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "empty_block_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = {};
+"""
+expected_ast = """
+Statement(
+  span: (0, 11),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 2),
+      data: Block(Block(
+        statements: [],
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "if_without_block_value"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["if-else"]
+ignored = false
+source = """
+let x = if 1 then 2 else 3;
+"""
+expected_ast = """
+Statement(
+  span: (0, 27),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 18),
+      data: If(If(
+        condition: Expr(
+          span: (11, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        true_block: Expr(
+          span: (18, 1),
+          data: Integer(IntegerLiteral(
+            value: 2,
+          )),
+        ),
+        false_block: Some(Expr(
+          span: (25, 1),
+          data: Integer(IntegerLiteral(
+            value: 3,
+          )),
+        )),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "if_with_block_value"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["if-else"]
+ignored = false
+source = """
+let x = if 1 then {
+    yield 2;
+} else {
+    yield 3;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 57),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 48),
+      data: If(If(
+        condition: Expr(
+          span: (11, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        true_block: Expr(
+          span: (18, 16),
+          data: Block(Block(
+            statements: [
+              Statement(
+                span: (24, 8),
+                data: Yield(YieldSmt(
+                  value: Expr(
+                    span: (30, 1),
+                    data: Integer(IntegerLiteral(
+                      value: 2,
+                    )),
+                  ),
+                )),
+              ),
+            ],
+          )),
+        ),
+        false_block: Some(Expr(
+          span: (40, 16),
+          data: Block(Block(
+            statements: [
+              Statement(
+                span: (46, 8),
+                data: Yield(YieldSmt(
+                  value: Expr(
+                    span: (52, 1),
+                    data: Integer(IntegerLiteral(
+                      value: 3,
+                    )),
+                  ),
+                )),
+              ),
+            ],
+          )),
+        )),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "loop_value"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["loop"]
+ignored = false
+source = """
+let x = loop {
+    break 1;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 30),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 21),
+      data: Loop(Loop(
+        body: Block(
+          statements: [
+            Statement(
+              span: (19, 8),
+              data: Break(BreakSmt(
+                value: Some(Expr(
+                  span: (25, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "function_call_value"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["function-call"]
+ignored = false
+source = """
+let x = foo();
+"""
+expected_ast = """
+Statement(
+  span: (0, 14),
+  data: Let(LetSmt(
+    name: ("x", (4, 1)),
+    value: Expr(
+      span: (8, 5),
+      data: Call(Call(
+        callee: Place(
+          name: ("foo", (8, 3)),
+          field: [],
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "missing_semicolon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = 1
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [10:10]",
+]
+
+[[case]]
+name = "missing_equal"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x 1;
+"""
+expected_errors = [
+    "Syntax error: found Number when expecting [Equal] @ [6:7]",
+]
+
+[[case]]
+name = "missing_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x = ;
+"""
+expected_errors = [
+    "Syntax error: found Semicolon when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [8:9]",
+]

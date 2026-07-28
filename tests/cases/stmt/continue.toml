@@ -1,0 +1,35 @@
+[[case]]
+name = "basic"
+kind = "parser"
+entrypoint = "statement"
+source = """
+continue;
+"""
+expected_ast = """
+Statement(
+  span: (0, 9),
+  data: Continue(ContinueSmt),
+)
+"""
+
+[[case]]
+name = "missing_semicolon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+continue
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [9:9]",
+]
+
+[[case]]
+name = "unexpected_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+continue 1;
+"""
+expected_errors = [
+    "Syntax error: found Number when expecting [Semicolon] @ [9:10]",
+]

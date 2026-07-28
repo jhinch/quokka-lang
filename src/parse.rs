@@ -450,8 +450,8 @@ impl Parser<'_> {
     }
 
     fn parse_expr_smt(&mut self) -> Result<ExprSmt, Error> {
-        let value = self.parse_expr()?;
-        if !self.is_proceeding_block() || self.peek_token()?.kind() == TokenKind::Semicolon {
+        let value = self.parse_expr_or_block()?;
+        if !self.is_proceeding_block() {
             self.expect(TokenKind::Semicolon)?;
         }
         Ok(ExprSmt { value })

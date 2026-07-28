@@ -17,12 +17,10 @@ impl<T> Spanned<T> {
 }
 
 impl<T: serde::Serialize> serde::Serialize for Spanned<T> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         struct SourceSpanSer(SourceSpan);
         impl serde::Serialize for SourceSpanSer {
-            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 span::serialize(&self.0, serializer)
             }
         }
@@ -35,17 +33,16 @@ impl<T: serde::Serialize> serde::Serialize for Spanned<T> {
 
 impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Spanned<T> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error>
-    where
-    {
+where {
         struct SourceSpanDe(SourceSpan);
         impl<'de> serde::Deserialize<'de> for SourceSpanDe {
             fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error>
-            where
-            {
+where {
                 Ok(SourceSpanDe(span::deserialize(deserializer)?))
             }
         }
-        let (data, SourceSpanDe(span)) = <(T, SourceSpanDe) as serde::Deserialize>::deserialize(deserializer)?;
+        let (data, SourceSpanDe(span)) =
+            <(T, SourceSpanDe) as serde::Deserialize>::deserialize(deserializer)?;
         Ok(Spanned { data, span })
     }
 }
@@ -54,14 +51,19 @@ pub mod span {
     use miette::{SourceOffset, SourceSpan};
     use serde::ser::SerializeTuple;
 
-    pub fn serialize<S: serde::Serializer>(value: &SourceSpan, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: serde::Serializer>(
+        value: &SourceSpan,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         let mut ser = serializer.serialize_tuple(2)?;
         ser.serialize_element(&value.offset())?;
         ser.serialize_element(&value.len())?;
         ser.end()
     }
 
-    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<SourceSpan, D::Error> {
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<SourceSpan, D::Error> {
         let (offset, len) = <(usize, usize) as serde::Deserialize>::deserialize(deserializer)?;
         Ok(SourceSpan::new(SourceOffset::from(offset), len))
     }

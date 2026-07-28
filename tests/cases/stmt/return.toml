@@ -1,0 +1,249 @@
+[[case]]
+name = "no_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return;
+"""
+expected_ast = """
+Statement(
+  span: (0, 7),
+  data: Return(ReturnSmt()),
+)
+"""
+
+[[case]]
+name = "literal_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return 1;
+"""
+expected_ast = """
+Statement(
+  span: (0, 9),
+  data: Return(ReturnSmt(
+    value: Some(Expr(
+      span: (7, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    )),
+  )),
+)
+"""
+
+[[case]]
+name = "block_value_still_requires_semicolon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return {
+    yield 1;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 24),
+  data: Return(ReturnSmt(
+    value: Some(Expr(
+      span: (7, 16),
+      data: Block(Block(
+        statements: [
+          Statement(
+            span: (13, 8),
+            data: Yield(YieldSmt(
+              value: Expr(
+                span: (19, 1),
+                data: Integer(IntegerLiteral(
+                  value: 1,
+                )),
+              ),
+            )),
+          ),
+        ],
+      )),
+    )),
+  )),
+)
+"""
+
+[[case]]
+name = "if_without_block_value"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["if-else"]
+ignored = false
+source = """
+return if 1 then 2 else 3;
+"""
+expected_ast = """
+Statement(
+  span: (0, 26),
+  data: Return(ReturnSmt(
+    value: Some(Expr(
+      span: (7, 18),
+      data: If(If(
+        condition: Expr(
+          span: (10, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        true_block: Expr(
+          span: (17, 1),
+          data: Integer(IntegerLiteral(
+            value: 2,
+          )),
+        ),
+        false_block: Some(Expr(
+          span: (24, 1),
+          data: Integer(IntegerLiteral(
+            value: 3,
+          )),
+        )),
+      )),
+    )),
+  )),
+)
+"""
+
+[[case]]
+name = "if_with_block_value_still_requires_semicolon"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["if-else"]
+ignored = false
+source = """
+return if 1 then {
+    yield 2;
+} else {
+    yield 3;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 56),
+  data: Return(ReturnSmt(
+    value: Some(Expr(
+      span: (7, 48),
+      data: If(If(
+        condition: Expr(
+          span: (10, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        true_block: Expr(
+          span: (17, 16),
+          data: Block(Block(
+            statements: [
+              Statement(
+                span: (23, 8),
+                data: Yield(YieldSmt(
+                  value: Expr(
+                    span: (29, 1),
+                    data: Integer(IntegerLiteral(
+                      value: 2,
+                    )),
+                  ),
+                )),
+              ),
+            ],
+          )),
+        ),
+        false_block: Some(Expr(
+          span: (39, 16),
+          data: Block(Block(
+            statements: [
+              Statement(
+                span: (45, 8),
+                data: Yield(YieldSmt(
+                  value: Expr(
+                    span: (51, 1),
+                    data: Integer(IntegerLiteral(
+                      value: 3,
+                    )),
+                  ),
+                )),
+              ),
+            ],
+          )),
+        )),
+      )),
+    )),
+  )),
+)
+"""
+
+[[case]]
+name = "loop_value_still_requires_semicolon"
+kind = "parser"
+entrypoint = "statement"
+preview_features = ["loop"]
+ignored = false
+source = """
+return loop {
+    break 1;
+};
+"""
+expected_ast = """
+Statement(
+  span: (0, 29),
+  data: Return(ReturnSmt(
+    value: Some(Expr(
+      span: (7, 21),
+      data: Loop(Loop(
+        body: Block(
+          statements: [
+            Statement(
+              span: (18, 8),
+              data: Break(BreakSmt(
+                value: Some(Expr(
+                  span: (24, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    )),
+  )),
+)
+"""
+
+[[case]]
+name = "missing_semicolon_after_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return 1
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [9:9]",
+]
+
+[[case]]
+name = "missing_semicolon_after_block_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return {}
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Semicolon] @ [10:10]",
+]
+
+[[case]]
+name = "missing_semicolon_no_value"
+kind = "parser"
+entrypoint = "statement"
+source = """
+return
+"""
+expected_errors = [
+    "Syntax error: found Eof when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [7:7]",
+]
