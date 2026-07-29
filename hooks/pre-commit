@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+readonly PROGNAME=$(basename $0)
+readonly PROGDIR=$(dirname $0)
+
+if [ ! -t 0 ]; then
+    "$PROGDIR/hook" "$PROGNAME" "$@" < /dev/stdin
+else
+    "$PROGDIR/hook" "$PROGNAME" "$@"
+fi

@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+readonly PROGDIR=$(dirname $0)
+readonly HOOK_NAME="$1"
+shift
+
+if [ ! -t 0 ]; then
+    readonly STDIN_FILE="$(mktemp)"
+    cat /dev/stdin > "$STDIN_FILE"
+else
+    readonly STDIN_FILE=""
+fi
+
+if [ -d "$PROGDIR/$HOOK_NAME.d" ]; then
+    for script in $(ls "$PROGDIR/$HOOK_NAME.d"); do
+        if [ -f "$PROGDIR/$HOOK_NAME.d/$script" ] && [ -x "$PROGDIR/$HOOK_NAME.d/$script" ]; then
+            if [ -z "$STDIN_FILE" ]; then
+                "$PROGDIR/$HOOK_NAME.d/$script" "$@"
+            else
+                "$PROGDIR/$HOOK_NAME.d/$script" "$@" < "$STDIN_FILE"
+            fi
+            exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+                echo "ERROR: $HOOK_NAME hook script $script failed" >&2
+                exit $exit_code
+            fi
+        fi
+    done
+fi
