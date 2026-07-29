@@ -2,7 +2,6 @@
 name = "call_ok"
 kind = "analyzer"
 preview_features = ["function-call"]
-ignored = false
 source = """
 fn helper() {}
 fn main() {
@@ -14,7 +13,6 @@ fn main() {
 name = "call_undefined_fn"
 kind = "analyzer"
 preview_features = ["function-call"]
-ignored = false
 source = """
 fn main() {
     helper();
@@ -28,7 +26,6 @@ expected_errors = [
 name = "call_non_function"
 kind = "analyzer"
 preview_features = ["function-call"]
-ignored = false
 source = """
 global A: u8;
 fn main() {
@@ -43,7 +40,6 @@ expected_errors = [
 name = "call_return_type_used_by_let"
 kind = "analyzer"
 preview_features = ["function-call"]
-ignored = false
 source = """
 fn helper() -> u8 {
     return 1;
@@ -57,7 +53,6 @@ fn main() {
 name = "call_return_type_mismatch"
 kind = "analyzer"
 preview_features = ["function-call"]
-ignored = false
 source = """
 fn helper() -> u8 {
     return 1;

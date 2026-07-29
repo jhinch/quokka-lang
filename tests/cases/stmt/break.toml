@@ -73,7 +73,6 @@ name = "if_with_block_value_still_requires_semicolon"
 kind = "parser"
 entrypoint = "statement"
 preview_features = ["if-else"]
-ignored = false
 source = """
 break if 1 then {
     yield 2;
@@ -141,7 +140,6 @@ name = "loop_value_still_requires_semicolon"
 kind = "parser"
 entrypoint = "statement"
 preview_features = ["loop"]
-ignored = false
 source = """
 break loop {
     break 1;

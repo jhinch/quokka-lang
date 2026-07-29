@@ -2,7 +2,6 @@
 name = "field_access_ok"
 kind = "analyzer"
 preview_features = ["field-access"]
-ignored = false
 source = """
 struct Point {
     x: u8,
@@ -18,7 +17,6 @@ fn main() {
 name = "field_not_defined"
 kind = "analyzer"
 preview_features = ["field-access"]
-ignored = false
 source = """
 struct Point {
     x: u8,
@@ -36,7 +34,6 @@ expected_errors = [
 name = "field_access_on_non_struct"
 kind = "analyzer"
 preview_features = ["field-access"]
-ignored = false
 source = """
 global A: u8;
 fn main() {
@@ -51,7 +48,6 @@ expected_errors = [
 name = "field_access_wrong_type_annotation"
 kind = "analyzer"
 preview_features = ["field-access"]
-ignored = false
 source = """
 struct Point {
     x: u8,

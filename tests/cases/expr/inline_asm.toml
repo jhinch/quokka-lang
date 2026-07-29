@@ -27,7 +27,7 @@ name = "with_preview_feature"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["inline-asm"]
-ignored = true # ICE currently, not implemented yet
+ignored = "ICE currently as inline ASM is not implemented yet"
 source = """
 asm {}
 """

@@ -37,6 +37,9 @@ Test suites are defined in TOML files grouped by category within [tests/cases](t
 
 ### TOML file format
 
+The TOML file specifies one or more test cases. A file can contain cases of different kinds as specified
+below. Regardless of the kind of test, the name of the test must be unique within the file.
+
 #### Lexer test
 
 ```toml
@@ -47,8 +50,8 @@ name = "case_name"
 kind = "lexer"
 # preview_features (optional) which preview features to activate for this test. defaults to none
 preview_features = []
-# ignored (optional) ignores the test case. Defaults to true when preview_features is not empty, false otherwise
-ignored = false
+# ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
+ignored = "free form reason"
 # source (required) the source code for the program
 source = """
 fn main() {
@@ -85,8 +88,8 @@ kind = "parser"
 entrypoint = "root"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
-# ignored (optional) ignores the test case. Defaults to true when preview_features is not empty, false otherwise
-ignored = false
+# ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
+ignored = "free form reason"
 # source (required) the source code for the program
 source = """
 fn main() {
@@ -128,8 +131,8 @@ name = "case_name"
 kind = "analyzer"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
-# ignored (optional) ignores the test case. Defaults to true when preview_features is not empty, false otherwise
-ignored = false
+# ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
+ignored = "free form reason"
 # source (required) the source code for the program
 source = """
 fn main() {

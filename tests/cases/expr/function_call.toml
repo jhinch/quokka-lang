@@ -25,7 +25,6 @@ name = "call"
 kind = "parser"
 entrypoint = "expr"
 preview_features = [ "function-call" ]
-ignored = false
 source = """
 a()
 """
@@ -46,7 +45,6 @@ name = "call_on_literal_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["function-call"]
-ignored = false
 source = """
 1()
 """
@@ -59,7 +57,6 @@ name = "call_on_grouped_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["function-call"]
-ignored = false
 source = """
 (1 + 2)()
 """
@@ -72,7 +69,6 @@ name = "call_on_call_result"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["function-call"]
-ignored = false
 source = """
 a()()
 """

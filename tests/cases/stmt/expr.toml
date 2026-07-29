@@ -149,7 +149,6 @@ name = "function_call"
 kind = "parser"
 entrypoint = "statement"
 preview_features = ["function-call"]
-ignored = false
 source = """
 foo();
 """
@@ -175,7 +174,6 @@ name = "field_access"
 kind = "parser"
 entrypoint = "statement"
 preview_features = ["field-access"]
-ignored = false
 source = """
 a.b;
 """
@@ -201,7 +199,6 @@ name = "array_index"
 kind = "parser"
 entrypoint = "statement"
 preview_features = ["array"]
-ignored = false
 source = """
 a[0];
 """

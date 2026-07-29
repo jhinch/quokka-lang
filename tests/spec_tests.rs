@@ -34,7 +34,7 @@ struct TestCase {
     #[serde(default)]
     preview_features: Vec<quokka_lang::feature::PreviewFeature>,
     #[serde(default)]
-    ignored: Option<bool>,
+    ignored: Option<String>,
     source: String,
     #[serde(default)]
     expected_tokens: String,
@@ -117,8 +117,9 @@ fn main() {
             case.updates_tx = tx.clone();
             let ignored_flag = case
                 .ignored
-                .clone()
-                .unwrap_or(!case.preview_features.is_empty());
+                .as_ref()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
             tests.push(
                 Trial::test(
                     format!("{}::{}::{}", case.category, case.suite, case.name),

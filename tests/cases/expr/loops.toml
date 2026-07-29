@@ -3,7 +3,6 @@ name = "empty_loop"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {}
 """
@@ -23,7 +22,6 @@ name = "loop_with_break"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {
     break;
@@ -50,7 +48,6 @@ name = "loop_with_break_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {
     break 1;
@@ -84,7 +81,6 @@ name = "loop_with_continue"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {
     continue;
@@ -111,7 +107,6 @@ name = "loop_with_yield"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {
     yield 1;
@@ -145,7 +140,6 @@ name = "nested_loop"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["loop"]
-ignored = false
 source = """
 loop {
     loop {

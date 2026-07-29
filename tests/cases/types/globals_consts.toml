@@ -51,7 +51,6 @@ expected_errors = [
 name = "const_initializer_type_mismatch_is_not_checked"
 kind = "analyzer"
 preview_features = ["field-access"]
-ignored = false
 source = """
 struct Point {
     x: u8,

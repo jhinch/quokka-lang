@@ -40,7 +40,6 @@ struct Name {
 }
 """
 preview_features = [ "array" ]
-ignored = false
 expected_ast = """
 Root(
   items: [

@@ -20,7 +20,6 @@ name = "single_field_access"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 a.b
 """
@@ -41,7 +40,6 @@ name = "chained_field_access"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 a.b.c
 """
@@ -63,7 +61,6 @@ name = "field_access_within_arithmetic"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 a.b + c.d
 """
@@ -99,7 +96,6 @@ name = "assign_to_field"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 a.b = 1
 """
@@ -159,7 +155,6 @@ name = "index_with_preview_feature"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array"]
-ignored = false
 source = """
 a[0]
 """
@@ -185,7 +180,6 @@ name = "field_then_index"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array", "field-access"]
-ignored = false
 source = """
 a.b[0]
 """
@@ -212,7 +206,6 @@ name = "index_then_field"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array", "field-access"]
-ignored = false
 source = """
 a[0].b
 """
@@ -261,7 +254,6 @@ name = "index_on_literal_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array"]
-ignored = false
 source = """
 1[0]
 """
@@ -274,7 +266,6 @@ name = "index_on_grouped_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array"]
-ignored = false
 source = """
 (1 + 2)[0]
 """
@@ -287,7 +278,6 @@ name = "index_on_call_result"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["array", "function-call"]
-ignored = false
 source = """
 a()[0]
 """
@@ -300,7 +290,6 @@ name = "field_access_on_literal_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 1.b
 """
@@ -313,7 +302,6 @@ name = "field_access_on_grouped_value"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access"]
-ignored = false
 source = """
 (1 + 2).b
 """
@@ -326,7 +314,6 @@ name = "field_access_on_call_result"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["field-access", "function-call"]
-ignored = false
 source = """
 a().b
 """

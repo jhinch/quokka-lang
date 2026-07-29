@@ -2,7 +2,6 @@
 name = "array_index_with_bare_literal"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: [u8; 3];
 fn main() {
@@ -14,7 +13,6 @@ fn main() {
 name = "array_index_requires_unsigned_int"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: [u8; 3];
 fn main() {
@@ -30,7 +28,6 @@ expected_errors = [
 name = "array_index_with_unsigned_place_ok"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: [u8; 3];
 fn main() {
@@ -46,7 +43,6 @@ expected_errors = [
 name = "index_on_non_array"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: u8;
 fn main() {
@@ -61,7 +57,6 @@ expected_errors = [
 name = "array_item_type_mismatch"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: [u8; 3];
 fn main() {
@@ -78,7 +73,6 @@ expected_errors = [
 name = "bare_literal_index_type"
 kind = "analyzer"
 preview_features = ["array"]
-ignored = false
 source = """
 global A: [u8; 3];
 fn main() {

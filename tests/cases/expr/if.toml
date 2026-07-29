@@ -3,7 +3,6 @@ name = "empty_if"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then {
 }
@@ -34,7 +33,6 @@ name = "empty_if_else"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then {
 } else {
@@ -71,7 +69,6 @@ name = "let_if_else"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then 2 else 3
 """
@@ -106,7 +103,6 @@ name = "if_without_block_no_else"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then 2
 """
@@ -136,7 +132,6 @@ name = "nested_if_in_condition"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if if 1 then 2 else 3 then 4 else 5
 """
@@ -188,7 +183,6 @@ name = "mixed_block_and_without_block_branches"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then 2 else { yield 3; }
 """
@@ -235,7 +229,6 @@ name = "if_with_block_statements"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 then {
     let x = 1;
@@ -312,7 +305,6 @@ name = "if_as_statement_without_semicolon"
 kind = "parser"
 entrypoint = "item"
 preview_features = ["if-else"]
-ignored = false
 source = """
 fn main() {
     if 1 then {
@@ -367,7 +359,6 @@ name = "expr_statement_proceeding_if_block"
 kind = "parser"
 entrypoint = "item"
 preview_features = ["if-else"]
-ignored = false
 source = """
 fn main() {
     if 1 then {
@@ -440,7 +431,6 @@ name = "missing_then_keyword"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if 1 {
 }
@@ -454,7 +444,6 @@ name = "missing_condition"
 kind = "parser"
 entrypoint = "expr"
 preview_features = ["if-else"]
-ignored = false
 source = """
 if then 1
 """
