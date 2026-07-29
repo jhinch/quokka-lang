@@ -136,6 +136,21 @@ Expr(
 """
 
 [[case]]
+name = "loop_with_yield_fails_analysis"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+fn main() {
+    loop {
+        yield 1;
+    }
+}
+"""
+expected_errors = [
+    "`yield` outside of a block @ [31:39]",
+]
+
+[[case]]
 name = "nested_loop"
 kind = "parser"
 entrypoint = "expr"

@@ -1,11 +1,4 @@
 [[case]]
-name = "empty_main_ok"
-kind = "analyzer"
-source = """
-fn main() {}
-"""
-
-[[case]]
 name = "redefined_fn"
 kind = "analyzer"
 source = """
@@ -125,4 +118,15 @@ fn main() {
 expected_errors = [
     "unreachable code @ [28:45]",
     "type cannot be determined by inference @ [36:37]",
+]
+
+[[case]]
+name = "const_undefined_type"
+kind = "analyzer"
+source = """
+const A: NotAType = 1;
+fn main() {}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [9:17]",
 ]

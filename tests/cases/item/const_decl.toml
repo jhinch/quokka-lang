@@ -115,3 +115,119 @@ const A = 1;
 expected_errors = [
     "Syntax error: found Equal when expecting [Colon] @ [8:9]",
 ]
+
+[[case]]
+name = "const_ok_with_analysis"
+kind = "analyzer"
+source = """
+const A: u8 = 1;
+fn main() {}
+"""
+
+[[case]]
+name = "const_type_checks"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+const A: u8 = loop {};
+
+fn main() {}
+"""
+expected_errors = [
+    "`never` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_with_return"
+kind = "analyzer"
+source = """
+const A: u8 = {
+    return 1;
+};
+
+fn main() {}
+"""
+expected_errors = [
+    "`return` outside of a function @ [20:29]",
+    "`unit` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_with_continue"
+kind = "analyzer"
+source = """
+const A: u8 = {
+    continue;
+};
+
+fn main() {}
+"""
+expected_errors = [
+    "`continue` outside of a loop @ [20:29]",
+    "`unit` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_with_break"
+kind = "analyzer"
+source = """
+const A: u8 = {
+    break;
+};
+
+fn main() {}
+"""
+expected_errors = [
+    "`break` outside of a loop @ [20:26]",
+    "`unit` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_with_break_expr"
+kind = "analyzer"
+source = """
+const A: u8 = {
+    break 1;
+};
+
+fn main() {}
+"""
+expected_errors = [
+    "`break` outside of a loop @ [20:28]",
+    "`unit` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_and_fn_name_collision"
+kind = "analyzer"
+source = """
+fn A() {}
+const A: u8 = 1;
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [16:17]",
+]
+
+[[case]]
+name = "const_initializer_referencing_undefined_name"
+kind = "analyzer"
+source = """
+const A: u8 = undefined_name;
+fn main() {}
+"""
+expected_errors = [
+    "name `undefined_name` not defined in scope @ [14:28]",
+]
+
+[[case]]
+name = "redefined_global_as_const"
+kind = "analyzer"
+source = """
+global A: u8;
+const A: u8 = 1;
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [20:21]",
+]

@@ -66,3 +66,46 @@ global A: u8
 expected_errors = [
     "Syntax error: found Eof when expecting [Semicolon] @ [13:13]",
 ]
+
+[[case]]
+name = "global_with_analysis"
+kind = "analyzer"
+source = """
+global A: u8;
+fn main() {}
+"""
+
+[[case]]
+name = "global_and_fn_name_collision"
+kind = "analyzer"
+source = """
+fn A() {}
+global A: u8;
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [17:18]",
+]
+
+[[case]]
+name = "redefined_const_as_global"
+kind = "analyzer"
+source = """
+const A: u8 = 1;
+global A: u8;
+fn main() {}
+"""
+expected_errors = [
+    "name `A` defined multiple times in scope @ [24:25]",
+]
+
+[[case]]
+name = "global_undefined_type"
+kind = "analyzer"
+source = """
+global A: NotAType;
+fn main() {}
+"""
+expected_errors = [
+    "cannot find type `NotAType` @ [10:18]",
+]

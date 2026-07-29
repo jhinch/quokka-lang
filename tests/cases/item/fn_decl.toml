@@ -225,3 +225,61 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "fn_with_top_level_yield"
+kind = "analyzer"
+preview_features = ["function-call"]
+source = """
+fn get_one() -> u8 {
+    yield 1;
+}
+
+fn main() {
+    get_one();
+}
+"""
+expected_errors = [
+    "`yield` outside of a block @ [25:33]",
+]
+
+[[case]]
+name = "fn_with_top_level_break"
+kind = "analyzer"
+source = """
+fn main() {
+    break;
+}
+"""
+expected_errors = [
+    "`break` outside of a loop @ [16:22]",
+]
+
+[[case]]
+name = "fn_with_top_level_break_with_expr"
+kind = "analyzer"
+preview_features = ["function-call"]
+source = """
+fn get_one() -> u8 {
+    break 1;
+}
+
+fn main() {
+    get_one();
+}
+"""
+expected_errors = [
+    "`break` outside of a loop @ [25:33]",
+]
+
+[[case]]
+name = "fn_with_top_level_continue"
+kind = "analyzer"
+source = """
+fn main() {
+    continue;
+}
+"""
+expected_errors = [
+    "`continue` outside of a loop @ [16:25]",
+]
