@@ -1,6 +1,8 @@
 use crate::analyze::error::*;
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
-use crate::ast::{self, BinaryOpKind, FieldPathPart, Identifier, SpannedIdentifier, UnaryOpKind};
+use crate::ast::{
+    self, BinaryOpKind, FieldPathPart, Identifier, SpannedIdentifier, TyRefData, UnaryOpKind,
+};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use miette::SourceSpan;
@@ -126,18 +128,16 @@ impl Analyzer {
     }
 
     fn resolve_ty_ref(&mut self, ty_ref: &ast::TyRef) -> Ty {
-        let ty = self
-            .ty_registry
-            .resolve(&ty_ref.name.data)
-            .unwrap_or_else(|| {
+        match &ty_ref.data {
+            TyRefData::Simple(name) => self.ty_registry.resolve(&name.data).unwrap_or_else(|| {
                 self.result_builder
-                    .add_error(TypeNotFoundError::from(ty_ref.name.clone()));
+                    .add_error(TypeNotFoundError::from(name.clone()));
                 Ty::ERROR
-            });
-        if let Some(count) = ty_ref.count {
-            self.ty_registry.register_array(ty, count)
-        } else {
-            ty
+            }),
+            TyRefData::Array(item_ty_ref, count) => {
+                let item_ty = self.resolve_ty_ref(&item_ty_ref);
+                self.ty_registry.register_array(item_ty, *count)
+            }
         }
     }
 

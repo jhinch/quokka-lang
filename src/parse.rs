@@ -343,7 +343,7 @@ impl Parser<'_> {
             // fixed size array
             let start_span = self.peek_token()?.span();
             self.expect(TokenKind::LeftBracket)?;
-            let name = self.parse_identifier()?;
+            let name = self.parse_ty_ref()?;
             self.expect(TokenKind::Semicolon)?;
             let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
             self.expect(TokenKind::RightBracket)?;

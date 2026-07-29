@@ -27,7 +27,7 @@ Root(
         name: ("A", (6, 1)),
         ty: TyRef(
           span: (9, 2),
-          name: ("u8", (9, 2)),
+          data: Simple(("u8", (9, 2))),
         ),
         value: Expr(
           span: (14, 1),
@@ -42,7 +42,7 @@ Root(
         name: ("B", (24, 1)),
         ty: TyRef(
           span: (27, 2),
-          name: ("u8", (27, 2)),
+          data: Simple(("u8", (27, 2))),
         ),
       )),
     ),

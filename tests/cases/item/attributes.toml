@@ -17,7 +17,7 @@ Item(
     name: ("A", (24, 1)),
     ty: TyRef(
       span: (27, 2),
-      name: ("u8", (27, 2)),
+      data: Simple(("u8", (27, 2))),
     ),
     value: Expr(
       span: (32, 1),
@@ -48,7 +48,7 @@ Item(
     name: ("A", (25, 1)),
     ty: TyRef(
       span: (28, 2),
-      name: ("u8", (28, 2)),
+      data: Simple(("u8", (28, 2))),
     ),
   )),
 )

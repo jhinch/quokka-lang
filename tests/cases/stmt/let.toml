@@ -34,7 +34,7 @@ Statement(
     name: ("x", (4, 1)),
     ty: Some(TyRef(
       span: (7, 2),
-      name: ("u8", (7, 2)),
+      data: Simple(("u8", (7, 2))),
     )),
     value: Expr(
       span: (12, 1),

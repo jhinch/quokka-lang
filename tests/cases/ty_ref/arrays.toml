@@ -20,8 +20,10 @@ Root(
             name: ("field", (18, 5)),
             ty: TyRef(
               span: (25, 7),
-              name: ("u8", (26, 2)),
-              count: Some(3),
+              data: Array(TyRef(
+                span: (26, 2),
+                data: Simple(("u8", (26, 2))),
+              ), 3),
             ),
           ),
         ],
@@ -51,8 +53,46 @@ Root(
             name: ("field", (18, 5)),
             ty: TyRef(
               span: (25, 7),
-              name: ("u8", (26, 2)),
-              count: Some(3),
+              data: Array(TyRef(
+                span: (26, 2),
+                data: Simple(("u8", (26, 2))),
+              ), 3),
+            ),
+          ),
+        ],
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "nested"
+kind = "parser"
+source = """
+struct Name {
+    field: [[u8; 8]; 16],
+}
+"""
+preview_features = [ "array" ]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: StructDecl(StructDecl(
+        name: ("Name", (7, 4)),
+        fields: [
+          FieldDecl(
+            name: ("field", (18, 5)),
+            ty: TyRef(
+              span: (25, 13),
+              data: Array(TyRef(
+                span: (26, 7),
+                data: Array(TyRef(
+                  span: (27, 2),
+                  data: Simple(("u8", (27, 2))),
+                ), 8),
+              ), 16),
             ),
           ),
         ],

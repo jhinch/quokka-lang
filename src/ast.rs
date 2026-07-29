@@ -73,27 +73,29 @@ pub struct ConstDecl {
 pub struct TyRef {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
-    pub name: SpannedIdentifier,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub count: Option<NonZeroU16>,
+    pub data: TyRefData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TyRefData {
+    Simple(SpannedIdentifier),
+    Array(Box<TyRef>, NonZeroU16),
 }
 
 impl TyRef {
     #[must_use]
-    pub const fn new(name: SpannedIdentifier) -> Self {
+    pub fn new(name: SpannedIdentifier) -> Self {
         TyRef {
             span: name.span,
-            name,
-            count: None,
+            data: TyRefData::Simple(name),
         }
     }
 
     #[must_use]
-    pub const fn array(span: SourceSpan, name: SpannedIdentifier, count: NonZeroU16) -> Self {
+    pub fn array(span: SourceSpan, item: TyRef, count: NonZeroU16) -> Self {
         TyRef {
             span,
-            name,
-            count: Some(count),
+            data: TyRefData::Array(Box::new(item), count),
         }
     }
 }
@@ -318,6 +320,7 @@ mod tests {
     use super::*;
     use crate::source::Spanned;
     use miette::{SourceOffset, SourceSpan};
+    use std::assert_matches;
     use std::borrow::Borrow;
 
     fn dummy_span() -> SourceSpan {
@@ -395,22 +398,13 @@ mod tests {
     #[test]
     fn ty_ref_new_is_scalar() {
         let ty = TyRef::new(ident("u32"));
-        assert_eq!(ty.name.data.value, "u32");
-        assert!(ty.count.is_none());
+        assert_matches!(ty.data, TyRefData::Simple(name) if name.data.value == "u32");
     }
 
     #[test]
-    fn ty_ref_array_has_count() {
+    fn ty_ref_array() {
         let count = NonZeroU16::new(8).unwrap();
-        let ty = TyRef::array(dummy_span(), ident("u8"), count);
-        assert_eq!(ty.name.data.value, "u8");
-        assert_eq!(ty.count, Some(count));
-    }
-
-    #[test]
-    fn ty_ref_array_count_one() {
-        let count = NonZeroU16::new(1).unwrap();
-        let ty = TyRef::array(dummy_span(), ident("u8"), count);
-        assert_eq!(ty.count.unwrap().get(), 1);
+        let ty = TyRef::array(dummy_span(), TyRef::new(ident("u8")), count);
+        assert_matches!(ty.data, TyRefData::Array(item, count) if matches!(&item.data, TyRefData::Simple(name) if name.data.value == "u8") && count.get() == 8);
     }
 }

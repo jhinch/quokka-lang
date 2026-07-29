@@ -68,7 +68,7 @@ Root(
           name: ("that_function", (3, 13)),
           ty: Some(TyRef(
             span: (22, 2),
-            name: ("u8", (22, 2)),
+            data: Simple(("u8", (22, 2))),
           )),
         ),
         body: Block(
@@ -146,7 +146,7 @@ Root(
           name: ("main", (22, 4)),
           ty: Some(TyRef(
             span: (32, 5),
-            name: ("never", (32, 5)),
+            data: Simple(("never", (32, 5))),
           )),
         ),
         body: Block(
@@ -200,7 +200,7 @@ Root(
           name: ("main", (36, 4)),
           ty: Some(TyRef(
             span: (46, 5),
-            name: ("never", (46, 5)),
+            data: Simple(("never", (46, 5))),
           )),
         ),
         body: Block(

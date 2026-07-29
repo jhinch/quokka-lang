@@ -89,7 +89,7 @@ Item(
             name: ("x", (20, 1)),
             ty: Some(TyRef(
               span: (23, 2),
-              name: ("u8", (23, 2)),
+              data: Simple(("u8", (23, 2))),
             )),
             value: Expr(
               span: (28, 1),
