@@ -533,7 +533,6 @@ Statement(
                 span: (27, 1),
                 data: Place(Place(
                   name: ("x", (27, 1)),
-                  field: [],
                 )),
               ),
             )),

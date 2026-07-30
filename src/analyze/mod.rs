@@ -1,7 +1,7 @@
 use crate::analyze::error::*;
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    self, BinaryOpKind, FieldPathPart, Identifier, SpannedIdentifier, TyRefData, UnaryOpKind,
+    self, BinaryOpKind, Identifier, PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
 };
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
@@ -648,9 +648,9 @@ impl Analyzer {
                 return InferredTy::Concrete(Ty::ERROR);
             }
         };
-        for part in &place.field {
+        for part in &place.projections {
             let (new_place_ty, new_place_span) = match part {
-                FieldPathPart::Field(field) => {
+                PlaceProjection::Field(field) => {
                     let field_ty = inferrer.fresh();
                     constraints.push_back(InferenceConstraint::HasField {
                         ty: place_ty,
@@ -660,7 +660,7 @@ impl Analyzer {
                     });
                     (InferredTy::Variable(field_ty), field.span)
                 }
-                FieldPathPart::Index(index) => {
+                PlaceProjection::Index(index) => {
                     let index_expr_ty = self.infer_expr(index, inferrer, constraints, scopes);
                     constraints.push_back(InferenceConstraint::Equal {
                         ty1: index_expr_ty,

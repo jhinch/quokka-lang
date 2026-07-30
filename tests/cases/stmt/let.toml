@@ -62,7 +62,6 @@ Statement(
       span: (8, 1),
       data: Place(Place(
         name: ("y", (8, 1)),
-        field: [],
       )),
     ),
   )),
@@ -329,7 +328,6 @@ Statement(
       data: Call(Call(
         callee: Place(
           name: ("foo", (8, 3)),
-          field: [],
         ),
       )),
     ),

@@ -10,7 +10,6 @@ Expr(
   span: (0, 1),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [],
   )),
 )
 """
@@ -28,7 +27,7 @@ Expr(
   span: (0, 3),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Field(("b", (2, 1))),
     ],
   )),
@@ -48,7 +47,7 @@ Expr(
   span: (0, 5),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Field(("b", (2, 1))),
       Field(("c", (4, 1))),
     ],
@@ -73,7 +72,7 @@ Expr(
       span: (0, 3),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [
+        projections: [
           Field(("b", (2, 1))),
         ],
       )),
@@ -82,7 +81,7 @@ Expr(
       span: (6, 3),
       data: Place(Place(
         name: ("c", (6, 1)),
-        field: [
+        projections: [
           Field(("d", (8, 1))),
         ],
       )),
@@ -108,7 +107,7 @@ Expr(
       span: (0, 3),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [
+        projections: [
           Field(("b", (2, 1))),
         ],
       )),
@@ -138,7 +137,7 @@ Expr(
   span: (0, 4),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Index(Expr(
         span: (2, 1),
         data: Integer(IntegerLiteral(
@@ -163,7 +162,7 @@ Expr(
   span: (0, 4),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Index(Expr(
         span: (2, 1),
         data: Integer(IntegerLiteral(
@@ -188,7 +187,7 @@ Expr(
   span: (0, 6),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Field(("b", (2, 1))),
       Index(Expr(
         span: (4, 1),
@@ -214,7 +213,7 @@ Expr(
   span: (0, 6),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Index(Expr(
         span: (2, 1),
         data: Integer(IntegerLiteral(
@@ -239,7 +238,7 @@ Expr(
   span: (0, 3),
   data: Place(Place(
     name: ("a", (0, 1)),
-    field: [
+    projections: [
       Field(("b", (2, 1))),
     ],
   )),

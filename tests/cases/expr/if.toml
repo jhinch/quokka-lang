@@ -270,7 +270,6 @@ Expr(
                 span: (37, 1),
                 data: Place(Place(
                   name: ("x", (37, 1)),
-                  field: [],
                 )),
               ),
             )),

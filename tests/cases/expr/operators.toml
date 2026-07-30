@@ -14,7 +14,6 @@ Expr(
       span: (1, 1),
       data: Place(Place(
         name: ("a", (1, 1)),
-        field: [],
       )),
     ),
   )),
@@ -41,7 +40,6 @@ Expr(
           span: (2, 1),
           data: Place(Place(
             name: ("a", (2, 1)),
-            field: [],
           )),
         ),
       )),
@@ -66,7 +64,6 @@ Expr(
       span: (1, 1),
       data: Place(Place(
         name: ("a", (1, 1)),
-        field: [],
       )),
     ),
   )),
@@ -93,7 +90,6 @@ Expr(
           span: (2, 1),
           data: Place(Place(
             name: ("a", (2, 1)),
-            field: [],
           )),
         ),
       )),
@@ -118,7 +114,6 @@ Expr(
       span: (1, 1),
       data: Place(Place(
         name: ("a", (1, 1)),
-        field: [],
       )),
     ),
   )),
@@ -145,7 +140,6 @@ Expr(
           span: (2, 1),
           data: Place(Place(
             name: ("a", (2, 1)),
-            field: [],
           )),
         ),
       )),
@@ -174,7 +168,6 @@ Expr(
           span: (1, 1),
           data: Place(Place(
             name: ("a", (1, 1)),
-            field: [],
           )),
         ),
       )),
@@ -183,7 +176,6 @@ Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -207,7 +199,7 @@ Expr(
       span: (1, 3),
       data: Place(Place(
         name: ("a", (1, 1)),
-        field: [
+        projections: [
           Field(("b", (3, 1))),
         ],
       )),
@@ -232,14 +224,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -262,14 +252,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -292,7 +280,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -303,14 +290,12 @@ Expr(
           span: (5, 1),
           data: Place(Place(
             name: ("b", (5, 1)),
-            field: [],
           )),
         ),
         right: Expr(
           span: (10, 1),
           data: Place(Place(
             name: ("c", (10, 1)),
-            field: [],
           )),
         ),
       )),
@@ -415,7 +400,6 @@ Expr(
           span: (1, 1),
           data: Place(Place(
             name: ("a", (1, 1)),
-            field: [],
           )),
         ),
       )),
@@ -424,7 +408,6 @@ Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("b", (6, 1)),
-        field: [],
       )),
     ),
   )),
@@ -447,14 +430,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
-        field: [],
       )),
     ),
   )),
@@ -477,14 +458,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
-        field: [],
       )),
     ),
   )),
@@ -507,14 +486,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
-        field: [],
       )),
     ),
   )),
@@ -593,14 +570,12 @@ Expr(
           span: (0, 1),
           data: Place(Place(
             name: ("a", (0, 1)),
-            field: [],
           )),
         ),
         right: Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
-            field: [],
           )),
         ),
       )),
@@ -613,14 +588,12 @@ Expr(
           span: (9, 1),
           data: Place(Place(
             name: ("c", (9, 1)),
-            field: [],
           )),
         ),
         right: Expr(
           span: (13, 1),
           data: Place(Place(
             name: ("d", (13, 1)),
-            field: [],
           )),
         ),
       )),
@@ -781,7 +754,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -810,7 +782,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -843,7 +814,6 @@ Expr(
           span: (0, 1),
           data: Place(Place(
             name: ("a", (0, 1)),
-            field: [],
           )),
         ),
         right: Expr(
@@ -880,7 +850,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -891,7 +860,6 @@ Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
-            field: [],
           )),
         ),
         right: Expr(
@@ -962,14 +930,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -992,14 +958,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1022,14 +986,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("_", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1052,14 +1014,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("_", (5, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1082,7 +1042,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1111,7 +1070,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1122,14 +1080,12 @@ Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
-            field: [],
           )),
         ),
         right: Expr(
           span: (8, 1),
           data: Place(Place(
             name: ("c", (8, 1)),
-            field: [],
           )),
         ),
       )),
@@ -1154,7 +1110,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1165,14 +1120,12 @@ Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
-            field: [],
           )),
         ),
         right: Expr(
           span: (9, 1),
           data: Place(Place(
             name: ("c", (9, 1)),
-            field: [],
           )),
         ),
       )),
@@ -1208,7 +1161,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1237,7 +1189,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1266,7 +1217,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1295,7 +1245,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1324,7 +1273,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1353,7 +1301,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1382,7 +1329,6 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
@@ -1411,14 +1357,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("_", (6, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1441,14 +1385,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("_", (6, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1471,14 +1413,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("b", (6, 1)),
-        field: [],
       )),
     ),
   )),
@@ -1501,14 +1441,12 @@ Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-        field: [],
       )),
     ),
     right: Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("b", (6, 1)),
-        field: [],
       )),
     ),
   )),

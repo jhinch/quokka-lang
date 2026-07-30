@@ -218,11 +218,12 @@ pub enum ExprData {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Place {
     pub name: SpannedIdentifier,
-    pub field: Vec<FieldPathPart>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub projections: Vec<PlaceProjection>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum FieldPathPart {
+pub enum PlaceProjection {
     Field(SpannedIdentifier),
     Index(Box<Expr>),
 }

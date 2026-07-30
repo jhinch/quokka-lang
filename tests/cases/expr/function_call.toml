@@ -11,7 +11,6 @@ Expr(
   data: Call(Call(
     callee: Place(
       name: ("a", (0, 1)),
-      field: [],
     ),
   )),
 )
@@ -34,7 +33,6 @@ Expr(
   data: Call(Call(
     callee: Place(
       name: ("a", (0, 1)),
-      field: [],
     ),
   )),
 )

@@ -489,7 +489,7 @@ impl Parser<'_> {
                     let name = SpannedIdentifier::new(lhs_token.text(), lhs_token.span());
                     ExprData::from(Place {
                         name,
-                        field: Vec::new(),
+                        projections: Vec::new(),
                     })
                 }
                 // group
@@ -699,7 +699,7 @@ impl Parser<'_> {
                                 );
                                 match lhs.data {
                                     ExprData::Place(mut place) => {
-                                        place.field.push(FieldPathPart::Index(index));
+                                        place.projections.push(PlaceProjection::Index(index));
                                         ExprData::from(place)
                                     }
                                     _ => return Err(Error::from(ArrayIndexOnValueError { span })),
@@ -719,7 +719,7 @@ impl Parser<'_> {
                                 );
                                 match lhs.data {
                                     ExprData::Place(mut place) => {
-                                        place.field.push(FieldPathPart::Field(name));
+                                        place.projections.push(PlaceProjection::Field(name));
                                         ExprData::from(place)
                                     }
                                     _ => return Err(Error::from(FieldAccessOnValueError { span })),

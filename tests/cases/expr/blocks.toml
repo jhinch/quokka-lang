@@ -55,7 +55,6 @@ Item(
               span: (31, 1),
               data: Place(Place(
                 name: ("x", (31, 1)),
-                field: [],
               )),
             ),
           )),
