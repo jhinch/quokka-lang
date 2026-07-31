@@ -152,36 +152,30 @@ impl Parser<'_> {
 }
 
 impl Parser<'_> {
-    pub fn parse(&mut self) -> MultiResult<Root> {
-        match self.parse_root() {
-            Ok(root) => self.result_builder.take().finish(root),
-            Err(error) => self.result_builder.take().finish_with_error(error),
-        }
+    pub fn parse(self) -> MultiResult<Root> {
+        self.parse_as_root(Parser::parse_root)
     }
 
-    pub fn parse_item_as_root(&mut self) -> MultiResult<Item> {
+    pub fn parse_item_as_root(self) -> MultiResult<Item> {
         self.parse_as_root(Parser::parse_item)
     }
 
-    pub fn parse_statement_as_root(&mut self) -> MultiResult<Statement> {
+    pub fn parse_statement_as_root(self) -> MultiResult<Statement> {
         self.parse_as_root(Parser::parse_statement)
     }
 
-    pub fn parse_expr_as_root(&mut self) -> MultiResult<Expr> {
+    pub fn parse_expr_as_root(self) -> MultiResult<Expr> {
         self.parse_as_root(Parser::parse_expr)
     }
 
-    fn parse_as_root<A>(
-        &mut self,
-        f: impl FnOnce(&mut Self) -> Result<A, Error>,
-    ) -> MultiResult<A> {
-        let item = match f(self) {
+    fn parse_as_root<A>(mut self, f: impl FnOnce(&mut Self) -> Result<A, Error>) -> MultiResult<A> {
+        let item = match f(&mut self) {
             Ok(item) => item,
-            Err(error) => return self.result_builder.take().finish_with_error(error),
+            Err(error) => return self.result_builder.finish_with_error(error),
         };
         match self.expect(TokenKind::Eof) {
-            Err(error) => self.result_builder.take().finish_with_error(error),
-            Ok(_) => self.result_builder.take().finish(item),
+            Err(error) => self.result_builder.finish_with_error(error),
+            Ok(_) => self.result_builder.finish(item),
         }
     }
 
@@ -199,7 +193,6 @@ impl Parser<'_> {
                 }
             }
         }
-        self.expect(TokenKind::Eof)?;
         Ok(Root { items })
     }
 
