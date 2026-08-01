@@ -2,7 +2,6 @@ use crate::ast::{Identifier, SpannedIdentifier};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::num::NonZeroU16;
@@ -49,7 +48,7 @@ impl TyRegistry {
                 let index = entry
                     .insert_entry(StructTyData {
                         name,
-                        fields: HashMap::with_capacity(field_count),
+                        fields: IndexMap::with_capacity(field_count),
                     })
                     .index();
                 Ok(Ty::struct_ty(index))
@@ -70,7 +69,7 @@ impl TyRegistry {
     pub fn register_struct_fields(
         &mut self,
         name: &SpannedIdentifier,
-        fields: HashMap<Identifier, Ty>,
+        fields: IndexMap<Identifier, Ty>,
     ) {
         self.struct_types[&name.data].fields = fields;
     }
@@ -219,7 +218,7 @@ impl fmt::Debug for Ty {
 
 pub struct StructTyData {
     pub name: SpannedIdentifier,
-    pub fields: HashMap<Identifier, Ty>,
+    pub fields: IndexMap<Identifier, Ty>,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]

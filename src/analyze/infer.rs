@@ -7,6 +7,24 @@ pub enum InferredTy {
     Concrete(Ty),
 }
 
+impl InferredTy {
+    #[must_use]
+    pub const fn to_concrete(&self) -> Option<Ty> {
+        match self {
+            InferredTy::Concrete(ty) => Some(*ty),
+            InferredTy::Variable(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub const fn to_variable(&self) -> Option<TyVar> {
+        match self {
+            InferredTy::Variable(ty_var) => Some(*ty_var),
+            InferredTy::Concrete(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TyVar(u32);
 

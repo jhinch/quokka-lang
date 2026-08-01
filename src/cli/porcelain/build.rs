@@ -29,8 +29,9 @@ impl BuildCommand {
         parser.enable_features(self.preview_features.iter().cloned().collect());
 
         let ast = parser.parse().into_result().map_err(miette::Report::new)?;
-        let mut analyzer = Analyzer::default();
-        analyzer.analyze(&ast).map_err(miette::Report::new)?;
+        let (mir, ty_registry) = Analyzer::default()
+            .analyze(&ast)
+            .map_err(miette::Report::new)?;
         Ok(())
     }
 }

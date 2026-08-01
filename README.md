@@ -16,12 +16,15 @@ The compilation goes through following phases:
 - Lexing (Lexical analysis)
 - Parsing (Syntactic analysis)
 - Analysis (Semantic analysis / type checking)
-- HIR gen (lowering AST to High IR)
-- Conversion to static single assignment form
+
+And then the following phases (to be implemented)
+
+- Lowering (lowering AST to MIR / conversion to static single assignment form)
 - Optimization (dead code elimination, inlining, etc.)
+- Code gen (lowering MIR to LIR)
 - Phi elimination
 - Register allocation
-- Assembly Code generation
+- Object file creation
 - Linking
 
 ## Spec Tests

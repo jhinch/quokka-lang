@@ -392,9 +392,8 @@ fn test_analyzer(case: TestCase) {
         .parse()
         .into_result()
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let mut analyzer = Analyzer::default();
-    let actual_errors = match analyzer.analyze(&root) {
-        Ok(()) => Vec::new(),
+    let actual_errors = match Analyzer::default().analyze(&root) {
+        Ok(_) => Vec::new(),
         Err(errors) => prepare_multi_error(errors),
     };
     if let Some(tx) = case.updates_tx {
