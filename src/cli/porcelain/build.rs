@@ -32,6 +32,7 @@ impl BuildCommand {
         let (mir, ty_registry) = Analyzer::default()
             .analyze(&ast)
             .map_err(miette::Report::new)?;
+        println!("{}", mir.display(&ty_registry));
         Ok(())
     }
 }

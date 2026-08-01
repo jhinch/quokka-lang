@@ -43,3 +43,8 @@ kind = "analyzer"
 source = """
 fn main() {}
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
+"""

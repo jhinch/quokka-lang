@@ -74,6 +74,11 @@ source = """
 global A: u8;
 fn main() {}
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "global_and_fn_name_collision"

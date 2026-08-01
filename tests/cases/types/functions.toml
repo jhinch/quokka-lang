@@ -8,6 +8,18 @@ fn main() {
     helper();
 }
 """
+expected_mir = """
+helper -> unit:
+  .bb1:
+    return
+
+main -> unit:
+  .bb1:
+    call helper, .bb2
+  .bb2:
+    #1: <unresolved> = returnvalue
+    return
+"""
 
 [[case]]
 name = "call_undefined_fn"
@@ -47,6 +59,20 @@ fn helper() -> u8 {
 fn main() {
     let x: u8 = helper();
 }
+"""
+expected_mir = """
+helper -> u8:
+  .bb1:
+    #1: u8 = copy 1
+    return
+
+main -> unit:
+  .bb1:
+    call helper, .bb2
+  .bb2:
+    #1: <unresolved> = returnvalue
+    x#2: <unresolved> = copy #1
+    return
 """
 
 [[case]]

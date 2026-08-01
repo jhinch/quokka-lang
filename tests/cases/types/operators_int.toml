@@ -8,6 +8,17 @@ fn main() {
     let z: u8 = x + y;
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    y#2: <unresolved> = copy 2
+    #3: u8 = copy x#1
+    #4: u8 = copy y#2
+    #5: <unresolved> = add #3, #4
+    z#6: <unresolved> = copy #5
+    return
+"""
 
 [[case]]
 name = "add_mismatched_types_error"
@@ -32,6 +43,15 @@ fn main() {
     let y: u1 = !x;
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    #2: u1 = copy x#1
+    #3: u1 = not #2
+    y#4: u1 = copy #3
+    return
+"""
 
 [[case]]
 name = "unary_neg_on_unsigned_concrete_type_is_error"
@@ -54,6 +74,15 @@ fn main() {
     let x: i8 = 1;
     let y: i8 = -x;
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    #2: i8 = copy x#1
+    #3: i8 = neg #2
+    y#4: i8 = copy #3
+    return
 """
 
 [[case]]
@@ -81,4 +110,23 @@ fn main() {
     let b: u8 = x | y;
     let c: u8 = x ^ y;
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    y#2: <unresolved> = copy 2
+    #3: u8 = copy x#1
+    #4: u8 = copy y#2
+    #5: <unresolved> = bitand #3, #4
+    a#6: <unresolved> = copy #5
+    #7: u8 = copy x#1
+    #8: u8 = copy y#2
+    #9: <unresolved> = bitor #7, #8
+    b#10: <unresolved> = copy #9
+    #11: u8 = copy x#1
+    #12: u8 = copy y#2
+    #13: <unresolved> = bitxor #11, #12
+    c#14: <unresolved> = copy #13
+    return
 """

@@ -41,6 +41,8 @@ struct TestCase {
     #[serde(default)]
     expected_ast: String,
     #[serde(default)]
+    expected_mir: String,
+    #[serde(default)]
     expected_errors: Vec<String>,
     #[serde(skip)]
     updates_tx: Option<mpsc::Sender<PendingUpdate>>,
@@ -83,6 +85,7 @@ enum PendingUpdateData {
     UpdateErrors(Vec<String>),
     UpdateTokens(String),
     UpdateAst(String),
+    UpdateMir(String),
 }
 
 fn main() {
@@ -260,6 +263,16 @@ fn save_suites(
                             );
                         }
                     }
+                    PendingUpdateData::UpdateMir(mir) => {
+                        if mir.is_empty() {
+                            case.remove("expected_mir");
+                        } else {
+                            case.insert(
+                                "expected_mir",
+                                toml_edit::value(format!("{}\n", mir.trim())),
+                            );
+                        }
+                    }
                 }
             }
             case.fmt();
@@ -318,6 +331,15 @@ fn test_lexer(case: TestCase) {
             })
             .unwrap();
         }
+        if !case.expected_mir.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateMir(String::new()),
+            })
+            .unwrap();
+        }
         return;
     }
     assert_eq!(
@@ -370,6 +392,15 @@ fn test_parser(case: TestCase) {
             })
             .unwrap();
         }
+        if !case.expected_mir.is_empty() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateMir(String::new()),
+            })
+            .unwrap();
+        }
         return;
     }
     assert_eq!(
@@ -392,9 +423,9 @@ fn test_analyzer(case: TestCase) {
         .parse()
         .into_result()
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let actual_errors = match Analyzer::default().analyze(&root) {
-        Ok(_) => Vec::new(),
-        Err(errors) => prepare_multi_error(errors),
+    let (actual_mir, actual_errors) = match Analyzer::default().analyze(&root) {
+        Ok((mir, ty_registry)) => (format!("{}", mir.display(&ty_registry)), Vec::new()),
+        Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
     if let Some(tx) = case.updates_tx {
         if actual_errors != case.expected_errors {
@@ -403,6 +434,15 @@ fn test_analyzer(case: TestCase) {
                 suite: case.suite.clone(),
                 case: case.name.clone(),
                 data: PendingUpdateData::UpdateErrors(actual_errors),
+            })
+            .unwrap();
+        }
+        if actual_mir.trim() != case.expected_mir.trim() {
+            tx.send(PendingUpdate {
+                category: case.category.clone(),
+                suite: case.suite.clone(),
+                case: case.name.clone(),
+                data: PendingUpdateData::UpdateMir(actual_mir),
             })
             .unwrap();
         }
@@ -429,6 +469,11 @@ fn test_analyzer(case: TestCase) {
     assert_eq!(
         actual_errors, case.expected_errors,
         "actual_errors == expected_errors"
+    );
+    assert_eq!(
+        actual_mir.trim(),
+        case.expected_mir.trim(),
+        "actual_mir == expected_mir"
     );
 }
 

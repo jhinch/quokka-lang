@@ -7,6 +7,13 @@ fn main() {
     x = 2;
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    #2: u8 = copy x#1
+    return
+"""
 
 [[case]]
 name = "assign_struct_typed_place_currently_rejected_as_non_int"
@@ -33,6 +40,13 @@ fn main() {
     let x: u8 = 1;
     x += 1;
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    #2: u8 = copy x#1
+    return
 """
 
 [[case]]

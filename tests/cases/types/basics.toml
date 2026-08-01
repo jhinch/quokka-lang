@@ -92,6 +92,15 @@ fn foo() {
 }
 fn main() {}
 """
+expected_mir = """
+foo -> unit:
+  .bb1:
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "fn_falls_through_without_return_is_error"

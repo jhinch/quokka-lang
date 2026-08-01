@@ -1,18 +1,349 @@
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
-use crate::ty::Ty;
+use crate::ty::{Ty, TyRegistry};
+use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::fmt;
 
 new_key_type! { pub struct GlobalId; }
 new_key_type! { pub struct FunctionId; }
 new_key_type! { pub struct BlockId; }
 new_key_type! { pub struct LocalId; }
 
+impl fmt::Display for BlockId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, ".bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
+
 /// Middle Intermediate Representation (MIR)
 #[derive(Debug, Clone, Default)]
 pub struct Mir {
     pub globals: SlotMap<GlobalId, Global>,
     pub functions: SlotMap<FunctionId, Function>,
+}
+
+impl Mir {
+    pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            for function in self.functions.values() {
+                writeln!(
+                    f,
+                    "{} -> {}:",
+                    function.name,
+                    function.return_ty.display(ty_registry)
+                )?;
+                for block in function.traverse_blocks() {
+                    writeln!(f, "  {block}:")?;
+                    let block = &function.blocks[block];
+                    for instruction in &block.instructions {
+                        write!(f, "    ")?;
+                        if let Some(target) = instruction.target_local() {
+                            write!(
+                                f,
+                                "{:#} = ",
+                                function.locals[target].display(target, ty_registry)
+                            )?;
+                        }
+                        match instruction {
+                            Instr::ReturnValue { target: _ } => write!(f, "returnvalue"),
+                            Instr::Phi { target: _, sources } => {
+                                write!(f, "phi")?;
+                                let mut sep = " ";
+                                let mut sources = sources
+                                    .iter()
+                                    .map(|(block, source)| (block, *source))
+                                    .collect::<Vec<_>>();
+                                sources.sort_by_key(|(block, _)| *block);
+                                for (block, source) in sources.iter().copied() {
+                                    write!(
+                                        f,
+                                        "{sep}{} <- {}",
+                                        function.locals[source].display(source, ty_registry),
+                                        block
+                                    )?;
+                                    sep = ", ";
+                                }
+                                Ok(())
+                            }
+                            Instr::Load { target: _, source } => {
+                                write!(f, "load {}", source.display(self, function, ty_registry))
+                            }
+                            Instr::Store { target, source } => {
+                                write!(
+                                    f,
+                                    "store {} = {}",
+                                    target.display(self, function, ty_registry),
+                                    source.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Copy { target: _, source } => {
+                                write!(f, "copy {}", source.display(self, function, ty_registry))
+                            }
+                            Instr::Not { target: _, source } => {
+                                write!(f, "not {}", source.display(self, function, ty_registry))
+                            }
+                            Instr::Neg { target: _, source } => {
+                                write!(f, "neg {}", source.display(self, function, ty_registry))
+                            }
+                            Instr::Eq {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "eq {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Ne {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "ne {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Lt {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "lt {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Le {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "le {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Ge {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "ge {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Gt {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "gt {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::BitAnd {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "bitand {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::BitOr {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "bitor {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::BitXor {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "bitxor {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::RotateCLeft {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "rotatecleft {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::RotateCRight {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "rotatecright {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::RotateLeft { target: _, source } => {
+                                write!(
+                                    f,
+                                    "rotateleft {}",
+                                    source.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::RotateRight { target: _, source } => {
+                                write!(
+                                    f,
+                                    "rotateleft {}",
+                                    source.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::ShiftLeft {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "shiftleft {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::ShiftRight {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "shiftright {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Add {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "add {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                            Instr::Sub {
+                                target: _,
+                                left,
+                                right,
+                            } => {
+                                write!(
+                                    f,
+                                    "sub {}, {}",
+                                    left.display(self, function, ty_registry),
+                                    right.display(self, function, ty_registry)
+                                )
+                            }
+                        }?;
+                        writeln!(f)?;
+                    }
+                    write!(f, "    ")?;
+                    match &block.terminator {
+                        Terminator::Return => write!(f, "return"),
+                        Terminator::Call {
+                            callee,
+                            return_block,
+                        } => {
+                            write!(
+                                f,
+                                "call {}, {return_block}",
+                                callee.display(self, function, ty_registry)
+                            )
+                        }
+                        Terminator::CallIf {
+                            callee,
+                            source,
+                            condition,
+                            return_block,
+                            else_block,
+                        } => {
+                            write!(
+                                f,
+                                "callif {}, {} {condition}, {return_block}, {else_block}",
+                                function.locals[*source].display(*source, ty_registry),
+                                callee.display(self, function, ty_registry)
+                            )
+                        }
+                        Terminator::Jump { target_block } => {
+                            write!(f, "jump {target_block}")
+                        }
+                        Terminator::JumpIf {
+                            source,
+                            condition,
+                            then_block,
+                            else_block,
+                        } => {
+                            write!(
+                                f,
+                                "jumpif {} {condition}, {then_block}, {else_block}",
+                                function.locals[*source].display(*source, ty_registry)
+                            )
+                        }
+                        Terminator::ReturnIf {
+                            source,
+                            condition,
+                            else_block,
+                        } => {
+                            write!(
+                                f,
+                                "returnif {} {condition}, {else_block}",
+                                function.locals[*source].display(*source, ty_registry)
+                            )
+                        }
+                    }?;
+                    writeln!(f)?;
+                }
+                writeln!(f)?;
+            }
+            Ok(())
+        })
+    }
 }
 
 /// MIR function represented as a control flow graph in static single assignment form
@@ -27,12 +358,72 @@ pub struct Function {
     pub end_blocks: Vec<BlockId>,
 }
 
+impl Function {
+    pub fn traverse_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
+        let mut processed_blocks = SecondaryMap::new();
+        let mut block_queue = VecDeque::new();
+        block_queue.push_back(self.start_block);
+        std::iter::from_fn(move || {
+            while let Some(block) = block_queue.pop_front() {
+                if processed_blocks.insert(block, ()).is_none() {
+                    block_queue.extend(self.blocks[block].next_blocks());
+                    return Some(block);
+                }
+            }
+            None
+        })
+    }
+}
+
 /// MIR Basic block
 #[derive(Debug, Clone, Default)]
 pub struct Block {
     pub instructions: Vec<Instr>,
     pub terminator: Terminator,
-    pub previous: Vec<BlockId>,
+    previous: Vec<BlockId>,
+}
+
+impl Block {
+    pub fn next_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let block = match self.terminator {
+                Terminator::Return => None,
+                Terminator::Jump { target_block, .. }
+                | Terminator::Call {
+                    return_block: target_block,
+                    ..
+                }
+                | Terminator::ReturnIf {
+                    else_block: target_block,
+                    ..
+                } => match next {
+                    0 => Some(target_block),
+                    _ => None,
+                },
+                Terminator::JumpIf {
+                    then_block,
+                    else_block,
+                    ..
+                }
+                | Terminator::CallIf {
+                    return_block: then_block,
+                    else_block,
+                    ..
+                } => match next {
+                    0 => Some(then_block),
+                    1 => Some(else_block),
+                    _ => None,
+                },
+            }?;
+            next += 1;
+            Some(block)
+        })
+    }
+
+    pub fn previous_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
+        self.previous.iter().copied()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +437,25 @@ pub struct Local {
     pub ty: Ty,
     pub defined: Option<(BlockId, usize)>,
     pub name: Option<SpannedIdentifier>,
+}
+
+impl Local {
+    pub fn display<'a>(
+        &'a self,
+        id: LocalId,
+        ty_registry: &'a TyRegistry,
+    ) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            if let Some(name) = self.name.as_ref() {
+                write!(f, "{}", name.data)?;
+            }
+            write!(f, "#{}", slotmap::Key::data(&id).as_ffi() & 0xffff_ffff)?;
+            if f.alternate() {
+                write!(f, ": {}", self.ty.display(ty_registry))?;
+            }
+            Ok(())
+        })
+    }
 }
 
 /// A MIR Instruction
@@ -241,6 +651,24 @@ pub enum Callee {
     FnPtr(FunctionId),
 }
 
+impl Callee {
+    pub fn display<'a>(
+        &'a self,
+        mir: &'a Mir,
+        function: &'a Function,
+        ty_registry: &'a TyRegistry,
+    ) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Callee::Local(local) => write!(
+                f,
+                "{}",
+                function.locals[*local].display(*local, ty_registry)
+            ),
+            Callee::FnPtr(fn_ptr) => write!(f, "{}", mir.functions[*fn_ptr].name),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Operand {
     Local(LocalId),
@@ -248,10 +676,51 @@ pub enum Operand {
     FnPtr(FunctionId),
 }
 
+impl Operand {
+    pub fn display<'a>(
+        &'a self,
+        mir: &'a Mir,
+        function: &'a Function,
+        ty_registry: &'a TyRegistry,
+    ) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Operand::Local(local) => write!(
+                f,
+                "{}",
+                function.locals[*local].display(*local, ty_registry)
+            ),
+            Operand::Literal(int) => write!(f, "{}", int.value),
+            Operand::FnPtr(fn_ptr) => write!(f, "{}", mir.functions[*fn_ptr].name),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GlobalPlace {
     pub global: GlobalId,
     pub projections: Vec<GlobalPlaceProjection>,
+}
+
+impl GlobalPlace {
+    pub fn display<'a>(
+        &'a self,
+        mir: &'a Mir,
+        function: &'a Function,
+        ty_registry: &'a TyRegistry,
+    ) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            write!(f, "{}", mir.globals[self.global].name.data)?;
+            for projection in &self.projections {
+                match projection {
+                    GlobalPlaceProjection::Field(field) => write!(f, ".{field}"),
+                    GlobalPlaceProjection::Index(index) => {
+                        write!(f, "[{}]", index.display(mir, function, ty_registry))
+                    }
+                }?;
+            }
+            Ok(())
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -264,6 +733,15 @@ pub enum GlobalPlaceProjection {
 pub enum Condition {
     Zero,
     NotZero,
+}
+
+impl fmt::Display for Condition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Condition::Zero => "== 0",
+            Condition::NotZero => "!= 0",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -309,15 +787,16 @@ pub struct FunctionBuilder {
     variable_names: HashMap<Variable, SpannedIdentifier>,
     terminated_blocks: SecondaryMap<BlockId, ()>,
     sealed_blocks: SecondaryMap<BlockId, ()>,
-    incomplete_phis: HashMap<BlockId, HashMap<Variable, usize>>,
+    incomplete_phis: HashMap<BlockId, IndexMap<Variable, usize>>,
     next_var: u32,
 }
 
 impl FunctionBuilder {
     #[must_use]
-    pub fn new(return_ty: Ty) -> Self {
+    pub fn new(name: Identifier, return_ty: Ty) -> Self {
         FunctionBuilder {
             function: Function {
+                name,
                 return_ty,
                 ..Default::default()
             },
@@ -381,6 +860,7 @@ impl FunctionBuilder {
     }
 
     pub fn push_return_local(&mut self, ty: Ty) -> LocalId {
+        assert!(self.function.locals.is_empty());
         let local = self.function.locals.insert(Local {
             ty,
             defined: None,

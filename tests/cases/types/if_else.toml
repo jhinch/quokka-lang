@@ -26,6 +26,20 @@ fn main() {
     }
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    c#1: <unresolved> = copy 1
+    #2: u1 = copy c#1
+    #3: u1 = copy #2
+    jumpif #3 != 0, .bb2, .bb3
+  .bb2:
+    jump .bb4
+  .bb3:
+    jump .bb4
+  .bb4:
+    return
+"""
 
 [[case]]
 name = "if_without_else_yields_unit_ok"
@@ -37,6 +51,18 @@ fn main() {
     if c then {
     }
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    c#1: <unresolved> = copy 1
+    #2: u1 = copy c#1
+    #3: u1 = copy #2
+    jumpif #3 != 0, .bb2, .bb3
+  .bb2:
+    jump .bb3
+  .bb3:
+    return
 """
 
 [[case]]
@@ -67,6 +93,30 @@ fn main() {
     let b: u8 = 2;
     let r: u8 = if c then { yield a; } else { yield b; };
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    c#1: <unresolved> = copy 1
+    a#2: <unresolved> = copy 1
+    b#3: <unresolved> = copy 2
+    #4: u1 = copy c#1
+    #5: u1 = copy #4
+    jumpif #5 != 0, .bb2, .bb3
+  .bb2:
+    #6: u8 = copy a#2
+    #7: u8 = copy #6
+    #8: <unresolved> = copy #7
+    jump .bb4
+  .bb3:
+    #9: u8 = copy b#3
+    #10: u8 = copy #9
+    #11: <unresolved> = copy #10
+    jump .bb4
+  .bb4:
+    #12: <unresolved> = phi #8 <- .bb2, #11 <- .bb3
+    r#13: <unresolved> = copy #12
+    return
 """
 
 [[case]]

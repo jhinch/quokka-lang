@@ -8,6 +8,14 @@ fn main() {
     let v: u8 = A[0];
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: <unresolved> = load A[0]
+    #2: <unresolved> = copy #1
+    v#3: <unresolved> = copy #2
+    return
+"""
 
 [[case]]
 name = "array_index_requires_unsigned_int"
@@ -78,4 +86,11 @@ global A: [u8; 3];
 fn main() {
     A[0];
 }
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: <unresolved> = load A[0]
+    #2: <unresolved> = copy #1
+    return
 """

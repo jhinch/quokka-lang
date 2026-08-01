@@ -12,6 +12,14 @@ fn main() {
     let v: u8 = P.x;
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: <unresolved> = load P.x
+    #2: <unresolved> = copy #1
+    v#3: <unresolved> = copy #2
+    return
+"""
 
 [[case]]
 name = "field_not_defined"
@@ -112,6 +120,11 @@ struct Inner {
 }
 fn main() {}
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "self_referential_struct_field"
@@ -121,6 +134,11 @@ struct Node {
     next: Node,
 }
 fn main() {}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -132,4 +150,9 @@ struct Foo {
 }
 global Foo: u8;
 fn main() {}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
 """
