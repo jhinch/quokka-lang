@@ -435,6 +435,7 @@ pub struct Global {
 #[derive(Debug, Clone)]
 pub struct Local {
     pub ty: Ty,
+    pub is_return: bool,
     pub defined: Option<(BlockId, usize)>,
     pub name: Option<SpannedIdentifier>,
 }
@@ -449,7 +450,13 @@ impl Local {
             if let Some(name) = self.name.as_ref() {
                 write!(f, "{}", name.data)?;
             }
-            write!(f, "#{}", slotmap::Key::data(&id).as_ffi() & 0xffff_ffff)?;
+            f.write_str("#")?;
+            if self.is_return {
+                f.write_str("RET")?;
+            } else {
+                write!(f, "{}", slotmap::Key::data(&id).as_ffi() & 0xffff_ffff)?;
+            }
+
             if f.alternate() {
                 write!(f, ": {}", self.ty.display(ty_registry))?;
             }
@@ -851,23 +858,27 @@ impl FunctionBuilder {
         block
     }
 
-    pub fn push_local(&mut self, ty: Ty) -> LocalId {
+    pub fn new_local(&mut self, ty: Ty) -> LocalId {
         self.function.locals.insert(Local {
             ty,
+            is_return: false,
             defined: None,
             name: None,
         })
     }
 
-    pub fn push_return_local(&mut self, ty: Ty) -> LocalId {
-        assert!(self.function.locals.is_empty());
-        let local = self.function.locals.insert(Local {
-            ty,
-            defined: None,
-            name: None,
-        });
-        self.function.return_local = Some(local);
-        local
+    pub fn create_return_local(&mut self, ty: Ty) -> LocalId {
+        assert!(self.function.return_local.is_some() || self.function.locals.is_empty());
+        if self.function.return_local.is_none() {
+            let local = self.function.locals.insert(Local {
+                ty,
+                is_return: true,
+                defined: None,
+                name: None,
+            });
+            self.function.return_local = Some(local);
+        }
+        self.function.return_local.unwrap()
     }
 
     pub fn push_instr(&mut self, block: BlockId, instr: Instr) -> usize {
@@ -876,7 +887,7 @@ impl FunctionBuilder {
         let index = instructions.len();
         instructions.push(instr);
         if let Some(target) = target {
-            if self.function.return_local != Some(target) {
+            if !self.function.locals[target].is_return {
                 let previous = self.function.locals[target].defined.replace((block, index));
                 debug_assert!(
                     previous.is_none(),
@@ -957,7 +968,7 @@ impl FunctionBuilder {
 
     fn read_variable_recursive(&mut self, var: Variable, block: BlockId) -> LocalId {
         let value = if !self.sealed_blocks.contains_key(block) {
-            let target = self.push_local(Ty::UNRESOLVED);
+            let target = self.new_local(Ty::UNRESOLVED);
             let index = self.push_instr(
                 block,
                 Instr::Phi {
@@ -978,7 +989,7 @@ impl FunctionBuilder {
                 }
                 [single] => self.read_variable(var, *single),
                 _ => {
-                    let target = self.push_local(Ty::UNRESOLVED);
+                    let target = self.new_local(Ty::UNRESOLVED);
                     let index = self.push_instr(
                         block,
                         Instr::Phi {

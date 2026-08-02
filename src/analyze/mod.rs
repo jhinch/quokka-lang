@@ -191,7 +191,7 @@ impl Analyzer {
         let return_ty = self.ty_registry.fn_ptr_ty_data(fn_ptr_ty).return_ty;
         let mut mir = FunctionBuilder::new(fn_decl.signature.name.data.clone(), return_ty);
         let return_local = if return_ty != Ty::UNIT && return_ty != Ty::NEVER {
-            Some(mir.push_return_local(return_ty))
+            Some(mir.create_return_local(return_ty))
         } else {
             None
         };
@@ -307,7 +307,7 @@ impl Analyzer {
                 };
                 let (expr_ty, block, source) =
                     self.analyze_expr(&stmt.value, block, mir, inferrer, constraints, scopes);
-                let target = mir.push_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                 constraints.push_back(InferenceConstraint::Equal {
                     ty1: let_ty.clone(),
                     ty1_span: stmt
@@ -408,7 +408,7 @@ impl Analyzer {
                                 );
                                 if let Some(source) = source {
                                     let target =
-                                        mir.push_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                        mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                                     mir.push_instr(block, Instr::Copy { target, source });
                                     mir.write_variable(break_var, block, target);
                                 }
@@ -469,7 +469,7 @@ impl Analyzer {
                         );
                         if let Some(source) = source {
                             let target = mir
-                                .push_local(yield_expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                .new_local(yield_expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                             mir.push_instr(block, Instr::Copy { target, source });
                             mir.write_variable(yield_var, block, target);
                         }
@@ -506,7 +506,7 @@ impl Analyzer {
                 let (ty, block, source) =
                     self.analyze_place(place, block, mir, inferrer, constraints, scopes);
                 let target = if let Some(source) = source {
-                    let target = mir.push_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                     mir.push_instr(block, Instr::Copy { target, source });
                     Some(target)
                 } else {
@@ -533,7 +533,7 @@ impl Analyzer {
                         });
                         if let Some(source) = source {
                             let target =
-                                mir.push_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                             mir.push_instr(block, Instr::Not { target, source });
                             Some(target)
                         } else {
@@ -547,7 +547,7 @@ impl Analyzer {
                         });
                         if let Some(source) = source {
                             let target =
-                                mir.push_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                             mir.push_instr(
                                 block,
                                 Instr::Neg {
@@ -697,7 +697,7 @@ impl Analyzer {
                     }
                 }
                 let target = if let (Some(left), Some(right)) = (left, right) {
-                    let target = mir.push_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                     match op.kind {
                         BinaryOpKind::Equal => {
                             mir.push_instr(
@@ -920,7 +920,7 @@ impl Analyzer {
                     ty: cond_ty,
                     span: expr.span,
                 });
-                let target = mir.push_local(Ty::U1);
+                let target = mir.new_local(Ty::U1);
                 if let Some(source) = source {
                     mir.push_instr(block, Instr::Copy { target, source });
                 }
@@ -952,7 +952,7 @@ impl Analyzer {
                 );
                 if let (Some(variable), Some(then_source)) = (variable, then_source) {
                     let target =
-                        mir.push_local(true_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.new_local(true_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                     mir.push_instr(
                         then_block,
                         Instr::Copy {
@@ -983,7 +983,7 @@ impl Analyzer {
                         );
                         if let (Some(variable), Some(source)) = (variable, source) {
                             let target = mir
-                                .push_local(false_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                .new_local(false_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                             mir.push_instr(else_block, Instr::Copy { target, source });
                             mir.write_variable(variable, else_block, target);
                         } else {
@@ -1036,7 +1036,7 @@ impl Analyzer {
                 let local = if let Some(variable) = variable {
                     mir.read_variable(variable, end_block)
                 } else {
-                    mir.push_local(Ty::UNIT)
+                    mir.new_local(Ty::UNIT)
                 };
                 (ty, end_block, Some(Operand::Local(local)))
             }
@@ -1081,7 +1081,7 @@ impl Analyzer {
                 };
                 let target = match loop_scope.break_var {
                     Some(break_var) => mir.read_variable(break_var, end_block),
-                    None => mir.push_local(Ty::NEVER),
+                    None => mir.new_local(Ty::NEVER),
                 };
                 scopes.exit_loop_scope();
                 (expr_ty, end_block, Some(Operand::Local(target)))
@@ -1109,7 +1109,7 @@ impl Analyzer {
                         Operand::Local(local) => Callee::Local(local),
                         Operand::FnPtr(function) => Callee::FnPtr(function),
                         callee => {
-                            let target = mir.push_local(Ty::U16);
+                            let target = mir.new_local(Ty::U16);
                             mir.push_instr(
                                 block,
                                 Instr::Copy {
@@ -1128,7 +1128,7 @@ impl Analyzer {
                             callee,
                         },
                     );
-                    let target = mir.push_local(Ty::UNRESOLVED);
+                    let target = mir.new_local(Ty::UNRESOLVED);
                     mir.push_instr(return_block, Instr::ReturnValue { target });
                     (Some(target), return_block)
                 } else {
@@ -1171,7 +1171,7 @@ impl Analyzer {
                     (place_ty, block, Some(Operand::Local(target)))
                 }
                 PlaceId::Global(global) => {
-                    let target = mir.push_local(place_ty.to_concrete().unwrap_or(Ty::NEVER));
+                    let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::NEVER));
                     mir.push_instr(
                         block,
                         Instr::Load {
@@ -1244,7 +1244,7 @@ impl Analyzer {
             place_span = new_place_span;
             block = new_block;
         }
-        let target = mir.push_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+        let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
         if let Some(source) = global_place {
             mir.push_instr(block, Instr::Load { target, source });
         }
