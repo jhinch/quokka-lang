@@ -21,17 +21,6 @@ Eof:
 """
 
 [[case]]
-name = "star"
-kind = "lexer"
-source = """
-*
-"""
-expected_tokens = """
-Star:*
-Eof:
-"""
-
-[[case]]
 name = "ampersand"
 kind = "lexer"
 source = """

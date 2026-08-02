@@ -99,56 +99,6 @@ Expr(
 """
 
 [[case]]
-name = "deref"
-kind = "parser"
-entrypoint = "expr"
-source = """
-*a
-"""
-expected_ast = """
-Expr(
-  span: (0, 2),
-  data: Unary(UnaryOp(
-    kind: Deref,
-    expr: Expr(
-      span: (1, 1),
-      data: Place(Place(
-        name: ("a", (1, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "deref_deref"
-kind = "parser"
-entrypoint = "expr"
-source = """
-**a
-"""
-expected_ast = """
-Expr(
-  span: (0, 3),
-  data: Unary(UnaryOp(
-    kind: Deref,
-    expr: Expr(
-      span: (1, 2),
-      data: Unary(UnaryOp(
-        kind: Deref,
-        expr: Expr(
-          span: (2, 1),
-          data: Place(Place(
-            name: ("a", (2, 1)),
-          )),
-        ),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
 name = "unary_binds_tighter_than_binary"
 kind = "parser"
 entrypoint = "expr"

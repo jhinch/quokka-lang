@@ -85,7 +85,6 @@ pub enum TokenKind {
     // operators
     Equal,
     EqualEqual,
-    Star,
     Ampersand,
     AmpersandAmpersand,
     Pipe,
@@ -238,7 +237,6 @@ impl<'de> Lexer<'de> {
                 ',' => self.token(TokenKind::Comma, offset, c.len_utf8()),
                 ';' => self.token(TokenKind::Semicolon, offset, c.len_utf8()),
                 ':' => self.token(TokenKind::Colon, offset, c.len_utf8()),
-                '*' => self.token(TokenKind::Star, offset, c.len_utf8()),
                 '#' => self.token(TokenKind::Hash, offset, c.len_utf8()),
                 '.' => self.token(TokenKind::Dot, offset, c.len_utf8()),
                 '=' => self.choose_if_equal_next(

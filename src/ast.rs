@@ -252,7 +252,6 @@ pub enum OpKind {
 pub enum UnaryOpKind {
     Not,
     Neg,
-    Deref,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

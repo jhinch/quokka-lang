@@ -242,5 +242,5 @@ source = """
 return
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [7:7]",
+    "Syntax error: found Eof when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [7:7]",
 ]

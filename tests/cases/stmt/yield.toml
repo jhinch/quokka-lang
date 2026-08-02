@@ -167,7 +167,7 @@ source = """
 yield;
 """
 expected_errors = [
-    "Syntax error: found Semicolon when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [5:6]",
+    "Syntax error: found Semicolon when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [5:6]",
 ]
 
 [[case]]

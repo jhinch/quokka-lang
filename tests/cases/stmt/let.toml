@@ -365,5 +365,5 @@ source = """
 let x = ;
 """
 expected_errors = [
-    "Syntax error: found Semicolon when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [8:9]",
+    "Syntax error: found Semicolon when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [8:9]",
 ]

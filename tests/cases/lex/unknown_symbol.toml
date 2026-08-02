@@ -87,3 +87,13 @@ source = """
 expected_errors = [
     "Unexpected character '~' @ [0:1]",
 ]
+
+[[case]]
+name = "star"
+kind = "lexer"
+source = """
+*
+"""
+expected_errors = [
+    "Unexpected character '*' @ [0:1]",
+]

@@ -560,7 +560,6 @@ impl Analyzer {
                             None
                         }
                     }
-                    UnaryOpKind::Deref => todo!("deref"),
                 };
                 (expr_ty, block, target.map(Operand::Local))
             }

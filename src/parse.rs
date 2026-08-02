@@ -529,11 +529,10 @@ impl Parser<'_> {
                     todo!("parse inline-asm");
                 }
                 // unary prefix expression
-                kind @ (TokenKind::Star | TokenKind::Bang | TokenKind::Minus) => {
+                kind @ (TokenKind::Bang | TokenKind::Minus) => {
                     let kind = match kind {
                         TokenKind::Bang => UnaryOpKind::Not,
                         TokenKind::Minus => UnaryOpKind::Neg,
-                        TokenKind::Star => UnaryOpKind::Deref,
                         _ => unreachable!(
                             "{kind:?} is matched as a unary prefix expression but has no op kind"
                         ),
@@ -550,7 +549,6 @@ impl Parser<'_> {
                             TokenKind::Number,
                             TokenKind::Ident,
                             TokenKind::LeftParen,
-                            TokenKind::Star,
                             TokenKind::Bang,
                             TokenKind::Minus,
                             TokenKind::If,
@@ -773,7 +771,7 @@ impl Parser<'_> {
 
 fn prefix_binding_power(op: OpKind) -> u8 {
     match op {
-        OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg | UnaryOpKind::Deref) => 19,
+        OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg) => 19,
         _ => unimplemented!("{op:?} is not a prefix op"),
     }
 }

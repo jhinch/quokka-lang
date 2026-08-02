@@ -447,7 +447,7 @@ source = """
 if then 1
 """
 expected_errors = [
-    "Syntax error: found Then when expecting [Number, Ident, LeftParen, Star, Bang, Minus, If, Loop] @ [3:7]",
+    "Syntax error: found Then when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [3:7]",
 ]
 
 [[case]]
