@@ -163,6 +163,14 @@ pub struct NotFnPtrError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("cannot assign a function")]
+#[diagnostic()]
+pub struct FnPtrNotAssignableError {
+    #[label("this is a function")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("unreachable code")]
 #[diagnostic()]
 pub struct UnreachableError {

@@ -1,8 +1,8 @@
 use crate::analyze::error::*;
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    self, ArithmeticOpKind, ComparisonOpKind, Identifier, LogicalOpKind, PlaceProjection,
-    SpannedIdentifier, TyRefData, UnaryOpKind,
+    self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
+    PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
 };
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
@@ -505,7 +505,7 @@ impl Analyzer {
         match &expr.data {
             ast::ExprData::Place(place) => {
                 let (ty, block, source) =
-                    self.analyze_place(place, block, mir, inferrer, constraints, scopes);
+                    self.analyze_place_expr(place, block, mir, inferrer, constraints, scopes);
                 let target = if let Some(source) = source {
                     let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                     mir.push_instr(block, Instr::Copy { target, source });
@@ -736,7 +736,7 @@ impl Analyzer {
             }
             ast::ExprData::Assign(op) => {
                 let (left_ty, block, left) =
-                    self.analyze_place(&op.left, block, mir, inferrer, constraints, scopes);
+                    self.resolve_place(&op.left, block, mir, inferrer, constraints, scopes);
                 let (right_ty, block, right) =
                     self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
                 let expr_ty = InferredTy::Variable(inferrer.fresh());
@@ -759,16 +759,109 @@ impl Analyzer {
                     ty2: right_ty.clone(),
                     ty2_span: op.right.span,
                 });
-                // todo implement assign
-                let target = None;
-                // let target = if let (Some(left), Some(right)) = (left, right) {
-                //     let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                //
-                //     Some(target)
-                // } else {
-                //     None
-                // };
-                (expr_ty, block, target.map(Operand::Local))
+                let target = if let (Some(left), Some(right)) = (left, right) {
+                    let target = match op.kind {
+                        AssignOpKind::Assign => {
+                            let target =
+                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                            mir.push_instr(
+                                block,
+                                Instr::Copy {
+                                    target,
+                                    source: right,
+                                },
+                            );
+                            target
+                        }
+                        kind => {
+                            let left = match &left {
+                                ResolvedPlace::Function(_) => {
+                                    self.result_builder
+                                        .add_error(FnPtrNotAssignableError { span: op.left.span });
+                                    return (expr_ty, block, None);
+                                }
+                                ResolvedPlace::Variable(variable) => {
+                                    let local = mir.read_variable(*variable, block);
+                                    Operand::Local(local)
+                                }
+                                ResolvedPlace::Global(source) => {
+                                    let target = mir
+                                        .new_local(left_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                    mir.push_instr(
+                                        block,
+                                        Instr::Load {
+                                            target,
+                                            source: source.clone(),
+                                        },
+                                    );
+                                    Operand::Local(target)
+                                }
+                            };
+
+                            let target =
+                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                            mir.push_instr(
+                                block,
+                                match kind {
+                                    AssignOpKind::AddAssign => Instr::Add {
+                                        target,
+                                        left,
+                                        right,
+                                    },
+                                    AssignOpKind::SubAssign => Instr::Sub {
+                                        target,
+                                        left,
+                                        right,
+                                    },
+                                    AssignOpKind::BitAndAssign => Instr::BitAnd {
+                                        target,
+                                        left,
+                                        right,
+                                    },
+                                    AssignOpKind::BitOrAssign => Instr::BitOr {
+                                        target,
+                                        left,
+                                        right,
+                                    },
+                                    AssignOpKind::BitXorAssign => Instr::BitXor {
+                                        target,
+                                        left,
+                                        right,
+                                    },
+                                    AssignOpKind::Assign => {
+                                        unreachable!("assign handled separately")
+                                    }
+                                },
+                            );
+                            target
+                        }
+                    };
+
+                    match left {
+                        ResolvedPlace::Function(_) => {
+                            self.result_builder
+                                .add_error(FnPtrNotAssignableError { span: op.left.span });
+                            return (expr_ty, block, None);
+                        }
+                        ResolvedPlace::Variable(variable) => {
+                            mir.write_variable(variable, block, target);
+                        }
+                        ResolvedPlace::Global(global) => {
+                            mir.push_instr(
+                                block,
+                                Instr::Store {
+                                    target: global,
+                                    source: Operand::Local(target),
+                                },
+                            );
+                        }
+                    };
+
+                    Some(Operand::Local(target))
+                } else {
+                    None
+                };
+                (expr_ty, block, target)
             }
             ast::ExprData::Block(ast_block) => {
                 scopes.enter_block_scope(expr.span);
@@ -987,7 +1080,7 @@ impl Analyzer {
                 (expr_ty, end_block, Some(Operand::Local(target)))
             }
             ast::ExprData::Call(call_expr) => {
-                let (place_ty, block, callee) = self.analyze_place(
+                let (place_ty, block, callee) = self.analyze_place_expr(
                     &call_expr.callee,
                     block,
                     mir,
@@ -1046,7 +1139,7 @@ impl Analyzer {
         }
     }
 
-    fn analyze_place(
+    fn analyze_place_expr(
         &mut self,
         place: &ast::Place,
         block: BlockId,
@@ -1055,7 +1148,36 @@ impl Analyzer {
         constraints: &mut VecDeque<InferenceConstraint>,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId, Option<Operand>) {
-        let (place_ty, place_span, place_id) = match scopes.get_place(&place.name.data) {
+        let (place_ty, block, resolved_place) =
+            self.resolve_place(place, block, mir, inferrer, constraints, scopes);
+        let resolved_place = match resolved_place {
+            Some(resolved_place) => resolved_place,
+            None => return (place_ty, block, None),
+        };
+        match resolved_place {
+            ResolvedPlace::Function(fn_ptr) => (place_ty, block, Some(Operand::FnPtr(fn_ptr))),
+            ResolvedPlace::Variable(variable) => {
+                let local = mir.read_variable(variable, block);
+                (place_ty, block, Some(Operand::Local(local)))
+            }
+            ResolvedPlace::Global(source) => {
+                let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(block, Instr::Load { target, source });
+                (place_ty, block, Some(Operand::Local(target)))
+            }
+        }
+    }
+
+    fn resolve_place(
+        &mut self,
+        place: &ast::Place,
+        mut block: BlockId,
+        mir: &mut FunctionBuilder,
+        inferrer: &mut Inferrer,
+        constraints: &mut VecDeque<InferenceConstraint>,
+        scopes: &mut Scopes,
+    ) -> (InferredTy, BlockId, Option<ResolvedPlace>) {
+        let (mut place_ty, mut place_span, place_id) = match scopes.get_place(&place.name.data) {
             Some(place_scope) => (place_scope.ty.clone(), place.name.span, place_scope.mir_id),
             None => {
                 self.result_builder
@@ -1065,57 +1187,22 @@ impl Analyzer {
         };
         if place.projections.is_empty() {
             return match place_id {
-                PlaceId::Function(function) => (place_ty, block, Some(Operand::FnPtr(function))),
+                PlaceId::Function(function) => {
+                    (place_ty, block, Some(ResolvedPlace::Function(function)))
+                }
                 PlaceId::Variable(variable) => {
-                    let target = mir.read_variable(variable, block);
-                    (place_ty, block, Some(Operand::Local(target)))
+                    (place_ty, block, Some(ResolvedPlace::Variable(variable)))
                 }
-                PlaceId::Global(global) => {
-                    let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::NEVER));
-                    mir.push_instr(
-                        block,
-                        Instr::Load {
-                            target,
-                            source: GlobalPlace {
-                                global,
-                                projections: Vec::new(),
-                            },
-                        },
-                    );
-                    (place_ty, block, Some(Operand::Local(target)))
-                }
+                PlaceId::Global(global) => (
+                    place_ty,
+                    block,
+                    Some(ResolvedPlace::Global(GlobalPlace {
+                        global,
+                        projections: Vec::new(),
+                    })),
+                ),
             };
         }
-        let (place_ty, block, global_place) = self.analyze_global_place(
-            place,
-            place_ty,
-            place_span,
-            place_id,
-            block,
-            mir,
-            inferrer,
-            constraints,
-            scopes,
-        );
-        let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-        if let Some(source) = global_place {
-            mir.push_instr(block, Instr::Load { target, source });
-        }
-        (place_ty, block, Some(Operand::Local(target)))
-    }
-
-    fn analyze_global_place(
-        &mut self,
-        place: &ast::Place,
-        mut place_ty: InferredTy,
-        mut place_span: SourceSpan,
-        place_id: PlaceId,
-        mut block: BlockId,
-        mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
-        scopes: &mut Scopes,
-    ) -> (InferredTy, BlockId, Option<GlobalPlace>) {
         let mut global_place = match place_id {
             PlaceId::Global(global) => Some(GlobalPlace {
                 global,
@@ -1174,7 +1261,7 @@ impl Analyzer {
             place_span = new_place_span;
             block = new_block;
         }
-        (place_ty, block, global_place)
+        (place_ty, block, global_place.map(ResolvedPlace::Global))
     }
 
     fn process_constraints(
@@ -1548,6 +1635,12 @@ enum PlaceId {
     Function(FunctionId),
     Variable(Variable),
     Global(GlobalId),
+}
+
+enum ResolvedPlace {
+    Function(FunctionId),
+    Variable(Variable),
+    Global(GlobalPlace),
 }
 
 struct FnScope {
