@@ -9,6 +9,7 @@ use crate::mir::{
     GlobalPlaceProjection, Instr, LocalId, Mir, MirBuilder, Operand, Terminator, Variable,
 };
 use crate::multi::{MultiError, MultiResultBuilder};
+use crate::source::span::span_between;
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
@@ -262,9 +263,7 @@ impl Analyzer {
         for statement in &ast_block.statements {
             if never_found {
                 unreachable_code = Some(match unreachable_code {
-                    Some(start_span) => SourceSpan::from(
-                        start_span.offset()..(statement.span.offset() + statement.span.len()),
-                    ),
+                    Some(start_span) => span_between(start_span, statement.span),
                     None => statement.span,
                 });
             }

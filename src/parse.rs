@@ -342,7 +342,7 @@ impl Parser<'_> {
             let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
             self.expect(TokenKind::RightBracket)?;
             let end_span = self.lexer.current().unwrap().span();
-            let span = SourceSpan::from(start_span.offset()..(end_span.offset() + end_span.len()));
+            let span = span_between(start_span, end_span);
             self.features
                 .check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
 
@@ -461,7 +461,7 @@ impl Parser<'_> {
             let block = self.parse_body()?;
             let end_span = self.lexer.current().unwrap().span();
             Expr {
-                span: SourceSpan::from(start_span.offset()..(end_span.offset() + end_span.len())),
+                span: span_between(start_span, end_span),
                 data: ExprData::Block(block),
             }
         } else {
@@ -565,9 +565,7 @@ impl Parser<'_> {
             };
             let end_span = self.lexer.current().unwrap().span();
             Expr {
-                span: SourceSpan::from(
-                    lhs_start_span.offset()..(end_span.offset() + end_span.len()),
-                ),
+                span: span_between(lhs_start_span, end_span),
                 data,
             }
         };
@@ -658,9 +656,7 @@ impl Parser<'_> {
                         match kind {
                             OpKind::FunctionCall => {
                                 let end_span = self.expect(TokenKind::RightParen)?.span();
-                                let span = SourceSpan::from(
-                                    op_token.span().offset()..(end_span.offset() + end_span.len()),
-                                );
+                                let span = span_between(op_token.span(), end_span);
                                 self.features.check_enabled(
                                     PreviewFeature::FunctionCall,
                                     span,
@@ -768,9 +764,7 @@ impl Parser<'_> {
                 };
                 let end_span = self.lexer.current().unwrap().span();
                 Expr {
-                    span: SourceSpan::from(
-                        lhs_start_span.offset()..(end_span.offset() + end_span.len()),
-                    ),
+                    span: span_between(lhs_start_span, end_span),
                     data,
                 }
             }
