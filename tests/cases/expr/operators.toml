@@ -14,6 +14,7 @@ Expr(
       span: (1, 1),
       data: Place(Place(
         name: ("a", (1, 1)),
+        span: (1, 1),
       )),
     ),
   )),
@@ -40,6 +41,7 @@ Expr(
           span: (2, 1),
           data: Place(Place(
             name: ("a", (2, 1)),
+            span: (2, 1),
           )),
         ),
       )),
@@ -64,6 +66,7 @@ Expr(
       span: (1, 1),
       data: Place(Place(
         name: ("a", (1, 1)),
+        span: (1, 1),
       )),
     ),
   )),
@@ -90,6 +93,7 @@ Expr(
           span: (2, 1),
           data: Place(Place(
             name: ("a", (2, 1)),
+            span: (2, 1),
           )),
         ),
       )),
@@ -108,7 +112,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: Add,
     left: Expr(
       span: (0, 2),
@@ -118,6 +122,7 @@ Expr(
           span: (1, 1),
           data: Place(Place(
             name: ("a", (1, 1)),
+            span: (1, 1),
           )),
         ),
       )),
@@ -126,6 +131,7 @@ Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
+        span: (5, 1),
       )),
     ),
   )),
@@ -149,6 +155,7 @@ Expr(
       span: (1, 3),
       data: Place(Place(
         name: ("a", (1, 1)),
+        span: (1, 3),
         projections: [
           Field(("b", (3, 1))),
         ],
@@ -168,18 +175,20 @@ a && b
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: And,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
+        span: (5, 1),
       )),
     ),
   )),
@@ -196,18 +205,20 @@ a || b
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: Or,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (5, 1),
       data: Place(Place(
         name: ("b", (5, 1)),
+        span: (5, 1),
       )),
     ),
   )),
@@ -224,28 +235,31 @@ a || b && c
 expected_ast = """
 Expr(
   span: (0, 11),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: Or,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (5, 6),
-      data: Binary(BinaryOp(
+      data: Logical(LogicalOp(
         kind: And,
         left: Expr(
           span: (5, 1),
           data: Place(Place(
             name: ("b", (5, 1)),
+            span: (5, 1),
           )),
         ),
         right: Expr(
           span: (10, 1),
           data: Place(Place(
             name: ("c", (10, 1)),
+            span: (10, 1),
           )),
         ),
       )),
@@ -264,16 +278,16 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 26),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: Or,
     left: Expr(
       span: (0, 16),
-      data: Binary(BinaryOp(
+      data: Logical(LogicalOp(
         kind: And,
         left: Expr(
           span: (0, 6),
-          data: Binary(BinaryOp(
-            kind: Equal,
+          data: Comparison(ComparisonOp(
+            kind: Eq,
             left: Expr(
               span: (0, 1),
               data: Integer(IntegerLiteral(
@@ -290,8 +304,8 @@ Expr(
         ),
         right: Expr(
           span: (10, 6),
-          data: Binary(BinaryOp(
-            kind: Equal,
+          data: Comparison(ComparisonOp(
+            kind: Eq,
             left: Expr(
               span: (10, 1),
               data: Integer(IntegerLiteral(
@@ -310,8 +324,8 @@ Expr(
     ),
     right: Expr(
       span: (20, 6),
-      data: Binary(BinaryOp(
-        kind: Equal,
+      data: Comparison(ComparisonOp(
+        kind: Eq,
         left: Expr(
           span: (20, 1),
           data: Integer(IntegerLiteral(
@@ -340,7 +354,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 7),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: And,
     left: Expr(
       span: (0, 2),
@@ -350,6 +364,7 @@ Expr(
           span: (1, 1),
           data: Place(Place(
             name: ("a", (1, 1)),
+            span: (1, 1),
           )),
         ),
       )),
@@ -358,6 +373,7 @@ Expr(
       span: (6, 1),
       data: Place(Place(
         name: ("b", (6, 1)),
+        span: (6, 1),
       )),
     ),
   )),
@@ -374,18 +390,20 @@ a & b
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: BitAnd,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
+        span: (4, 1),
       )),
     ),
   )),
@@ -402,18 +420,20 @@ a | b
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: BitOr,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
+        span: (4, 1),
       )),
     ),
   )),
@@ -430,18 +450,20 @@ a ^ b
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
-    kind: Xor,
+  data: Arithmetic(ArithmeticOp(
+    kind: BitXor,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
       span: (4, 1),
       data: Place(Place(
         name: ("b", (4, 1)),
+        span: (4, 1),
       )),
     ),
   )),
@@ -458,7 +480,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 13),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: BitOr,
     left: Expr(
       span: (0, 1),
@@ -468,8 +490,8 @@ Expr(
     ),
     right: Expr(
       span: (4, 9),
-      data: Binary(BinaryOp(
-        kind: Xor,
+      data: Arithmetic(ArithmeticOp(
+        kind: BitXor,
         left: Expr(
           span: (4, 1),
           data: Integer(IntegerLiteral(
@@ -478,7 +500,7 @@ Expr(
         ),
         right: Expr(
           span: (8, 5),
-          data: Binary(BinaryOp(
+          data: Arithmetic(ArithmeticOp(
             kind: BitAnd,
             left: Expr(
               span: (8, 1),
@@ -510,40 +532,44 @@ a & b && c | d
 expected_ast = """
 Expr(
   span: (0, 14),
-  data: Binary(BinaryOp(
+  data: Logical(LogicalOp(
     kind: And,
     left: Expr(
       span: (0, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: BitAnd,
         left: Expr(
           span: (0, 1),
           data: Place(Place(
             name: ("a", (0, 1)),
+            span: (0, 1),
           )),
         ),
         right: Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
+            span: (4, 1),
           )),
         ),
       )),
     ),
     right: Expr(
       span: (9, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: BitOr,
         left: Expr(
           span: (9, 1),
           data: Place(Place(
             name: ("c", (9, 1)),
+            span: (9, 1),
           )),
         ),
         right: Expr(
           span: (13, 1),
           data: Place(Place(
             name: ("d", (13, 1)),
+            span: (13, 1),
           )),
         ),
       )),
@@ -562,7 +588,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: Add,
     left: Expr(
       span: (0, 1),
@@ -590,7 +616,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: Sub,
     left: Expr(
       span: (0, 1),
@@ -618,11 +644,11 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 9),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: Sub,
     left: Expr(
       span: (0, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: Sub,
         left: Expr(
           span: (0, 1),
@@ -658,7 +684,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 9),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: BitAnd,
     left: Expr(
       span: (0, 1),
@@ -668,7 +694,7 @@ Expr(
     ),
     right: Expr(
       span: (4, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: Add,
         left: Expr(
           span: (4, 1),
@@ -693,23 +719,18 @@ name = "shift_left"
 kind = "parser"
 entrypoint = "expr"
 source = """
-a << 1
+a <<
 """
 expected_ast = """
 Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
+  span: (0, 4),
+  data: Unary(UnaryOp(
     kind: ShiftLeft,
-    left: Expr(
+    expr: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
+        span: (0, 1),
       )),
     ),
   )),
@@ -721,63 +742,18 @@ name = "shift_right"
 kind = "parser"
 entrypoint = "expr"
 source = """
-a >> 1
+a >>
 """
 expected_ast = """
 Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
+  span: (0, 4),
+  data: Unary(UnaryOp(
     kind: ShiftRight,
-    left: Expr(
+    expr: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "shift_is_left_associative"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a << 1 << 1
-"""
-expected_ast = """
-Expr(
-  span: (0, 11),
-  data: Binary(BinaryOp(
-    kind: ShiftLeft,
-    left: Expr(
-      span: (0, 6),
-      data: Binary(BinaryOp(
-        kind: ShiftLeft,
-        left: Expr(
-          span: (0, 1),
-          data: Place(Place(
-            name: ("a", (0, 1)),
-          )),
-        ),
-        right: Expr(
-          span: (5, 1),
-          data: Integer(IntegerLiteral(
-            value: 1,
-          )),
-        ),
-      )),
-    ),
-    right: Expr(
-      span: (10, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
+        span: (0, 1),
       )),
     ),
   )),
@@ -789,33 +765,29 @@ name = "shift_binds_tighter_than_logical_and"
 kind = "parser"
 entrypoint = "expr"
 source = """
-a & b << 1
+a & b <<
 """
 expected_ast = """
 Expr(
-  span: (0, 10),
-  data: Binary(BinaryOp(
+  span: (0, 8),
+  data: Arithmetic(ArithmeticOp(
     kind: BitAnd,
     left: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 1),
       )),
     ),
     right: Expr(
-      span: (4, 6),
-      data: Binary(BinaryOp(
+      span: (4, 4),
+      data: Unary(UnaryOp(
         kind: ShiftLeft,
-        left: Expr(
+        expr: Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
-          )),
-        ),
-        right: Expr(
-          span: (9, 1),
-          data: Integer(IntegerLiteral(
-            value: 1,
+            span: (4, 1),
           )),
         ),
       )),
@@ -829,16 +801,16 @@ name = "shift_binds_looser_than_arithmetic"
 kind = "parser"
 entrypoint = "expr"
 source = """
-1 + 2 << 1
+1 + 2 <<
 """
 expected_ast = """
 Expr(
-  span: (0, 10),
-  data: Binary(BinaryOp(
+  span: (0, 8),
+  data: Unary(UnaryOp(
     kind: ShiftLeft,
-    left: Expr(
+    expr: Expr(
       span: (0, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: Add,
         left: Expr(
           span: (0, 1),
@@ -854,12 +826,6 @@ Expr(
         ),
       )),
     ),
-    right: Expr(
-      span: (9, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
   )),
 )
 """
@@ -869,23 +835,18 @@ name = "rotate_left"
 kind = "parser"
 entrypoint = "expr"
 source = """
-a <% b
+a <%
 """
 expected_ast = """
 Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
+  span: (0, 4),
+  data: Unary(UnaryOp(
     kind: RotateLeft,
-    left: Expr(
+    expr: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Place(Place(
-        name: ("b", (5, 1)),
+        span: (0, 1),
       )),
     ),
   )),
@@ -897,79 +858,18 @@ name = "rotate_right"
 kind = "parser"
 entrypoint = "expr"
 source = """
-a >% b
+a >%
 """
 expected_ast = """
 Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
+  span: (0, 4),
+  data: Unary(UnaryOp(
     kind: RotateRight,
-    left: Expr(
+    expr: Expr(
       span: (0, 1),
       data: Place(Place(
         name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Place(Place(
-        name: ("b", (5, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_left_in_place"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a <% _
-"""
-expected_ast = """
-Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
-    kind: RotateLeft,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Place(Place(
-        name: ("_", (5, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_right_in_place"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a >% _
-"""
-expected_ast = """
-Expr(
-  span: (0, 6),
-  data: Binary(BinaryOp(
-    kind: RotateRight,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (5, 1),
-      data: Place(Place(
-        name: ("_", (5, 1)),
+        span: (0, 1),
       )),
     ),
   )),
@@ -986,13 +886,11 @@ a = 1
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: Assign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (4, 1),
@@ -1014,28 +912,25 @@ a = b = c
 expected_ast = """
 Expr(
   span: (0, 9),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: Assign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (4, 5),
-      data: Binary(BinaryOp(
+      data: Assign(AssignOp(
         kind: Assign,
-        left: Expr(
+        left: Place(
+          name: ("b", (4, 1)),
           span: (4, 1),
-          data: Place(Place(
-            name: ("b", (4, 1)),
-          )),
         ),
         right: Expr(
           span: (8, 1),
           data: Place(Place(
             name: ("c", (8, 1)),
+            span: (8, 1),
           )),
         ),
       )),
@@ -1054,28 +949,28 @@ a = b || c
 expected_ast = """
 Expr(
   span: (0, 10),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: Assign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (4, 6),
-      data: Binary(BinaryOp(
+      data: Logical(LogicalOp(
         kind: Or,
         left: Expr(
           span: (4, 1),
           data: Place(Place(
             name: ("b", (4, 1)),
+            span: (4, 1),
           )),
         ),
         right: Expr(
           span: (9, 1),
           data: Place(Place(
             name: ("c", (9, 1)),
+            span: (9, 1),
           )),
         ),
       )),
@@ -1105,13 +1000,11 @@ a += 1
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: AddAssign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (5, 1),
@@ -1133,13 +1026,11 @@ a -= 1
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: SubAssign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (5, 1),
@@ -1161,13 +1052,11 @@ a &= 1
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: BitAndAssign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (5, 1),
@@ -1189,13 +1078,11 @@ a |= 1
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: BitOrAssign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (5, 1),
@@ -1217,186 +1104,16 @@ a ^= 1
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
-    kind: XOrAssign,
-    left: Expr(
+  data: Assign(AssignOp(
+    kind: BitXorAssign,
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
     ),
     right: Expr(
       span: (5, 1),
       data: Integer(IntegerLiteral(
         value: 1,
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "shift_left_assign"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a <<= 1
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: ShiftLeftAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "shift_right_assign"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a >>= 1
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: ShiftRightAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_left_assign"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a <%= _
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: RotateLeftAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Place(Place(
-        name: ("_", (6, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_right_assign"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a >%= _
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: RotateRightAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Place(Place(
-        name: ("_", (6, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_left_assign_through_bool_expr"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a <%= b
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: RotateLeftAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Place(Place(
-        name: ("b", (6, 1)),
-      )),
-    ),
-  )),
-)
-"""
-
-[[case]]
-name = "rotate_right_assign_through_bool_expr"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a >%= b
-"""
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Binary(BinaryOp(
-    kind: RotateRightAssign,
-    left: Expr(
-      span: (0, 1),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-      )),
-    ),
-    right: Expr(
-      span: (6, 1),
-      data: Place(Place(
-        name: ("b", (6, 1)),
       )),
     ),
   )),

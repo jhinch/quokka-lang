@@ -22,18 +22,18 @@ name = "grouped_overrides_precedence"
 kind = "parser"
 entrypoint = "expr"
 source = """
-(1 + 2) << 1
+(1 + 2) <<
 """
 expected_ast = """
 Expr(
-  span: (0, 12),
-  data: Binary(BinaryOp(
+  span: (0, 10),
+  data: Unary(UnaryOp(
     kind: ShiftLeft,
-    left: Expr(
+    expr: Expr(
       span: (0, 7),
       data: Paren(Expr(
         span: (1, 5),
-        data: Binary(BinaryOp(
+        data: Arithmetic(ArithmeticOp(
           kind: Add,
           left: Expr(
             span: (1, 1),
@@ -50,12 +50,6 @@ Expr(
         )),
       )),
     ),
-    right: Expr(
-      span: (11, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
   )),
 )
 """
@@ -70,14 +64,14 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 20),
-  data: Binary(BinaryOp(
-    kind: Equal,
+  data: Comparison(ComparisonOp(
+    kind: Eq,
     left: Expr(
       span: (0, 8),
       data: Paren(Expr(
         span: (1, 6),
-        data: Binary(BinaryOp(
-          kind: Equal,
+        data: Comparison(ComparisonOp(
+          kind: Eq,
           left: Expr(
             span: (1, 1),
             data: Integer(IntegerLiteral(
@@ -97,8 +91,8 @@ Expr(
       span: (12, 8),
       data: Paren(Expr(
         span: (13, 6),
-        data: Binary(BinaryOp(
-          kind: Equal,
+        data: Comparison(ComparisonOp(
+          kind: Eq,
           left: Expr(
             span: (13, 1),
             data: Integer(IntegerLiteral(

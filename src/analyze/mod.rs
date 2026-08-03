@@ -1,7 +1,8 @@
 use crate::analyze::error::*;
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    self, BinaryOpKind, Identifier, PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
+    self, ArithmeticOpKind, ComparisonOpKind, Identifier, LogicalOpKind, PlaceProjection,
+    SpannedIdentifier, TyRefData, UnaryOpKind,
 };
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
@@ -526,20 +527,6 @@ impl Analyzer {
                 let (expr_ty, block, source) =
                     self.analyze_expr(&op.expr, block, mir, inferrer, constraints, scopes);
                 let target = match op.kind {
-                    UnaryOpKind::Not => {
-                        constraints.push_back(InferenceConstraint::IsInt {
-                            ty: expr_ty.clone(),
-                            span: expr.span,
-                        });
-                        if let Some(source) = source {
-                            let target =
-                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(block, Instr::Not { target, source });
-                            Some(target)
-                        } else {
-                            None
-                        }
-                    }
                     UnaryOpKind::Neg => {
                         constraints.push_back(InferenceConstraint::IsSignedInt {
                             ty: expr_ty.clone(),
@@ -548,11 +535,31 @@ impl Analyzer {
                         if let Some(source) = source {
                             let target =
                                 mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                            mir.push_instr(block, Instr::Neg { target, source });
+                            Some(target)
+                        } else {
+                            None
+                        }
+                    }
+                    kind => {
+                        constraints.push_back(InferenceConstraint::IsInt {
+                            ty: expr_ty.clone(),
+                            span: expr.span,
+                        });
+                        if let Some(source) = source {
+                            let target =
+                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                             mir.push_instr(
                                 block,
-                                Instr::Neg {
-                                    target: target,
-                                    source,
+                                match kind {
+                                    UnaryOpKind::Not => Instr::Not { target, source },
+                                    UnaryOpKind::ShiftLeft => Instr::ShiftLeft { target, source },
+                                    UnaryOpKind::ShiftRight => Instr::ShiftRight { target, source },
+                                    UnaryOpKind::RotateLeft => Instr::RotateLeft { target, source },
+                                    UnaryOpKind::RotateRight => {
+                                        Instr::RotateRight { target, source }
+                                    }
+                                    UnaryOpKind::Neg => unimplemented!("neg already handled"),
                                 },
                             );
                             Some(target)
@@ -563,310 +570,204 @@ impl Analyzer {
                 };
                 (expr_ty, block, target.map(Operand::Local))
             }
-            ast::ExprData::Binary(op) => {
+            ast::ExprData::Logical(op) => {
+                // currently this branch incorrectly handles `And` and `Or` as
+                // `BitAnd` and `BitOr`. Will follow this up in a subsequent change
                 let (left_ty, block, left) =
                     self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
                 let (right_ty, block, right) =
                     self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
-                let expr_ty = match op.kind {
-                    BinaryOpKind::And
-                    | BinaryOpKind::Or
-                    | BinaryOpKind::Lt
-                    | BinaryOpKind::Le
-                    | BinaryOpKind::Ge
-                    | BinaryOpKind::Gt
-                    | BinaryOpKind::Equal
-                    | BinaryOpKind::NotEqual => InferredTy::Concrete(Ty::U1),
-                    BinaryOpKind::RotateLeft
-                    | BinaryOpKind::RotateRight
-                    | BinaryOpKind::ShiftLeft
-                    | BinaryOpKind::ShiftRight
-                    | BinaryOpKind::ShiftLeftAssign
-                    | BinaryOpKind::ShiftRightAssign
-                    | BinaryOpKind::RotateLeftAssign
-                    | BinaryOpKind::RotateRightAssign => left_ty.clone(),
-                    _ => InferredTy::Variable(inferrer.fresh()),
-                };
-                match op.kind {
-                    BinaryOpKind::And | BinaryOpKind::Or => {
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: left_ty.clone(),
-                            ty1_span: op.left.span,
-                            ty2: InferredTy::Concrete(Ty::U1),
-                            ty2_span: expr.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: right_ty.clone(),
-                            ty1_span: op.right.span,
-                            ty2: InferredTy::Concrete(Ty::U1),
-                            ty2_span: expr.span,
-                        });
-                    }
-                    BinaryOpKind::Lt
-                    | BinaryOpKind::Le
-                    | BinaryOpKind::Gt
-                    | BinaryOpKind::Ge
-                    | BinaryOpKind::Equal
-                    | BinaryOpKind::NotEqual => {
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: left_ty,
-                            ty1_span: op.left.span,
-                            ty2: right_ty,
-                            ty2_span: op.right.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: expr_ty.clone(),
-                            ty1_span: expr.span,
-                            ty2: InferredTy::Concrete(Ty::U1),
-                            ty2_span: expr.span,
-                        });
-                    }
-                    BinaryOpKind::Assign
-                    | BinaryOpKind::BitAnd
-                    | BinaryOpKind::BitOr
-                    | BinaryOpKind::Xor
-                    | BinaryOpKind::Add
-                    | BinaryOpKind::Sub
-                    | BinaryOpKind::AddAssign
-                    | BinaryOpKind::SubAssign
-                    | BinaryOpKind::BitAndAssign
-                    | BinaryOpKind::BitOrAssign
-                    | BinaryOpKind::XOrAssign => {
-                        // currently, assign-like operands assert that the LHS is an int
-                        // to ensure that it can fit in a register. Eventually we need
-                        // to calculate size of types and assert it can fit in 1 or 2 bytes
-                        constraints.push_back(InferenceConstraint::IsInt {
-                            ty: expr_ty.clone(),
-                            span: expr.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: expr_ty.clone(),
-                            ty1_span: expr.span,
-                            ty2: left_ty.clone(),
-                            ty2_span: op.left.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: expr_ty.clone(),
-                            ty1_span: expr.span,
-                            ty2: right_ty.clone(),
-                            ty2_span: op.right.span,
-                        });
-                    }
-                    BinaryOpKind::ShiftLeft
-                    | BinaryOpKind::ShiftRight
-                    | BinaryOpKind::ShiftLeftAssign
-                    | BinaryOpKind::ShiftRightAssign => {
-                        constraints.push_back(InferenceConstraint::IsInt {
-                            ty: expr_ty.clone(),
-                            span: expr.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: expr_ty.clone(),
-                            ty1_span: expr.span,
-                            ty2: left_ty.clone(),
-                            ty2_span: op.left.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: right_ty.clone(),
-                            ty1_span: op.right.span,
-                            ty2: InferredTy::Concrete(Ty::U1),
-                            ty2_span: expr.span,
-                        });
-                    }
-                    BinaryOpKind::RotateLeft
-                    | BinaryOpKind::RotateRight
-                    | BinaryOpKind::RotateLeftAssign
-                    | BinaryOpKind::RotateRightAssign => {
-                        constraints.push_back(InferenceConstraint::IsInt {
-                            ty: expr_ty.clone(),
-                            span: expr.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: expr_ty.clone(),
-                            ty1_span: expr.span,
-                            ty2: left_ty.clone(),
-                            ty2_span: op.left.span,
-                        });
-                        constraints.push_back(InferenceConstraint::Equal {
-                            ty1: right_ty.clone(),
-                            ty1_span: op.right.span,
-                            ty2: InferredTy::Concrete(Ty::U1),
-                            ty2_span: expr.span,
-                        });
-                    }
-                }
+                let expr_ty = InferredTy::Concrete(Ty::U1);
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: left_ty.clone(),
+                    ty1_span: op.left.span,
+                    ty2: InferredTy::Concrete(Ty::U1),
+                    ty2_span: expr.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: right_ty.clone(),
+                    ty1_span: op.right.span,
+                    ty2: InferredTy::Concrete(Ty::U1),
+                    ty2_span: expr.span,
+                });
                 let target = if let (Some(left), Some(right)) = (left, right) {
                     let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    match op.kind {
-                        BinaryOpKind::Equal => {
-                            mir.push_instr(
-                                block,
-                                Instr::Eq {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::NotEqual => {
-                            mir.push_instr(
-                                block,
-                                Instr::Ne {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::And => {
-                            mir.push_instr(
-                                block,
-                                Instr::BitAnd {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Or => {
-                            mir.push_instr(
-                                block,
-                                Instr::BitOr {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::BitAnd => {
-                            mir.push_instr(
-                                block,
-                                Instr::BitAnd {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::BitOr => {
-                            mir.push_instr(
-                                block,
-                                Instr::BitOr {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Xor => {
-                            mir.push_instr(
-                                block,
-                                Instr::BitXor {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Lt => {
-                            mir.push_instr(
-                                block,
-                                Instr::Lt {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Le => {
-                            mir.push_instr(
-                                block,
-                                Instr::Le {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Gt => {
-                            mir.push_instr(
-                                block,
-                                Instr::Gt {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Ge => {
-                            mir.push_instr(
-                                block,
-                                Instr::Ge {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::ShiftLeft => {
-                            mir.push_instr(
-                                block,
-                                Instr::ShiftLeft {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::ShiftRight => {
-                            mir.push_instr(
-                                block,
-                                Instr::ShiftRight {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Add => {
-                            mir.push_instr(
-                                block,
-                                Instr::Add {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::Sub => {
-                            mir.push_instr(
-                                block,
-                                Instr::Sub {
-                                    target,
-                                    left,
-                                    right,
-                                },
-                            );
-                        }
-                        BinaryOpKind::RotateLeft
-                        | BinaryOpKind::RotateRight
-                        | BinaryOpKind::Assign
-                        | BinaryOpKind::AddAssign
-                        | BinaryOpKind::SubAssign
-                        | BinaryOpKind::BitAndAssign
-                        | BinaryOpKind::BitOrAssign
-                        | BinaryOpKind::XOrAssign
-                        | BinaryOpKind::ShiftLeftAssign
-                        | BinaryOpKind::ShiftRightAssign
-                        | BinaryOpKind::RotateLeftAssign
-                        | BinaryOpKind::RotateRightAssign => {
-                            // todo
-                        }
-                    }
+                    mir.push_instr(
+                        block,
+                        match op.kind {
+                            LogicalOpKind::And => Instr::BitAnd {
+                                target,
+                                left,
+                                right,
+                            },
+                            LogicalOpKind::Or => Instr::BitOr {
+                                target,
+                                left,
+                                right,
+                            },
+                        },
+                    );
                     Some(target)
                 } else {
                     None
                 };
+                (expr_ty, block, target.map(Operand::Local))
+            }
+            ast::ExprData::Arithmetic(op) => {
+                let (left_ty, block, left) =
+                    self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
+                let (right_ty, block, right) =
+                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
+                let expr_ty = InferredTy::Variable(inferrer.fresh());
+                constraints.push_back(InferenceConstraint::IsInt {
+                    ty: expr_ty.clone(),
+                    span: expr.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: expr_ty.clone(),
+                    ty1_span: expr.span,
+                    ty2: left_ty.clone(),
+                    ty2_span: op.left.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: expr_ty.clone(),
+                    ty1_span: expr.span,
+                    ty2: right_ty.clone(),
+                    ty2_span: op.right.span,
+                });
+                let target = if let (Some(left), Some(right)) = (left, right) {
+                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    mir.push_instr(
+                        block,
+                        match op.kind {
+                            ArithmeticOpKind::BitAnd => Instr::BitAnd {
+                                target,
+                                left,
+                                right,
+                            },
+                            ArithmeticOpKind::BitOr => Instr::BitOr {
+                                target,
+                                left,
+                                right,
+                            },
+                            ArithmeticOpKind::BitXor => Instr::BitXor {
+                                target,
+                                left,
+                                right,
+                            },
+                            ArithmeticOpKind::Add => Instr::Add {
+                                target,
+                                left,
+                                right,
+                            },
+                            ArithmeticOpKind::Sub => Instr::Sub {
+                                target,
+                                left,
+                                right,
+                            },
+                        },
+                    );
+                    Some(target)
+                } else {
+                    None
+                };
+                (expr_ty, block, target.map(Operand::Local))
+            }
+            ast::ExprData::Comparison(op) => {
+                let (left_ty, block, left) =
+                    self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
+                let (right_ty, block, right) =
+                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
+                let expr_ty = InferredTy::Concrete(Ty::U1);
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: left_ty,
+                    ty1_span: op.left.span,
+                    ty2: right_ty,
+                    ty2_span: op.right.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: expr_ty.clone(),
+                    ty1_span: expr.span,
+                    ty2: InferredTy::Concrete(Ty::U1),
+                    ty2_span: expr.span,
+                });
+                let target = if let (Some(left), Some(right)) = (left, right) {
+                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    mir.push_instr(
+                        block,
+                        match op.kind {
+                            ComparisonOpKind::Eq => Instr::Eq {
+                                target,
+                                left,
+                                right,
+                            },
+                            ComparisonOpKind::Ne => Instr::Ne {
+                                target,
+                                left,
+                                right,
+                            },
+                            ComparisonOpKind::Lt => Instr::Lt {
+                                target,
+                                left,
+                                right,
+                            },
+                            ComparisonOpKind::Le => Instr::Le {
+                                target,
+                                left,
+                                right,
+                            },
+                            ComparisonOpKind::Gt => Instr::Gt {
+                                target,
+                                left,
+                                right,
+                            },
+                            ComparisonOpKind::Ge => Instr::Ge {
+                                target,
+                                left,
+                                right,
+                            },
+                        },
+                    );
+                    Some(target)
+                } else {
+                    None
+                };
+                (expr_ty, block, target.map(Operand::Local))
+            }
+            ast::ExprData::Assign(op) => {
+                let (left_ty, block, left) =
+                    self.analyze_place(&op.left, block, mir, inferrer, constraints, scopes);
+                let (right_ty, block, right) =
+                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
+                let expr_ty = InferredTy::Variable(inferrer.fresh());
+                // currently, assign-like operands assert that the LHS is an int
+                // to ensure that it can fit in a register. Eventually we need
+                // to calculate size of types and assert it can fit in 1 or 2 bytes
+                constraints.push_back(InferenceConstraint::IsInt {
+                    ty: expr_ty.clone(),
+                    span: expr.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: expr_ty.clone(),
+                    ty1_span: expr.span,
+                    ty2: left_ty.clone(),
+                    ty2_span: op.left.span,
+                });
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: expr_ty.clone(),
+                    ty1_span: expr.span,
+                    ty2: right_ty.clone(),
+                    ty2_span: op.right.span,
+                });
+                // todo implement assign
+                let target = None;
+                // let target = if let (Some(left), Some(right)) = (left, right) {
+                //     let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                //
+                //     Some(target)
+                // } else {
+                //     None
+                // };
                 (expr_ty, block, target.map(Operand::Local))
             }
             ast::ExprData::Block(ast_block) => {
@@ -1148,13 +1049,13 @@ impl Analyzer {
     fn analyze_place(
         &mut self,
         place: &ast::Place,
-        mut block: BlockId,
+        block: BlockId,
         mir: &mut FunctionBuilder,
         inferrer: &mut Inferrer,
         constraints: &mut VecDeque<InferenceConstraint>,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId, Option<Operand>) {
-        let (mut place_ty, mut place_span, place_id) = match scopes.get_place(&place.name.data) {
+        let (place_ty, place_span, place_id) = match scopes.get_place(&place.name.data) {
             Some(place_scope) => (place_scope.ty.clone(), place.name.span, place_scope.mir_id),
             None => {
                 self.result_builder
@@ -1185,6 +1086,36 @@ impl Analyzer {
                 }
             };
         }
+        let (place_ty, block, global_place) = self.analyze_global_place(
+            place,
+            place_ty,
+            place_span,
+            place_id,
+            block,
+            mir,
+            inferrer,
+            constraints,
+            scopes,
+        );
+        let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+        if let Some(source) = global_place {
+            mir.push_instr(block, Instr::Load { target, source });
+        }
+        (place_ty, block, Some(Operand::Local(target)))
+    }
+
+    fn analyze_global_place(
+        &mut self,
+        place: &ast::Place,
+        mut place_ty: InferredTy,
+        mut place_span: SourceSpan,
+        place_id: PlaceId,
+        mut block: BlockId,
+        mir: &mut FunctionBuilder,
+        inferrer: &mut Inferrer,
+        constraints: &mut VecDeque<InferenceConstraint>,
+        scopes: &mut Scopes,
+    ) -> (InferredTy, BlockId, Option<GlobalPlace>) {
         let mut global_place = match place_id {
             PlaceId::Global(global) => Some(GlobalPlace {
                 global,
@@ -1243,11 +1174,7 @@ impl Analyzer {
             place_span = new_place_span;
             block = new_block;
         }
-        let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-        if let Some(source) = global_place {
-            mir.push_instr(block, Instr::Load { target, source });
-        }
-        (place_ty, block, Some(Operand::Local(target)))
+        (place_ty, block, global_place)
     }
 
     fn process_constraints(

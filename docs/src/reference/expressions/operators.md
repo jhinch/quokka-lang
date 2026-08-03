@@ -15,14 +15,13 @@ NotExpression           =   "!" , Expression
                         ;
 NegateExpression        =   "-" , Expression
                         ;
-BooleanExpression       =   Expression , "&&" , Expression
+LogicalExpression       =   Expression , "&&" , Expression
                         |   Expression , "||" , Expression
                         ;
-LogicalExpression       =   Expression , "&" , Expression
+ArithmeticExpression    =   Expression , "&" , Expression
                         |   Expression , "|" , Expression
                         |   Expression , "^" , Expression
-                        ;
-ArithmeticExpression    =   Expression , "+" , Expression
+                        |   Expression , "+" , Expression
                         |   Expression , "-" , Expression
                         ;
 ComparisonExpression    =   Expression , "==" , Expression
@@ -32,27 +31,18 @@ ComparisonExpression    =   Expression , "==" , Expression
                         |   Expression , ">=" , Expression
                         |   Expression , ">" , Expression
                         ;
-ShiftExpression         =   Expression , "<<" , ShiftRhsOperand
-                        |   Expression , ">>" , ShiftRhsOperand
+ShiftExpression         =   Expression , "<<"
+                        |   Expression , ">>"
                         ;
-RotateExpression        =   Expression , "<%" , RotateRhsOperand
-                        |   Expression , ">%" , RotateRhsOperand
+RotateExpression        =   Expression , "<%"
+                        |   Expression , ">%"
                         ;
-AssignExpression        =   Expression , "=" , Expression
-                        |   Expression , "+=" , Expression
-                        |   Expression , "-=" , Expression
-                        |   Expression , "&=" , Expression
-                        |   Expression , "|=" , Expression
-                        |   Expression , "^=" , Expression
-                        |   Expression , "<<=" , ShiftRhsOperand
-                        |   Expression , ">>=" , ShiftRhsOperand
-                        |   Expression , "<%=" , RotateRhsOperand
-                        |   Expression , ">%=" , RotateRhsOperand
-                        ;
-ShiftRhsOperand         =   "1"
-                        ;
-RotateRhsOperand        =   "_"
-                        |   Expression
+AssignExpression        =   PlaceExpression , "=" , Expression
+                        |   PlaceExpression , "+=" , Expression
+                        |   PlaceExpression , "-=" , Expression
+                        |   PlaceExpression , "&=" , Expression
+                        |   PlaceExpression , "|=" , Expression
+                        |   PlaceExpression , "^=" , Expression
                         ;
 ```
 
@@ -100,15 +90,12 @@ RotateRhsOperand        =   "_"
 ## Shift operators
 
 - `<<` shift left
-- `>>` shift right (logical if unsigned, arithmetic if signed)
-- right operand must always be literal `1`
+- `>>` shift right (logical shift right if unsigned, arithmetic shift right if signed)
 
 ## Rotate operators
 
 - `<%` rotate left
 - `>%` rotate right
-- when right operand is `_`, rotates in place
-- when right operand is expression, must be a boolean
 
 ## Assign operators
 

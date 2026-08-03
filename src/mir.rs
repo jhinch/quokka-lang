@@ -194,30 +194,6 @@ impl Mir {
                                     right.display(self, function, ty_registry)
                                 )
                             }
-                            Instr::RotateCLeft {
-                                target: _,
-                                left,
-                                right,
-                            } => {
-                                write!(
-                                    f,
-                                    "rotatecleft {}, {}",
-                                    left.display(self, function, ty_registry),
-                                    right.display(self, function, ty_registry)
-                                )
-                            }
-                            Instr::RotateCRight {
-                                target: _,
-                                left,
-                                right,
-                            } => {
-                                write!(
-                                    f,
-                                    "rotatecright {}, {}",
-                                    left.display(self, function, ty_registry),
-                                    right.display(self, function, ty_registry)
-                                )
-                            }
                             Instr::RotateLeft { target: _, source } => {
                                 write!(
                                     f,
@@ -232,28 +208,18 @@ impl Mir {
                                     source.display(self, function, ty_registry)
                                 )
                             }
-                            Instr::ShiftLeft {
-                                target: _,
-                                left,
-                                right,
-                            } => {
+                            Instr::ShiftLeft { target: _, source } => {
                                 write!(
                                     f,
-                                    "shiftleft {}, {}",
-                                    left.display(self, function, ty_registry),
-                                    right.display(self, function, ty_registry)
+                                    "shiftleft {}",
+                                    source.display(self, function, ty_registry)
                                 )
                             }
-                            Instr::ShiftRight {
-                                target: _,
-                                left,
-                                right,
-                            } => {
+                            Instr::ShiftRight { target: _, source } => {
                                 write!(
                                     f,
-                                    "shiftright {}, {}",
-                                    left.display(self, function, ty_registry),
-                                    right.display(self, function, ty_registry)
+                                    "shiftright {}",
+                                    source.display(self, function, ty_registry)
                                 )
                             }
                             Instr::Add {
@@ -544,16 +510,6 @@ pub enum Instr {
         left: Operand,
         right: Operand,
     },
-    RotateCLeft {
-        target: LocalId,
-        left: Operand,
-        right: Operand,
-    },
-    RotateCRight {
-        target: LocalId,
-        left: Operand,
-        right: Operand,
-    },
     RotateLeft {
         target: LocalId,
         source: Operand,
@@ -564,13 +520,11 @@ pub enum Instr {
     },
     ShiftLeft {
         target: LocalId,
-        left: Operand,
-        right: Operand,
+        source: Operand,
     },
     ShiftRight {
         target: LocalId,
-        left: Operand,
-        right: Operand,
+        source: Operand,
     },
     // arithmetic
     Add {
@@ -603,8 +557,6 @@ impl Instr {
             | Instr::BitAnd { target, .. }
             | Instr::BitOr { target, .. }
             | Instr::BitXor { target, .. }
-            | Instr::RotateCLeft { target, .. }
-            | Instr::RotateCRight { target, .. }
             | Instr::RotateLeft { target, .. }
             | Instr::RotateRight { target, .. }
             | Instr::ShiftLeft { target, .. }

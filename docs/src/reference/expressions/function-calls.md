@@ -4,6 +4,6 @@
 > Requires `function-call` preview feature enabled.
 
 ```ebnf
-FunctionCallExpression  =   Expression , "(" , ")"
+FunctionCallExpression  =   PlaceExpression , "(" , ")"
                         ;
 ```

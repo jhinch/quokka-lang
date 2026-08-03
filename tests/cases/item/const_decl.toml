@@ -43,7 +43,7 @@ Item(
     ),
     value: Expr(
       span: (14, 5),
-      data: Binary(BinaryOp(
+      data: Arithmetic(ArithmeticOp(
         kind: Add,
         left: Expr(
           span: (14, 1),

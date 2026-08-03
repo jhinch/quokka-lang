@@ -12,6 +12,7 @@ Item(
       name: ("main", (3, 4)),
     ),
     body: Block(
+      span: (10, 2),
       statements: [],
     ),
   )),
@@ -35,6 +36,7 @@ Item(
       name: ("main", (3, 4)),
     ),
     body: Block(
+      span: (10, 25),
       statements: [
         Statement(
           span: (16, 10),
@@ -55,6 +57,7 @@ Item(
               span: (31, 1),
               data: Place(Place(
                 name: ("x", (31, 1)),
+                span: (31, 1),
               )),
             ),
           )),
@@ -81,6 +84,7 @@ Item(
       name: ("main", (3, 4)),
     ),
     body: Block(
+      span: (10, 22),
       statements: [
         Statement(
           span: (16, 14),
@@ -130,6 +134,7 @@ Expr(
     true_block: Expr(
       span: (10, 35),
       data: Block(Block(
+        span: (10, 35),
         statements: [
           Statement(
             span: (16, 27),
@@ -138,6 +143,7 @@ Expr(
                 span: (16, 27),
                 data: Loop(Loop(
                   body: Block(
+                    span: (21, 22),
                     statements: [
                       Statement(
                         span: (31, 6),
@@ -155,6 +161,7 @@ Expr(
     false_block: Some(Expr(
       span: (51, 3),
       data: Block(Block(
+        span: (51, 3),
         statements: [],
       )),
     )),

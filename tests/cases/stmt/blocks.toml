@@ -24,12 +24,14 @@ Statement(
         true_block: Expr(
           span: (10, 3),
           data: Block(Block(
+            span: (10, 3),
             statements: [],
           )),
         ),
         false_block: Some(Expr(
           span: (19, 3),
           data: Block(Block(
+            span: (19, 3),
             statements: [],
           )),
         )),
@@ -78,6 +80,7 @@ Statement(
         true_block: Expr(
           span: (10, 3),
           data: Block(Block(
+            span: (10, 3),
             statements: [],
           )),
         ),
@@ -117,6 +120,7 @@ Statement(
       span: (0, 8),
       data: Loop(Loop(
         body: Block(
+          span: (5, 3),
           statements: [],
         ),
       )),
@@ -159,6 +163,7 @@ Statement(
       span: (0, 54),
       data: Loop(Loop(
         body: Block(
+          span: (5, 49),
           statements: [
             Statement(
               span: (11, 30),
@@ -175,12 +180,14 @@ Statement(
                     true_block: Expr(
                       span: (21, 7),
                       data: Block(Block(
+                        span: (21, 7),
                         statements: [],
                       )),
                     ),
                     false_block: Some(Expr(
                       span: (34, 7),
                       data: Block(Block(
+                        span: (34, 7),
                         statements: [],
                       )),
                     )),
@@ -193,7 +200,7 @@ Statement(
               data: Expr(ExprSmt(
                 value: Expr(
                   span: (46, 5),
-                  data: Binary(BinaryOp(
+                  data: Arithmetic(ArithmeticOp(
                     kind: Add,
                     left: Expr(
                       span: (46, 1),
@@ -248,6 +255,7 @@ Statement(
         true_block: Expr(
           span: (10, 46),
           data: Block(Block(
+            span: (10, 46),
             statements: [
               Statement(
                 span: (16, 27),
@@ -256,6 +264,7 @@ Statement(
                     span: (16, 27),
                     data: Loop(Loop(
                       body: Block(
+                        span: (21, 22),
                         statements: [
                           Statement(
                             span: (31, 6),
@@ -272,7 +281,7 @@ Statement(
                 data: Expr(ExprSmt(
                   value: Expr(
                     span: (48, 5),
-                    data: Binary(BinaryOp(
+                    data: Arithmetic(ArithmeticOp(
                       kind: Add,
                       left: Expr(
                         span: (48, 1),
@@ -323,6 +332,7 @@ Statement(
       span: (0, 69),
       data: Loop(Loop(
         body: Block(
+          span: (5, 64),
           statements: [
             Statement(
               span: (11, 17),
@@ -339,6 +349,7 @@ Statement(
                     true_block: Expr(
                       span: (21, 7),
                       data: Block(Block(
+                        span: (21, 7),
                         statements: [],
                       )),
                     ),
@@ -354,6 +365,7 @@ Statement(
                   span: (33, 27),
                   data: Loop(Loop(
                     body: Block(
+                      span: (38, 22),
                       statements: [
                         Statement(
                           span: (48, 6),
@@ -412,6 +424,7 @@ Statement(
         true_block: Expr(
           span: (10, 27),
           data: Block(Block(
+            span: (10, 27),
             statements: [
               Statement(
                 span: (16, 12),
@@ -420,6 +433,7 @@ Statement(
                     span: (16, 12),
                     data: Loop(Loop(
                       body: Block(
+                        span: (21, 7),
                         statements: [],
                       ),
                     )),
@@ -459,7 +473,7 @@ if 1 then {
 }
 """
 expected_errors = [
-    "Syntax error: found Number when expecting [Equal, EqualEqual, BangEqual, Ampersand, AmpersandAmpersand, AmpersandEqual, Pipe, PipePipe, PipeEqual, Plus, PlusEqual, Minus, MinusEqual, Carrot, CarrotEqual, LessThan, LessThanEqual, LessThanLessThan, LessThanLessThanEqual, LessThanPercent, LessThanPercentEqual, GreaterThan, GreaterThanEqual, GreaterThanGreaterThan, GreaterThanGreaterThanEqual, GreaterThanPercent, GreaterThanPercentEqual] @ [26:27]",
+    "Syntax error: found Number when expecting [Equal, EqualEqual, BangEqual, Ampersand, AmpersandAmpersand, AmpersandEqual, Pipe, PipePipe, PipeEqual, Plus, PlusEqual, Minus, MinusEqual, Carrot, CarrotEqual, LessThan, LessThanEqual, LessThanLessThan, LessThanPercent, GreaterThan, GreaterThanEqual, GreaterThanGreaterThan, GreaterThanPercent] @ [26:27]",
 ]
 
 [[case]]
@@ -477,6 +491,7 @@ Statement(
     value: Expr(
       span: (0, 3),
       data: Block(Block(
+        span: (0, 3),
         statements: [],
       )),
     ),
@@ -513,6 +528,7 @@ Statement(
     value: Expr(
       span: (0, 31),
       data: Block(Block(
+        span: (0, 31),
         statements: [
           Statement(
             span: (6, 10),
@@ -533,6 +549,7 @@ Statement(
                 span: (27, 1),
                 data: Place(Place(
                   name: ("x", (27, 1)),
+                  span: (27, 1),
                 )),
               ),
             )),
@@ -562,6 +579,7 @@ Statement(
     value: Expr(
       span: (0, 26),
       data: Block(Block(
+        span: (0, 26),
         statements: [
           Statement(
             span: (6, 7),
@@ -569,6 +587,7 @@ Statement(
               value: Expr(
                 span: (6, 7),
                 data: Block(Block(
+                  span: (6, 7),
                   statements: [],
                 )),
               ),
@@ -579,7 +598,7 @@ Statement(
             data: Expr(ExprSmt(
               value: Expr(
                 span: (18, 5),
-                data: Binary(BinaryOp(
+                data: Arithmetic(ArithmeticOp(
                   kind: Add,
                   left: Expr(
                     span: (18, 1),

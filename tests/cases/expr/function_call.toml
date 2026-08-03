@@ -11,6 +11,7 @@ Expr(
   data: Call(Call(
     callee: Place(
       name: ("a", (0, 1)),
+      span: (0, 1),
     ),
   )),
 )
@@ -33,6 +34,7 @@ Expr(
   data: Call(Call(
     callee: Place(
       name: ("a", (0, 1)),
+      span: (0, 1),
     ),
   )),
 )

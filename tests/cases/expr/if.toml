@@ -20,6 +20,7 @@ Expr(
     true_block: Expr(
       span: (10, 3),
       data: Block(Block(
+        span: (10, 3),
         statements: [],
       )),
     ),
@@ -51,12 +52,14 @@ Expr(
     true_block: Expr(
       span: (10, 3),
       data: Block(Block(
+        span: (10, 3),
         statements: [],
       )),
     ),
     false_block: Some(Expr(
       span: (19, 3),
       data: Block(Block(
+        span: (19, 3),
         statements: [],
       )),
     )),
@@ -205,6 +208,7 @@ Expr(
     false_block: Some(Expr(
       span: (17, 12),
       data: Block(Block(
+        span: (17, 12),
         statements: [
           Statement(
             span: (19, 8),
@@ -250,6 +254,7 @@ Expr(
     true_block: Expr(
       span: (10, 31),
       data: Block(Block(
+        span: (10, 31),
         statements: [
           Statement(
             span: (16, 10),
@@ -270,6 +275,7 @@ Expr(
                 span: (37, 1),
                 data: Place(Place(
                   name: ("x", (37, 1)),
+                  span: (37, 1),
                 )),
               ),
             )),
@@ -280,6 +286,7 @@ Expr(
     false_block: Some(Expr(
       span: (47, 16),
       data: Block(Block(
+        span: (47, 16),
         statements: [
           Statement(
             span: (53, 8),
@@ -318,6 +325,7 @@ Item(
       name: ("main", (3, 4)),
     ),
     body: Block(
+      span: (10, 38),
       statements: [
         Statement(
           span: (16, 30),
@@ -334,12 +342,14 @@ Item(
                 true_block: Expr(
                   span: (26, 7),
                   data: Block(Block(
+                    span: (26, 7),
                     statements: [],
                   )),
                 ),
                 false_block: Some(Expr(
                   span: (39, 7),
                   data: Block(Block(
+                    span: (39, 7),
                     statements: [],
                   )),
                 )),
@@ -372,6 +382,7 @@ Item(
       name: ("main", (3, 4)),
     ),
     body: Block(
+      span: (10, 36),
       statements: [
         Statement(
           span: (16, 17),
@@ -388,6 +399,7 @@ Item(
                 true_block: Expr(
                   span: (26, 7),
                   data: Block(Block(
+                    span: (26, 7),
                     statements: [],
                   )),
                 ),
@@ -401,7 +413,7 @@ Item(
           data: Expr(ExprSmt(
             value: Expr(
               span: (38, 5),
-              data: Binary(BinaryOp(
+              data: Arithmetic(ArithmeticOp(
                 kind: Add,
                 left: Expr(
                   span: (38, 1),
@@ -435,7 +447,7 @@ if 1 {
 }
 """
 expected_errors = [
-    "Syntax error: found LeftBrace when expecting [Equal, EqualEqual, BangEqual, Ampersand, AmpersandAmpersand, AmpersandEqual, Pipe, PipePipe, PipeEqual, Plus, PlusEqual, Minus, MinusEqual, Carrot, CarrotEqual, LessThan, LessThanEqual, LessThanLessThan, LessThanLessThanEqual, LessThanPercent, LessThanPercentEqual, GreaterThan, GreaterThanEqual, GreaterThanGreaterThan, GreaterThanGreaterThanEqual, GreaterThanPercent, GreaterThanPercentEqual] @ [5:6]",
+    "Syntax error: found LeftBrace when expecting [Equal, EqualEqual, BangEqual, Ampersand, AmpersandAmpersand, AmpersandEqual, Pipe, PipePipe, PipeEqual, Plus, PlusEqual, Minus, MinusEqual, Carrot, CarrotEqual, LessThan, LessThanEqual, LessThanLessThan, LessThanPercent, GreaterThan, GreaterThanEqual, GreaterThanGreaterThan, GreaterThanPercent] @ [5:6]",
 ]
 
 [[case]]

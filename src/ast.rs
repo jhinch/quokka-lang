@@ -102,6 +102,8 @@ impl TyRef {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Block {
+    #[serde(with = "crate::source::span")]
+    pub span: SourceSpan,
     pub statements: Vec<Statement>,
 }
 
@@ -207,7 +209,10 @@ pub enum ExprData {
     Place(Place),
     Integer(IntegerLiteral),
     Unary(UnaryOp),
-    Binary(BinaryOp),
+    Logical(LogicalOp),
+    Arithmetic(ArithmeticOp),
+    Comparison(ComparisonOp),
+    Assign(AssignOp),
     Block(Block),
     If(If),
     Loop(Loop),
@@ -218,6 +223,8 @@ pub enum ExprData {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Place {
     pub name: SpannedIdentifier,
+    #[serde(with = "crate::source::span")]
+    pub span: SourceSpan,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub projections: Vec<PlaceProjection>,
 }
@@ -242,7 +249,10 @@ impl From<u32> for IntegerLiteral {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::From)]
 pub enum OpKind {
     Unary(UnaryOpKind),
-    Binary(BinaryOpKind),
+    Logical(LogicalOpKind),
+    Arithmetic(ArithmeticOpKind),
+    Comparison(ComparisonOpKind),
+    Assign(AssignOpKind),
     FieldAccess,
     ArrayIndex,
     FunctionCall,
@@ -252,37 +262,45 @@ pub enum OpKind {
 pub enum UnaryOpKind {
     Not,
     Neg,
+    ShiftLeft,
+    ShiftRight,
+    RotateLeft,
+    RotateRight,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum BinaryOpKind {
-    Assign,
-    Equal,
-    NotEqual,
+pub enum LogicalOpKind {
     And,
     Or,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ArithmeticOpKind {
     BitAnd,
     BitOr,
-    Xor,
+    BitXor,
+    Add,
+    Sub,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComparisonOpKind {
+    Eq,
+    Ne,
     Lt,
     Le,
     Gt,
     Ge,
-    RotateLeft,
-    RotateRight,
-    ShiftLeft,
-    ShiftRight,
-    Add,
-    Sub,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AssignOpKind {
+    Assign,
     AddAssign,
     SubAssign,
     BitAndAssign,
     BitOrAssign,
-    XOrAssign,
-    ShiftLeftAssign,
-    ShiftRightAssign,
-    RotateLeftAssign,
-    RotateRightAssign,
+    BitXorAssign,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -292,9 +310,30 @@ pub struct UnaryOp {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct BinaryOp {
-    pub kind: BinaryOpKind,
+pub struct LogicalOp {
+    pub kind: LogicalOpKind,
     pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ArithmeticOp {
+    pub kind: ArithmeticOpKind,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ComparisonOp {
+    pub kind: ComparisonOpKind,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AssignOp {
+    pub kind: AssignOpKind,
+    pub left: Box<Place>,
     pub right: Box<Expr>,
 }
 

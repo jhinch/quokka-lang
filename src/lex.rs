@@ -110,10 +110,6 @@ pub enum TokenKind {
     AmpersandEqual,
     PipeEqual,
     CarrotEqual,
-    LessThanLessThanEqual,
-    GreaterThanGreaterThanEqual,
-    LessThanPercentEqual,
-    GreaterThanPercentEqual,
     // literals
     Number,
     // identifiers
@@ -313,22 +309,12 @@ impl<'de> Lexer<'de> {
                         let additional_len = self.remaining.next().unwrap().len_utf8();
                         self.offset += additional_len;
                         let len = c.len_utf8() + additional_len;
-                        self.choose_if_equal_next(
-                            TokenKind::LessThanLessThanEqual,
-                            TokenKind::LessThanLessThan,
-                            offset,
-                            len,
-                        )
+                        self.token(TokenKind::LessThanLessThan, offset, len)
                     } else if self.remaining.as_str().starts_with("%") {
                         let additional_len = self.remaining.next().unwrap().len_utf8();
                         self.offset += additional_len;
                         let len = c.len_utf8() + additional_len;
-                        self.choose_if_equal_next(
-                            TokenKind::LessThanPercentEqual,
-                            TokenKind::LessThanPercent,
-                            offset,
-                            len,
-                        )
+                        self.token(TokenKind::LessThanPercent, offset, len)
                     } else {
                         self.choose_if_equal_next(
                             TokenKind::LessThanEqual,
@@ -343,22 +329,12 @@ impl<'de> Lexer<'de> {
                         let additional_len = self.remaining.next().unwrap().len_utf8();
                         self.offset += additional_len;
                         let len = c.len_utf8() + additional_len;
-                        self.choose_if_equal_next(
-                            TokenKind::GreaterThanGreaterThanEqual,
-                            TokenKind::GreaterThanGreaterThan,
-                            offset,
-                            len,
-                        )
+                        self.token(TokenKind::GreaterThanGreaterThan, offset, len)
                     } else if self.remaining.as_str().starts_with("%") {
                         let additional_len = self.remaining.next().unwrap().len_utf8();
                         self.offset += additional_len;
                         let len = c.len_utf8() + additional_len;
-                        self.choose_if_equal_next(
-                            TokenKind::GreaterThanPercentEqual,
-                            TokenKind::GreaterThanPercent,
-                            offset,
-                            len,
-                        )
+                        self.token(TokenKind::GreaterThanPercent, offset, len)
                     } else {
                         self.choose_if_equal_next(
                             TokenKind::GreaterThanEqual,

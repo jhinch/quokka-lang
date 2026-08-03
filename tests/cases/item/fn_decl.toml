@@ -13,6 +13,7 @@ Root(
           name: ("main", (3, 4)),
         ),
         body: Block(
+          span: (10, 2),
           statements: [],
         ),
       )),
@@ -72,6 +73,7 @@ Root(
           )),
         ),
         body: Block(
+          span: (25, 17),
           statements: [
             Statement(
               span: (31, 9),
@@ -109,6 +111,7 @@ Root(
           name: ("that_function", (3, 13)),
         ),
         body: Block(
+          span: (19, 15),
           statements: [
             Statement(
               span: (25, 7),
@@ -150,6 +153,7 @@ Root(
           )),
         ),
         body: Block(
+          span: (38, 15),
           statements: [
             Statement(
               span: (44, 7),
@@ -158,6 +162,7 @@ Root(
                   span: (44, 7),
                   data: Loop(Loop(
                     body: Block(
+                      span: (49, 2),
                       statements: [],
                     ),
                   )),
@@ -204,6 +209,7 @@ Root(
           )),
         ),
         body: Block(
+          span: (52, 15),
           statements: [
             Statement(
               span: (58, 7),
@@ -212,6 +218,7 @@ Root(
                   span: (58, 7),
                   data: Loop(Loop(
                     body: Block(
+                      span: (63, 2),
                       statements: [],
                     ),
                   )),

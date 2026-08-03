@@ -29,6 +29,7 @@ Root(
           name: ("main", (3, 4)),
         ),
         body: Block(
+          span: (10, 2),
           statements: [],
         ),
       )),

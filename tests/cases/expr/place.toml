@@ -10,6 +10,7 @@ Expr(
   span: (0, 1),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 1),
   )),
 )
 """
@@ -27,6 +28,7 @@ Expr(
   span: (0, 3),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 3),
     projections: [
       Field(("b", (2, 1))),
     ],
@@ -47,6 +49,7 @@ Expr(
   span: (0, 5),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 5),
     projections: [
       Field(("b", (2, 1))),
       Field(("c", (4, 1))),
@@ -66,12 +69,13 @@ a.b + c.d
 expected_ast = """
 Expr(
   span: (0, 9),
-  data: Binary(BinaryOp(
+  data: Arithmetic(ArithmeticOp(
     kind: Add,
     left: Expr(
       span: (0, 3),
       data: Place(Place(
         name: ("a", (0, 1)),
+        span: (0, 3),
         projections: [
           Field(("b", (2, 1))),
         ],
@@ -81,6 +85,7 @@ Expr(
       span: (6, 3),
       data: Place(Place(
         name: ("c", (6, 1)),
+        span: (6, 3),
         projections: [
           Field(("d", (8, 1))),
         ],
@@ -101,16 +106,14 @@ a.b = 1
 expected_ast = """
 Expr(
   span: (0, 7),
-  data: Binary(BinaryOp(
+  data: Assign(AssignOp(
     kind: Assign,
-    left: Expr(
+    left: Place(
+      name: ("a", (0, 1)),
       span: (0, 3),
-      data: Place(Place(
-        name: ("a", (0, 1)),
-        projections: [
-          Field(("b", (2, 1))),
-        ],
-      )),
+      projections: [
+        Field(("b", (2, 1))),
+      ],
     ),
     right: Expr(
       span: (6, 1),
@@ -137,6 +140,7 @@ Expr(
   span: (0, 4),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 4),
     projections: [
       Index(Expr(
         span: (2, 1),
@@ -162,6 +166,7 @@ Expr(
   span: (0, 4),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 4),
     projections: [
       Index(Expr(
         span: (2, 1),
@@ -187,6 +192,7 @@ Expr(
   span: (0, 6),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 6),
     projections: [
       Field(("b", (2, 1))),
       Index(Expr(
@@ -213,6 +219,7 @@ Expr(
   span: (0, 6),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 6),
     projections: [
       Index(Expr(
         span: (2, 1),
@@ -238,6 +245,7 @@ Expr(
   span: (0, 3),
   data: Place(Place(
     name: ("a", (0, 1)),
+    span: (0, 3),
     projections: [
       Field(("b", (2, 1))),
     ],

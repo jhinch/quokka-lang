@@ -52,6 +52,7 @@ Root(
           name: ("main", (34, 4)),
         ),
         body: Block(
+          span: (41, 2),
           statements: [],
         ),
       )),
@@ -98,6 +99,7 @@ Root(
           name: ("ok", (9, 2)),
         ),
         body: Block(
+          span: (14, 2),
           statements: [],
         ),
       )),

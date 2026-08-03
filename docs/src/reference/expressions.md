@@ -13,10 +13,12 @@ ExpressionWithoutBlock  = GroupedExpression
                         | IfExpressionWithoutBlock
                         | LiteralExpression
                         | OperatorExpression
-                        | ArrayIndexExpression
-                        | PathExpression
-                        | FieldAccessExpression
+                        | PlaceExpression
                         | FunctionCallExpression
+                        ;
+PlaceExpression         = PathExpression
+                        | ArrayIndexExpression
+                        | FieldAccessExpression
                         ;
 ```
 
@@ -50,18 +52,18 @@ The order in which expressions are evaluated is governed by a set of conventions
 | [Function calls](expressions/function-calls.md), [Array index](expressions/array-index.md)                      | N/A                  |
 | [Unary `-`](expressions/operators.md#negate-operator), [`!`](expressions/operators.md#not-operator)             | N/A                  |
 | [Binary `-`, `+`](expressions/operators.md#arithmetic-operators)                                                | left to right        |
-| [`<<`, `>>`](expressions/operators.md#shift-operators), [`<%`, `>%`](expressions/operators.md#rotate-operators) | left to right        |
+| [`<<`, `>>`](expressions/operators.md#shift-operators), [`<%`, `>%`](expressions/operators.md#rotate-operators) | N/A                  |
 | [`&`](expressions/operators.md#logical-operators)                                                               | left to right        |
 | [`^`](expressions/operators.md#logical-operators)                                                               | left to right        |
 | [`\|`](expressions/operators.md#logical-operators)                                                              | left to right        |
 | [`==`, `!=`, `<`, `>`, `<=`, `>=`](expressions/operators.md#comparison-operators)                               | requires parentheses |
 | [`&&`](expressions/operators.md#boolean-operators)                                                              | left to right        |
 | [`\|\|`](expressions/operators.md#boolean-operators)                                                            | left to right        |
-| [`=`, `+=`, `-=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`, `<%=`, `>%=`](expressions/operators.md#assign-operators)     | right to left        |
+| [`=`, `+=`, `-=`, `&=`, `\|=`, `^=`](expressions/operators.md#assign-operators)                                 | right to left        |
 
 ## Place expressions
 
-_Place expressions_ are expressions which represent a location in memory or on a register.
+_Place expressions_ are expressions which represent a location in memory or on a register which can be referenced.
 
 They include:
 

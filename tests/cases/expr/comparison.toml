@@ -8,8 +8,8 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
-    kind: Equal,
+  data: Comparison(ComparisonOp(
+    kind: Eq,
     left: Expr(
       span: (0, 1),
       data: Integer(IntegerLiteral(
@@ -36,8 +36,8 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
-    kind: NotEqual,
+  data: Comparison(ComparisonOp(
+    kind: Ne,
     left: Expr(
       span: (0, 1),
       data: Integer(IntegerLiteral(
@@ -64,7 +64,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Comparison(ComparisonOp(
     kind: Lt,
     left: Expr(
       span: (0, 1),
@@ -92,7 +92,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Comparison(ComparisonOp(
     kind: Le,
     left: Expr(
       span: (0, 1),
@@ -120,7 +120,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 5),
-  data: Binary(BinaryOp(
+  data: Comparison(ComparisonOp(
     kind: Gt,
     left: Expr(
       span: (0, 1),
@@ -148,7 +148,7 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 6),
-  data: Binary(BinaryOp(
+  data: Comparison(ComparisonOp(
     kind: Ge,
     left: Expr(
       span: (0, 1),
@@ -198,14 +198,14 @@ source = """
 expected_ast = """
 Expr(
   span: (0, 20),
-  data: Binary(BinaryOp(
-    kind: Equal,
+  data: Comparison(ComparisonOp(
+    kind: Eq,
     left: Expr(
       span: (0, 8),
       data: Paren(Expr(
         span: (1, 6),
-        data: Binary(BinaryOp(
-          kind: Equal,
+        data: Comparison(ComparisonOp(
+          kind: Eq,
           left: Expr(
             span: (1, 1),
             data: Integer(IntegerLiteral(
@@ -225,8 +225,8 @@ Expr(
       span: (12, 8),
       data: Paren(Expr(
         span: (13, 6),
-        data: Binary(BinaryOp(
-          kind: Equal,
+        data: Comparison(ComparisonOp(
+          kind: Eq,
           left: Expr(
             span: (13, 1),
             data: Integer(IntegerLiteral(

@@ -11,6 +11,7 @@ Expr(
   span: (0, 7),
   data: Loop(Loop(
     body: Block(
+      span: (5, 2),
       statements: [],
     ),
   )),
@@ -32,6 +33,7 @@ Expr(
   span: (0, 19),
   data: Loop(Loop(
     body: Block(
+      span: (5, 14),
       statements: [
         Statement(
           span: (11, 6),
@@ -58,6 +60,7 @@ Expr(
   span: (0, 21),
   data: Loop(Loop(
     body: Block(
+      span: (5, 16),
       statements: [
         Statement(
           span: (11, 8),
@@ -91,6 +94,7 @@ Expr(
   span: (0, 22),
   data: Loop(Loop(
     body: Block(
+      span: (5, 17),
       statements: [
         Statement(
           span: (11, 9),
@@ -117,6 +121,7 @@ Expr(
   span: (0, 21),
   data: Loop(Loop(
     body: Block(
+      span: (5, 16),
       statements: [
         Statement(
           span: (11, 8),
@@ -167,6 +172,7 @@ Expr(
   span: (0, 40),
   data: Loop(Loop(
     body: Block(
+      span: (5, 35),
       statements: [
         Statement(
           span: (11, 27),
@@ -175,6 +181,7 @@ Expr(
               span: (11, 27),
               data: Loop(Loop(
                 body: Block(
+                  span: (16, 22),
                   statements: [
                     Statement(
                       span: (26, 6),
@@ -218,6 +225,7 @@ Expr(
   span: (0, 7),
   data: Loop(Loop(
     body: Block(
+      span: (5, 2),
       statements: [],
     ),
   )),

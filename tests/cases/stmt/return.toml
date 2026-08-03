@@ -49,6 +49,7 @@ Statement(
     value: Some(Expr(
       span: (7, 16),
       data: Block(Block(
+        span: (7, 16),
         statements: [
           Statement(
             span: (13, 8),
@@ -135,6 +136,7 @@ Statement(
         true_block: Expr(
           span: (17, 16),
           data: Block(Block(
+            span: (17, 16),
             statements: [
               Statement(
                 span: (23, 8),
@@ -153,6 +155,7 @@ Statement(
         false_block: Some(Expr(
           span: (39, 16),
           data: Block(Block(
+            span: (39, 16),
             statements: [
               Statement(
                 span: (45, 8),
@@ -192,6 +195,7 @@ Statement(
       span: (7, 21),
       data: Loop(Loop(
         body: Block(
+          span: (12, 16),
           statements: [
             Statement(
               span: (18, 8),

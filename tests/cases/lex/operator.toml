@@ -164,17 +164,6 @@ Eof:
 """
 
 [[case]]
-name = "less_than_less_than_equal"
-kind = "lexer"
-source = """
-<<=
-"""
-expected_tokens = """
-LessThanLessThanEqual:<<=
-Eof:
-"""
-
-[[case]]
 name = "less_than_equal"
 kind = "lexer"
 source = """
@@ -215,17 +204,6 @@ source = """
 """
 expected_tokens = """
 GreaterThanGreaterThan:>>
-Eof:
-"""
-
-[[case]]
-name = "greater_than_greater_than_equal"
-kind = "lexer"
-source = """
->>=
-"""
-expected_tokens = """
-GreaterThanGreaterThanEqual:>>=
 Eof:
 """
 

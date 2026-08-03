@@ -62,6 +62,7 @@ Statement(
       span: (8, 1),
       data: Place(Place(
         name: ("y", (8, 1)),
+        span: (8, 1),
       )),
     ),
   )),
@@ -84,7 +85,7 @@ Statement(
       span: (8, 7),
       data: Paren(Expr(
         span: (9, 5),
-        data: Binary(BinaryOp(
+        data: Arithmetic(ArithmeticOp(
           kind: Add,
           left: Expr(
             span: (9, 1),
@@ -122,6 +123,7 @@ Statement(
     value: Expr(
       span: (8, 16),
       data: Block(Block(
+        span: (8, 16),
         statements: [
           Statement(
             span: (14, 8),
@@ -156,6 +158,7 @@ Statement(
     value: Expr(
       span: (8, 2),
       data: Block(Block(
+        span: (8, 2),
         statements: [],
       )),
     ),
@@ -232,6 +235,7 @@ Statement(
         true_block: Expr(
           span: (18, 16),
           data: Block(Block(
+            span: (18, 16),
             statements: [
               Statement(
                 span: (24, 8),
@@ -250,6 +254,7 @@ Statement(
         false_block: Some(Expr(
           span: (40, 16),
           data: Block(Block(
+            span: (40, 16),
             statements: [
               Statement(
                 span: (46, 8),
@@ -290,6 +295,7 @@ Statement(
       span: (8, 21),
       data: Loop(Loop(
         body: Block(
+          span: (13, 16),
           statements: [
             Statement(
               span: (19, 8),
@@ -328,6 +334,7 @@ Statement(
       data: Call(Call(
         callee: Place(
           name: ("foo", (8, 3)),
+          span: (8, 3),
         ),
       )),
     ),
