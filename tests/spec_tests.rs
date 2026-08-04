@@ -46,6 +46,8 @@ struct TestCase {
     expected_errors: Vec<String>,
     #[serde(skip)]
     updates_tx: Option<mpsc::Sender<PendingUpdate>>,
+    #[serde(skip)]
+    force_regenerate_expectations: bool,
 }
 
 /// Deserialized representation of the kind of case
@@ -91,10 +93,8 @@ enum PendingUpdateData {
 fn main() {
     let args = Arguments::from_args();
     let suites = load_suites().unwrap();
-    let regenerate_expectations = std::env::var("REGENERATE_EXPECTATIONS")
-        .ok()
-        .and_then(|s| s.parse::<i32>().ok())
-        .is_some_and(|val| val != 0);
+    let regenerate_expectations = env_as_bool("REGENERATE_EXPECTATIONS");
+    let force_regenerate_expectations = env_as_bool("FORCE_REGENERATE_EXPECTATIONS");
     let (tx, rx) = if regenerate_expectations {
         let (tx, rx) = mpsc::channel::<PendingUpdate>();
         (Some(tx), Some(rx))
@@ -118,6 +118,7 @@ fn main() {
         }
         for mut case in suite.cases {
             case.updates_tx = tx.clone();
+            case.force_regenerate_expectations = force_regenerate_expectations;
             let ignored_flag = case
                 .ignored
                 .as_ref()
@@ -157,6 +158,14 @@ fn main() {
         save_suites(updates).unwrap();
     }
     conclusion.exit()
+}
+
+/// get an environment variable as a boolean
+fn env_as_bool(name: &'static str) -> bool {
+    std::env::var(name)
+        .ok()
+        .and_then(|s| s.parse::<i32>().ok())
+        .is_some_and(|val| val != 0)
 }
 
 /// Load all suites from the tests/cases directory
@@ -282,7 +291,134 @@ fn save_suites(
     Ok(())
 }
 
-fn test_lexer(case: TestCase) {
+fn update_expected_errors(
+    tx: &mpsc::Sender<PendingUpdate>,
+    case: &mut TestCase,
+    actual_errors: &[String],
+) {
+    if actual_errors == case.expected_errors.as_slice() {
+        return;
+    }
+    let is_removal = !case.expected_errors.is_empty() && actual_errors.is_empty();
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateErrors(actual_errors.to_vec()),
+    })
+    .unwrap();
+    case.expected_errors = actual_errors.to_vec();
+}
+
+fn update_expected_tokens(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, actual: &str) {
+    let is_removal = {
+        let expected = &case.expected_tokens;
+        if actual.trim() == expected.trim() {
+            return;
+        }
+        !expected.is_empty() && actual.trim().is_empty()
+    };
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateTokens(actual.to_string()),
+    })
+    .unwrap();
+    case.expected_tokens = actual.to_string();
+}
+
+fn delete_expected_tokens(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
+    if case.expected_tokens.is_empty() {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateTokens(String::new()),
+    })
+    .unwrap();
+    case.expected_tokens = String::new();
+}
+
+fn update_expected_ast(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, actual: &str) {
+    let is_removal = {
+        let expected = &case.expected_ast;
+        if actual.trim() == expected.trim() {
+            return;
+        }
+        !expected.is_empty() && actual.trim().is_empty()
+    };
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateAst(actual.to_string()),
+    })
+    .unwrap();
+    case.expected_ast = actual.to_string();
+}
+
+fn delete_expected_ast(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
+    if case.expected_ast.is_empty() {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateAst(String::new()),
+    })
+    .unwrap();
+    case.expected_ast = String::new();
+}
+
+fn update_expected_mir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, actual: &str) {
+    let is_removal = {
+        let expected = &case.expected_mir;
+        if actual.trim() == expected.trim() {
+            return;
+        }
+        !expected.is_empty() && actual.trim().is_empty()
+    };
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateMir(actual.to_string()),
+    })
+    .unwrap();
+    case.expected_mir = actual.to_string();
+}
+
+fn delete_expected_mir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
+    if case.expected_mir.is_empty() {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateMir(String::new()),
+    })
+    .unwrap();
+    case.expected_mir = String::new();
+}
+
+fn test_lexer(mut case: TestCase) {
     let lexer = quokka_lang::lex::Lexer::from(&*case.source);
     let mut actual_tokens = String::new();
     let mut actual_errors = Vec::new();
@@ -303,44 +439,11 @@ fn test_lexer(case: TestCase) {
             }
         }
     }
-    if let Some(tx) = case.updates_tx {
-        if actual_errors != case.expected_errors {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateErrors(actual_errors),
-            })
-            .unwrap();
-        }
-        if actual_tokens.trim() != case.expected_tokens.trim() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateTokens(actual_tokens),
-            })
-            .unwrap();
-        }
-        if !case.expected_ast.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateAst(String::new()),
-            })
-            .unwrap();
-        }
-        if !case.expected_mir.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateMir(String::new()),
-            })
-            .unwrap();
-        }
-        return;
+    if let Some(tx) = case.updates_tx.clone() {
+        update_expected_errors(&tx, &mut case, &actual_errors);
+        update_expected_tokens(&tx, &mut case, &actual_tokens);
+        delete_expected_ast(&tx, &mut case);
+        delete_expected_mir(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -353,7 +456,7 @@ fn test_lexer(case: TestCase) {
     );
 }
 
-fn test_parser(case: TestCase) {
+fn test_parser(mut case: TestCase) {
     let mut parser = quokka_lang::parse::Parser::from(&*case.source);
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
@@ -364,44 +467,11 @@ fn test_parser(case: TestCase) {
         ParseEntrypointKind::Statement => prepare_parse_results(parser.parse_statement_as_root()),
         ParseEntrypointKind::Expr => prepare_parse_results(parser.parse_expr_as_root()),
     };
-    if let Some(tx) = case.updates_tx {
-        if actual_errors != case.expected_errors {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateErrors(actual_errors),
-            })
-            .unwrap();
-        }
-        if actual_ast.trim() != case.expected_ast.trim() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateAst(actual_ast),
-            })
-            .unwrap();
-        }
-        if !case.expected_tokens.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateTokens(String::new()),
-            })
-            .unwrap();
-        }
-        if !case.expected_mir.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateMir(String::new()),
-            })
-            .unwrap();
-        }
-        return;
+    if let Some(tx) = case.updates_tx.clone() {
+        update_expected_errors(&tx, &mut case, &actual_errors);
+        update_expected_ast(&tx, &mut case, &actual_ast);
+        delete_expected_tokens(&tx, &mut case);
+        delete_expected_mir(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -414,7 +484,7 @@ fn test_parser(case: TestCase) {
     );
 }
 
-fn test_analyzer(case: TestCase) {
+fn test_analyzer(mut case: TestCase) {
     let mut parser = quokka_lang::parse::Parser::from(&*case.source);
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
@@ -427,44 +497,11 @@ fn test_analyzer(case: TestCase) {
         Ok((mir, ty_registry)) => (format!("{}", mir.display(&ty_registry)), Vec::new()),
         Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
-    if let Some(tx) = case.updates_tx {
-        if actual_errors != case.expected_errors {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateErrors(actual_errors),
-            })
-            .unwrap();
-        }
-        if actual_mir.trim() != case.expected_mir.trim() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateMir(actual_mir),
-            })
-            .unwrap();
-        }
-        if !case.expected_tokens.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateTokens(String::new()),
-            })
-            .unwrap();
-        }
-        if !case.expected_ast.is_empty() {
-            tx.send(PendingUpdate {
-                category: case.category.clone(),
-                suite: case.suite.clone(),
-                case: case.name.clone(),
-                data: PendingUpdateData::UpdateAst(String::new()),
-            })
-            .unwrap();
-        }
-        return;
+    if let Some(tx) = case.updates_tx.clone() {
+        update_expected_errors(&tx, &mut case, &actual_errors);
+        update_expected_mir(&tx, &mut case, &actual_mir);
+        delete_expected_tokens(&tx, &mut case);
+        delete_expected_ast(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,

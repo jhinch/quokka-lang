@@ -158,3 +158,16 @@ the `REGENERATE_EXPECTATIONS` environment variable.
 ```bash
 REGENERATE_EXPECTATIONS=1 cargo test --test spec_tests
 ```
+
+`REGENERATE_EXPECTATIONS` will generate the expectations when none exist and will adjust existing the values
+within existing expectations. It will *not*, however, remove an existing. For example, it will not change
+a test asserting no errors into one that asserts errors (or vice versa). Doing that silently would let a real
+regression masquerade as an updated expectation.
+
+Expectations can be forced to be updated using the `FORCE_REGENERATE_EXPECTATIONS` environment variable:
+
+```bash
+REGENERATE_EXPECTATIONS=1 FORCE_REGENERATE_EXPECTATIONS=1 cargo test --test spec_tests
+```
+
+Only reach for `FORCE_REGENERATE_EXPECTATIONS` once you've confirmed the change in behaviour is intentional.
