@@ -223,13 +223,13 @@ impl Analyzer {
             scopes,
         );
         match inferred_ty {
-            InferredTy::Concrete(Ty::NEVER) => {
+            Ty::NEVER => {
                 // Either it is an infinite loop, or it returns explicitly
                 // no constraints to add
             }
             inferred_ty => {
                 constraints.push_back(InferenceConstraint::Equal {
-                    ty1: inferred_ty,
+                    ty1: InferredTy::Concrete(inferred_ty),
                     ty1_span: fn_decl.signature.name.span,
                     ty2: InferredTy::Concrete(Ty::UNIT),
                     ty2_span: fn_decl.signature.name.span,
@@ -257,7 +257,7 @@ impl Analyzer {
         inferrer: &mut Inferrer,
         constraints: &mut VecDeque<InferenceConstraint>,
         scopes: &mut Scopes,
-    ) -> (InferredTy, BlockId) {
+    ) -> (Ty, BlockId) {
         let mut never_found = false;
         let mut unreachable_code: Option<SourceSpan> = None;
         for statement in &ast_block.statements {
@@ -277,11 +277,7 @@ impl Analyzer {
         if let Some(span) = unreachable_code {
             self.result_builder.add_error(UnreachableError { span });
         }
-        let ty = if never_found {
-            InferredTy::Concrete(Ty::NEVER)
-        } else {
-            InferredTy::Concrete(Ty::UNIT)
-        };
+        let ty = if never_found { Ty::NEVER } else { Ty::UNIT };
         (ty, block)
     }
 
@@ -296,8 +292,8 @@ impl Analyzer {
     ) -> (InferredTy, BlockId) {
         match &statement.data {
             ast::StatementData::Expr(stmt) => {
-                let (ty, block, _) =
-                    self.analyze_expr(&stmt.value, block, mir, inferrer, constraints, scopes);
+                let (ty, block) =
+                    self.analyze_expr_unit(&stmt.value, block, mir, inferrer, constraints, scopes);
                 (ty, block)
             }
             ast::StatementData::Let(stmt) => {
@@ -319,11 +315,9 @@ impl Analyzer {
                     ty2_span: stmt.value.span,
                 });
                 let variable = mir.new_variable();
-                if let Some(source) = source {
-                    mir.push_instr(block, Instr::Copy { target, source });
-                    mir.set_variable_name(variable, stmt.name.clone());
-                    mir.write_variable(variable, block, target);
-                }
+                mir.push_instr(block, Instr::Copy { target, source });
+                mir.set_variable_name(variable, stmt.name.clone());
+                mir.write_variable(variable, block, target);
                 // ignored the result to allow for local variable shadowing
                 let _ = scopes.insert_place(stmt.name.clone(), let_ty, PlaceId::from(variable));
                 (InferredTy::Concrete(Ty::UNIT), block)
@@ -348,15 +342,13 @@ impl Analyzer {
                                     scopes,
                                 );
                                 if let Some(return_local) = return_local {
-                                    if let Some(source) = source {
-                                        mir.push_instr(
-                                            block,
-                                            Instr::Copy {
-                                                target: return_local,
-                                                source,
-                                            },
-                                        );
-                                    }
+                                    mir.push_instr(
+                                        block,
+                                        Instr::Copy {
+                                            target: return_local,
+                                            source,
+                                        },
+                                    );
                                 }
                                 (ty, block)
                             }
@@ -406,12 +398,10 @@ impl Analyzer {
                                     constraints,
                                     scopes,
                                 );
-                                if let Some(source) = source {
-                                    let target =
-                                        mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                                    mir.push_instr(block, Instr::Copy { target, source });
-                                    mir.write_variable(break_var, block, target);
-                                }
+                                let target =
+                                    mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                mir.push_instr(block, Instr::Copy { target, source });
+                                mir.write_variable(break_var, block, target);
                                 (ty, block)
                             }
                             None => (InferredTy::Concrete(Ty::UNIT), block),
@@ -467,12 +457,10 @@ impl Analyzer {
                             constraints,
                             scopes,
                         );
-                        if let Some(source) = source {
-                            let target = mir
-                                .new_local(yield_expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(block, Instr::Copy { target, source });
-                            mir.write_variable(yield_var, block, target);
-                        }
+                        let target =
+                            mir.new_local(yield_expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(block, Instr::Copy { target, source });
+                        mir.write_variable(yield_var, block, target);
                         constraints.push_back(InferenceConstraint::Equal {
                             ty1: yield_ty,
                             ty1_span: yield_span,
@@ -492,6 +480,212 @@ impl Analyzer {
         }
     }
 
+    fn analyze_expr_unit(
+        &mut self,
+        expr: &ast::Expr,
+        block: BlockId,
+        mir: &mut FunctionBuilder,
+        inferrer: &mut Inferrer,
+        constraints: &mut VecDeque<InferenceConstraint>,
+        scopes: &mut Scopes,
+    ) -> (InferredTy, BlockId) {
+        match &expr.data {
+            ast::ExprData::Block(ast_block) => {
+                scopes.enter_block_scope(expr.span);
+                let (block_expr_ty, block) =
+                    self.analyze_block(ast_block, block, mir, inferrer, constraints, scopes);
+                let (mut expr_ty, block) = match block_expr_ty {
+                    Ty::NEVER => {
+                        // Either it is an infinite loop, or it yields explicitly
+                        // no constraints to add
+                        (Ty::NEVER, mir.new_block())
+                    }
+                    block_expr_ty => {
+                        constraints.push_back(InferenceConstraint::Equal {
+                            ty1: InferredTy::Concrete(block_expr_ty),
+                            ty1_span: expr.span,
+                            ty2: InferredTy::Concrete(Ty::UNIT),
+                            ty2_span: expr.span,
+                        });
+                        (Ty::UNIT, block)
+                    }
+                };
+                if let Some(yield_ty) = scopes.block_scope().unwrap().yield_ty {
+                    constraints.push_back(InferenceConstraint::Equal {
+                        ty1: InferredTy::Variable(yield_ty),
+                        ty1_span: expr.span,
+                        ty2: InferredTy::Concrete(Ty::UNIT),
+                        ty2_span: expr.span,
+                    });
+                    // the above will fail as you cannot yield a unit
+                    // return an error type in this case
+                    expr_ty = Ty::ERROR;
+                }
+                scopes.exit_block_scope();
+                (InferredTy::Concrete(expr_ty), block)
+            }
+            ast::ExprData::If(if_expr) => {
+                let (cond_ty, block, source) = self.analyze_expr(
+                    &if_expr.condition,
+                    block,
+                    mir,
+                    inferrer,
+                    constraints,
+                    scopes,
+                );
+                constraints.push_back(InferenceConstraint::Equal {
+                    ty1: cond_ty.clone(),
+                    ty1_span: if_expr.condition.span,
+                    ty2: InferredTy::Concrete(Ty::U1),
+                    ty2_span: if_expr.condition.span,
+                });
+                constraints.push_back(InferenceConstraint::IsInt {
+                    ty: cond_ty,
+                    span: expr.span,
+                });
+                let target = mir.new_local(Ty::U1);
+                mir.push_instr(block, Instr::Copy { target, source });
+                let then_block = mir.new_block();
+                let else_block = mir.new_block();
+                let end_block = if if_expr.false_block.is_some() {
+                    mir.new_block()
+                } else {
+                    else_block
+                };
+                mir.set_terminator(
+                    block,
+                    Terminator::JumpIf {
+                        source: target,
+                        condition: Condition::NotZero,
+                        then_block,
+                        else_block,
+                    },
+                );
+                mir.seal_block(then_block);
+                mir.seal_block(else_block);
+                let (true_block_ty, then_block) = self.analyze_expr_unit(
+                    &if_expr.true_block,
+                    then_block,
+                    mir,
+                    inferrer,
+                    constraints,
+                    scopes,
+                );
+
+                mir.set_terminator(
+                    then_block,
+                    Terminator::Jump {
+                        target_block: end_block,
+                    },
+                );
+                let false_block_ty = match if_expr.false_block.as_ref() {
+                    None => InferredTy::Concrete(Ty::UNIT),
+                    Some(false_block) => {
+                        let (false_block_ty, else_block) = self.analyze_expr_unit(
+                            false_block,
+                            else_block,
+                            mir,
+                            inferrer,
+                            constraints,
+                            scopes,
+                        );
+                        mir.set_terminator(
+                            else_block,
+                            Terminator::Jump {
+                                target_block: end_block,
+                            },
+                        );
+                        false_block_ty
+                    }
+                };
+                mir.seal_block(end_block);
+                if true_block_ty != InferredTy::Concrete(Ty::NEVER) {
+                    constraints.push_back(InferenceConstraint::Equal {
+                        ty1: true_block_ty.clone(),
+                        ty1_span: if_expr.true_block.span,
+                        ty2: InferredTy::Concrete(Ty::UNIT),
+                        ty2_span: expr.span,
+                    });
+                }
+                if false_block_ty != InferredTy::Concrete(Ty::NEVER) {
+                    constraints.push_back(InferenceConstraint::Equal {
+                        ty1: false_block_ty.clone(),
+                        ty1_span: if_expr
+                            .false_block
+                            .as_deref()
+                            .map(|expr| expr.span)
+                            .unwrap_or(expr.span),
+                        ty2: InferredTy::Concrete(Ty::UNIT),
+                        ty2_span: expr.span,
+                    });
+                }
+                let ty = if true_block_ty == InferredTy::Concrete(Ty::NEVER)
+                    && false_block_ty == InferredTy::Concrete(Ty::NEVER)
+                {
+                    InferredTy::Concrete(Ty::NEVER)
+                } else {
+                    InferredTy::Concrete(Ty::UNIT)
+                };
+                (ty, end_block)
+            }
+            ast::ExprData::Loop(loop_expr) => {
+                let start_block = mir.new_block();
+                let end_block = mir.new_block();
+                mir.set_terminator(
+                    block,
+                    Terminator::Jump {
+                        target_block: start_block,
+                    },
+                );
+                scopes.enter_loop_scope(expr.span, start_block, end_block);
+                let (ty, block) = self.analyze_block(
+                    &loop_expr.body,
+                    start_block,
+                    mir,
+                    inferrer,
+                    constraints,
+                    scopes,
+                );
+                if ty != Ty::NEVER {
+                    // if the block has type never,
+                    // it never completes an iteration successfully,
+                    // so no jump is required
+                    mir.set_terminator(
+                        block,
+                        Terminator::Jump {
+                            target_block: start_block,
+                        },
+                    );
+                }
+                mir.seal_block(start_block);
+                mir.seal_block(end_block);
+                let loop_scope = scopes.loop_scope().unwrap();
+                let expr_ty = match loop_scope.break_ty {
+                    None => {
+                        // no break, loop is an infinite loop
+                        InferredTy::Concrete(Ty::NEVER)
+                    }
+                    Some(break_ty) => {
+                        constraints.push_back(InferenceConstraint::Equal {
+                            ty1: InferredTy::Variable(break_ty),
+                            ty1_span: expr.span,
+                            ty2: InferredTy::Concrete(Ty::UNIT),
+                            ty2_span: expr.span,
+                        });
+                        InferredTy::Concrete(Ty::UNIT)
+                    }
+                };
+                scopes.exit_loop_scope();
+                (expr_ty, end_block)
+            }
+            _ => {
+                let (expr_ty, block, _) =
+                    self.analyze_expr(expr, block, mir, inferrer, constraints, scopes);
+                (expr_ty, block)
+            }
+        }
+    }
+
     fn analyze_expr(
         &mut self,
         expr: &ast::Expr,
@@ -500,19 +694,14 @@ impl Analyzer {
         inferrer: &mut Inferrer,
         constraints: &mut VecDeque<InferenceConstraint>,
         scopes: &mut Scopes,
-    ) -> (InferredTy, BlockId, Option<Operand>) {
+    ) -> (InferredTy, BlockId, Operand) {
         match &expr.data {
             ast::ExprData::Place(place) => {
                 let (ty, block, source) =
                     self.analyze_place_expr(place, block, mir, inferrer, constraints, scopes);
-                let target = if let Some(source) = source {
-                    let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    mir.push_instr(block, Instr::Copy { target, source });
-                    Some(target)
-                } else {
-                    None
-                };
-                (ty, block, target.map(Operand::Local))
+                let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(block, Instr::Copy { target, source });
+                (ty, block, Operand::Local(target))
             }
             ast::ExprData::Integer(literal) => {
                 let int_ty = InferredTy::Variable(inferrer.fresh());
@@ -520,7 +709,7 @@ impl Analyzer {
                     ty: int_ty.clone(),
                     span: expr.span,
                 });
-                (int_ty, block, Some(Operand::Literal(literal.clone())))
+                (int_ty, block, Operand::Literal(literal.clone()))
             }
             ast::ExprData::Unary(op) => {
                 let (expr_ty, block, source) =
@@ -531,43 +720,31 @@ impl Analyzer {
                             ty: expr_ty.clone(),
                             span: expr.span,
                         });
-                        if let Some(source) = source {
-                            let target =
-                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(block, Instr::Neg { target, source });
-                            Some(target)
-                        } else {
-                            None
-                        }
+                        let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(block, Instr::Neg { target, source });
+                        target
                     }
                     kind => {
                         constraints.push_back(InferenceConstraint::IsInt {
                             ty: expr_ty.clone(),
                             span: expr.span,
                         });
-                        if let Some(source) = source {
-                            let target =
-                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(
-                                block,
-                                match kind {
-                                    UnaryOpKind::Not => Instr::Not { target, source },
-                                    UnaryOpKind::ShiftLeft => Instr::ShiftLeft { target, source },
-                                    UnaryOpKind::ShiftRight => Instr::ShiftRight { target, source },
-                                    UnaryOpKind::RotateLeft => Instr::RotateLeft { target, source },
-                                    UnaryOpKind::RotateRight => {
-                                        Instr::RotateRight { target, source }
-                                    }
-                                    UnaryOpKind::Neg => unimplemented!("neg already handled"),
-                                },
-                            );
-                            Some(target)
-                        } else {
-                            None
-                        }
+                        let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(
+                            block,
+                            match kind {
+                                UnaryOpKind::Not => Instr::Not { target, source },
+                                UnaryOpKind::ShiftLeft => Instr::ShiftLeft { target, source },
+                                UnaryOpKind::ShiftRight => Instr::ShiftRight { target, source },
+                                UnaryOpKind::RotateLeft => Instr::RotateLeft { target, source },
+                                UnaryOpKind::RotateRight => Instr::RotateRight { target, source },
+                                UnaryOpKind::Neg => unimplemented!("neg already handled"),
+                            },
+                        );
+                        target
                     }
                 };
-                (expr_ty, block, target.map(Operand::Local))
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Logical(op) => {
                 // currently this branch incorrectly handles `And` and `Or` as
@@ -589,28 +766,23 @@ impl Analyzer {
                     ty2: InferredTy::Concrete(Ty::U1),
                     ty2_span: expr.span,
                 });
-                let target = if let (Some(left), Some(right)) = (left, right) {
-                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    mir.push_instr(
-                        block,
-                        match op.kind {
-                            LogicalOpKind::And => Instr::BitAnd {
-                                target,
-                                left,
-                                right,
-                            },
-                            LogicalOpKind::Or => Instr::BitOr {
-                                target,
-                                left,
-                                right,
-                            },
+                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(
+                    block,
+                    match op.kind {
+                        LogicalOpKind::And => Instr::BitAnd {
+                            target,
+                            left,
+                            right,
                         },
-                    );
-                    Some(target)
-                } else {
-                    None
-                };
-                (expr_ty, block, target.map(Operand::Local))
+                        LogicalOpKind::Or => Instr::BitOr {
+                            target,
+                            left,
+                            right,
+                        },
+                    },
+                );
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Arithmetic(op) => {
                 let (left_ty, block, left) =
@@ -634,43 +806,38 @@ impl Analyzer {
                     ty2: right_ty.clone(),
                     ty2_span: op.right.span,
                 });
-                let target = if let (Some(left), Some(right)) = (left, right) {
-                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    mir.push_instr(
-                        block,
-                        match op.kind {
-                            ArithmeticOpKind::BitAnd => Instr::BitAnd {
-                                target,
-                                left,
-                                right,
-                            },
-                            ArithmeticOpKind::BitOr => Instr::BitOr {
-                                target,
-                                left,
-                                right,
-                            },
-                            ArithmeticOpKind::BitXor => Instr::BitXor {
-                                target,
-                                left,
-                                right,
-                            },
-                            ArithmeticOpKind::Add => Instr::Add {
-                                target,
-                                left,
-                                right,
-                            },
-                            ArithmeticOpKind::Sub => Instr::Sub {
-                                target,
-                                left,
-                                right,
-                            },
+                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(
+                    block,
+                    match op.kind {
+                        ArithmeticOpKind::BitAnd => Instr::BitAnd {
+                            target,
+                            left,
+                            right,
                         },
-                    );
-                    Some(target)
-                } else {
-                    None
-                };
-                (expr_ty, block, target.map(Operand::Local))
+                        ArithmeticOpKind::BitOr => Instr::BitOr {
+                            target,
+                            left,
+                            right,
+                        },
+                        ArithmeticOpKind::BitXor => Instr::BitXor {
+                            target,
+                            left,
+                            right,
+                        },
+                        ArithmeticOpKind::Add => Instr::Add {
+                            target,
+                            left,
+                            right,
+                        },
+                        ArithmeticOpKind::Sub => Instr::Sub {
+                            target,
+                            left,
+                            right,
+                        },
+                    },
+                );
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Comparison(op) => {
                 let (left_ty, block, left) =
@@ -690,48 +857,43 @@ impl Analyzer {
                     ty2: InferredTy::Concrete(Ty::U1),
                     ty2_span: expr.span,
                 });
-                let target = if let (Some(left), Some(right)) = (left, right) {
-                    let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    mir.push_instr(
-                        block,
-                        match op.kind {
-                            ComparisonOpKind::Eq => Instr::Eq {
-                                target,
-                                left,
-                                right,
-                            },
-                            ComparisonOpKind::Ne => Instr::Ne {
-                                target,
-                                left,
-                                right,
-                            },
-                            ComparisonOpKind::Lt => Instr::Lt {
-                                target,
-                                left,
-                                right,
-                            },
-                            ComparisonOpKind::Le => Instr::Le {
-                                target,
-                                left,
-                                right,
-                            },
-                            ComparisonOpKind::Gt => Instr::Gt {
-                                target,
-                                left,
-                                right,
-                            },
-                            ComparisonOpKind::Ge => Instr::Ge {
-                                target,
-                                left,
-                                right,
-                            },
+                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(
+                    block,
+                    match op.kind {
+                        ComparisonOpKind::Eq => Instr::Eq {
+                            target,
+                            left,
+                            right,
                         },
-                    );
-                    Some(target)
-                } else {
-                    None
-                };
-                (expr_ty, block, target.map(Operand::Local))
+                        ComparisonOpKind::Ne => Instr::Ne {
+                            target,
+                            left,
+                            right,
+                        },
+                        ComparisonOpKind::Lt => Instr::Lt {
+                            target,
+                            left,
+                            right,
+                        },
+                        ComparisonOpKind::Le => Instr::Le {
+                            target,
+                            left,
+                            right,
+                        },
+                        ComparisonOpKind::Gt => Instr::Gt {
+                            target,
+                            left,
+                            right,
+                        },
+                        ComparisonOpKind::Ge => Instr::Ge {
+                            target,
+                            left,
+                            right,
+                        },
+                    },
+                );
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Assign(op) => {
                 let (left_ty, block, left) =
@@ -758,140 +920,158 @@ impl Analyzer {
                     ty2: right_ty.clone(),
                     ty2_span: op.right.span,
                 });
-                let target = if let (Some(left), Some(right)) = (left, right) {
-                    let target = match op.kind {
-                        AssignOpKind::Assign => {
-                            let target =
-                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(
-                                block,
-                                Instr::Copy {
+                let target = match op.kind {
+                    AssignOpKind::Assign => {
+                        let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(
+                            block,
+                            Instr::Copy {
+                                target,
+                                source: right,
+                            },
+                        );
+                        target
+                    }
+                    kind => {
+                        let left = match &left {
+                            None => {
+                                // no error needs to be added in this situation as it
+                                // should already have been added in resolve_place()
+                                let target = mir.new_local(Ty::ERROR);
+                                mir.push_instr(block, Instr::Undefined { target });
+                                return (expr_ty, block, Operand::Local(target));
+                            }
+                            Some(ResolvedPlace::Function(_)) => {
+                                self.result_builder
+                                    .add_error(FnPtrNotAssignableError { span: op.left.span });
+                                let target = mir.new_local(Ty::ERROR);
+                                mir.push_instr(block, Instr::Undefined { target });
+                                return (expr_ty, block, Operand::Local(target));
+                            }
+                            Some(ResolvedPlace::Variable(variable)) => {
+                                let local = mir.read_variable(*variable, block);
+                                Operand::Local(local)
+                            }
+                            Some(ResolvedPlace::Global(source)) => {
+                                let target =
+                                    mir.new_local(left_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                mir.push_instr(
+                                    block,
+                                    Instr::Load {
+                                        target,
+                                        source: source.clone(),
+                                    },
+                                );
+                                Operand::Local(target)
+                            }
+                        };
+
+                        let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(
+                            block,
+                            match kind {
+                                AssignOpKind::AddAssign => Instr::Add {
                                     target,
-                                    source: right,
+                                    left,
+                                    right,
                                 },
-                            );
-                            target
-                        }
-                        kind => {
-                            let left = match &left {
-                                ResolvedPlace::Function(_) => {
-                                    self.result_builder
-                                        .add_error(FnPtrNotAssignableError { span: op.left.span });
-                                    return (expr_ty, block, None);
-                                }
-                                ResolvedPlace::Variable(variable) => {
-                                    let local = mir.read_variable(*variable, block);
-                                    Operand::Local(local)
-                                }
-                                ResolvedPlace::Global(source) => {
-                                    let target = mir
-                                        .new_local(left_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                                    mir.push_instr(
-                                        block,
-                                        Instr::Load {
-                                            target,
-                                            source: source.clone(),
-                                        },
-                                    );
-                                    Operand::Local(target)
-                                }
-                            };
-
-                            let target =
-                                mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(
-                                block,
-                                match kind {
-                                    AssignOpKind::AddAssign => Instr::Add {
-                                        target,
-                                        left,
-                                        right,
-                                    },
-                                    AssignOpKind::SubAssign => Instr::Sub {
-                                        target,
-                                        left,
-                                        right,
-                                    },
-                                    AssignOpKind::BitAndAssign => Instr::BitAnd {
-                                        target,
-                                        left,
-                                        right,
-                                    },
-                                    AssignOpKind::BitOrAssign => Instr::BitOr {
-                                        target,
-                                        left,
-                                        right,
-                                    },
-                                    AssignOpKind::BitXorAssign => Instr::BitXor {
-                                        target,
-                                        left,
-                                        right,
-                                    },
-                                    AssignOpKind::Assign => {
-                                        unreachable!("assign handled separately")
-                                    }
+                                AssignOpKind::SubAssign => Instr::Sub {
+                                    target,
+                                    left,
+                                    right,
                                 },
-                            );
-                            target
-                        }
-                    };
-
-                    match left {
-                        ResolvedPlace::Function(_) => {
-                            self.result_builder
-                                .add_error(FnPtrNotAssignableError { span: op.left.span });
-                            return (expr_ty, block, None);
-                        }
-                        ResolvedPlace::Variable(variable) => {
-                            mir.write_variable(variable, block, target);
-                        }
-                        ResolvedPlace::Global(global) => {
-                            mir.push_instr(
-                                block,
-                                Instr::Store {
-                                    target: global,
-                                    source: Operand::Local(target),
+                                AssignOpKind::BitAndAssign => Instr::BitAnd {
+                                    target,
+                                    left,
+                                    right,
                                 },
-                            );
-                        }
-                    };
-
-                    Some(Operand::Local(target))
-                } else {
-                    None
+                                AssignOpKind::BitOrAssign => Instr::BitOr {
+                                    target,
+                                    left,
+                                    right,
+                                },
+                                AssignOpKind::BitXorAssign => Instr::BitXor {
+                                    target,
+                                    left,
+                                    right,
+                                },
+                                AssignOpKind::Assign => {
+                                    unreachable!("assign handled separately")
+                                }
+                            },
+                        );
+                        target
+                    }
                 };
-                (expr_ty, block, target)
+
+                match left {
+                    None => {
+                        // no error needs to be added in this situation as it
+                        // should already have been added in resolve_place()
+                        let target = mir.new_local(Ty::ERROR);
+                        mir.push_instr(block, Instr::Undefined { target });
+                        return (expr_ty, block, Operand::Local(target));
+                    }
+                    Some(ResolvedPlace::Function(_)) => {
+                        self.result_builder
+                            .add_error(FnPtrNotAssignableError { span: op.left.span });
+                        let target = mir.new_local(Ty::ERROR);
+                        mir.push_instr(block, Instr::Undefined { target });
+                        return (expr_ty, block, Operand::Local(target));
+                    }
+                    Some(ResolvedPlace::Variable(variable)) => {
+                        mir.write_variable(variable, block, target);
+                    }
+                    Some(ResolvedPlace::Global(global)) => {
+                        mir.push_instr(
+                            block,
+                            Instr::Store {
+                                target: global,
+                                source: Operand::Local(target),
+                            },
+                        );
+                    }
+                };
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Block(ast_block) => {
                 scopes.enter_block_scope(expr.span);
                 let (block_expr_ty, block) =
                     self.analyze_block(ast_block, block, mir, inferrer, constraints, scopes);
-                match block_expr_ty {
-                    InferredTy::Concrete(Ty::NEVER) => {
-                        // Either it is an infinite loop, or it yields explicitly
-                        // no constraints to add
-                    }
-                    block_expr_ty => constraints.push_back(InferenceConstraint::Equal {
-                        ty1: block_expr_ty,
-                        ty1_span: expr.span,
-                        ty2: InferredTy::Concrete(Ty::UNIT),
-                        ty2_span: expr.span,
-                    }),
-                }
                 let expr_ty = match scopes.block_scope().unwrap().yield_ty {
                     None => {
-                        // no yields, block is a unit expression
-                        InferredTy::Concrete(Ty::UNIT)
+                        let expr_ty = if block_expr_ty == Ty::NEVER {
+                            Ty::NEVER
+                        } else {
+                            self.result_builder
+                                .add_error(YieldMissingError { span: expr.span });
+                            Ty::ERROR
+                        };
+                        InferredTy::Concrete(expr_ty)
                     }
                     Some(yield_ty) => InferredTy::Variable(yield_ty),
                 };
-                let target = if let Some(yield_var) = scopes.block_scope().unwrap().yield_var {
-                    Some(mir.read_variable(yield_var, block))
-                } else {
-                    None
+                let (block, target) = match scopes.block_scope().unwrap().yield_var {
+                    Some(yield_var) => (block, mir.read_variable(yield_var, block)),
+                    None => {
+                        let target = mir.new_local(Ty::ERROR);
+                        let block = if expr_ty == InferredTy::Concrete(Ty::NEVER) {
+                            // create a dangling block for a never as all subsequent code is
+                            // unreachable
+                            mir.new_block()
+                        } else {
+                            block
+                        };
+                        // either it's a dangling block (due to a never) or an error was
+                        // encountered above. In either case, it is 'safe' to add an undefined
+                        // instruction as it will either be dropped from successful MIR or
+                        // will error out before producing the final MIR
+                        mir.push_instr(block, Instr::Undefined { target });
+                        (block, target)
+                    }
                 };
                 scopes.exit_block_scope();
-                (expr_ty, block, target.map(Operand::Local))
+                (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::If(if_expr) => {
                 let (cond_ty, block, source) = self.analyze_expr(
@@ -913,16 +1093,11 @@ impl Analyzer {
                     span: expr.span,
                 });
                 let target = mir.new_local(Ty::U1);
-                if let Some(source) = source {
-                    mir.push_instr(block, Instr::Copy { target, source });
-                }
+                mir.push_instr(block, Instr::Copy { target, source });
                 let then_block = mir.new_block();
                 let else_block = mir.new_block();
-                let (end_block, mut variable) = if if_expr.false_block.is_some() {
-                    (mir.new_block(), Some(mir.new_variable()))
-                } else {
-                    (else_block, None)
-                };
+                let end_block = mir.new_block();
+                let variable = mir.new_variable();
                 mir.set_terminator(
                     block,
                     Terminator::JumpIf {
@@ -942,20 +1117,15 @@ impl Analyzer {
                     constraints,
                     scopes,
                 );
-                if let (Some(variable), Some(then_source)) = (variable, then_source) {
-                    let target =
-                        mir.new_local(true_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                    mir.push_instr(
-                        then_block,
-                        Instr::Copy {
-                            target,
-                            source: then_source,
-                        },
-                    );
-                    mir.write_variable(variable, then_block, target);
-                } else {
-                    variable = None;
-                }
+                let target = mir.new_local(true_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                mir.push_instr(
+                    then_block,
+                    Instr::Copy {
+                        target,
+                        source: then_source,
+                    },
+                );
+                mir.write_variable(variable, then_block, target);
                 mir.set_terminator(
                     then_block,
                     Terminator::Jump {
@@ -963,7 +1133,12 @@ impl Analyzer {
                     },
                 );
                 let false_block_ty = match if_expr.false_block.as_ref() {
-                    None => InferredTy::Concrete(Ty::UNIT),
+                    None => {
+                        let target = mir.new_local(Ty::UNIT);
+                        mir.push_instr(else_block, Instr::Undefined { target });
+                        mir.write_variable(variable, else_block, target);
+                        InferredTy::Concrete(Ty::UNIT)
+                    }
                     Some(false_block) => {
                         let (false_block_ty, else_block, source) = self.analyze_expr(
                             false_block,
@@ -973,23 +1148,19 @@ impl Analyzer {
                             constraints,
                             scopes,
                         );
-                        if let (Some(variable), Some(source)) = (variable, source) {
-                            let target = mir
-                                .new_local(false_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                            mir.push_instr(else_block, Instr::Copy { target, source });
-                            mir.write_variable(variable, else_block, target);
-                        } else {
-                            variable = None;
-                        }
-                        mir.set_terminator(
-                            else_block,
-                            Terminator::Jump {
-                                target_block: end_block,
-                            },
-                        );
+                        let target =
+                            mir.new_local(false_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        mir.push_instr(else_block, Instr::Copy { target, source });
+                        mir.write_variable(variable, else_block, target);
                         false_block_ty
                     }
                 };
+                mir.set_terminator(
+                    else_block,
+                    Terminator::Jump {
+                        target_block: end_block,
+                    },
+                );
                 mir.seal_block(end_block);
                 let ty = match (true_block_ty, false_block_ty) {
                     (InferredTy::Concrete(Ty::NEVER), ty)
@@ -1025,12 +1196,8 @@ impl Analyzer {
                         expr_ty
                     }
                 };
-                let local = if let Some(variable) = variable {
-                    mir.read_variable(variable, end_block)
-                } else {
-                    mir.new_local(Ty::UNIT)
-                };
-                (ty, end_block, Some(Operand::Local(local)))
+                let local = mir.read_variable(variable, end_block);
+                (ty, end_block, Operand::Local(local))
             }
             ast::ExprData::Loop(loop_expr) => {
                 let start_block = mir.new_block();
@@ -1050,7 +1217,7 @@ impl Analyzer {
                     constraints,
                     scopes,
                 );
-                if ty.to_concrete() != Some(Ty::NEVER) {
+                if ty != Ty::NEVER {
                     // if the block has type never,
                     // it never completes an iteration successfully,
                     // so no jump is required
@@ -1076,7 +1243,7 @@ impl Analyzer {
                     None => mir.new_local(Ty::NEVER),
                 };
                 scopes.exit_loop_scope();
-                (expr_ty, end_block, Some(Operand::Local(target)))
+                (expr_ty, end_block, Operand::Local(target))
             }
             ast::ExprData::Call(call_expr) => {
                 let (place_ty, block, callee) = self.analyze_place_expr(
@@ -1096,41 +1263,36 @@ impl Analyzer {
                     return_ty,
                 });
 
-                let (target, block) = if let Some(callee) = callee {
-                    let callee = match callee {
-                        Operand::Local(local) => Callee::Local(local),
-                        Operand::FnPtr(function) => Callee::FnPtr(function),
-                        callee => {
-                            let target = mir.new_local(Ty::U16);
-                            mir.push_instr(
-                                block,
-                                Instr::Copy {
-                                    target,
-                                    source: callee,
-                                },
-                            );
-                            Callee::Local(target)
-                        }
-                    };
-                    let return_block = mir.new_block();
-                    mir.set_terminator(
-                        block,
-                        Terminator::Call {
-                            return_block,
-                            callee,
-                        },
-                    );
-                    mir.seal_block(return_block);
-                    let target = mir.new_local(Ty::UNRESOLVED);
-                    mir.push_instr(return_block, Instr::ReturnValue { target });
-                    (Some(target), return_block)
-                } else {
-                    (None, block)
+                let callee = match callee {
+                    Operand::Local(local) => Callee::Local(local),
+                    Operand::FnPtr(function) => Callee::FnPtr(function),
+                    callee => {
+                        let target = mir.new_local(Ty::U16);
+                        mir.push_instr(
+                            block,
+                            Instr::Copy {
+                                target,
+                                source: callee,
+                            },
+                        );
+                        Callee::Local(target)
+                    }
                 };
+                let return_block = mir.new_block();
+                mir.set_terminator(
+                    block,
+                    Terminator::Call {
+                        return_block,
+                        callee,
+                    },
+                );
+                mir.seal_block(return_block);
+                let target = mir.new_local(Ty::UNRESOLVED);
+                mir.push_instr(return_block, Instr::ReturnValue { target });
                 (
                     InferredTy::Variable(return_ty),
-                    block,
-                    target.map(Operand::Local),
+                    return_block,
+                    Operand::Local(target),
                 )
             }
             ast::ExprData::Paren(expr) => {
@@ -1147,23 +1309,27 @@ impl Analyzer {
         inferrer: &mut Inferrer,
         constraints: &mut VecDeque<InferenceConstraint>,
         scopes: &mut Scopes,
-    ) -> (InferredTy, BlockId, Option<Operand>) {
+    ) -> (InferredTy, BlockId, Operand) {
         let (place_ty, block, resolved_place) =
             self.resolve_place(place, block, mir, inferrer, constraints, scopes);
         let resolved_place = match resolved_place {
             Some(resolved_place) => resolved_place,
-            None => return (place_ty, block, None),
+            None => {
+                let target = mir.new_local(Ty::ERROR);
+                mir.push_instr(block, Instr::Undefined { target });
+                return (place_ty, block, Operand::Local(target));
+            }
         };
         match resolved_place {
-            ResolvedPlace::Function(fn_ptr) => (place_ty, block, Some(Operand::FnPtr(fn_ptr))),
+            ResolvedPlace::Function(fn_ptr) => (place_ty, block, Operand::FnPtr(fn_ptr)),
             ResolvedPlace::Variable(variable) => {
                 let local = mir.read_variable(variable, block);
-                (place_ty, block, Some(Operand::Local(local)))
+                (place_ty, block, Operand::Local(local))
             }
             ResolvedPlace::Global(source) => {
                 let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                 mir.push_instr(block, Instr::Load { target, source });
-                (place_ty, block, Some(Operand::Local(target)))
+                (place_ty, block, Operand::Local(target))
             }
         }
     }
@@ -1224,7 +1390,7 @@ impl Analyzer {
                         InferredTy::Variable(field_ty),
                         field.span,
                         block,
-                        Some(GlobalPlaceProjection::Field(field.data.clone())),
+                        GlobalPlaceProjection::Field(field.data.clone()),
                     )
                 }
                 PlaceProjection::Index(index) => {
@@ -1246,16 +1412,12 @@ impl Analyzer {
                         InferredTy::Variable(item_ty),
                         index.span,
                         block,
-                        target.map(GlobalPlaceProjection::Index),
+                        GlobalPlaceProjection::Index(target),
                     )
                 }
             };
-            if let Some(projection) = projection {
-                if let Some(global_place) = global_place.as_mut() {
-                    global_place.projections.push(projection);
-                }
-            } else {
-                global_place = None;
+            if let Some(global_place) = global_place.as_mut() {
+                global_place.projections.push(projection);
             }
             place_ty = new_place_ty;
             place_span = new_place_span;

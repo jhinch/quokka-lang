@@ -61,20 +61,21 @@ main -> unit:
 [[case]]
 name = "loop_break_type_mismatch_across_multiple_breaks"
 kind = "analyzer"
-preview_features = ["loop"]
+preview_features = ["loop", "if-else"]
 source = """
 fn main() {
     let x: u8 = 1;
     let c: u1 = 1;
-    loop {
+    let d = loop {
+        if c then {
+            break c;
+        }
         break x;
-        break c;
-    }
+    };
 }
 """
 expected_errors = [
-    "unreachable code @ [86:94]",
-    "`u8` is not equal to `u1` @ [92:93]",
+    "`u1` is not equal to `u8` @ [134:135]",
 ]
 
 [[case]]
@@ -83,33 +84,38 @@ kind = "analyzer"
 preview_features = ["loop"]
 source = """
 fn main() {
-    let x: u1 = 1;
-    loop {
-        loop {
-            break x;
-        }
+    let x: u8 = 1;
+    let y: u8 = 2;
+    let r = loop {
+        let d = loop {
+            break y;
+        };
         break x;
-    }
+    };
 }
 """
 expected_mir = """
 main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
+    y#2: <unresolved> = copy 2
     jump .bb2
   .bb2:
-    x#5: <unresolved> = copy x#1
+    y#6: <unresolved> = copy y#2
+    x#8: <unresolved> = copy x#1
     jump .bb4
   .bb4:
-    x#2: <unresolved> = copy x#5
-    #3: u1 = copy x#2
-    #4: u1 = copy #3
+    y#3: <unresolved> = copy y#6
+    #4: u8 = copy y#3
+    #5: u8 = copy #4
     jump .bb5
   .bb5:
-    #6: u1 = copy x#5
-    #7: u1 = copy #6
+    d#7: <unresolved> = copy #5
+    #9: u8 = copy x#8
+    #10: u8 = copy #9
     jump .bb3
   .bb3:
+    r#11: <unresolved> = copy #10
     return
 """
 

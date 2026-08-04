@@ -53,6 +53,14 @@ pub struct YieldOutsideBlockError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`yield` missing in expression block")]
+#[diagnostic()]
+pub struct YieldMissingError {
+    #[label("this block")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("name `{name}` defined multiple times in scope")]
 #[diagnostic()]
 pub struct RedefinedError {

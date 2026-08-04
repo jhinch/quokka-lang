@@ -47,6 +47,7 @@ impl Mir {
                             )?;
                         }
                         match instruction {
+                            Instr::Undefined { target: _ } => write!(f, "undefined"),
                             Instr::ReturnValue { target: _ } => write!(f, "returnvalue"),
                             Instr::Phi { target: _, sources } => {
                                 write!(f, "phi")?;
@@ -436,6 +437,12 @@ impl Local {
 #[derive(Debug, Clone)]
 pub enum Instr {
     // assignment
+    /// Placeholder instruction which can be used to recover generating MIR due to an error.
+    /// However, it is expected that build() is never called MIR with blocks containing
+    /// such instructions
+    Undefined {
+        target: LocalId,
+    },
     ReturnValue {
         target: LocalId,
     },
@@ -461,6 +468,22 @@ pub enum Instr {
         source: Operand,
     },
     Neg {
+        target: LocalId,
+        source: Operand,
+    },
+    RotateLeft {
+        target: LocalId,
+        source: Operand,
+    },
+    RotateRight {
+        target: LocalId,
+        source: Operand,
+    },
+    ShiftLeft {
+        target: LocalId,
+        source: Operand,
+    },
+    ShiftRight {
         target: LocalId,
         source: Operand,
     },
@@ -495,7 +518,7 @@ pub enum Instr {
         left: Operand,
         right: Operand,
     },
-    // bitwise
+    // arithmetic
     BitAnd {
         target: LocalId,
         left: Operand,
@@ -511,23 +534,6 @@ pub enum Instr {
         left: Operand,
         right: Operand,
     },
-    RotateLeft {
-        target: LocalId,
-        source: Operand,
-    },
-    RotateRight {
-        target: LocalId,
-        source: Operand,
-    },
-    ShiftLeft {
-        target: LocalId,
-        source: Operand,
-    },
-    ShiftRight {
-        target: LocalId,
-        source: Operand,
-    },
-    // arithmetic
     Add {
         target: LocalId,
         left: Operand,
@@ -543,7 +549,8 @@ pub enum Instr {
 impl Instr {
     pub fn target_local(&self) -> Option<LocalId> {
         match self {
-            Instr::ReturnValue { target, .. }
+            Instr::Undefined { target, .. }
+            | Instr::ReturnValue { target, .. }
             | Instr::Phi { target, .. }
             | Instr::Load { target, .. }
             | Instr::Copy { target, .. }
@@ -573,7 +580,9 @@ impl Instr {
         std::iter::from_fn(move || {
             let value = loop {
                 break match self {
-                    Instr::ReturnValue { .. } | Instr::Load { .. } => None,
+                    Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Load { .. } => {
+                        None
+                    }
                     Instr::Store { source, .. }
                     | Instr::Copy { source, .. }
                     | Instr::Not { source, .. }
@@ -862,6 +871,10 @@ impl FunctionBuilder {
             }
             let mut instructions = block.instructions.iter().peekable();
             while let Some(instruction) = instructions.next() {
+                assert!(
+                    !matches!(instruction, Instr::Undefined { .. }),
+                    "undefined instruction found in block {block_id} not permitted"
+                );
                 if cfg!(debug_assertions) {
                     for source in instruction.source_locals() {
                         assert!(

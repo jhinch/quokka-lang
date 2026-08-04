@@ -154,7 +154,22 @@ fn main() {}
 """
 expected_errors = [
     "`return` outside of a function @ [20:29]",
-    "`unit` is not equal to `u8` @ [9:11]",
+    "`never` is not equal to `u8` @ [9:11]",
+]
+
+[[case]]
+name = "const_with_infinite_loop"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+const A: u8 = {
+    loop {}
+};
+
+fn main() {}
+"""
+expected_errors = [
+    "`never` is not equal to `u8` @ [9:11]",
 ]
 
 [[case]]
@@ -169,7 +184,7 @@ fn main() {}
 """
 expected_errors = [
     "`continue` outside of a loop @ [20:29]",
-    "`unit` is not equal to `u8` @ [9:11]",
+    "`never` is not equal to `u8` @ [9:11]",
 ]
 
 [[case]]
@@ -184,7 +199,7 @@ fn main() {}
 """
 expected_errors = [
     "`break` outside of a loop @ [20:26]",
-    "`unit` is not equal to `u8` @ [9:11]",
+    "`never` is not equal to `u8` @ [9:11]",
 ]
 
 [[case]]
@@ -199,7 +214,7 @@ fn main() {}
 """
 expected_errors = [
     "`break` outside of a loop @ [20:28]",
-    "`unit` is not equal to `u8` @ [9:11]",
+    "`never` is not equal to `u8` @ [9:11]",
 ]
 
 [[case]]
