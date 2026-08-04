@@ -37,18 +37,15 @@ impl TyRegistry {
         })
     }
 
-    pub fn register_struct(
-        &mut self,
-        name: SpannedIdentifier,
-        field_count: usize,
-    ) -> Result<Ty, SourceSpan> {
+    pub fn register_struct(&mut self, name: SpannedIdentifier) -> Result<Ty, SourceSpan> {
         match self.struct_types.entry(name.data.clone()) {
             Entry::Occupied(entry) => Err(entry.get().name.span),
             Entry::Vacant(entry) => {
                 let index = entry
                     .insert_entry(StructTyData {
                         name,
-                        fields: IndexMap::with_capacity(field_count),
+                        fields: IndexMap::new(),
+                        bit_size: u32::MAX,
                     })
                     .index();
                 Ok(Ty::struct_ty(index))
@@ -66,18 +63,26 @@ impl TyRegistry {
         Ty::fn_ptr_ty(index)
     }
 
-    pub fn register_struct_fields(
+    pub fn complete_struct_registration(
         &mut self,
-        name: &SpannedIdentifier,
-        fields: IndexMap<Identifier, Ty>,
+        ty: Ty,
+        fields: IndexMap<Identifier, StructFieldTyData>,
+        bit_size: u32,
     ) {
-        self.struct_types[&name.data].fields = fields;
+        assert!(ty.is_struct(), "{ty:?} not a struct");
+        let data = &mut self.struct_types[ty.index()];
+        assert_eq!(data.bit_size, u32::MAX, "{ty:?} is already registered");
+        assert_ne!(bit_size, u32::MAX, "bit_size must be smaller than u32::MAX");
+        data.fields = fields;
+        data.bit_size = bit_size;
     }
 
     #[must_use]
     pub fn struct_ty_data(&self, ty: Ty) -> &StructTyData {
         assert!(ty.is_struct(), "{ty:?} not a struct");
-        &self.struct_types[ty.index()]
+        let data = &self.struct_types[ty.index()];
+        assert_ne!(data.bit_size, u32::MAX, "{ty:?} not fully registered");
+        data
     }
 
     #[must_use]
@@ -183,6 +188,24 @@ impl Ty {
         }
     }
 
+    #[must_use]
+    pub fn bit_size(self, registry: &TyRegistry) -> u32 {
+        match self {
+            Ty::U1 => 1,
+            Ty::U2 => 2,
+            Ty::U4 => 4,
+            Ty::U8 | Ty::I8 => 8,
+            Ty::U16 | Ty::I16 => 16,
+            ty if ty.is_array() => {
+                let data = registry.array_ty_data(ty);
+                data.item_ty.bit_size(registry).next_multiple_of(8) * (data.count.get() as u32)
+            }
+            ty if ty.is_struct() => registry.struct_ty_data(ty).bit_size,
+            ty if ty.is_fn_ptr() => 16,
+            _ => 0,
+        }
+    }
+
     const fn index(self) -> usize {
         (self.0 & Ty::INDEX_MASK) as usize
     }
@@ -216,9 +239,19 @@ impl fmt::Debug for Ty {
     }
 }
 
+#[derive(Debug)]
 pub struct StructTyData {
     pub name: SpannedIdentifier,
-    pub fields: IndexMap<Identifier, Ty>,
+    pub fields: IndexMap<Identifier, StructFieldTyData>,
+    pub bit_size: u32,
+}
+
+#[derive(Debug)]
+pub struct StructFieldTyData {
+    pub name: SpannedIdentifier,
+    pub ty: Ty,
+    pub ty_span: SourceSpan,
+    pub bit_offset: u32,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]

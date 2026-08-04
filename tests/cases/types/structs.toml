@@ -127,7 +127,7 @@ main -> unit:
 """
 
 [[case]]
-name = "self_referential_struct_field"
+name = "direct_cyclic_struct_field"
 kind = "analyzer"
 source = """
 struct Node {
@@ -135,11 +135,28 @@ struct Node {
 }
 fn main() {}
 """
-expected_mir = """
-main -> unit:
-  .bb1:
-    return
+expected_errors = [
+    "recursive type `Node` detected @ [7:11]",
+]
+
+[[case]]
+name = "indirect_cylic_struct_field"
+kind = "analyzer"
+source = """
+struct Foo {
+    bar: Bar,
+}
+struct Bar {
+    baz: Baz,
+}
+struct Baz {
+    foo: Foo,
+}
+fn main() {}
 """
+expected_errors = [
+    "recursive type `Foo` detected @ [7:10]",
+]
 
 [[case]]
 name = "struct_name_and_value_name_do_not_collide"

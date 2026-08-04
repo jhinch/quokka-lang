@@ -10,11 +10,11 @@ use crate::mir::{
 };
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::source::span::span_between;
-use crate::ty::{Ty, TyRegistry};
-use indexmap::IndexMap;
+use crate::ty::{StructFieldTyData, StructTyData, Ty, TyRegistry};
 use indexmap::map::Entry;
+use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 pub mod error;
 pub mod infer;
@@ -41,27 +41,39 @@ impl Analyzer {
     }
 
     fn register_types(&mut self, root: &ast::Root) -> Result<(), MultiError> {
-        for item in &root.items {
-            if let ast::ItemData::StructDecl(decl) = &item.data
-                && let Err(defined) = self
-                    .ty_registry
-                    .register_struct(decl.name.clone(), decl.fields.len())
-            {
-                self.result_builder.add_error(RedefinedError {
-                    name: decl.name.data.clone(),
-                    defined,
-                    redefined: decl.name.span,
-                });
-            }
-        }
-        for item in &root.items {
-            if let ast::ItemData::StructDecl(decl) = &item.data {
+        // first register all the structs
+        let registered_types = root
+            .items
+            .iter()
+            .filter_map(|item| {
+                if let ast::ItemData::StructDecl(decl) = &item.data {
+                    match self.ty_registry.register_struct(decl.name.clone()) {
+                        Ok(ty) => Some((ty, decl)),
+                        Err(defined) => {
+                            self.result_builder.add_error(RedefinedError {
+                                name: decl.name.data.clone(),
+                                defined,
+                                redefined: decl.name.span,
+                            });
+                            None
+                        }
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<IndexMap<_, _>>();
+        // then calculate their fields
+        let type_fields = registered_types
+            .iter()
+            .filter_map(|(ty, decl)| {
                 let mut fields = IndexMap::with_capacity(decl.fields.len());
+                let mut failed = false;
                 for field in &decl.fields {
                     let ty = self.resolve_ty_ref(&field.ty);
                     match fields.entry(field.name.data.clone()) {
                         Entry::Vacant(entry) => {
-                            entry.insert(ty);
+                            entry.insert((ty, field.name.span, field.ty.span));
                         }
                         Entry::Occupied(entry) => {
                             let defined = decl.fields[entry.index()].name.span;
@@ -71,10 +83,66 @@ impl Analyzer {
                                 defined,
                                 redefined: field.name.span,
                             });
+                            failed = true;
                         }
                     }
                 }
-                self.ty_registry.register_struct_fields(&decl.name, fields);
+                if failed { None } else { Some((*ty, fields)) }
+            })
+            .collect::<IndexMap<_, _>>();
+        // finally, calculate the size of each struct, identifying cyclic
+        // types as a result
+        let mut unprocessed_types = type_fields.keys().rev().copied().collect::<IndexSet<_>>();
+        let mut recursive_types = IndexSet::new();
+        let mut processing_stack = VecDeque::new();
+        while let Some(ty) = unprocessed_types.last().copied() {
+            processing_stack.push_front(ty);
+            'outer: while let Some(ty) = processing_stack.pop_front() {
+                let mut bit_size = 0;
+                let mut fields = IndexMap::new();
+                for (field_name, (field_ty, field_span, field_ty_span)) in &type_fields[&ty] {
+                    let mut array_item_ty = *field_ty;
+                    while array_item_ty.is_array() {
+                        array_item_ty = self.ty_registry.array_ty_data(array_item_ty).item_ty;
+                    }
+                    if array_item_ty.is_struct() && unprocessed_types.contains(&array_item_ty) {
+                        // we need to calculate the field first
+                        processing_stack.push_front(ty);
+                        if processing_stack.contains(&array_item_ty) {
+                            self.result_builder.add_error(TypeRecursiveError::from(
+                                registered_types[&array_item_ty].name.clone(),
+                            ));
+                            while let Some(ty) = processing_stack.pop_front() {
+                                unprocessed_types.shift_remove(&ty);
+                                recursive_types.insert(ty);
+                                if ty == array_item_ty {
+                                    break;
+                                }
+                            }
+                            continue 'outer;
+                        }
+                        processing_stack.push_front(array_item_ty);
+                        continue 'outer;
+                    } else if recursive_types.contains(&array_item_ty) {
+                        unprocessed_types.shift_remove(&ty);
+                        recursive_types.insert(ty);
+                        continue 'outer;
+                    }
+                    let field_bit_size = field_ty.bit_size(&self.ty_registry).next_multiple_of(8);
+                    fields.insert(
+                        field_name.clone(),
+                        StructFieldTyData {
+                            name: SpannedIdentifier::new(field_name.clone(), *field_span),
+                            ty: *field_ty,
+                            ty_span: *field_ty_span,
+                            bit_offset: bit_size,
+                        },
+                    );
+                    bit_size += field_bit_size;
+                }
+                self.ty_registry
+                    .complete_struct_registration(ty, fields, bit_size);
+                unprocessed_types.shift_remove(&ty);
             }
         }
         self.result_builder.take().finish(()).into_result()
@@ -1513,7 +1581,7 @@ impl Analyzer {
                                 Ty::ERROR
                             } else {
                                 let data = self.ty_registry.struct_ty_data(ty);
-                                match data.fields.get(&field.data).copied() {
+                                match data.fields.get(&field.data) {
                                     None => {
                                         self.result_builder.add_error(FieldNotDefinedError {
                                             struct_span: data.name.span,
@@ -1523,7 +1591,7 @@ impl Analyzer {
                                         });
                                         Ty::ERROR
                                     }
-                                    Some(ty) => ty,
+                                    Some(field_data) => field_data.ty,
                                 }
                             };
                             inferrer.bind(field_ty, InferredTy::Concrete(concrete_field_ty));

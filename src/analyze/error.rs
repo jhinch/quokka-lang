@@ -21,6 +21,24 @@ impl From<SpannedIdentifier> for TypeNotFoundError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("recursive type `{name}` detected")]
+#[diagnostic()]
+pub struct TypeRecursiveError {
+    pub name: Identifier,
+    #[label("this type")]
+    pub span: SourceSpan,
+}
+
+impl From<SpannedIdentifier> for TypeRecursiveError {
+    fn from(value: SpannedIdentifier) -> Self {
+        TypeRecursiveError {
+            name: value.data,
+            span: value.span,
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("`continue` outside of a loop")]
 #[diagnostic()]
 pub struct ContinueOutsideLoopError {
