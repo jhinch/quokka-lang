@@ -246,7 +246,7 @@ impl Analyzer {
         scopes.exit_fn_scope();
         self.process_constraints(&mut inferrer, constraints);
 
-        self.mir_builder.seal_function(function_id, mir.build());
+        self.mir_builder.seal_function(function_id, mir);
     }
 
     fn analyze_block(
@@ -1120,6 +1120,7 @@ impl Analyzer {
                             callee,
                         },
                     );
+                    mir.seal_block(return_block);
                     let target = mir.new_local(Ty::UNRESOLVED);
                     mir.push_instr(return_block, Instr::ReturnValue { target });
                     (Some(target), return_block)

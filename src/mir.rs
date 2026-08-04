@@ -2,6 +2,7 @@ use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
+use std::assert_matches;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 
@@ -566,6 +567,55 @@ impl Instr {
             Instr::Store { .. } => None,
         }
     }
+
+    pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let value = loop {
+                break match self {
+                    Instr::ReturnValue { .. } | Instr::Load { .. } => None,
+                    Instr::Store { source, .. }
+                    | Instr::Copy { source, .. }
+                    | Instr::Not { source, .. }
+                    | Instr::Neg { source, .. }
+                    | Instr::RotateLeft { source, .. }
+                    | Instr::RotateRight { source, .. }
+                    | Instr::ShiftLeft { source, .. }
+                    | Instr::ShiftRight { source, .. } => match (next, source) {
+                        (0, Operand::Local(local)) => Some(local),
+                        _ => None,
+                    },
+                    Instr::Eq { left, right, .. }
+                    | Instr::Ne { left, right, .. }
+                    | Instr::Lt { left, right, .. }
+                    | Instr::Le { left, right, .. }
+                    | Instr::Ge { left, right, .. }
+                    | Instr::Gt { left, right, .. }
+                    | Instr::BitAnd { left, right, .. }
+                    | Instr::BitOr { left, right, .. }
+                    | Instr::BitXor { left, right, .. }
+                    | Instr::Add { left, right, .. }
+                    | Instr::Sub { left, right, .. } => match next {
+                        0 => match left {
+                            Operand::Local(local) => Some(local),
+                            _ => {
+                                next += 1;
+                                continue;
+                            }
+                        },
+                        1 => match right {
+                            Operand::Local(local) => Some(local),
+                            _ => None,
+                        },
+                        _ => None,
+                    },
+                    Instr::Phi { sources, .. } => sources.values().skip(next).next(),
+                };
+            }?;
+            next += 1;
+            Some(*value)
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -709,7 +759,7 @@ pub struct Variable(u32);
 #[derive(Default)]
 pub struct MirBuilder {
     mir: Mir,
-    unsealed_functions: SecondaryMap<FunctionId, ()>,
+    sealed_functions: SecondaryMap<FunctionId, FunctionBuilder>,
 }
 
 impl MirBuilder {
@@ -719,22 +769,29 @@ impl MirBuilder {
     }
 
     pub fn reserve_function(&mut self) -> FunctionId {
-        let function = self.mir.functions.insert(Function::default());
-        self.unsealed_functions.insert(function, ());
-        function
+        self.mir.functions.insert(Function::default())
     }
 
-    pub fn seal_function(&mut self, function_id: FunctionId, function: Function) {
-        self.unsealed_functions
-            .remove(function_id)
-            .expect("Function already sealed");
-        self.mir.functions[function_id] = function;
+    pub fn seal_function(&mut self, function_id: FunctionId, builder: FunctionBuilder) {
+        let existing = self.sealed_functions.insert(function_id, builder);
+        assert!(
+            existing.is_none(),
+            "Function {function_id:?} already sealed"
+        );
     }
 
     #[must_use]
     pub fn build(mut self) -> Mir {
-        for function in self.unsealed_functions.keys() {
-            self.mir.functions.remove(function);
+        let functions = self.mir.functions.keys().collect::<Vec<_>>();
+        for function in functions {
+            match self.sealed_functions.remove(function) {
+                None => {
+                    self.mir.functions.remove(function);
+                }
+                Some(builder) => {
+                    self.mir.functions[function] = builder.build();
+                }
+            };
         }
         self.mir
     }
@@ -770,18 +827,74 @@ impl FunctionBuilder {
 
     #[must_use]
     pub fn build(mut self) -> Function {
-        let blocks = self.function.blocks.keys().collect::<Vec<_>>();
-        for block in blocks {
-            if !self.sealed_blocks.contains_key(block) {
-                self.seal_block(block);
+        let mut unvisited_block_ids = self
+            .function
+            .blocks
+            .keys()
+            .map(|id| (id, ()))
+            .collect::<SecondaryMap<_, _>>();
+        let mut unvisited_local_ids = self
+            .function
+            .locals
+            .keys()
+            .map(|id| (id, ()))
+            .collect::<SecondaryMap<_, _>>();
+
+        for block_id in self.function.traverse_blocks() {
+            let block = &self.function.blocks[block_id];
+            if cfg!(debug_assertions) {
+                assert!(
+                    self.sealed_blocks.contains_key(block_id),
+                    "{block_id} must be sealed"
+                );
+                if block.previous.is_empty() {
+                    assert_eq!(self.function.start_block, block_id);
+                } else {
+                    for previous in block.previous_blocks() {
+                        assert!(
+                            self.function.blocks[previous]
+                                .next_blocks()
+                                .any(|next| next == block_id),
+                            "previous_blocks() must match next_blocks()"
+                        )
+                    }
+                }
             }
+            let mut instructions = block.instructions.iter().peekable();
+            while let Some(instruction) = instructions.next() {
+                if cfg!(debug_assertions) {
+                    for source in instruction.source_locals() {
+                        assert!(
+                            !unvisited_local_ids.contains_key(source),
+                            "source {source:?} must be assigned before use"
+                        );
+                    }
+                }
+                if let Some(local) = instruction.target_local() {
+                    let existing = unvisited_local_ids.remove(local);
+                    if self.function.return_local == Some(local) {
+                        assert!(
+                            instructions.peek().is_none(),
+                            "return local must be final instruction"
+                        );
+                        assert_matches!(
+                            block.terminator,
+                            Terminator::Return,
+                            "return local assignment but proceed with a return"
+                        );
+                    } else {
+                        assert!(existing.is_some(), "{local:?} must be assigned only once");
+                    }
+                }
+            }
+            unvisited_block_ids.remove(block_id);
         }
-        // remove all dangling blocks
-        for block in self.function.blocks.keys().collect::<Vec<_>>() {
-            if self.function.start_block != block && self.function.blocks[block].previous.is_empty()
-            {
-                self.function.blocks.remove(block);
-            }
+        // remove all dangling blocks and locals
+        for block in unvisited_block_ids.keys() {
+            self.function.blocks.remove(block);
+        }
+        for local in unvisited_local_ids.keys() {
+            self.function.locals.remove(local);
         }
         self.function
     }
