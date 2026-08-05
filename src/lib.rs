@@ -5,6 +5,7 @@
 #![warn(clippy::return_self_not_must_use)]
 pub mod analyze;
 pub mod ast;
+pub mod attr;
 pub mod feature;
 pub mod highlight;
 pub mod lex;

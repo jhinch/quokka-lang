@@ -77,3 +77,42 @@ fn main() {}
 expected_errors = [
     "Syntax error: found RightBracket when expecting [Ident] @ [2:3]",
 ]
+
+[[case]]
+name = "entrypoint_defined_on_fn"
+kind = "analyzer"
+source = """
+#[entrypoint]
+fn main() {}
+"""
+expected_mir = """
+@FunctionAttributes { entrypoint: true, no_startup_code: false }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "no_startup_code_on_fn"
+kind = "analyzer"
+source = """
+#[no_startup_code]
+fn main() {}
+"""
+expected_mir = """
+@FunctionAttributes { entrypoint: false, no_startup_code: true }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "unknown_attr_on_function"
+kind = "analyzer"
+source = """
+#[unknown_attr]
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [2:14]",
+]

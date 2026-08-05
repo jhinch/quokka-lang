@@ -1,4 +1,5 @@
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
+use crate::attr::FunctionAttributes;
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
@@ -29,6 +30,9 @@ impl Mir {
     pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
             for function in self.functions.values() {
+                if function.attrs != FunctionAttributes::default() {
+                    writeln!(f, "@{:?}", function.attrs)?;
+                }
                 writeln!(
                     f,
                     "{} -> {}:",
@@ -319,6 +323,7 @@ impl Mir {
 #[derive(Debug, Clone, Default)]
 pub struct Function {
     pub name: Identifier,
+    pub attrs: FunctionAttributes,
     pub return_ty: Ty,
     pub return_local: Option<LocalId>,
     pub blocks: SlotMap<BlockId, Block>,
@@ -832,6 +837,10 @@ impl FunctionBuilder {
             incomplete_phis: HashMap::new(),
             next_var: 0,
         }
+    }
+
+    pub fn set_attrs(&mut self, attrs: FunctionAttributes) {
+        self.function.attrs = attrs;
     }
 
     #[must_use]

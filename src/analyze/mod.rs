@@ -4,6 +4,7 @@ use crate::ast::{
     self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
     PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
 };
+use crate::attr::FunctionAttributes;
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
     GlobalPlaceProjection, Instr, LocalId, Mir, MirBuilder, Operand, Terminator, Variable,
@@ -33,8 +34,8 @@ impl Analyzer {
         for (const_decl, ty) in const_decls {
             self.analyze_const_decl(const_decl, ty, &mut scopes);
         }
-        for (fn_decl, ty, function_id) in fn_decls {
-            self.analyze_fn_decl(fn_decl, ty, function_id, &mut scopes);
+        for (fn_decl, ty, attrs, function_id) in fn_decls {
+            self.analyze_fn_decl(fn_decl, ty, attrs, function_id, &mut scopes);
         }
         self.result_builder.take().finish(()).into_result()?;
         Ok((self.mir_builder.build(), self.ty_registry))
@@ -153,7 +154,7 @@ impl Analyzer {
         root: &'ast ast::Root,
     ) -> (
         Scopes,
-        Vec<(&'ast ast::FnDecl, Ty, FunctionId)>,
+        Vec<(&'ast ast::FnDecl, Ty, FunctionAttributes, FunctionId)>,
         Vec<(&'ast ast::ConstDecl, Ty)>,
     ) {
         let mut scopes = Scopes::default();
@@ -167,9 +168,16 @@ impl Analyzer {
                         None => Ty::UNIT,
                         Some(return_ty) => self.resolve_ty_ref(return_ty),
                     };
+                    let attrs = match FunctionAttributes::try_from(item.attributes.as_slice()) {
+                        Ok(attrs) => attrs,
+                        Err(error) => {
+                            self.result_builder.add_error(error);
+                            FunctionAttributes::default()
+                        }
+                    };
                     let fn_ptr_ty = self.ty_registry.register_fn_ptr(return_ty);
                     let function_id = self.mir_builder.reserve_function();
-                    fn_decls.push((decl, fn_ptr_ty, function_id));
+                    fn_decls.push((decl, fn_ptr_ty, attrs, function_id));
                     (
                         &decl.signature.name,
                         InferredTy::Concrete(fn_ptr_ty),
@@ -255,11 +263,13 @@ impl Analyzer {
         &mut self,
         fn_decl: &ast::FnDecl,
         fn_ptr_ty: Ty,
+        attrs: FunctionAttributes,
         function_id: FunctionId,
         scopes: &mut Scopes,
     ) {
         let return_ty = self.ty_registry.fn_ptr_ty_data(fn_ptr_ty).return_ty;
         let mut mir = FunctionBuilder::new(fn_decl.signature.name.data.clone(), return_ty);
+        mir.set_attrs(attrs);
         let return_local = if return_ty != Ty::UNIT && return_ty != Ty::NEVER {
             Some(mir.create_return_local(return_ty))
         } else {
