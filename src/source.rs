@@ -53,7 +53,10 @@ pub mod span {
 
     #[must_use]
     pub fn span_between(start: SourceSpan, end: SourceSpan) -> SourceSpan {
-        SourceSpan::from(start.offset()..(end.offset() + end.len()))
+        SourceSpan::from(
+            start.offset().min(end.offset())
+                ..(start.offset() + start.len()).max(end.offset() + end.len()),
+        )
     }
 
     pub fn serialize<S: serde::Serializer>(
@@ -104,6 +107,24 @@ mod tests {
         assert_eq!(deserialized.data, original.data);
         assert_eq!(deserialized.span.offset(), original.span.offset());
         assert_eq!(deserialized.span.len(), original.span.len());
+    }
+
+    #[test]
+    fn span_between_spans_from_start_of_first_to_end_of_second() {
+        let start = SourceSpan::new(SourceOffset::from(3), 4);
+        let end = SourceSpan::new(SourceOffset::from(10), 5);
+        let result = span::span_between(start, end);
+        assert_eq!(result.offset(), 3);
+        assert_eq!(result.len(), 12);
+    }
+
+    #[test]
+    fn span_between_with_overlapping_spans() {
+        let start = SourceSpan::new(SourceOffset::from(0), 10);
+        let end = SourceSpan::new(SourceOffset::from(5), 3);
+        let result = span::span_between(start, end);
+        assert_eq!(result.offset(), 0);
+        assert_eq!(result.len(), 10);
     }
 
     #[test]

@@ -68,3 +68,69 @@ impl HighlighterState for QuokkaHighlighterState {
         parts
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn highlight(line: &str) -> Vec<owo_colors::Styled<&str>> {
+        QuokkaHighlighterState.highlight_line(line)
+    }
+
+    fn plain() -> owo_colors::Style {
+        owo_colors::Style::default()
+    }
+
+    #[test]
+    fn line_with_no_keywords_or_numbers_is_a_single_plain_part() {
+        let parts = highlight("x + y");
+        assert_eq!(parts.len(), 1);
+        assert_eq!(*parts[0].inner(), "x + y");
+        assert_eq!(parts[0].style, plain());
+    }
+
+    #[test]
+    fn keyword_is_split_out_and_styled_red() {
+        let parts = highlight("fn main");
+        // plain "" before, red "fn", plain " main" after
+        assert_eq!(parts.len(), 3);
+        assert_eq!(*parts[0].inner(), "");
+        assert_eq!(*parts[1].inner(), "fn");
+        assert_eq!(parts[1].style, plain().red());
+        assert_eq!(*parts[2].inner(), " main");
+        assert_eq!(parts[2].style, plain());
+    }
+
+    #[test]
+    fn number_is_split_out_and_styled_blue() {
+        let parts = highlight("let x = 42");
+        // plain "" before "let", red "let", plain " x = " before number, blue "42", plain "" after
+        assert_eq!(parts.len(), 5);
+        assert_eq!(*parts[1].inner(), "let");
+        assert_eq!(parts[1].style, plain().red());
+        assert_eq!(*parts[3].inner(), "42");
+        assert_eq!(parts[3].style, plain().blue());
+    }
+
+    #[test]
+    fn non_highlighted_token_kinds_are_left_unstyled() {
+        // `main` is an identifier, not a keyword, so it should not be split out.
+        let parts = highlight("main()");
+        assert_eq!(parts.len(), 1);
+        assert_eq!(*parts[0].inner(), "main()");
+        assert_eq!(parts[0].style, plain());
+    }
+
+    #[test]
+    fn lexer_error_stops_highlighting_but_keeps_source_intact() {
+        // An unterminated/invalid token should not cause a panic, and the raw
+        // remainder of the line must still be emitted verbatim.
+        let parts = highlight("fn `");
+        let rendered = parts
+            .iter()
+            .map(|part| *part.inner())
+            .collect::<Vec<_>>()
+            .concat();
+        assert_eq!(rendered, "fn `");
+    }
+}

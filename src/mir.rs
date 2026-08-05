@@ -211,7 +211,7 @@ impl Mir {
                             Instr::RotateRight { target: _, source } => {
                                 write!(
                                     f,
-                                    "rotateleft {}",
+                                    "rotateright {}",
                                     source.display(self, function, ty_registry)
                                 )
                             }
@@ -1176,5 +1176,788 @@ impl FunctionBuilder {
             }
         }
         self.sealed_blocks.insert(block, ());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::SpannedIdentifier;
+    use miette::{SourceOffset, SourceSpan};
+
+    fn dummy_span() -> SourceSpan {
+        SourceSpan::new(SourceOffset::from(0), 0)
+    }
+
+    fn ident(name: &str) -> SpannedIdentifier {
+        SpannedIdentifier::new(name, dummy_span())
+    }
+
+    fn new_block_ids(n: usize) -> (SlotMap<BlockId, Block>, Vec<BlockId>) {
+        let mut blocks = SlotMap::with_key();
+        let ids = (0..n).map(|_| blocks.insert(Block::default())).collect();
+        (blocks, ids)
+    }
+
+    fn new_local_ids(n: usize) -> (SlotMap<LocalId, Local>, Vec<LocalId>) {
+        let mut locals = SlotMap::with_key();
+        let ids = (0..n)
+            .map(|_| {
+                locals.insert(Local {
+                    ty: Ty::U8,
+                    is_return: false,
+                    defined: None,
+                    name: None,
+                })
+            })
+            .collect();
+        (locals, ids)
+    }
+
+    fn make_function(blocks: SlotMap<BlockId, Block>, start: BlockId) -> Function {
+        Function {
+            name: Identifier::from("f"),
+            attrs: FunctionAttributes::default(),
+            return_ty: Ty::UNIT,
+            return_local: None,
+            blocks,
+            locals: SlotMap::with_key(),
+            start_block: start,
+            end_blocks: vec![],
+        }
+    }
+
+    fn new_builder() -> FunctionBuilder {
+        FunctionBuilder::new(Identifier::from("f"), Ty::UNIT)
+    }
+
+    fn trivially_built_function() -> Function {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        fb.build()
+    }
+
+    // --- Block::next_blocks / previous_blocks ---
+
+    #[test]
+    fn next_blocks_return_is_empty() {
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::Return,
+            previous: vec![],
+        };
+        assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![]);
+    }
+
+    #[test]
+    fn next_blocks_jump_yields_target() {
+        let (_blocks, ids) = new_block_ids(1);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::Jump {
+                target_block: ids[0],
+            },
+            previous: vec![],
+        };
+        assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
+    }
+
+    #[test]
+    fn next_blocks_call_yields_return_block() {
+        let (_blocks, ids) = new_block_ids(2);
+        let (_locals, local_ids) = new_local_ids(1);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::Call {
+                callee: Callee::Local(local_ids[0]),
+                return_block: ids[0],
+            },
+            previous: vec![],
+        };
+        assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
+        let _ = ids[1];
+    }
+
+    #[test]
+    fn next_blocks_return_if_yields_only_else_block() {
+        let (_blocks, ids) = new_block_ids(1);
+        let (_locals, local_ids) = new_local_ids(1);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::ReturnIf {
+                source: local_ids[0],
+                condition: Condition::Zero,
+                else_block: ids[0],
+            },
+            previous: vec![],
+        };
+        assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
+    }
+
+    #[test]
+    fn next_blocks_jump_if_yields_then_and_else() {
+        let (_blocks, ids) = new_block_ids(2);
+        let (_locals, local_ids) = new_local_ids(1);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::JumpIf {
+                source: local_ids[0],
+                condition: Condition::NotZero,
+                then_block: ids[0],
+                else_block: ids[1],
+            },
+            previous: vec![],
+        };
+        assert_eq!(
+            block.next_blocks().collect::<Vec<_>>(),
+            vec![ids[0], ids[1]]
+        );
+    }
+
+    #[test]
+    fn next_blocks_call_if_yields_return_and_else() {
+        let (_blocks, ids) = new_block_ids(2);
+        let (_locals, local_ids) = new_local_ids(2);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::CallIf {
+                source: local_ids[0],
+                condition: Condition::NotZero,
+                callee: Callee::Local(local_ids[1]),
+                return_block: ids[0],
+                else_block: ids[1],
+            },
+            previous: vec![],
+        };
+        assert_eq!(
+            block.next_blocks().collect::<Vec<_>>(),
+            vec![ids[0], ids[1]]
+        );
+    }
+
+    #[test]
+    fn previous_blocks_returns_recorded_predecessors() {
+        let (_blocks, ids) = new_block_ids(2);
+        let block = Block {
+            instructions: vec![],
+            terminator: Terminator::Return,
+            previous: vec![ids[0], ids[1]],
+        };
+        assert_eq!(
+            block.previous_blocks().collect::<Vec<_>>(),
+            vec![ids[0], ids[1]]
+        );
+    }
+
+    // --- Function::traverse_blocks ---
+
+    #[test]
+    fn traverse_blocks_visits_diamond_in_bfs_order_without_duplicates() {
+        let (mut blocks, ids) = new_block_ids(4);
+        let (_locals, local_ids) = new_local_ids(1);
+        blocks[ids[0]].terminator = Terminator::JumpIf {
+            source: local_ids[0],
+            condition: Condition::NotZero,
+            then_block: ids[1],
+            else_block: ids[2],
+        };
+        blocks[ids[1]].terminator = Terminator::Jump {
+            target_block: ids[3],
+        };
+        blocks[ids[2]].terminator = Terminator::Jump {
+            target_block: ids[3],
+        };
+        blocks[ids[3]].terminator = Terminator::Return;
+
+        let function = make_function(blocks, ids[0]);
+        let order = function.traverse_blocks().collect::<Vec<_>>();
+        assert_eq!(order, vec![ids[0], ids[1], ids[2], ids[3]]);
+    }
+
+    #[test]
+    fn traverse_blocks_terminates_and_deduplicates_on_a_cycle() {
+        let (mut blocks, ids) = new_block_ids(3);
+        let (_locals, local_ids) = new_local_ids(1);
+        blocks[ids[0]].terminator = Terminator::JumpIf {
+            source: local_ids[0],
+            condition: Condition::NotZero,
+            then_block: ids[1],
+            else_block: ids[2],
+        };
+        blocks[ids[1]].terminator = Terminator::Jump {
+            target_block: ids[0],
+        };
+        blocks[ids[2]].terminator = Terminator::Return;
+
+        let function = make_function(blocks, ids[0]);
+        let order = function.traverse_blocks().collect::<Vec<_>>();
+        assert_eq!(order, vec![ids[0], ids[1], ids[2]]);
+    }
+
+    // --- Instr::target_local / source_locals ---
+
+    #[test]
+    fn target_local_variants() {
+        let (_locals, ids) = new_local_ids(2);
+        let mut globals: SlotMap<GlobalId, Global> = SlotMap::with_key();
+        let global = globals.insert(Global {
+            ty: Ty::U8,
+            name: ident("g"),
+        });
+
+        assert_eq!(
+            Instr::Undefined { target: ids[0] }.target_local(),
+            Some(ids[0])
+        );
+        assert_eq!(
+            Instr::ReturnValue { target: ids[0] }.target_local(),
+            Some(ids[0])
+        );
+        assert_eq!(
+            Instr::Copy {
+                target: ids[0],
+                source: Operand::Local(ids[1])
+            }
+            .target_local(),
+            Some(ids[0])
+        );
+        assert_eq!(
+            Instr::Store {
+                target: GlobalPlace {
+                    global,
+                    projections: vec![]
+                },
+                source: Operand::Local(ids[1])
+            }
+            .target_local(),
+            None
+        );
+    }
+
+    #[test]
+    fn source_locals_for_binary_instr_lists_both_locals() {
+        let (_locals, ids) = new_local_ids(3);
+        let instr = Instr::Add {
+            target: ids[0],
+            left: Operand::Local(ids[1]),
+            right: Operand::Local(ids[2]),
+        };
+        assert_eq!(
+            instr.source_locals().collect::<Vec<_>>(),
+            vec![ids[1], ids[2]]
+        );
+    }
+
+    #[test]
+    fn source_locals_skips_non_local_operands() {
+        let (_locals, ids) = new_local_ids(2);
+        let instr = Instr::Add {
+            target: ids[0],
+            left: Operand::Literal(IntegerLiteral { value: 5 }),
+            right: Operand::Local(ids[1]),
+        };
+        assert_eq!(instr.source_locals().collect::<Vec<_>>(), vec![ids[1]]);
+    }
+
+    #[test]
+    fn source_locals_for_load_and_undefined_are_empty() {
+        let (_locals, ids) = new_local_ids(1);
+        let mut globals: SlotMap<GlobalId, Global> = SlotMap::with_key();
+        let global = globals.insert(Global {
+            ty: Ty::U8,
+            name: ident("g"),
+        });
+        let load = Instr::Load {
+            target: ids[0],
+            source: GlobalPlace {
+                global,
+                projections: vec![],
+            },
+        };
+        assert_eq!(load.source_locals().collect::<Vec<_>>(), vec![]);
+        assert_eq!(
+            Instr::Undefined { target: ids[0] }
+                .source_locals()
+                .collect::<Vec<_>>(),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn source_locals_for_phi_lists_all_source_locals() {
+        let (_locals, ids) = new_local_ids(3);
+        let (_blocks, block_ids) = new_block_ids(2);
+        let mut sources = SparseSecondaryMap::new();
+        sources.insert(block_ids[0], ids[1]);
+        sources.insert(block_ids[1], ids[2]);
+        let instr = Instr::Phi {
+            target: ids[0],
+            sources,
+        };
+        let result = instr.source_locals().collect::<Vec<_>>();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&ids[1]));
+        assert!(result.contains(&ids[2]));
+    }
+
+    // --- FunctionBuilder basics ---
+
+    #[test]
+    fn new_block_first_call_sets_start_block() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let _b1 = fb.new_block();
+        assert_eq!(fb.function.start_block, b0);
+    }
+
+    #[test]
+    fn create_return_local_is_idempotent() {
+        let mut fb = new_builder();
+        let a = fb.create_return_local(Ty::U8);
+        let b = fb.create_return_local(Ty::U8);
+        assert_eq!(a, b);
+        assert_eq!(fb.function.locals.len(), 1);
+        assert!(fb.function.locals[a].is_return);
+    }
+
+    #[test]
+    fn push_instr_records_local_definition_site() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let local = fb.new_local(Ty::U8);
+        let index = fb.push_instr(
+            block,
+            Instr::Copy {
+                target: local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        assert_eq!(index, 0);
+        assert_eq!(fb.function.locals[local].defined, Some((block, 0)));
+    }
+
+    #[test]
+    fn push_instr_does_not_record_definition_for_return_local() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let ret_local = fb.create_return_local(Ty::U8);
+        fb.push_instr(block, Instr::ReturnValue { target: ret_local });
+        assert_eq!(fb.function.locals[ret_local].defined, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "defined multiple times")]
+    fn push_instr_panics_when_local_assigned_twice() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let local = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: local,
+                source: Operand::Literal(IntegerLiteral { value: 2 }),
+            },
+        );
+    }
+
+    #[test]
+    fn set_terminator_jump_records_predecessor() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let b1 = fb.new_block();
+        fb.set_terminator(b0, Terminator::Jump { target_block: b1 });
+        assert_eq!(
+            fb.function.blocks[b1].previous_blocks().collect::<Vec<_>>(),
+            vec![b0]
+        );
+        assert!(fb.function.end_blocks.is_empty());
+    }
+
+    #[test]
+    fn set_terminator_return_adds_to_end_blocks() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        fb.set_terminator(b0, Terminator::Return);
+        assert_eq!(fb.function.end_blocks, vec![b0]);
+    }
+
+    #[test]
+    fn set_terminator_jump_if_records_both_predecessors() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let cond_local = fb.new_local(Ty::U1);
+        fb.set_terminator(
+            b0,
+            Terminator::JumpIf {
+                source: cond_local,
+                condition: Condition::NotZero,
+                then_block: b1,
+                else_block: b2,
+            },
+        );
+        assert_eq!(
+            fb.function.blocks[b1].previous_blocks().collect::<Vec<_>>(),
+            vec![b0]
+        );
+        assert_eq!(
+            fb.function.blocks[b2].previous_blocks().collect::<Vec<_>>(),
+            vec![b0]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "already terminated")]
+    fn set_terminator_twice_panics() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        fb.set_terminator(b0, Terminator::Return);
+        fb.set_terminator(b0, Terminator::Return);
+    }
+
+    // --- SSA variable renaming (write_variable / read_variable) ---
+
+    #[test]
+    fn write_then_read_in_same_block_returns_written_local() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let var = fb.new_variable();
+        let local = fb.new_local(Ty::U8);
+        fb.write_variable(var, block, local);
+        assert_eq!(fb.read_variable(var, block), local);
+    }
+
+    #[test]
+    fn read_variable_propagates_through_single_sealed_predecessor_without_phi() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let b1 = fb.new_block();
+        let var = fb.new_variable();
+        let local = fb.new_local(Ty::U8);
+        fb.write_variable(var, b0, local);
+        fb.set_terminator(b0, Terminator::Jump { target_block: b1 });
+        fb.seal_block(b0);
+        fb.seal_block(b1);
+
+        assert_eq!(fb.read_variable(var, b1), local);
+        assert!(fb.function.blocks[b1].instructions.is_empty());
+    }
+
+    #[test]
+    fn read_variable_at_diamond_merge_creates_non_trivial_phi() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+
+        let var = fb.new_variable();
+        let cond_local = fb.new_local(Ty::U1);
+        fb.set_terminator(
+            b0,
+            Terminator::JumpIf {
+                source: cond_local,
+                condition: Condition::NotZero,
+                then_block: b1,
+                else_block: b2,
+            },
+        );
+        fb.seal_block(b0);
+
+        let local1 = fb.new_local(Ty::U8);
+        fb.write_variable(var, b1, local1);
+        fb.set_terminator(b1, Terminator::Jump { target_block: b3 });
+        fb.seal_block(b1);
+
+        let local2 = fb.new_local(Ty::U8);
+        fb.write_variable(var, b2, local2);
+        fb.set_terminator(b2, Terminator::Jump { target_block: b3 });
+        fb.seal_block(b2);
+
+        fb.seal_block(b3);
+
+        let merged = fb.read_variable(var, b3);
+        assert_ne!(merged, local1);
+        assert_ne!(merged, local2);
+        match &fb.function.blocks[b3].instructions[0] {
+            Instr::Phi { target, sources } => {
+                assert_eq!(*target, merged);
+                let values = sources.values().copied().collect::<Vec<_>>();
+                assert_eq!(values.len(), 2);
+                assert!(values.contains(&local1));
+                assert!(values.contains(&local2));
+            }
+            other => panic!("expected a Phi instruction, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn loop_carried_variable_unchanged_in_body_collapses_to_trivial_phi() {
+        // b0 (writes local0) -> b1 (loop header, reads var before sealed) -> b2 (loop body, back edge to b1)
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let var = fb.new_variable();
+        let local0 = fb.new_local(Ty::U8);
+        fb.write_variable(var, b0, local0);
+
+        let b1 = fb.new_block();
+        fb.set_terminator(b0, Terminator::Jump { target_block: b1 });
+        fb.seal_block(b0);
+
+        // b1 is not sealed yet: this must create a placeholder Phi.
+        let read_before_seal = fb.read_variable(var, b1);
+        assert_eq!(fb.function.blocks[b1].instructions.len(), 1);
+        assert!(matches!(
+            fb.function.blocks[b1].instructions[0],
+            Instr::Phi { .. }
+        ));
+
+        let b2 = fb.new_block();
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.set_terminator(b2, Terminator::Jump { target_block: b1 });
+        fb.seal_block(b2);
+        // Sealing b1 now resolves the placeholder using its two predecessors (b0, b2). Since
+        // the loop body never rewrote `var`, both predecessors resolve to local0, making the
+        // phi trivial and collapsing it into a Copy.
+        fb.seal_block(b1);
+
+        assert_eq!(fb.read_variable(var, b1), local0);
+        assert_ne!(read_before_seal, local0);
+        match &fb.function.blocks[b1].instructions[0] {
+            Instr::Copy { target, source } => {
+                assert_eq!(*target, read_before_seal);
+                assert!(matches!(source, Operand::Local(l) if *l == local0));
+            }
+            other => panic!("expected trivial phi to collapse into a Copy, got {other:?}"),
+        }
+    }
+
+    // --- FunctionBuilder::build() ---
+
+    #[test]
+    fn build_removes_unreachable_blocks_and_unused_locals() {
+        let mut fb = new_builder();
+        let b0 = fb.new_block();
+        let dangling_block = fb.new_block();
+        let dangling_local = fb.new_local(Ty::U8);
+
+        fb.set_terminator(b0, Terminator::Return);
+        fb.seal_block(b0);
+
+        let function = fb.build();
+        assert!(!function.blocks.contains_key(dangling_block));
+        assert!(!function.locals.contains_key(dangling_local));
+    }
+
+    #[test]
+    #[should_panic(expected = "must be sealed")]
+    fn build_panics_when_reachable_block_not_sealed() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        fb.set_terminator(block, Terminator::Return);
+        let _ = fb.build();
+    }
+
+    #[test]
+    #[should_panic(expected = "undefined instruction found")]
+    fn build_panics_on_leftover_undefined_instruction() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let local = fb.new_local(Ty::U8);
+        fb.push_instr(block, Instr::Undefined { target: local });
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let _ = fb.build();
+    }
+
+    // --- MirBuilder ---
+
+    #[test]
+    fn mir_builder_insert_global_creates_global() {
+        let mut builder = MirBuilder::default();
+        let name = ident("g");
+        let id = builder.insert_global(name.clone(), Ty::U8);
+        let mir = builder.build();
+        assert_eq!(mir.globals[id].ty, Ty::U8);
+        assert_eq!(mir.globals[id].name.data, name.data);
+    }
+
+    #[test]
+    fn mir_builder_build_removes_unsealed_functions() {
+        let mut builder = MirBuilder::default();
+        let fn_id = builder.reserve_function();
+        let mir = builder.build();
+        assert!(!mir.functions.contains_key(fn_id));
+    }
+
+    #[test]
+    fn mir_builder_build_keeps_sealed_functions() {
+        let mut builder = MirBuilder::default();
+        let fn_id = builder.reserve_function();
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        builder.seal_function(fn_id, fb);
+
+        let mir = builder.build();
+        assert_eq!(mir.functions[fn_id].name, Identifier::from("f"));
+    }
+
+    #[test]
+    #[should_panic(expected = "already sealed")]
+    fn mir_builder_seal_function_twice_panics() {
+        let mut builder = MirBuilder::default();
+        let fn_id = builder.reserve_function();
+        builder.seal_function(fn_id, trivial_builder());
+        builder.seal_function(fn_id, trivial_builder());
+    }
+
+    fn trivial_builder() -> FunctionBuilder {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        fb
+    }
+
+    // --- Display impls ---
+
+    #[test]
+    fn condition_display() {
+        assert_eq!(format!("{}", Condition::Zero), "== 0");
+        assert_eq!(format!("{}", Condition::NotZero), "!= 0");
+    }
+
+    #[test]
+    fn block_id_display_has_bb_prefix() {
+        let (_blocks, ids) = new_block_ids(1);
+        assert!(format!("{}", ids[0]).starts_with(".bb"));
+    }
+
+    #[test]
+    fn local_display_shows_name_and_index() {
+        let mut locals: SlotMap<LocalId, Local> = SlotMap::with_key();
+        let id = locals.insert(Local {
+            ty: Ty::U8,
+            is_return: false,
+            defined: None,
+            name: Some(ident("x")),
+        });
+        let registry = TyRegistry::default();
+        let text = format!("{}", locals[id].display(id, &registry));
+        assert!(text.starts_with("x#"));
+        assert!(!text.contains("RET"));
+    }
+
+    #[test]
+    fn local_display_return_local_uses_ret_suffix() {
+        let mut locals: SlotMap<LocalId, Local> = SlotMap::with_key();
+        let id = locals.insert(Local {
+            ty: Ty::U8,
+            is_return: true,
+            defined: None,
+            name: None,
+        });
+        let registry = TyRegistry::default();
+        assert_eq!(format!("{}", locals[id].display(id, &registry)), "#RET");
+    }
+
+    #[test]
+    fn local_display_alternate_form_includes_ty() {
+        let mut locals: SlotMap<LocalId, Local> = SlotMap::with_key();
+        let id = locals.insert(Local {
+            ty: Ty::U8,
+            is_return: true,
+            defined: None,
+            name: None,
+        });
+        let registry = TyRegistry::default();
+        assert_eq!(
+            format!("{:#}", locals[id].display(id, &registry)),
+            "#RET: u8"
+        );
+    }
+
+    #[test]
+    fn operand_display_local_and_literal() {
+        let mir = Mir::default();
+        let registry = TyRegistry::default();
+
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let local = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let function = fb.build();
+
+        let literal = Operand::Literal(IntegerLiteral { value: 42 });
+        assert_eq!(
+            format!("{}", literal.display(&mir, &function, &registry)),
+            "42"
+        );
+
+        let local_operand = Operand::Local(local);
+        assert!(format!("{}", local_operand.display(&mir, &function, &registry)).starts_with('#'));
+    }
+
+    #[test]
+    fn callee_display_fn_ptr_shows_function_name() {
+        let mut builder = MirBuilder::default();
+        let callee_id = builder.reserve_function();
+        builder.seal_function(callee_id, {
+            let mut fb = FunctionBuilder::new(Identifier::from("callee"), Ty::UNIT);
+            let block = fb.new_block();
+            fb.set_terminator(block, Terminator::Return);
+            fb.seal_block(block);
+            fb
+        });
+        let mir = builder.build();
+        let registry = TyRegistry::default();
+        let caller = trivially_built_function();
+
+        let callee = Callee::FnPtr(callee_id);
+        assert_eq!(
+            format!("{}", callee.display(&mir, &caller, &registry)),
+            "callee"
+        );
+    }
+
+    #[test]
+    fn global_place_display_includes_field_and_index_projections() {
+        let mut mir_builder = MirBuilder::default();
+        let global = mir_builder.insert_global(ident("g"), Ty::U8);
+        let mir = mir_builder.build();
+        let function = trivially_built_function();
+        let registry = TyRegistry::default();
+
+        let place = GlobalPlace {
+            global,
+            projections: vec![
+                GlobalPlaceProjection::Field(Identifier::from("field")),
+                GlobalPlaceProjection::Index(Operand::Literal(IntegerLiteral { value: 3 })),
+            ],
+        };
+        assert_eq!(
+            format!("{}", place.display(&mir, &function, &registry)),
+            "g.field[3]"
+        );
     }
 }

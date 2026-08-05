@@ -34,6 +34,7 @@ pub struct Inferrer {
     next_ty_var: u32,
 }
 
+#[derive(Debug)]
 pub struct UnificationError {
     pub ty1: InferredTy,
     pub ty2: InferredTy,
@@ -146,5 +147,179 @@ impl Inferrer {
             InferredTy::Variable(v) => *v == var,
             InferredTy::Concrete(_) => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fresh_returns_distinct_ty_vars() {
+        let mut inferrer = Inferrer::default();
+        let a = inferrer.fresh();
+        let b = inferrer.fresh();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn to_concrete_and_to_variable() {
+        let concrete = InferredTy::Concrete(Ty::U8);
+        assert_eq!(concrete.to_concrete(), Some(Ty::U8));
+        assert_eq!(concrete.to_variable(), None);
+
+        let mut inferrer = Inferrer::default();
+        let var = InferredTy::Variable(inferrer.fresh());
+        assert_eq!(var.to_concrete(), None);
+        assert!(var.to_variable().is_some());
+    }
+
+    #[test]
+    fn unify_equal_concrete_tys_succeeds() {
+        let mut inferrer = Inferrer::default();
+        let result = inferrer.unify(InferredTy::Concrete(Ty::U8), InferredTy::Concrete(Ty::U8));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn unify_different_concrete_tys_fails() {
+        let mut inferrer = Inferrer::default();
+        let result = inferrer.unify(InferredTy::Concrete(Ty::U8), InferredTy::Concrete(Ty::U16));
+        let err = result.unwrap_err();
+        assert_eq!(err.ty1, InferredTy::Concrete(Ty::U8));
+        assert_eq!(err.ty2, InferredTy::Concrete(Ty::U16));
+    }
+
+    #[test]
+    fn unify_error_ty_is_a_wildcard() {
+        let mut inferrer = Inferrer::default();
+        assert!(
+            inferrer
+                .unify(
+                    InferredTy::Concrete(Ty::ERROR),
+                    InferredTy::Concrete(Ty::U16)
+                )
+                .is_ok()
+        );
+        assert!(
+            inferrer
+                .unify(
+                    InferredTy::Concrete(Ty::U16),
+                    InferredTy::Concrete(Ty::ERROR)
+                )
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn unify_never_ty_is_not_a_wildcard() {
+        // NEVER is intentionally not special-cased like ERROR: it must match exactly.
+        let mut inferrer = Inferrer::default();
+        let result = inferrer.unify(
+            InferredTy::Concrete(Ty::NEVER),
+            InferredTy::Concrete(Ty::U16),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unify_same_variable_with_itself_succeeds_without_binding() {
+        let mut inferrer = Inferrer::default();
+        let var = inferrer.fresh();
+        let result = inferrer.unify(InferredTy::Variable(var), InferredTy::Variable(var));
+        assert!(result.is_ok());
+        assert_eq!(inferrer.resolve(var), None);
+    }
+
+    #[test]
+    fn unify_variable_with_concrete_binds_variable() {
+        let mut inferrer = Inferrer::default();
+        let var = inferrer.fresh();
+        inferrer
+            .unify(InferredTy::Variable(var), InferredTy::Concrete(Ty::U8))
+            .unwrap();
+        assert_eq!(inferrer.resolve(var), Some(Ty::U8));
+    }
+
+    #[test]
+    fn unify_concrete_with_variable_binds_variable() {
+        let mut inferrer = Inferrer::default();
+        let var = inferrer.fresh();
+        inferrer
+            .unify(InferredTy::Concrete(Ty::U8), InferredTy::Variable(var))
+            .unwrap();
+        assert_eq!(inferrer.resolve(var), Some(Ty::U8));
+    }
+
+    #[test]
+    fn unify_two_variables_links_them_transitively() {
+        let mut inferrer = Inferrer::default();
+        let a = inferrer.fresh();
+        let b = inferrer.fresh();
+        inferrer
+            .unify(InferredTy::Variable(a), InferredTy::Variable(b))
+            .unwrap();
+        inferrer
+            .unify(InferredTy::Variable(b), InferredTy::Concrete(Ty::U16))
+            .unwrap();
+        assert_eq!(inferrer.resolve(a), Some(Ty::U16));
+        assert_eq!(inferrer.resolve(b), Some(Ty::U16));
+    }
+
+    #[test]
+    fn resolve_unbound_variable_returns_none() {
+        let mut inferrer = Inferrer::default();
+        let var = inferrer.fresh();
+        assert_eq!(inferrer.resolve(var), None);
+    }
+
+    #[test]
+    fn bind_prunes_the_bound_value_first() {
+        let mut inferrer = Inferrer::default();
+        let a = inferrer.fresh();
+        let b = inferrer.fresh();
+        inferrer.bind(a, InferredTy::Concrete(Ty::U8));
+        inferrer.bind(b, InferredTy::Variable(a));
+        assert_eq!(inferrer.resolve(b), Some(Ty::U8));
+    }
+
+    #[test]
+    fn prune_resolves_chained_variables_to_concrete_ty() {
+        let mut inferrer = Inferrer::default();
+        let a = inferrer.fresh();
+        let b = inferrer.fresh();
+        let c = inferrer.fresh();
+        inferrer.bind(a, InferredTy::Variable(b));
+        inferrer.bind(b, InferredTy::Variable(c));
+        inferrer.bind(c, InferredTy::Concrete(Ty::U4));
+
+        let mut ty = InferredTy::Variable(a);
+        inferrer.prune(&mut ty);
+        assert_eq!(ty, InferredTy::Concrete(Ty::U4));
+    }
+
+    #[test]
+    fn prune_on_concrete_ty_is_a_no_op() {
+        let mut inferrer = Inferrer::default();
+        let mut ty = InferredTy::Concrete(Ty::U8);
+        inferrer.prune(&mut ty);
+        assert_eq!(ty, InferredTy::Concrete(Ty::U8));
+    }
+
+    #[test]
+    fn prune_on_unbound_variable_leaves_it_as_a_variable() {
+        let mut inferrer = Inferrer::default();
+        let var = inferrer.fresh();
+        let mut ty = InferredTy::Variable(var);
+        inferrer.prune(&mut ty);
+        assert_eq!(ty, InferredTy::Variable(var));
+    }
+
+    #[test]
+    #[should_panic(expected = "does not syntactically support cyclic type definitions")]
+    fn bind_panics_on_self_reference() {
+        let mut inferrer = Inferrer::default();
+        let a = inferrer.fresh();
+        inferrer.bind(a, InferredTy::Variable(a));
     }
 }

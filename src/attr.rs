@@ -1,4 +1,5 @@
 use crate::ast;
+use crate::source::span::span_between;
 use miette::SourceSpan;
 use serde::de::value::{StrDeserializer, U32Deserializer, UnitDeserializer};
 use std::fmt;
@@ -129,12 +130,7 @@ impl<'de> serde::Deserializer<'de> for Deserializer<'de> {
         let attributes = self.attributes;
         visitor.visit_map(self).map_err(|error| match error {
             Error::Malformed(mut error) => {
-                error.span = attributes.iter().map(|attr| attr.span).reduce(|a, b| {
-                    SourceSpan::from(
-                        a.offset().min(b.offset())
-                            ..(a.offset() + a.len()).max(b.offset() + b.len()),
-                    )
-                });
+                error.span = attributes.iter().map(|attr| attr.span).reduce(span_between);
                 Error::from(error)
             }
             Error::Duplicate(mut error) => {
@@ -442,5 +438,111 @@ mod tests {
         let actual =
             FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
         assert_eq!(actual.no_startup_code, true);
+    }
+
+    #[test]
+    fn inline_absent_defaults_to_auto() {
+        let actual = FunctionAttributes::deserialize(Deserializer::new(&[])).unwrap();
+        assert_eq!(actual.inline, InlineKind::Auto);
+    }
+
+    #[test]
+    fn inline_with_ident_value() {
+        let attributes = vec![ast::AttributeDecl {
+            name: SpannedIdentifier::new("inline", SourceSpan::from(2..8)),
+            span: SourceSpan::from(0..20),
+            value: Some(ast::AttributeValue {
+                span: SourceSpan::from(11..16),
+                data: ast::AttributeValueData::Ident(ast::Identifier::from("never")),
+            }),
+        }];
+        let actual =
+            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
+        assert_eq!(actual.inline, InlineKind::Never);
+    }
+
+    #[test]
+    fn inline_with_unknown_variant_is_malformed() {
+        let attributes = vec![ast::AttributeDecl {
+            name: SpannedIdentifier::new("inline", SourceSpan::from(2..8)),
+            span: SourceSpan::from(0..25),
+            value: Some(ast::AttributeValue {
+                span: SourceSpan::from(11..24),
+                data: ast::AttributeValueData::Ident(ast::Identifier::from("not_a_variant")),
+            }),
+        }];
+        let err =
+            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+        match err {
+            Error::MalformedValue(inner) => assert!(inner.msg.contains("not_a_variant")),
+            other => panic!("expected Error::MalformedValue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_attribute_reports_name_and_span() {
+        let attributes = vec![ast::AttributeDecl {
+            name: SpannedIdentifier::new("bogus", SourceSpan::from(2..7)),
+            span: SourceSpan::from(0..8),
+            value: None,
+        }];
+        let err =
+            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+        match err {
+            Error::Unknown(inner) => {
+                assert_eq!(inner.name, "bogus");
+                assert_eq!(inner.span.offset(), 2);
+                assert_eq!(inner.span.len(), 5);
+            }
+            other => panic!("expected Error::Unknown, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn duplicate_attribute_reports_both_spans() {
+        let attributes = vec![
+            ast::AttributeDecl {
+                name: SpannedIdentifier::new("entrypoint", SourceSpan::from(2..12)),
+                span: SourceSpan::from(0..13),
+                value: None,
+            },
+            ast::AttributeDecl {
+                name: SpannedIdentifier::new("entrypoint", SourceSpan::from(20..30)),
+                span: SourceSpan::from(18..31),
+                value: None,
+            },
+        ];
+        let err =
+            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+        match err {
+            Error::Duplicate(inner) => {
+                assert_eq!(inner.name, "entrypoint");
+                assert_eq!(inner.defined.map(|s| s.offset()), Some(0));
+                assert_eq!(inner.redefined.map(|s| s.offset()), Some(18));
+            }
+            other => panic!("expected Error::Duplicate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_from_attribute_decls_delegates_to_deserializer() {
+        let attributes = vec![ast::AttributeDecl {
+            name: SpannedIdentifier::new("entrypoint", SourceSpan::from(2..12)),
+            span: SourceSpan::from(0..13),
+            value: None,
+        }];
+        let actual = FunctionAttributes::try_from(attributes.as_slice()).unwrap();
+        assert!(actual.entrypoint);
+    }
+
+    #[test]
+    fn try_from_attribute_decls_propagates_error() {
+        let attributes = vec![ast::AttributeDecl {
+            name: SpannedIdentifier::new("bogus", SourceSpan::from(2..7)),
+            span: SourceSpan::from(0..8),
+            value: None,
+        }];
+        let result = FunctionAttributes::try_from(attributes.as_slice());
+        assert!(matches!(result, Err(Error::Unknown(_))));
     }
 }
