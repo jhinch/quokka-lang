@@ -6,6 +6,37 @@ pub struct ObjFile {
     pub sections: Vec<Section>,
 }
 
+impl Default for ObjFile {
+    fn default() -> Self {
+        ObjFile {
+            revision: 13,
+            source_nodes: Vec::new(),
+            symbols: Vec::new(),
+            sections: Vec::new(),
+        }
+    }
+}
+
+impl ObjFile {
+    pub fn insert_source_node(&mut self, node: SourceNode) -> SourceNodeId {
+        let id = SourceNodeId(self.source_nodes.len() as u32);
+        self.source_nodes.push(node);
+        id
+    }
+
+    pub fn insert_symbol(&mut self, symbol: Symbol) -> SymbolId {
+        let id = SymbolId(self.symbols.len() as u32);
+        self.symbols.push(symbol);
+        id
+    }
+
+    pub fn insert_section(&mut self, section: Section) -> SectionId {
+        let id = SectionId(self.sections.len() as u32);
+        self.sections.push(section);
+        id
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SourceNodeId(pub(crate) u32);
 
