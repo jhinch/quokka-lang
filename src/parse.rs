@@ -200,20 +200,56 @@ impl Parser<'_> {
     fn parse_attributes(&mut self) -> Result<Vec<AttributeDecl>, Error> {
         let mut attributes = Vec::new();
         while self.peek_token()?.kind() == TokenKind::Hash {
-            self.expect(TokenKind::Hash)?;
-            self.expect(TokenKind::LeftBracket)?;
-            let name = self.parse_identifier()?;
-            if name.data.value == "preview_flag_example" {
-                self.features.check_enabled(
-                    PreviewFeature::ExamplePreview,
-                    name.span,
-                    &mut self.result_builder,
-                );
-            }
-            attributes.push(AttributeDecl { name });
-            self.expect(TokenKind::RightBracket)?;
+            attributes.push(self.parse_attribute()?);
         }
         Ok(attributes)
+    }
+
+    fn parse_attribute(&mut self) -> Result<AttributeDecl, Error> {
+        let start_span = self.expect(TokenKind::Hash)?.span();
+        self.expect(TokenKind::LeftBracket)?;
+        let name = self.parse_identifier()?;
+        if name.data.value == "preview_flag_example" {
+            self.features.check_enabled(
+                PreviewFeature::ExamplePreview,
+                name.span,
+                &mut self.result_builder,
+            );
+        }
+        let value = if self.peek_token()?.kind() == TokenKind::Equal {
+            self.chomp()?;
+            Some(self.parse_attribute_value()?)
+        } else {
+            None
+        };
+        let end_span = self.expect(TokenKind::RightBracket)?.span();
+        Ok(AttributeDecl {
+            name,
+            span: span_between(start_span, end_span),
+            value,
+        })
+    }
+
+    fn parse_attribute_value(&mut self) -> Result<AttributeValue, Error> {
+        let token = self.peek_token()?;
+        Ok(match token.kind() {
+            TokenKind::Ident => AttributeValue::from(self.parse_identifier()?),
+            TokenKind::Number => {
+                let token = self.consume_token()?;
+                let data = AttributeValueData::from(IntegerLiteral::from(token.try_parse_u32()?));
+                AttributeValue {
+                    span: token.span(),
+                    data,
+                }
+            }
+            unexpected => {
+                return Err(Error::from(SyntaxError {
+                    span: token.span(),
+                    unexpected,
+                    expected: vec![TokenKind::Ident, TokenKind::Number],
+                }));
+            }
+        })
     }
 
     fn parse_item(&mut self) -> Result<Item, Error> {

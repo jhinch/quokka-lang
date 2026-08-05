@@ -1,8 +1,10 @@
 # Attributes
 
 ```ebnf
-Attribute   =   "#" , "[" , Identifier , "]"
-            ;
+Attribute       =   "#" , "[" , Identifier , [ "=" , AttributeValue ] , "]"
+AttributeValue  =   Identifier
+                |   NumberLiteral
+                ;
 ```
 
 ```quokka

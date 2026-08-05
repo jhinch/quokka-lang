@@ -11,7 +11,45 @@ pub struct Root {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AttributeDecl {
+    #[serde(with = "crate::source::span")]
+    pub span: SourceSpan,
     pub name: SpannedIdentifier,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<AttributeValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AttributeValue {
+    #[serde(with = "crate::source::span")]
+    pub span: SourceSpan,
+    pub data: AttributeValueData,
+}
+
+impl From<SpannedIdentifier> for AttributeValue {
+    fn from(value: SpannedIdentifier) -> Self {
+        AttributeValue {
+            span: value.span,
+            data: AttributeValueData::from(value.data),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AttributeValueData {
+    Ident(Identifier),
+    Integer(IntegerLiteral),
+}
+
+impl From<Identifier> for AttributeValueData {
+    fn from(value: Identifier) -> Self {
+        AttributeValueData::Ident(value)
+    }
+}
+
+impl From<IntegerLiteral> for AttributeValueData {
+    fn from(value: IntegerLiteral) -> Self {
+        AttributeValueData::Integer(value)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

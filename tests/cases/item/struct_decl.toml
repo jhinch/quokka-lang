@@ -140,6 +140,7 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
+          span: (0, 17),
           name: ("this_attribute", (2, 14)),
         ),
       ],
@@ -177,9 +178,11 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
+          span: (0, 17),
           name: ("this_attribute", (2, 14)),
         ),
         AttributeDecl(
+          span: (18, 17),
           name: ("that_attribute", (20, 14)),
         ),
       ],
@@ -219,6 +222,7 @@ Root(
           FieldDecl(
             attributes: [
               AttributeDecl(
+                span: (18, 17),
                 name: ("this_attribute", (20, 14)),
               ),
             ],
@@ -255,9 +259,11 @@ Root(
           FieldDecl(
             attributes: [
               AttributeDecl(
+                span: (18, 17),
                 name: ("this_attribute", (20, 14)),
               ),
               AttributeDecl(
+                span: (40, 17),
                 name: ("that_attribute", (42, 14)),
               ),
             ],

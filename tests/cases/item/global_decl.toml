@@ -32,6 +32,7 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
+      span: (0, 17),
       name: ("this_attribute", (2, 14)),
     ),
   ],

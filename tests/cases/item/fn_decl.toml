@@ -141,6 +141,7 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
+          span: (0, 18),
           name: ("no_startup_code", (2, 15)),
         ),
       ],
@@ -194,9 +195,11 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
+          span: (0, 18),
           name: ("no_startup_code", (2, 15)),
         ),
         AttributeDecl(
+          span: (19, 13),
           name: ("entrypoint", (21, 10)),
         ),
       ],

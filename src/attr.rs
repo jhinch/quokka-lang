@@ -1,15 +1,28 @@
 use crate::ast;
 use miette::SourceSpan;
+use serde::de::value::{StrDeserializer, U32Deserializer, UnitDeserializer};
 use std::fmt;
 use std::marker::PhantomData;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FunctionAttributes {
-    #[serde(default, deserialize_with = "deserialize_unit_as_bool")]
+    #[serde(default)]
     pub entrypoint: bool,
-    #[serde(default, deserialize_with = "deserialize_unit_as_bool")]
+    #[serde(default)]
     pub no_startup_code: bool,
+    #[serde(default)]
+    pub inline: InlineKind,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InlineKind {
+    #[default]
+    Auto,
+    Never,
+    Always,
+    Expect,
 }
 
 impl TryFrom<&[ast::AttributeDecl]> for FunctionAttributes {
@@ -116,7 +129,7 @@ impl<'de> serde::Deserializer<'de> for Deserializer<'de> {
         let attributes = self.attributes;
         visitor.visit_map(self).map_err(|error| match error {
             Error::Malformed(mut error) => {
-                error.span = attributes.iter().map(|attr| attr.name.span).reduce(|a, b| {
+                error.span = attributes.iter().map(|attr| attr.span).reduce(|a, b| {
                     SourceSpan::from(
                         a.offset().min(b.offset())
                             ..(a.offset() + a.len()).max(b.offset() + b.len()),
@@ -129,12 +142,12 @@ impl<'de> serde::Deserializer<'de> for Deserializer<'de> {
                     .iter()
                     .position(|decl| decl.name.data.value == error.name)
                 {
-                    error.defined = Some(attributes[defined_index].name.span);
+                    error.defined = Some(attributes[defined_index].span);
                     error.redefined = attributes
                         .iter()
                         .skip(defined_index + 1)
                         .find(|decl| decl.name.data.value == error.name)
-                        .map(|decl| decl.name.span);
+                        .map(|decl| decl.span);
                 }
                 Error::from(error)
             }
@@ -276,6 +289,21 @@ struct AttrValueDeserializer<'de> {
     attribute: &'de ast::AttributeDecl,
 }
 
+impl AttrValueDeserializer<'_> {
+    fn populate_span_on_error(
+        &self,
+        AttrValueError::MalformedValue(mut error): AttrValueError,
+    ) -> AttrValueError {
+        error.span = self
+            .attribute
+            .value
+            .as_ref()
+            .map(|value| value.span)
+            .unwrap_or(self.attribute.span);
+        AttrValueError::from(error)
+    }
+}
+
 impl<'de> serde::Deserializer<'de> for AttrValueDeserializer<'de> {
     type Error = AttrValueError;
 
@@ -283,27 +311,95 @@ impl<'de> serde::Deserializer<'de> for AttrValueDeserializer<'de> {
         self,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        visitor
-            .visit_unit::<Self::Error>()
-            .map_err(|AttrValueError::MalformedValue(mut error)| {
-                error.span = self.attribute.name.span;
-                AttrValueError::from(error)
-            })
+        let result = match self.attribute.value.as_ref().map(|value| &value.data) {
+            None => visitor.visit_unit::<Self::Error>(),
+            Some(ast::AttributeValueData::Ident(ident)) => {
+                visitor.visit_borrowed_str(ident.value.as_str())
+            }
+            Some(ast::AttributeValueData::Integer(int)) => visitor.visit_u32(int.value),
+        };
+        result.map_err(|error| self.populate_span_on_error(error))
+    }
+
+    fn deserialize_bool<V: serde::de::Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
+        if self.attribute.value.is_some() {
+            self.deserialize_any(visitor)
+        } else {
+            visitor
+                .visit_bool(true)
+                .map_err(|error| self.populate_span_on_error(error))
+        }
+    }
+
+    fn deserialize_enum<V: serde::de::Visitor<'de>>(
+        self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
+        visitor.visit_enum(self)
     }
 
     serde::forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
         bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
+        tuple_struct map struct identifier ignored_any
     }
 }
 
-/// Custom deserialize function which returns when unit specified
-fn deserialize_unit_as_bool<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<bool, D::Error> {
-    <() as serde::Deserialize<'de>>::deserialize(deserializer)?;
-    Ok(true)
+impl<'de> serde::de::EnumAccess<'de> for AttrValueDeserializer<'de> {
+    type Error = AttrValueError;
+    type Variant = Self;
+
+    fn variant_seed<V: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: V,
+    ) -> Result<(V::Value, Self::Variant), Self::Error> {
+        let value = match self.attribute.value.as_ref().map(|value| &value.data) {
+            None => seed.deserialize(UnitDeserializer::<AttrValueError>::new()),
+            Some(ast::AttributeValueData::Ident(ident)) => {
+                seed.deserialize(StrDeserializer::new(ident.value.as_str()))
+            }
+            Some(ast::AttributeValueData::Integer(int)) => {
+                seed.deserialize(U32Deserializer::new(int.value))
+            }
+        }?;
+        Ok((value, self))
+    }
+}
+
+impl<'de> serde::de::VariantAccess<'de> for AttrValueDeserializer<'de> {
+    type Error = AttrValueError;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn newtype_variant_seed<T: serde::de::DeserializeSeed<'de>>(
+        self,
+        seed: T,
+    ) -> Result<T::Value, Self::Error> {
+        seed.deserialize(UnitDeserializer::new())
+    }
+
+    fn tuple_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
+        visitor.visit_unit()
+    }
+
+    fn struct_variant<V: serde::de::Visitor<'de>>(
+        self,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
+        visitor.visit_unit()
+    }
 }
 
 #[cfg(test)]
@@ -321,7 +417,9 @@ mod tests {
     #[test]
     fn entrypoint_present() {
         let attributes = vec![ast::AttributeDecl {
-            name: SpannedIdentifier::new("entrypoint", SourceSpan::from(0..10)),
+            name: SpannedIdentifier::new("entrypoint", SourceSpan::from(2..12)),
+            span: SourceSpan::from(0..13),
+            value: None,
         }];
         let actual =
             FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
@@ -337,7 +435,9 @@ mod tests {
     #[test]
     fn no_startup_code_present() {
         let attributes = vec![ast::AttributeDecl {
-            name: SpannedIdentifier::new("no_startup_code", SourceSpan::from(0..10)),
+            name: SpannedIdentifier::new("no_startup_code", SourceSpan::from(2..17)),
+            span: SourceSpan::from(0..18),
+            value: None,
         }];
         let actual =
             FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();

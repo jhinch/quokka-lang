@@ -10,6 +10,7 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
+      span: (0, 17),
       name: ("this_attribute", (2, 14)),
     ),
   ],
@@ -41,6 +42,7 @@ expected_ast = """
 Item(
   attributes: [
     AttributeDecl(
+      span: (0, 17),
       name: ("this_attribute", (2, 14)),
     ),
   ],
@@ -79,6 +81,17 @@ expected_errors = [
 ]
 
 [[case]]
+name = "unknown_attr_on_function"
+kind = "analyzer"
+source = """
+#[unknown_attr]
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [2:14]",
+]
+
+[[case]]
 name = "entrypoint_defined_on_fn"
 kind = "analyzer"
 source = """
@@ -86,7 +99,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: true, no_startup_code: false }
+@FunctionAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -100,19 +113,61 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: false, no_startup_code: true }
+@FunctionAttributes { entrypoint: false, no_startup_code: true, inline: Auto }
 main -> unit:
   .bb1:
     return
 """
 
 [[case]]
-name = "unknown_attr_on_function"
+name = "inline_always_on_fn"
 kind = "analyzer"
 source = """
-#[unknown_attr]
+#[inline = always]
+fn main() {}
+"""
+expected_mir = """
+@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Always }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "inline_never_on_fn"
+kind = "analyzer"
+source = """
+#[inline = never]
+fn main() {}
+"""
+expected_mir = """
+@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Never }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "inline_expect_on_fn"
+kind = "analyzer"
+source = """
+#[inline = expect]
+fn main() {}
+"""
+expected_mir = """
+@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Expect }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "inline_unknown_variant_on_fn"
+kind = "analyzer"
+source = """
+#[inline = not_a_variant]
 fn main() {}
 """
 expected_errors = [
-    "unknown attribute `unknown_attr` @ [2:14]",
+    "malformed attributes: unknown variant `not_a_variant`, expected one of `auto`, `never`, `always`, `expect` @ [0:1]",
 ]
