@@ -1,7 +1,28 @@
-[package]
-name = "quokka-lang"
+[workspace]
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+
+[workspace.dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+derive_more = { version = "2.1.1", features = ["from"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
+libtest-mimic = "0.8.2"
+miette = { version = "7.6.0", features = ["fancy"] }
+owo-colors = "4.2.2"
+ron = "0.12.2"
+toml_edit = { version = "0.25.12", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+slotmap = "1.1.1"
+thiserror = "2.0.18"
+unicode-ident = "1.0.24"
+
+[package]
+name = "quokka-lang"
+version.workspace = true
+edition.workspace = true
 
 [[test]]
 name = "spec_tests"
@@ -9,17 +30,17 @@ path = "tests/spec_tests.rs"
 harness = false
 
 [dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
-derive_more = { version = "2.1.1", features = ["from"] }
-indexmap = { version = "2.14.0", features = ["serde"] }
-miette = { version = "7.6.0", features = ["fancy"] }
-owo-colors = "4.2.2"
-ron = "0.12.2"
-serde = { version = "1.0.228", features = ["derive"] }
-slotmap = "1.1.1"
-thiserror = "2.0.18"
-unicode-ident = "1.0.24"
+clap.workspace = true
+derive_more.workspace = true
+indexmap.workspace = true
+miette.workspace = true
+owo-colors.workspace = true
+ron.workspace = true
+serde.workspace = true
+slotmap.workspace = true
+thiserror.workspace = true
+unicode-ident.workspace = true
 
 [dev-dependencies]
-libtest-mimic = "0.8.2"
-toml_edit = { version = "0.25.12", features = ["serde"] }
+libtest-mimic.workspace = true
+toml_edit.workspace = true

@@ -5,5 +5,5 @@ echo "[pre-commit] Running Rust checks"
 
 set -x
 
-cargo fmt --check
-cargo test --locked
+cargo fmt --all --check
+cargo test --all --locked
