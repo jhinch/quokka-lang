@@ -1,6 +1,6 @@
 use crate::ast;
 use miette::SourceSpan;
-use std::fmt::Display;
+use std::fmt;
 use std::marker::PhantomData;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -71,10 +71,7 @@ pub struct MalformedAttributeValueError {
 }
 
 impl serde::de::Error for Error {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: Display,
-    {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
         Error::from(MalformedAttributesError {
             msg: msg.to_string(),
             span: None,
@@ -201,10 +198,7 @@ impl From<AttrNameError> for Error {
 }
 
 impl serde::de::Error for AttrNameError {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: Display,
-    {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
         AttrNameError::from(MalformedAttributesError {
             msg: msg.to_string(),
             span: None,
@@ -269,10 +263,7 @@ impl From<AttrValueError> for Error {
 }
 
 impl serde::de::Error for AttrValueError {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: Display,
-    {
+    fn custom<T: fmt::Display>(msg: T) -> Self {
         AttrValueError::from(MalformedAttributeValueError {
             msg: msg.to_string(),
             span: SourceSpan::from(0..1),
