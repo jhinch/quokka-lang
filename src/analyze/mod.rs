@@ -10,11 +10,11 @@ use crate::mir::{
 };
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::source::span::span_between;
-use crate::ty::{StructFieldTyData, StructTyData, Ty, TyRegistry};
+use crate::ty::{StructFieldTyData, Ty, TyRegistry};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 
 pub mod error;
 pub mod infer;
@@ -215,7 +215,7 @@ impl Analyzer {
                 Ty::ERROR
             }),
             TyRefData::Array(item_ty_ref, count) => {
-                let item_ty = self.resolve_ty_ref(&item_ty_ref);
+                let item_ty = self.resolve_ty_ref(item_ty_ref);
                 self.ty_registry.register_array(item_ty, *count)
             }
         }
@@ -434,7 +434,7 @@ impl Analyzer {
                         });
                         mir.set_terminator(block, Terminator::Return);
                     }
-                };
+                }
                 // dandling block for the unreachable subsequent code
                 (InferredTy::Concrete(Ty::NEVER), mir.new_block())
             }
@@ -1099,7 +1099,7 @@ impl Analyzer {
                             },
                         );
                     }
-                };
+                }
                 (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::Block(ast_block) => {

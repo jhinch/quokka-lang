@@ -25,6 +25,7 @@ pub struct Mir {
 }
 
 impl Mir {
+    #[must_use]
     pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
             for function in self.functions.values() {
@@ -409,6 +410,7 @@ pub struct Local {
 }
 
 impl Local {
+    #[must_use]
     pub fn display<'a>(
         &'a self,
         id: LocalId,
@@ -547,6 +549,7 @@ pub enum Instr {
 }
 
 impl Instr {
+    #[must_use]
     pub fn target_local(&self) -> Option<LocalId> {
         match self {
             Instr::Undefined { target, .. }
@@ -618,7 +621,7 @@ impl Instr {
                         },
                         _ => None,
                     },
-                    Instr::Phi { sources, .. } => sources.values().skip(next).next(),
+                    Instr::Phi { sources, .. } => sources.values().nth(next),
                 };
             }?;
             next += 1;
@@ -627,8 +630,9 @@ impl Instr {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Terminator {
+    #[default]
     Return,
     Call {
         callee: Callee,
@@ -657,12 +661,6 @@ pub enum Terminator {
     },
 }
 
-impl Default for Terminator {
-    fn default() -> Self {
-        Terminator::Return
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum Callee {
     Local(LocalId),
@@ -670,6 +668,7 @@ pub enum Callee {
 }
 
 impl Callee {
+    #[must_use]
     pub fn display<'a>(
         &'a self,
         mir: &'a Mir,
@@ -695,6 +694,7 @@ pub enum Operand {
 }
 
 impl Operand {
+    #[must_use]
     pub fn display<'a>(
         &'a self,
         mir: &'a Mir,
@@ -720,6 +720,7 @@ pub struct GlobalPlace {
 }
 
 impl GlobalPlace {
+    #[must_use]
     pub fn display<'a>(
         &'a self,
         mir: &'a Mir,
@@ -773,8 +774,7 @@ pub struct MirBuilder {
 
 impl MirBuilder {
     pub fn insert_global(&mut self, name: SpannedIdentifier, ty: Ty) -> GlobalId {
-        let global = self.mir.globals.insert(Global { name, ty });
-        global
+        self.mir.globals.insert(Global { name, ty })
     }
 
     pub fn reserve_function(&mut self) -> FunctionId {
@@ -800,7 +800,7 @@ impl MirBuilder {
                 Some(builder) => {
                     self.mir.functions[function] = builder.build();
                 }
-            };
+            }
         }
         self.mir
     }
@@ -865,7 +865,7 @@ impl FunctionBuilder {
                                 .next_blocks()
                                 .any(|next| next == block_id),
                             "previous_blocks() must match next_blocks()"
-                        )
+                        );
                     }
                 }
             }
@@ -964,14 +964,14 @@ impl FunctionBuilder {
         let instructions = &mut self.function.blocks[block].instructions;
         let index = instructions.len();
         instructions.push(instr);
-        if let Some(target) = target {
-            if !self.function.locals[target].is_return {
-                let previous = self.function.locals[target].defined.replace((block, index));
-                debug_assert!(
-                    previous.is_none(),
-                    "local {target:?} defined multiple times. {previous:?}, Some(({block:?}, {index:?}))"
-                );
-            }
+        if let Some(target) = target
+            && !self.function.locals[target].is_return
+        {
+            let previous = self.function.locals[target].defined.replace((block, index));
+            debug_assert!(
+                previous.is_none(),
+                "local {target:?} defined multiple times. {previous:?}, Some(({block:?}, {index:?}))"
+            );
         }
         index
     }

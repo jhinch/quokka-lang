@@ -51,6 +51,7 @@ pub mod span {
     use miette::{SourceOffset, SourceSpan};
     use serde::ser::SerializeTuple;
 
+    #[must_use]
     pub fn span_between(start: SourceSpan, end: SourceSpan) -> SourceSpan {
         SourceSpan::from(start.offset()..(end.offset() + end.len()))
     }
