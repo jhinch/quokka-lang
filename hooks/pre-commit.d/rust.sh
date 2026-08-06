@@ -7,3 +7,4 @@ set -x
 
 cargo fmt --all --check
 cargo test --all --locked
+cargo doc --all --locked --no-deps

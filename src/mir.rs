@@ -1,3 +1,14 @@
+//! # Quokka Lang's Middle Intermediate Representation (MIR)
+//!
+//! MIR ([Mir]) represents a Quokka program as a collection of control flow
+//! graphs in static single assignment (SSA) form. The instructions ([Instr]) within
+//! a basic block ([Block]) represent language concepts rather than machine level
+//! concepts like [crate::lir::Lir] does.
+//!
+//! Once built, MIR can be evaluated provided it depends only on constants and can
+//! be used to evaluate the value of a constant.
+//!
+
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
 use crate::attr::FunctionAttributes;
 use crate::ty::{Ty, TyRegistry};
