@@ -25,11 +25,11 @@ There are four main categories of types:
 - Numbers
   - `u1`
   - `u2`
-  - `u3`
   - `u4`
   - `u8`
   - `u16`
   - `i8`
+  - `i16`
 - `never`
 - `unit`
 
