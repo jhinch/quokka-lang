@@ -74,3 +74,36 @@ expected_tokens = """
 MinusGreaterThan:->
 Eof:
 """
+
+[[case]]
+name = "comma"
+kind = "lexer"
+source = """
+,
+"""
+expected_tokens = """
+Comma:,
+Eof:
+"""
+
+[[case]]
+name = "colon"
+kind = "lexer"
+source = """
+:
+"""
+expected_tokens = """
+Colon::
+Eof:
+"""
+
+[[case]]
+name = "semicolon"
+kind = "lexer"
+source = """
+;
+"""
+expected_tokens = """
+Semicolon:;
+Eof:
+"""

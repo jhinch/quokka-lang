@@ -25,6 +25,17 @@ Eof:
 """
 
 [[case]]
+name = "decimal_underscored"
+kind = "lexer"
+source = """
+1_000_000
+"""
+expected_tokens = """
+Number:1_000_000
+Eof:
+"""
+
+[[case]]
 name = "hex"
 kind = "lexer"
 source = """
