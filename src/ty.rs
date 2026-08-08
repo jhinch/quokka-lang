@@ -1,4 +1,5 @@
 use crate::ast::{Identifier, SpannedIdentifier};
+use crate::attr::FieldDeclAttributes;
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
@@ -252,6 +253,7 @@ pub struct StructFieldTyData {
     pub ty: Ty,
     pub ty_span: SourceSpan,
     pub bit_offset: u32,
+    pub attrs: FieldDeclAttributes,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -579,6 +581,7 @@ mod tests {
                 ty: Ty::U8,
                 ty_span: SourceSpan::new(SourceOffset::from(0), 0),
                 bit_offset: 0,
+                attrs: FieldDeclAttributes::default(),
             },
         );
         registry.complete_struct_registration(ty, fields, 8);

@@ -10,7 +10,7 @@
 //!
 
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
-use crate::attr::FunctionAttributes;
+use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
@@ -41,7 +41,7 @@ impl Mir {
     pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
             for function in self.functions.values() {
-                if function.attrs != FunctionAttributes::default() {
+                if function.attrs != FnDeclAttributes::default() {
                     writeln!(f, "@{:?}", function.attrs)?;
                 }
                 writeln!(
@@ -334,7 +334,7 @@ impl Mir {
 #[derive(Debug, Clone, Default)]
 pub struct Function {
     pub name: Identifier,
-    pub attrs: FunctionAttributes,
+    pub attrs: FnDeclAttributes,
     pub return_ty: Ty,
     pub return_local: Option<LocalId>,
     pub blocks: SlotMap<BlockId, Block>,
@@ -415,6 +415,25 @@ impl Block {
 pub struct Global {
     pub ty: Ty,
     pub name: SpannedIdentifier,
+    pub attrs: GlobalAttributes,
+}
+
+#[derive(Debug, Clone)]
+pub enum GlobalAttributes {
+    Rom(ConstDeclAttributes),
+    Ram(GlobalDeclAttributes),
+}
+
+impl From<ConstDeclAttributes> for GlobalAttributes {
+    fn from(attrs: ConstDeclAttributes) -> Self {
+        GlobalAttributes::Rom(attrs)
+    }
+}
+
+impl From<GlobalDeclAttributes> for GlobalAttributes {
+    fn from(attrs: GlobalDeclAttributes) -> Self {
+        GlobalAttributes::Ram(attrs)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -789,8 +808,13 @@ pub struct MirBuilder {
 }
 
 impl MirBuilder {
-    pub fn insert_global(&mut self, name: SpannedIdentifier, ty: Ty) -> GlobalId {
-        self.mir.globals.insert(Global { name, ty })
+    pub fn insert_global(
+        &mut self,
+        name: SpannedIdentifier,
+        ty: Ty,
+        attrs: GlobalAttributes,
+    ) -> GlobalId {
+        self.mir.globals.insert(Global { name, ty, attrs })
     }
 
     pub fn reserve_function(&mut self) -> FunctionId {
@@ -850,7 +874,7 @@ impl FunctionBuilder {
         }
     }
 
-    pub fn set_attrs(&mut self, attrs: FunctionAttributes) {
+    pub fn set_attrs(&mut self, attrs: FnDeclAttributes) {
         self.function.attrs = attrs;
     }
 
@@ -1228,7 +1252,7 @@ mod tests {
     fn make_function(blocks: SlotMap<BlockId, Block>, start: BlockId) -> Function {
         Function {
             name: Identifier::from("f"),
-            attrs: FunctionAttributes::default(),
+            attrs: FnDeclAttributes::default(),
             return_ty: Ty::UNIT,
             return_local: None,
             blocks,
@@ -1416,6 +1440,7 @@ mod tests {
         let global = globals.insert(Global {
             ty: Ty::U8,
             name: ident("g"),
+            attrs: GlobalDeclAttributes::default().into(),
         });
 
         assert_eq!(
@@ -1479,6 +1504,7 @@ mod tests {
         let global = globals.insert(Global {
             ty: Ty::U8,
             name: ident("g"),
+            attrs: GlobalDeclAttributes::default().into(),
         });
         let load = Instr::Load {
             target: ids[0],
@@ -1797,7 +1823,8 @@ mod tests {
     fn mir_builder_insert_global_creates_global() {
         let mut builder = MirBuilder::default();
         let name = ident("g");
-        let id = builder.insert_global(name.clone(), Ty::U8);
+        let id =
+            builder.insert_global(name.clone(), Ty::U8, GlobalDeclAttributes::default().into());
         let mir = builder.build();
         assert_eq!(mir.globals[id].ty, Ty::U8);
         assert_eq!(mir.globals[id].name.data, name.data);
@@ -1954,7 +1981,8 @@ mod tests {
     #[test]
     fn global_place_display_includes_field_and_index_projections() {
         let mut mir_builder = MirBuilder::default();
-        let global = mir_builder.insert_global(ident("g"), Ty::U8);
+        let global =
+            mir_builder.insert_global(ident("g"), Ty::U8, GlobalDeclAttributes::default().into());
         let mir = mir_builder.build();
         let function = trivially_built_function();
         let registry = TyRegistry::default();

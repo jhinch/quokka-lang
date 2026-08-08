@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct FunctionAttributes {
+pub struct FnDeclAttributes {
     #[serde(default)]
     pub entrypoint: bool,
     #[serde(default)]
@@ -26,13 +26,39 @@ pub enum InlineKind {
     Expect,
 }
 
-impl TryFrom<&[ast::AttributeDecl]> for FunctionAttributes {
-    type Error = Error;
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConstDeclAttributes {}
 
-    fn try_from(value: &[ast::AttributeDecl]) -> Result<Self, Self::Error> {
-        <FunctionAttributes as serde::Deserialize>::deserialize(Deserializer::new(value))
-    }
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GlobalDeclAttributes {}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StructDeclAttributes {}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FieldDeclAttributes {}
+
+macro_rules! try_from_attributes_impl {
+    ($name:ident) => {
+        impl TryFrom<&[ast::AttributeDecl]> for $name {
+            type Error = Error;
+
+            fn try_from(value: &[ast::AttributeDecl]) -> Result<Self, Self::Error> {
+                <$name as serde::Deserialize>::deserialize(Deserializer::new(value))
+            }
+        }
+    };
 }
+
+try_from_attributes_impl!(FnDeclAttributes);
+try_from_attributes_impl!(ConstDeclAttributes);
+try_from_attributes_impl!(GlobalDeclAttributes);
+try_from_attributes_impl!(StructDeclAttributes);
+try_from_attributes_impl!(FieldDeclAttributes);
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -406,7 +432,7 @@ mod tests {
 
     #[test]
     fn entrypoint_absent() {
-        let actual = FunctionAttributes::deserialize(Deserializer::new(&[])).unwrap();
+        let actual = FnDeclAttributes::deserialize(Deserializer::new(&[])).unwrap();
         assert_eq!(actual.entrypoint, false);
     }
 
@@ -418,13 +444,13 @@ mod tests {
             value: None,
         }];
         let actual =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
         assert_eq!(actual.entrypoint, true);
     }
 
     #[test]
     fn no_startup_code_absent() {
-        let actual = FunctionAttributes::deserialize(Deserializer::new(&[])).unwrap();
+        let actual = FnDeclAttributes::deserialize(Deserializer::new(&[])).unwrap();
         assert_eq!(actual.no_startup_code, false);
     }
 
@@ -436,13 +462,13 @@ mod tests {
             value: None,
         }];
         let actual =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
         assert_eq!(actual.no_startup_code, true);
     }
 
     #[test]
     fn inline_absent_defaults_to_auto() {
-        let actual = FunctionAttributes::deserialize(Deserializer::new(&[])).unwrap();
+        let actual = FnDeclAttributes::deserialize(Deserializer::new(&[])).unwrap();
         assert_eq!(actual.inline, InlineKind::Auto);
     }
 
@@ -457,7 +483,7 @@ mod tests {
             }),
         }];
         let actual =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
         assert_eq!(actual.inline, InlineKind::Never);
     }
 
@@ -472,7 +498,7 @@ mod tests {
             }),
         }];
         let err =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
         match err {
             Error::MalformedValue(inner) => assert!(inner.msg.contains("not_a_variant")),
             other => panic!("expected Error::MalformedValue, got {other:?}"),
@@ -487,7 +513,7 @@ mod tests {
             value: None,
         }];
         let err =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
         match err {
             Error::Unknown(inner) => {
                 assert_eq!(inner.name, "bogus");
@@ -513,7 +539,7 @@ mod tests {
             },
         ];
         let err =
-            FunctionAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
+            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
         match err {
             Error::Duplicate(inner) => {
                 assert_eq!(inner.name, "entrypoint");
@@ -531,7 +557,7 @@ mod tests {
             span: SourceSpan::from(0..13),
             value: None,
         }];
-        let actual = FunctionAttributes::try_from(attributes.as_slice()).unwrap();
+        let actual = FnDeclAttributes::try_from(attributes.as_slice()).unwrap();
         assert!(actual.entrypoint);
     }
 
@@ -542,7 +568,7 @@ mod tests {
             span: SourceSpan::from(0..8),
             value: None,
         }];
-        let result = FunctionAttributes::try_from(attributes.as_slice());
+        let result = FnDeclAttributes::try_from(attributes.as_slice());
         assert!(matches!(result, Err(Error::Unknown(_))));
     }
 }

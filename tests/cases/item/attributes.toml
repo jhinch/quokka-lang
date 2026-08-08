@@ -99,7 +99,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -113,7 +113,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: false, no_startup_code: true, inline: Auto }
+@FnDeclAttributes { entrypoint: false, no_startup_code: true, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -127,7 +127,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Always }
+@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Always }
 main -> unit:
   .bb1:
     return
@@ -141,7 +141,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Never }
+@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Never }
 main -> unit:
   .bb1:
     return
@@ -155,7 +155,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FunctionAttributes { entrypoint: false, no_startup_code: false, inline: Expect }
+@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Expect }
 main -> unit:
   .bb1:
     return
@@ -170,4 +170,59 @@ fn main() {}
 """
 expected_errors = [
     "malformed attributes: unknown variant `not_a_variant`, expected one of `auto`, `never`, `always`, `expect` @ [0:1]",
+]
+
+[[case]]
+name = "unknown_attr_on_const_decl"
+kind = "analyzer"
+source = """
+#[unknown_attr]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [2:14]",
+]
+
+[[case]]
+name = "unknown_attr_on_global_decl"
+kind = "analyzer"
+source = """
+#[unknown_attr]
+global A: u8;
+
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [2:14]",
+]
+
+[[case]]
+name = "unknown_attr_on_struct_decl"
+kind = "analyzer"
+source = """
+#[unknown_attr]
+struct A {
+}
+
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [2:14]",
+]
+
+[[case]]
+name = "unknown_attr_on_field_decl"
+kind = "analyzer"
+source = """
+struct A {
+    #[unknown_attr]
+    field: u8,
+}
+
+fn main() {}
+"""
+expected_errors = [
+    "unknown attribute `unknown_attr` @ [17:29]",
 ]

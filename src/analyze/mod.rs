@@ -4,7 +4,10 @@ use crate::ast::{
     self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
     PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
 };
-use crate::attr::FunctionAttributes;
+use crate::attr::{
+    ConstDeclAttributes, FieldDeclAttributes, FnDeclAttributes, GlobalDeclAttributes,
+    StructDeclAttributes,
+};
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
     GlobalPlaceProjection, Instr, LocalId, Mir, MirBuilder, Operand, Terminator, Variable,
@@ -31,7 +34,7 @@ impl Analyzer {
     pub fn analyze(mut self, root: &ast::Root) -> Result<(Mir, TyRegistry), MultiError> {
         self.register_types(root)?;
         let (mut scopes, fn_decls, const_decls) = self.define_global_scope(root);
-        for (const_decl, ty) in const_decls {
+        for (const_decl, ty, _) in const_decls {
             self.analyze_const_decl(const_decl, ty, &mut scopes);
         }
         for (fn_decl, ty, attrs, function_id) in fn_decls {
@@ -48,6 +51,11 @@ impl Analyzer {
             .iter()
             .filter_map(|item| {
                 if let ast::ItemData::StructDecl(decl) = &item.data {
+                    let _attrs = StructDeclAttributes::try_from(item.attributes.as_slice())
+                        .unwrap_or_else(|error| {
+                            self.result_builder.add_error(error);
+                            StructDeclAttributes::default()
+                        });
                     match self.ty_registry.register_struct(decl.name.clone()) {
                         Ok(ty) => Some((ty, decl)),
                         Err(defined) => {
@@ -72,9 +80,14 @@ impl Analyzer {
                 let mut failed = false;
                 for field in &decl.fields {
                     let ty = self.resolve_ty_ref(&field.ty);
+                    let field_attrs = FieldDeclAttributes::try_from(field.attributes.as_slice())
+                        .unwrap_or_else(|e| {
+                            self.result_builder.add_error(e);
+                            FieldDeclAttributes::default()
+                        });
                     match fields.entry(field.name.data.clone()) {
                         Entry::Vacant(entry) => {
-                            entry.insert((ty, field.name.span, field.ty.span));
+                            entry.insert((ty, field.name.span, field.ty.span, field_attrs));
                         }
                         Entry::Occupied(entry) => {
                             let defined = decl.fields[entry.index()].name.span;
@@ -101,7 +114,9 @@ impl Analyzer {
             'outer: while let Some(ty) = processing_stack.pop_front() {
                 let mut bit_size = 0;
                 let mut fields = IndexMap::new();
-                for (field_name, (field_ty, field_span, field_ty_span)) in &type_fields[&ty] {
+                for (field_name, (field_ty, field_span, field_ty_span, field_attrs)) in
+                    &type_fields[&ty]
+                {
                     let mut array_item_ty = *field_ty;
                     while array_item_ty.is_array() {
                         array_item_ty = self.ty_registry.array_ty_data(array_item_ty).item_ty;
@@ -137,6 +152,7 @@ impl Analyzer {
                             ty: *field_ty,
                             ty_span: *field_ty_span,
                             bit_offset: bit_size,
+                            attrs: field_attrs.clone(),
                         },
                     );
                     bit_size += field_bit_size;
@@ -154,8 +170,8 @@ impl Analyzer {
         root: &'ast ast::Root,
     ) -> (
         Scopes,
-        Vec<(&'ast ast::FnDecl, Ty, FunctionAttributes, FunctionId)>,
-        Vec<(&'ast ast::ConstDecl, Ty)>,
+        Vec<(&'ast ast::FnDecl, Ty, FnDeclAttributes, FunctionId)>,
+        Vec<(&'ast ast::ConstDecl, Ty, ConstDeclAttributes)>,
     ) {
         let mut scopes = Scopes::default();
         scopes.enter_global_scope();
@@ -168,11 +184,11 @@ impl Analyzer {
                         None => Ty::UNIT,
                         Some(return_ty) => self.resolve_ty_ref(return_ty),
                     };
-                    let attrs = match FunctionAttributes::try_from(item.attributes.as_slice()) {
+                    let attrs = match FnDeclAttributes::try_from(item.attributes.as_slice()) {
                         Ok(attrs) => attrs,
                         Err(error) => {
                             self.result_builder.add_error(error);
-                            FunctionAttributes::default()
+                            FnDeclAttributes::default()
                         }
                     };
                     let fn_ptr_ty = self.ty_registry.register_fn_ptr(return_ty);
@@ -187,19 +203,41 @@ impl Analyzer {
                 ast::ItemData::StructDecl(_) => continue,
                 ast::ItemData::GlobalDecl(decl) => {
                     let ty = self.resolve_ty_ref(&decl.ty);
+                    let attrs = match GlobalDeclAttributes::try_from(item.attributes.as_slice()) {
+                        Ok(attrs) => attrs,
+                        Err(error) => {
+                            self.result_builder.add_error(error);
+                            GlobalDeclAttributes::default()
+                        }
+                    };
                     (
                         &decl.name,
                         InferredTy::Concrete(ty),
-                        PlaceId::from(self.mir_builder.insert_global(decl.name.clone(), ty)),
+                        PlaceId::from(self.mir_builder.insert_global(
+                            decl.name.clone(),
+                            ty,
+                            attrs.into(),
+                        )),
                     )
                 }
                 ast::ItemData::ConstDecl(decl) => {
                     let const_ty = self.resolve_ty_ref(&decl.ty);
-                    const_decls.push((decl, const_ty));
+                    let attrs = match ConstDeclAttributes::try_from(item.attributes.as_slice()) {
+                        Ok(attrs) => attrs,
+                        Err(error) => {
+                            self.result_builder.add_error(error);
+                            ConstDeclAttributes::default()
+                        }
+                    };
+                    const_decls.push((decl, const_ty, attrs.clone()));
                     (
                         &decl.name,
                         InferredTy::Concrete(const_ty),
-                        PlaceId::from(self.mir_builder.insert_global(decl.name.clone(), const_ty)),
+                        PlaceId::from(self.mir_builder.insert_global(
+                            decl.name.clone(),
+                            const_ty,
+                            attrs.into(),
+                        )),
                     )
                 }
             };
@@ -263,7 +301,7 @@ impl Analyzer {
         &mut self,
         fn_decl: &ast::FnDecl,
         fn_ptr_ty: Ty,
-        attrs: FunctionAttributes,
+        attrs: FnDeclAttributes,
         function_id: FunctionId,
         scopes: &mut Scopes,
     ) {
@@ -1134,7 +1172,7 @@ impl Analyzer {
                     None => {
                         let target = mir.new_local(Ty::ERROR);
                         let block = if expr_ty == InferredTy::Concrete(Ty::NEVER) {
-                            // create a dangling block for a never as all subsequent code is
+                            // create a dangling block for a `never` as all subsequent code is
                             // unreachable
                             mir.new_block()
                         } else {
