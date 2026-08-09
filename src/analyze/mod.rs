@@ -1,5 +1,6 @@
 use crate::analyze::error::*;
-use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
+use crate::analyze::infer::{InferredTy, TyVar};
+use crate::analyze::solver::{InferenceConstraint, TypeSolver};
 use crate::ast::{
     self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
     PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
@@ -22,6 +23,7 @@ use std::collections::{HashMap, VecDeque};
 
 pub mod error;
 pub mod infer;
+pub mod solver;
 
 #[derive(Default)]
 pub struct Analyzer {
@@ -274,27 +276,22 @@ impl Analyzer {
         scopes: &mut Scopes,
     ) {
         let mut mir = FunctionBuilder::new(const_decl.name.data.clone(), const_ty);
-        let mut inferrer = Inferrer::default();
-        let mut constraints = VecDeque::new();
+        let mut type_solver = TypeSolver::default();
 
         let block = mir.new_block();
         mir.seal_block(block);
 
-        let (inferred_ty, _, _) = self.analyze_expr(
-            &const_decl.value,
-            block,
-            &mut mir,
-            &mut inferrer,
-            &mut constraints,
-            scopes,
-        );
-        constraints.push_back(InferenceConstraint::Equal {
+        let (inferred_ty, _, _) =
+            self.analyze_expr(&const_decl.value, block, &mut mir, &mut type_solver, scopes);
+        type_solver.insert_constraint(InferenceConstraint::Equal {
             ty1: inferred_ty,
             ty1_span: const_decl.value.span,
             ty2: InferredTy::Concrete(const_ty),
             ty2_span: const_decl.ty.span,
         });
-        self.process_constraints(&mut inferrer, constraints);
+        if let Err(errors) = type_solver.solve(&self.ty_registry) {
+            self.result_builder.add_errors(errors);
+        }
     }
 
     fn analyze_fn_decl(
@@ -324,33 +321,26 @@ impl Analyzer {
             return_local,
         );
 
-        let mut inferrer = Inferrer::default();
-        let mut constraints = VecDeque::new();
+        let mut type_solver = TypeSolver::default();
 
         let block = mir.new_block();
         mir.seal_block(block);
 
-        let (inferred_ty, block) = self.analyze_block(
-            &fn_decl.body,
-            block,
-            &mut mir,
-            &mut inferrer,
-            &mut constraints,
-            scopes,
-        );
+        let (inferred_ty, block) =
+            self.analyze_block(&fn_decl.body, block, &mut mir, &mut type_solver, scopes);
         match inferred_ty {
             Ty::NEVER => {
                 // Either it is an infinite loop, or it returns explicitly
                 // no constraints to add
             }
             inferred_ty => {
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: InferredTy::Concrete(inferred_ty),
                     ty1_span: fn_decl.signature.name.span,
                     ty2: InferredTy::Concrete(Ty::UNIT),
                     ty2_span: fn_decl.signature.name.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: InferredTy::Concrete(return_ty),
                     ty1_span: fn_decl.signature.name.span,
                     ty2: InferredTy::Concrete(Ty::UNIT),
@@ -360,7 +350,9 @@ impl Analyzer {
             }
         }
         scopes.exit_fn_scope();
-        self.process_constraints(&mut inferrer, constraints);
+        if let Err(errors) = type_solver.solve(&self.ty_registry) {
+            self.result_builder.add_errors(errors);
+        }
 
         self.mir_builder.seal_function(function_id, mir);
     }
@@ -370,8 +362,7 @@ impl Analyzer {
         ast_block: &ast::Block,
         mut block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (Ty, BlockId) {
         let mut never_found = false;
@@ -384,7 +375,7 @@ impl Analyzer {
                 });
             }
             let (statement_ty, next_block) =
-                self.analyze_statement(statement, block, mir, inferrer, constraints, scopes);
+                self.analyze_statement(statement, block, mir, type_solver, scopes);
             block = next_block;
             if let InferredTy::Concrete(Ty::NEVER) = &statement_ty {
                 never_found = true;
@@ -402,25 +393,24 @@ impl Analyzer {
         statement: &ast::Statement,
         block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId) {
         match &statement.data {
             ast::StatementData::Expr(stmt) => {
                 let (ty, block) =
-                    self.analyze_expr_unit(&stmt.value, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr_unit(&stmt.value, block, mir, type_solver, scopes);
                 (ty, block)
             }
             ast::StatementData::Let(stmt) => {
                 let let_ty = match &stmt.ty {
                     Some(ty_ref) => InferredTy::Concrete(self.resolve_ty_ref(ty_ref)),
-                    None => InferredTy::Variable(inferrer.fresh()),
+                    None => InferredTy::Variable(type_solver.fresh_ty_var()),
                 };
                 let (expr_ty, block, source) =
-                    self.analyze_expr(&stmt.value, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&stmt.value, block, mir, type_solver, scopes);
                 let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: let_ty.clone(),
                     ty1_span: stmt
                         .ty
@@ -449,14 +439,8 @@ impl Analyzer {
                         let (return_expr_ty, block) = match &stmt.value {
                             Some(value) => {
                                 let return_local = fn_scope.return_local;
-                                let (ty, block, source) = self.analyze_expr(
-                                    value,
-                                    block,
-                                    mir,
-                                    inferrer,
-                                    constraints,
-                                    scopes,
-                                );
+                                let (ty, block, source) =
+                                    self.analyze_expr(value, block, mir, type_solver, scopes);
                                 if let Some(return_local) = return_local {
                                     mir.push_instr(
                                         block,
@@ -470,7 +454,7 @@ impl Analyzer {
                             }
                             None => (InferredTy::Concrete(Ty::UNIT), block),
                         };
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: return_ty,
                             ty1_span: return_span,
                             ty2: return_expr_ty,
@@ -495,7 +479,7 @@ impl Analyzer {
                     }
                     Some(loop_scope) => {
                         if loop_scope.break_ty.is_none() {
-                            loop_scope.break_ty = Some(inferrer.fresh());
+                            loop_scope.break_ty = Some(type_solver.fresh_ty_var());
                         }
                         let break_ty = InferredTy::Variable(loop_scope.break_ty.unwrap());
                         let break_span = loop_scope.span;
@@ -506,14 +490,8 @@ impl Analyzer {
                                     loop_scope.break_var = Some(mir.new_variable());
                                 }
                                 let break_var = loop_scope.break_var.unwrap();
-                                let (ty, block, source) = self.analyze_expr(
-                                    value,
-                                    block,
-                                    mir,
-                                    inferrer,
-                                    constraints,
-                                    scopes,
-                                );
+                                let (ty, block, source) =
+                                    self.analyze_expr(value, block, mir, type_solver, scopes);
                                 let target =
                                     mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                                 mir.push_instr(block, Instr::Copy { target, source });
@@ -522,7 +500,7 @@ impl Analyzer {
                             }
                             None => (InferredTy::Concrete(Ty::UNIT), block),
                         };
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: break_ty,
                             ty1_span: break_span,
                             ty2: break_expr_ty,
@@ -557,7 +535,7 @@ impl Analyzer {
                 match scopes.block_scope() {
                     Some(block_scope) => {
                         if block_scope.yield_ty.is_none() {
-                            block_scope.yield_ty = Some(inferrer.fresh());
+                            block_scope.yield_ty = Some(type_solver.fresh_ty_var());
                         }
                         let yield_ty = InferredTy::Variable(block_scope.yield_ty.unwrap());
                         let yield_span = block_scope.span;
@@ -565,19 +543,13 @@ impl Analyzer {
                             block_scope.yield_var = Some(mir.new_variable());
                         }
                         let yield_var = block_scope.yield_var.unwrap();
-                        let (yield_expr_ty, block, source) = self.analyze_expr(
-                            &stmt.value,
-                            block,
-                            mir,
-                            inferrer,
-                            constraints,
-                            scopes,
-                        );
+                        let (yield_expr_ty, block, source) =
+                            self.analyze_expr(&stmt.value, block, mir, type_solver, scopes);
                         let target =
                             mir.new_local(yield_expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                         mir.push_instr(block, Instr::Copy { target, source });
                         mir.write_variable(yield_var, block, target);
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: yield_ty,
                             ty1_span: yield_span,
                             ty2: yield_expr_ty,
@@ -601,15 +573,14 @@ impl Analyzer {
         expr: &ast::Expr,
         block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId) {
         match &expr.data {
             ast::ExprData::Block(ast_block) => {
                 scopes.enter_block_scope(expr.span);
                 let (block_expr_ty, block) =
-                    self.analyze_block(ast_block, block, mir, inferrer, constraints, scopes);
+                    self.analyze_block(ast_block, block, mir, type_solver, scopes);
                 let (mut expr_ty, block) = match block_expr_ty {
                     Ty::NEVER => {
                         // Either it is an infinite loop, or it yields explicitly
@@ -617,7 +588,7 @@ impl Analyzer {
                         (Ty::NEVER, mir.new_block())
                     }
                     block_expr_ty => {
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: InferredTy::Concrete(block_expr_ty),
                             ty1_span: expr.span,
                             ty2: InferredTy::Concrete(Ty::UNIT),
@@ -627,7 +598,7 @@ impl Analyzer {
                     }
                 };
                 if let Some(yield_ty) = scopes.block_scope().unwrap().yield_ty {
-                    constraints.push_back(InferenceConstraint::Equal {
+                    type_solver.insert_constraint(InferenceConstraint::Equal {
                         ty1: InferredTy::Variable(yield_ty),
                         ty1_span: expr.span,
                         ty2: InferredTy::Concrete(Ty::UNIT),
@@ -641,21 +612,15 @@ impl Analyzer {
                 (InferredTy::Concrete(expr_ty), block)
             }
             ast::ExprData::If(if_expr) => {
-                let (cond_ty, block, source) = self.analyze_expr(
-                    &if_expr.condition,
-                    block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
-                constraints.push_back(InferenceConstraint::Equal {
+                let (cond_ty, block, source) =
+                    self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: cond_ty.clone(),
                     ty1_span: if_expr.condition.span,
                     ty2: InferredTy::Concrete(Ty::U1),
                     ty2_span: if_expr.condition.span,
                 });
-                constraints.push_back(InferenceConstraint::IsInt {
+                type_solver.insert_constraint(InferenceConstraint::IsInt {
                     ty: cond_ty,
                     span: expr.span,
                 });
@@ -683,8 +648,7 @@ impl Analyzer {
                     &if_expr.true_block,
                     then_block,
                     mir,
-                    inferrer,
-                    constraints,
+                    type_solver,
                     scopes,
                 );
 
@@ -701,8 +665,7 @@ impl Analyzer {
                             false_block,
                             else_block,
                             mir,
-                            inferrer,
-                            constraints,
+                            type_solver,
                             scopes,
                         );
                         mir.set_terminator(
@@ -716,7 +679,7 @@ impl Analyzer {
                 };
                 mir.seal_block(end_block);
                 if true_block_ty != InferredTy::Concrete(Ty::NEVER) {
-                    constraints.push_back(InferenceConstraint::Equal {
+                    type_solver.insert_constraint(InferenceConstraint::Equal {
                         ty1: true_block_ty.clone(),
                         ty1_span: if_expr.true_block.span,
                         ty2: InferredTy::Concrete(Ty::UNIT),
@@ -724,7 +687,7 @@ impl Analyzer {
                     });
                 }
                 if false_block_ty != InferredTy::Concrete(Ty::NEVER) {
-                    constraints.push_back(InferenceConstraint::Equal {
+                    type_solver.insert_constraint(InferenceConstraint::Equal {
                         ty1: false_block_ty.clone(),
                         ty1_span: if_expr
                             .false_block
@@ -754,14 +717,8 @@ impl Analyzer {
                     },
                 );
                 scopes.enter_loop_scope(expr.span, start_block, end_block);
-                let (ty, block) = self.analyze_block(
-                    &loop_expr.body,
-                    start_block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
+                let (ty, block) =
+                    self.analyze_block(&loop_expr.body, start_block, mir, type_solver, scopes);
                 if ty != Ty::NEVER {
                     // if the block has type never,
                     // it never completes an iteration successfully,
@@ -782,7 +739,7 @@ impl Analyzer {
                         InferredTy::Concrete(Ty::NEVER)
                     }
                     Some(break_ty) => {
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: InferredTy::Variable(break_ty),
                             ty1_span: expr.span,
                             ty2: InferredTy::Concrete(Ty::UNIT),
@@ -795,8 +752,7 @@ impl Analyzer {
                 (expr_ty, end_block)
             }
             _ => {
-                let (expr_ty, block, _) =
-                    self.analyze_expr(expr, block, mir, inferrer, constraints, scopes);
+                let (expr_ty, block, _) = self.analyze_expr(expr, block, mir, type_solver, scopes);
                 (expr_ty, block)
             }
         }
@@ -807,21 +763,20 @@ impl Analyzer {
         expr: &ast::Expr,
         block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId, Operand) {
         match &expr.data {
             ast::ExprData::Place(place) => {
                 let (ty, block, source) =
-                    self.analyze_place_expr(place, block, mir, inferrer, constraints, scopes);
+                    self.analyze_place_expr(place, block, mir, type_solver, scopes);
                 let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                 mir.push_instr(block, Instr::Copy { target, source });
                 (ty, block, Operand::Local(target))
             }
             ast::ExprData::Integer(literal) => {
-                let int_ty = InferredTy::Variable(inferrer.fresh());
-                constraints.push_back(InferenceConstraint::IsInt {
+                let int_ty = InferredTy::Variable(type_solver.fresh_ty_var());
+                type_solver.insert_constraint(InferenceConstraint::IsInt {
                     ty: int_ty.clone(),
                     span: expr.span,
                 });
@@ -829,10 +784,10 @@ impl Analyzer {
             }
             ast::ExprData::Unary(op) => {
                 let (expr_ty, block, source) =
-                    self.analyze_expr(&op.expr, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.expr, block, mir, type_solver, scopes);
                 let target = match op.kind {
                     UnaryOpKind::Neg => {
-                        constraints.push_back(InferenceConstraint::IsSignedInt {
+                        type_solver.insert_constraint(InferenceConstraint::IsSignedInt {
                             ty: expr_ty.clone(),
                             span: expr.span,
                         });
@@ -841,7 +796,7 @@ impl Analyzer {
                         target
                     }
                     kind => {
-                        constraints.push_back(InferenceConstraint::IsInt {
+                        type_solver.insert_constraint(InferenceConstraint::IsInt {
                             ty: expr_ty.clone(),
                             span: expr.span,
                         });
@@ -866,17 +821,17 @@ impl Analyzer {
                 // currently this branch incorrectly handles `And` and `Or` as
                 // `BitAnd` and `BitOr`. Will follow this up in a subsequent change
                 let (left_ty, block, left) =
-                    self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.left, block, mir, type_solver, scopes);
                 let (right_ty, block, right) =
-                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty = InferredTy::Concrete(Ty::U1);
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: left_ty.clone(),
                     ty1_span: op.left.span,
                     ty2: InferredTy::Concrete(Ty::U1),
                     ty2_span: expr.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: right_ty.clone(),
                     ty1_span: op.right.span,
                     ty2: InferredTy::Concrete(Ty::U1),
@@ -902,21 +857,21 @@ impl Analyzer {
             }
             ast::ExprData::Arithmetic(op) => {
                 let (left_ty, block, left) =
-                    self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.left, block, mir, type_solver, scopes);
                 let (right_ty, block, right) =
-                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
-                let expr_ty = InferredTy::Variable(inferrer.fresh());
-                constraints.push_back(InferenceConstraint::IsInt {
+                    self.analyze_expr(&op.right, block, mir, type_solver, scopes);
+                let expr_ty = InferredTy::Variable(type_solver.fresh_ty_var());
+                type_solver.insert_constraint(InferenceConstraint::IsInt {
                     ty: expr_ty.clone(),
                     span: expr.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: expr_ty.clone(),
                     ty1_span: expr.span,
                     ty2: left_ty.clone(),
                     ty2_span: op.left.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: expr_ty.clone(),
                     ty1_span: expr.span,
                     ty2: right_ty.clone(),
@@ -957,17 +912,17 @@ impl Analyzer {
             }
             ast::ExprData::Comparison(op) => {
                 let (left_ty, block, left) =
-                    self.analyze_expr(&op.left, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.left, block, mir, type_solver, scopes);
                 let (right_ty, block, right) =
-                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
+                    self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty = InferredTy::Concrete(Ty::U1);
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: left_ty,
                     ty1_span: op.left.span,
                     ty2: right_ty,
                     ty2_span: op.right.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: expr_ty.clone(),
                     ty1_span: expr.span,
                     ty2: InferredTy::Concrete(Ty::U1),
@@ -1013,24 +968,24 @@ impl Analyzer {
             }
             ast::ExprData::Assign(op) => {
                 let (left_ty, block, left) =
-                    self.resolve_place(&op.left, block, mir, inferrer, constraints, scopes);
+                    self.resolve_place(&op.left, block, mir, type_solver, scopes);
                 let (right_ty, block, right) =
-                    self.analyze_expr(&op.right, block, mir, inferrer, constraints, scopes);
-                let expr_ty = InferredTy::Variable(inferrer.fresh());
+                    self.analyze_expr(&op.right, block, mir, type_solver, scopes);
+                let expr_ty = InferredTy::Variable(type_solver.fresh_ty_var());
                 // currently, assign-like operands assert that the LHS is an int
                 // to ensure that it can fit in a register. Eventually we need
                 // to calculate size of types and assert it can fit in 1 or 2 bytes
-                constraints.push_back(InferenceConstraint::IsInt {
+                type_solver.insert_constraint(InferenceConstraint::IsInt {
                     ty: expr_ty.clone(),
                     span: expr.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: expr_ty.clone(),
                     ty1_span: expr.span,
                     ty2: left_ty.clone(),
                     ty2_span: op.left.span,
                 });
-                constraints.push_back(InferenceConstraint::Equal {
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: expr_ty.clone(),
                     ty1_span: expr.span,
                     ty2: right_ty.clone(),
@@ -1153,7 +1108,7 @@ impl Analyzer {
             ast::ExprData::Block(ast_block) => {
                 scopes.enter_block_scope(expr.span);
                 let (block_expr_ty, block) =
-                    self.analyze_block(ast_block, block, mir, inferrer, constraints, scopes);
+                    self.analyze_block(ast_block, block, mir, type_solver, scopes);
                 let expr_ty = match scopes.block_scope().unwrap().yield_ty {
                     None => {
                         let expr_ty = if block_expr_ty == Ty::NEVER {
@@ -1190,21 +1145,15 @@ impl Analyzer {
                 (expr_ty, block, Operand::Local(target))
             }
             ast::ExprData::If(if_expr) => {
-                let (cond_ty, block, source) = self.analyze_expr(
-                    &if_expr.condition,
-                    block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
-                constraints.push_back(InferenceConstraint::Equal {
+                let (cond_ty, block, source) =
+                    self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
+                type_solver.insert_constraint(InferenceConstraint::Equal {
                     ty1: cond_ty.clone(),
                     ty1_span: if_expr.condition.span,
                     ty2: InferredTy::Concrete(Ty::U1),
                     ty2_span: if_expr.condition.span,
                 });
-                constraints.push_back(InferenceConstraint::IsInt {
+                type_solver.insert_constraint(InferenceConstraint::IsInt {
                     ty: cond_ty,
                     span: expr.span,
                 });
@@ -1225,14 +1174,8 @@ impl Analyzer {
                 );
                 mir.seal_block(then_block);
                 mir.seal_block(else_block);
-                let (true_block_ty, then_block, then_source) = self.analyze_expr(
-                    &if_expr.true_block,
-                    then_block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
+                let (true_block_ty, then_block, then_source) =
+                    self.analyze_expr(&if_expr.true_block, then_block, mir, type_solver, scopes);
                 let target = mir.new_local(true_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                 mir.push_instr(
                     then_block,
@@ -1256,14 +1199,8 @@ impl Analyzer {
                         InferredTy::Concrete(Ty::UNIT)
                     }
                     Some(false_block) => {
-                        let (false_block_ty, else_block, source) = self.analyze_expr(
-                            false_block,
-                            else_block,
-                            mir,
-                            inferrer,
-                            constraints,
-                            scopes,
-                        );
+                        let (false_block_ty, else_block, source) =
+                            self.analyze_expr(false_block, else_block, mir, type_solver, scopes);
                         let target =
                             mir.new_local(false_block_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
                         mir.push_instr(else_block, Instr::Copy { target, source });
@@ -1282,14 +1219,14 @@ impl Analyzer {
                     (InferredTy::Concrete(Ty::NEVER), ty)
                     | (ty, InferredTy::Concrete(Ty::NEVER)) => ty,
                     (true_block_ty, false_block_ty) => {
-                        let expr_ty = InferredTy::Variable(inferrer.fresh());
-                        constraints.push_back(InferenceConstraint::Equal {
+                        let expr_ty = InferredTy::Variable(type_solver.fresh_ty_var());
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: expr_ty.clone(),
                             ty1_span: expr.span,
                             ty2: true_block_ty.clone(),
                             ty2_span: if_expr.true_block.span,
                         });
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: expr_ty.clone(),
                             ty1_span: expr.span,
                             ty2: false_block_ty.clone(),
@@ -1299,7 +1236,7 @@ impl Analyzer {
                                 .map(|expr| expr.span)
                                 .unwrap_or(expr.span),
                         });
-                        constraints.push_back(InferenceConstraint::Equal {
+                        type_solver.insert_constraint(InferenceConstraint::Equal {
                             ty1: true_block_ty,
                             ty1_span: if_expr.true_block.span,
                             ty2: false_block_ty,
@@ -1325,14 +1262,8 @@ impl Analyzer {
                     },
                 );
                 scopes.enter_loop_scope(expr.span, start_block, end_block);
-                let (ty, block) = self.analyze_block(
-                    &loop_expr.body,
-                    start_block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
+                let (ty, block) =
+                    self.analyze_block(&loop_expr.body, start_block, mir, type_solver, scopes);
                 if ty != Ty::NEVER {
                     // if the block has type never,
                     // it never completes an iteration successfully,
@@ -1362,18 +1293,12 @@ impl Analyzer {
                 (expr_ty, end_block, Operand::Local(target))
             }
             ast::ExprData::Call(call_expr) => {
-                let (place_ty, block, callee) = self.analyze_place_expr(
-                    &call_expr.callee,
-                    block,
-                    mir,
-                    inferrer,
-                    constraints,
-                    scopes,
-                );
+                let (place_ty, block, callee) =
+                    self.analyze_place_expr(&call_expr.callee, block, mir, type_solver, scopes);
 
-                let return_ty = inferrer.fresh();
+                let return_ty = type_solver.fresh_ty_var();
 
-                constraints.push_back(InferenceConstraint::IsFnPtr {
+                type_solver.insert_constraint(InferenceConstraint::IsFnPtr {
                     ty: place_ty,
                     span: expr.span,
                     return_ty,
@@ -1411,9 +1336,7 @@ impl Analyzer {
                     Operand::Local(target),
                 )
             }
-            ast::ExprData::Paren(expr) => {
-                self.analyze_expr(expr, block, mir, inferrer, constraints, scopes)
-            }
+            ast::ExprData::Paren(expr) => self.analyze_expr(expr, block, mir, type_solver, scopes),
         }
     }
 
@@ -1422,12 +1345,11 @@ impl Analyzer {
         place: &ast::Place,
         block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId, Operand) {
         let (place_ty, block, resolved_place) =
-            self.resolve_place(place, block, mir, inferrer, constraints, scopes);
+            self.resolve_place(place, block, mir, type_solver, scopes);
         let resolved_place = match resolved_place {
             Some(resolved_place) => resolved_place,
             None => {
@@ -1455,8 +1377,7 @@ impl Analyzer {
         place: &ast::Place,
         mut block: BlockId,
         mir: &mut FunctionBuilder,
-        inferrer: &mut Inferrer,
-        constraints: &mut VecDeque<InferenceConstraint>,
+        type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (InferredTy, BlockId, Option<ResolvedPlace>) {
         let (mut place_ty, mut place_span, place_id) = match scopes.get_place(&place.name.data) {
@@ -1495,8 +1416,8 @@ impl Analyzer {
         for part in &place.projections {
             let (new_place_ty, new_place_span, new_block, projection) = match part {
                 PlaceProjection::Field(field) => {
-                    let field_ty = inferrer.fresh();
-                    constraints.push_back(InferenceConstraint::HasField {
+                    let field_ty = type_solver.fresh_ty_var();
+                    type_solver.insert_constraint(InferenceConstraint::HasField {
                         ty: place_ty,
                         place_span,
                         field: field.clone(),
@@ -1511,15 +1432,15 @@ impl Analyzer {
                 }
                 PlaceProjection::Index(index) => {
                     let (index_expr_ty, block, target) =
-                        self.analyze_expr(index, block, mir, inferrer, constraints, scopes);
-                    constraints.push_back(InferenceConstraint::Equal {
+                        self.analyze_expr(index, block, mir, type_solver, scopes);
+                    type_solver.insert_constraint(InferenceConstraint::Equal {
                         ty1: index_expr_ty,
                         ty1_span: index.span,
                         ty2: InferredTy::Concrete(Ty::U16),
                         ty2_span: index.span,
                     });
-                    let item_ty = inferrer.fresh();
-                    constraints.push_back(InferenceConstraint::IsArray {
+                    let item_ty = type_solver.fresh_ty_var();
+                    type_solver.insert_constraint(InferenceConstraint::IsArray {
                         ty: place_ty,
                         span: place_span,
                         item_ty,
@@ -1540,229 +1461,6 @@ impl Analyzer {
             block = new_block;
         }
         (place_ty, block, global_place.map(ResolvedPlace::Global))
-    }
-
-    fn process_constraints(
-        &mut self,
-        inferrer: &mut Inferrer,
-        mut constraints: VecDeque<InferenceConstraint>,
-    ) {
-        let mut skipped = 0;
-        while let Some(constraint) = constraints.pop_front() {
-            let constraint = match constraint {
-                InferenceConstraint::Equal {
-                    ty1,
-                    ty1_span,
-                    ty2,
-                    ty2_span,
-                } => {
-                    match inferrer.unify(ty1, ty2) {
-                        Ok(()) => {}
-                        Err(UnificationError {
-                            ty1: InferredTy::Concrete(ty1),
-                            ty2: InferredTy::Concrete(ty2),
-                        }) => {
-                            self.result_builder.add_error(TyMismatchError {
-                                ty1: ty1.display(&self.ty_registry).into_detached(),
-                                ty1_span,
-                                ty2: ty2.display(&self.ty_registry).into_detached(),
-                                ty2_span,
-                            });
-                        }
-                        Err(UnificationError { .. }) => {
-                            self.result_builder.add_error(TyMismatchError {
-                                ty1: Ty::UNRESOLVED.display(&self.ty_registry).into_detached(),
-                                ty1_span,
-                                ty2: Ty::UNRESOLVED.display(&self.ty_registry).into_detached(),
-                                ty2_span,
-                            });
-                        }
-                    }
-                    None
-                }
-                InferenceConstraint::IsInt { mut ty, span } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            if !ty.is_int() && ty != Ty::ERROR {
-                                self.result_builder.add_error(NotIntError {
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                    span,
-                                });
-                            }
-                            None
-                        }
-                        ty => Some(InferenceConstraint::IsInt { ty, span }),
-                    }
-                }
-                InferenceConstraint::IsSignedInt { mut ty, span } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            if !ty.is_signed_int() && ty != Ty::ERROR {
-                                self.result_builder.add_error(NotSignedIntError {
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                    span,
-                                });
-                            }
-                            None
-                        }
-                        ty => Some(InferenceConstraint::IsSignedInt { ty, span }),
-                    }
-                }
-                InferenceConstraint::HasField {
-                    mut ty,
-                    place_span,
-                    field,
-                    field_ty,
-                } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            let concrete_field_ty = if ty == Ty::ERROR {
-                                Ty::ERROR
-                            } else if !ty.is_struct() {
-                                self.result_builder.add_error(NotStructError {
-                                    span: place_span,
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                });
-                                Ty::ERROR
-                            } else {
-                                let data = self.ty_registry.struct_ty_data(ty);
-                                match data.fields.get(&field.data) {
-                                    None => {
-                                        self.result_builder.add_error(FieldNotDefinedError {
-                                            struct_span: data.name.span,
-                                            ty: ty.display(&self.ty_registry).into_detached(),
-                                            field: field.data,
-                                            field_span: field.span,
-                                        });
-                                        Ty::ERROR
-                                    }
-                                    Some(field_data) => field_data.ty,
-                                }
-                            };
-                            inferrer.bind(field_ty, InferredTy::Concrete(concrete_field_ty));
-                            None
-                        }
-                        ty => Some(InferenceConstraint::HasField {
-                            ty,
-                            place_span,
-                            field,
-                            field_ty,
-                        }),
-                    }
-                }
-                InferenceConstraint::IsArray {
-                    mut ty,
-                    span,
-                    item_ty,
-                } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            let concrete_item_ty = if ty == Ty::ERROR {
-                                Ty::ERROR
-                            } else if !ty.is_array() {
-                                self.result_builder.add_error(NotArrayError {
-                                    span,
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                });
-                                Ty::ERROR
-                            } else {
-                                let data = self.ty_registry.array_ty_data(ty);
-                                data.item_ty
-                            };
-                            inferrer.bind(item_ty, InferredTy::Concrete(concrete_item_ty));
-                            None
-                        }
-                        ty => Some(InferenceConstraint::IsArray { ty, span, item_ty }),
-                    }
-                }
-                InferenceConstraint::IsFnPtr {
-                    mut ty,
-                    span,
-                    return_ty,
-                } => {
-                    inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
-                            let concrete_return_ty = if ty == Ty::ERROR {
-                                Ty::ERROR
-                            } else if !ty.is_fn_ptr() {
-                                self.result_builder.add_error(NotFnPtrError {
-                                    span,
-                                    ty: ty.display(&self.ty_registry).into_detached(),
-                                });
-                                Ty::ERROR
-                            } else {
-                                let data = self.ty_registry.fn_ptr_ty_data(ty);
-                                data.return_ty
-                            };
-                            inferrer.bind(return_ty, InferredTy::Concrete(concrete_return_ty));
-                            None
-                        }
-                        ty => Some(InferenceConstraint::IsFnPtr {
-                            ty,
-                            span,
-                            return_ty,
-                        }),
-                    }
-                }
-            };
-            match constraint {
-                None => {
-                    skipped = 0;
-                }
-                Some(constraint) => {
-                    constraints.push_back(constraint);
-                    skipped += 1;
-                    if skipped >= constraints.len() {
-                        break;
-                    }
-                }
-            }
-        }
-
-        if !constraints.is_empty() {
-            for constraint in constraints {
-                match constraint {
-                    InferenceConstraint::Equal {
-                        mut ty1,
-                        ty1_span,
-                        mut ty2,
-                        ty2_span,
-                    } => {
-                        inferrer.prune(&mut ty1);
-                        inferrer.prune(&mut ty2);
-                        let ty1 = match ty1 {
-                            InferredTy::Concrete(ty) => ty,
-                            InferredTy::Variable(_) => Ty::UNRESOLVED,
-                        };
-                        let ty2 = match ty2 {
-                            InferredTy::Concrete(ty) => ty,
-                            InferredTy::Variable(_) => Ty::UNRESOLVED,
-                        };
-                        self.result_builder.add_error(TyMismatchError {
-                            ty1: ty1.display(&self.ty_registry).into_detached(),
-                            ty1_span,
-                            ty2: ty2.display(&self.ty_registry).into_detached(),
-                            ty2_span,
-                        });
-                    }
-                    InferenceConstraint::IsInt { span, .. }
-                    | InferenceConstraint::IsSignedInt { span, .. }
-                    | InferenceConstraint::IsArray { span, .. }
-                    | InferenceConstraint::IsFnPtr { span, .. } => {
-                        self.result_builder.add_error(TypeUnresolvedError { span });
-                    }
-                    InferenceConstraint::HasField { field, .. } => {
-                        self.result_builder
-                            .add_error(TypeUnresolvedError { span: field.span });
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1939,38 +1637,4 @@ struct LoopScope {
     span: SourceSpan,
     start_block: BlockId,
     end_block: BlockId,
-}
-
-#[derive(Debug)]
-enum InferenceConstraint {
-    Equal {
-        ty1: InferredTy,
-        ty1_span: SourceSpan,
-        ty2: InferredTy,
-        ty2_span: SourceSpan,
-    },
-    IsInt {
-        ty: InferredTy,
-        span: SourceSpan,
-    },
-    IsSignedInt {
-        ty: InferredTy,
-        span: SourceSpan,
-    },
-    HasField {
-        ty: InferredTy,
-        place_span: SourceSpan,
-        field: SpannedIdentifier,
-        field_ty: TyVar,
-    },
-    IsArray {
-        ty: InferredTy,
-        span: SourceSpan,
-        item_ty: TyVar,
-    },
-    IsFnPtr {
-        ty: InferredTy,
-        span: SourceSpan,
-        return_ty: TyVar,
-    },
 }
