@@ -72,9 +72,7 @@ main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
     x#2: <unresolved> = copy 1
-    #3: u1 = copy x#2
-    #4: u1 = copy #3
-    inner#5: <unresolved> = copy #4
+    inner#3: u1 = copy x#2
     return
 """
 
@@ -106,7 +104,6 @@ expected_mir = """
 main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
-    #2: <unresolved> = copy x#1
-    y#3: <unresolved> = copy #2
+    y#2: u8 = copy x#1
     return
 """

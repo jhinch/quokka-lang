@@ -13,10 +13,7 @@ main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
     y#2: <unresolved> = copy 2
-    #3: u8 = copy x#1
-    #4: u8 = copy y#2
-    #5: u1 = lt #3, #4
-    b#6: u1 = copy #5
+    b#3: u1 = lt x#1, y#2
     return
 """
 
@@ -49,10 +46,7 @@ main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
     y#2: <unresolved> = copy 2
-    #3: u8 = copy x#1
-    #4: u8 = copy y#2
-    #5: u1 = eq #3, #4
-    b#6: u1 = copy #5
+    b#3: u1 = eq x#1, y#2
     return
 """
 
@@ -71,10 +65,7 @@ main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
     y#2: <unresolved> = copy 2
-    #3: u8 = copy x#1
-    #4: u8 = copy y#2
-    #5: u1 = ne #3, #4
-    b#6: u1 = copy #5
+    b#3: u1 = ne x#1, y#2
     return
 """
 
@@ -92,47 +83,3 @@ expected_errors = [
     "`u8` is not equal to `u1` @ [62:68]",
     "`u8` is not equal to `u1` @ [62:68]",
 ]
-
-[[case]]
-name = "boolean_and_ok"
-kind = "analyzer"
-source = """
-fn main() {
-    let x: u1 = 1;
-    let y: u1 = 0;
-    let b: u1 = x && y;
-}
-"""
-expected_mir = """
-main -> unit:
-  .bb1:
-    x#1: <unresolved> = copy 1
-    y#2: <unresolved> = copy 0
-    #3: u1 = copy x#1
-    #4: u1 = copy y#2
-    #5: u1 = bitand #3, #4
-    b#6: u1 = copy #5
-    return
-"""
-
-[[case]]
-name = "boolean_or_ok"
-kind = "analyzer"
-source = """
-fn main() {
-    let x: u1 = 1;
-    let y: u1 = 0;
-    let b: u1 = x || y;
-}
-"""
-expected_mir = """
-main -> unit:
-  .bb1:
-    x#1: <unresolved> = copy 1
-    y#2: <unresolved> = copy 0
-    #3: u1 = copy x#1
-    #4: u1 = copy y#2
-    #5: u1 = bitor #3, #4
-    b#6: u1 = copy #5
-    return
-"""

@@ -111,7 +111,7 @@ fn foo() -> u8 {
 fn main() {}
 """
 expected_errors = [
-    "`u8` is not equal to `unit` @ [3:6]",
+    "`return` missing in block @ [17:18]",
 ]
 
 [[case]]

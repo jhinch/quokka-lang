@@ -1,0 +1,47 @@
+[[case]]
+name = "boolean_and_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 1;
+    let y: u1 = 0;
+    let b: u1 = x && y;
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    y#2: <unresolved> = copy 0
+    jumpif x#1 != 0, .bb2, .bb3
+  .bb2:
+    y#3: <unresolved> = copy y#2
+    jump .bb3
+  .bb3:
+    b#4: <unresolved> = phi x#1 <- .bb1, y#3 <- .bb2
+    return
+"""
+
+[[case]]
+name = "boolean_or_ok"
+kind = "analyzer"
+source = """
+fn main() {
+    let x: u1 = 1;
+    let y: u1 = 0;
+    let b: u1 = x || y;
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    x#1: <unresolved> = copy 1
+    y#2: <unresolved> = copy 0
+    jumpif x#1 == 0, .bb2, .bb3
+  .bb2:
+    y#3: <unresolved> = copy y#2
+    jump .bb3
+  .bb3:
+    b#4: <unresolved> = phi x#1 <- .bb1, y#3 <- .bb2
+    return
+"""

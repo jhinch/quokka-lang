@@ -74,7 +74,15 @@ pub struct YieldOutsideBlockError {
 #[error("`yield` missing in expression block")]
 #[diagnostic()]
 pub struct YieldMissingError {
-    #[label("this block")]
+    #[label("expected `yield` before this closing brace")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`return` missing in block")]
+#[diagnostic()]
+pub struct ReturnMissingError {
+    #[label("expected `return` before this closing brace")]
     pub span: SourceSpan,
 }
 

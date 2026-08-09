@@ -989,6 +989,11 @@ impl FunctionBuilder {
         })
     }
 
+    #[must_use]
+    pub fn is_named_local(&self, local: LocalId) -> bool {
+        self.function.locals[local].name.is_some()
+    }
+
     pub fn create_return_local(&mut self, ty: Ty) -> LocalId {
         assert!(self.function.return_local.is_some() || self.function.locals.is_empty());
         if self.function.return_local.is_none() {

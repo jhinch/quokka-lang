@@ -62,7 +62,8 @@ expected_mir = """
 main -> unit:
   .bb1:
     x#1: <unresolved> = copy 1
-    x#2: <unresolved> = add x#1, 1
+    #2: <unresolved> = copy 1
+    x#3: <unresolved> = add x#1, #2
     return
 """
 
@@ -78,9 +79,10 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    #1: u8 = load x
-    #2: <unresolved> = add #1, 1
-    store x = #2
+    #1: <unresolved> = copy 1
+    #2: u8 = load x
+    #3: <unresolved> = add #2, #1
+    store x = #3
     return
 """
 
