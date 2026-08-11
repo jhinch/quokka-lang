@@ -787,8 +787,6 @@ impl Analyzer {
             }
             ast::ExprData::Logical(op) => {
                 let variable = mir.new_variable();
-                // currently this branch incorrectly handles `And` and `Or` as
-                // `BitAnd` and `BitOr`. Will follow this up in a subsequent change
                 let (block, left_ty, left) =
                     self.analyze_expr(&op.left, block, mir, type_solver, scopes);
                 mir.write_variable(variable, block, left);
