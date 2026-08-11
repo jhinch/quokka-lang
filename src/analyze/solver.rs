@@ -314,7 +314,7 @@ impl TypeSolver {
         then_ty: InferredTy,
         else_ty: Option<InferredTy>,
     ) -> InferredTy {
-        let else_ty = else_ty.unwrap_or_else(|| InferredTy::Concrete(Ty::UNIT));
+        let else_ty = else_ty.unwrap_or(InferredTy::Concrete(Ty::UNIT));
         match (then_ty, else_ty) {
             (InferredTy::Concrete(Ty::NEVER), ty) | (ty, InferredTy::Concrete(Ty::NEVER)) => {
                 // if one side is divergent, we don't need to add any
