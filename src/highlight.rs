@@ -1,6 +1,7 @@
 use crate::lex;
 use miette::SpanContents;
 use miette::highlighters::{BlankHighlighter, Highlighter, HighlighterState};
+
 pub struct QuokkaHighlighter;
 
 impl Highlighter for QuokkaHighlighter {
@@ -29,11 +30,15 @@ impl HighlighterState for QuokkaHighlighterState {
                     | lex::TokenKind::Return
                     | lex::TokenKind::Break
                     | lex::TokenKind::If
+                    | lex::TokenKind::Then
                     | lex::TokenKind::Else
                     | lex::TokenKind::Struct
                     | lex::TokenKind::Let
                     | lex::TokenKind::Const
-                    | lex::TokenKind::Global => {
+                    | lex::TokenKind::Global
+                    | lex::TokenKind::Yield
+                    | lex::TokenKind::Continue
+                    | lex::TokenKind::Asm => {
                         parts.push(
                             owo_colors::Style::default()
                                 .style(&line[offset..token.span().offset()]),
@@ -59,7 +64,44 @@ impl HighlighterState for QuokkaHighlighterState {
                         );
                         offset = next_offset;
                     }
-                    _ => {}
+                    lex::TokenKind::LeftParen
+                    | lex::TokenKind::RightParen
+                    | lex::TokenKind::LeftBrace
+                    | lex::TokenKind::RightBrace
+                    | lex::TokenKind::LeftBracket
+                    | lex::TokenKind::RightBracket
+                    | lex::TokenKind::Comma
+                    | lex::TokenKind::Semicolon
+                    | lex::TokenKind::Colon
+                    | lex::TokenKind::Equal
+                    | lex::TokenKind::EqualEqual
+                    | lex::TokenKind::Ampersand
+                    | lex::TokenKind::AmpersandAmpersand
+                    | lex::TokenKind::Pipe
+                    | lex::TokenKind::PipePipe
+                    | lex::TokenKind::Bang
+                    | lex::TokenKind::BangEqual
+                    | lex::TokenKind::Hash
+                    | lex::TokenKind::Dot
+                    | lex::TokenKind::Carrot
+                    | lex::TokenKind::Plus
+                    | lex::TokenKind::Minus
+                    | lex::TokenKind::MinusGreaterThan
+                    | lex::TokenKind::LessThan
+                    | lex::TokenKind::LessThanLessThan
+                    | lex::TokenKind::LessThanEqual
+                    | lex::TokenKind::LessThanPercent
+                    | lex::TokenKind::GreaterThan
+                    | lex::TokenKind::GreaterThanGreaterThan
+                    | lex::TokenKind::GreaterThanEqual
+                    | lex::TokenKind::GreaterThanPercent
+                    | lex::TokenKind::PlusEqual
+                    | lex::TokenKind::MinusEqual
+                    | lex::TokenKind::AmpersandEqual
+                    | lex::TokenKind::PipeEqual
+                    | lex::TokenKind::CarrotEqual
+                    | lex::TokenKind::Ident
+                    | lex::TokenKind::Eof => {}
                 },
                 Err(_) => break,
             }
