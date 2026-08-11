@@ -299,8 +299,13 @@ fn update_expected_errors(
     if actual_errors == case.expected_errors.as_slice() {
         return;
     }
-    let is_removal = !case.expected_errors.is_empty() && actual_errors.is_empty();
-    if is_removal && !case.force_regenerate_expectations {
+    let is_removal = actual_errors.is_empty() && !case.expected_errors.is_empty();
+    let is_addition = !actual_errors.is_empty()
+        && case.expected_errors.is_empty()
+        && !(case.expected_tokens.trim().is_empty()
+            && case.expected_ast.trim().is_empty()
+            && case.expected_mir.trim().is_empty());
+    if (is_removal || is_addition) && !case.force_regenerate_expectations {
         return;
     }
     tx.send(PendingUpdate {
