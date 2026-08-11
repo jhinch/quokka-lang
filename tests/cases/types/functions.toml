@@ -17,7 +17,7 @@ main -> unit:
   .bb1:
     call helper, .bb2
   .bb2:
-    #1: <unresolved> = returnvalue
+    #1: unit = returnvalue
     return
 """
 
@@ -63,7 +63,7 @@ fn main() {
 expected_mir = """
 helper -> u8:
   .bb1:
-    #2: <unresolved> = copy 1
+    #2: u8 = copy 1
     #RET: u8 = copy #2
     return
 
@@ -71,7 +71,7 @@ main -> unit:
   .bb1:
     call helper, .bb2
   .bb2:
-    x#1: <unresolved> = returnvalue
+    x#1: u8 = returnvalue
     return
 """
 

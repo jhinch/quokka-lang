@@ -848,7 +848,7 @@ impl MirBuilder {
 
 pub struct FunctionBuilder {
     function: Function,
-    variable_assignments: HashMap<Variable, HashMap<BlockId, LocalId>>,
+    variable_assignments: HashMap<Variable, HashMap<BlockId, Vec<LocalId>>>,
     variable_names: HashMap<Variable, SpannedIdentifier>,
     terminated_blocks: SecondaryMap<BlockId, ()>,
     sealed_blocks: SecondaryMap<BlockId, ()>,
@@ -989,6 +989,26 @@ impl FunctionBuilder {
         })
     }
 
+    pub fn set_local_ty(&mut self, local: LocalId, ty: Ty) {
+        self.function.locals[local].ty = ty;
+    }
+
+    pub fn propagate_variable_types(&mut self) {
+        for assignments in self.variable_assignments.values() {
+            let ty = assignments.values().flatten().find_map(|&local| {
+                let ty = self.function.locals[local].ty;
+                if ty == Ty::UNRESOLVED { None } else { Some(ty) }
+            });
+            if let Some(ty) = ty {
+                for &local in assignments.values().flatten() {
+                    if self.function.locals[local].ty == Ty::UNRESOLVED {
+                        self.function.locals[local].ty = ty;
+                    }
+                }
+            }
+        }
+    }
+
     #[must_use]
     pub fn is_named_local(&self, local: LocalId) -> bool {
         self.function.locals[local].name.is_some()
@@ -1070,7 +1090,9 @@ impl FunctionBuilder {
         self.variable_assignments
             .entry(var)
             .or_default()
-            .insert(block, local);
+            .entry(block)
+            .or_default()
+            .push(local);
         if let Some(name) = self.variable_names.get(&var) {
             if let Some(previous) = self.function.locals[local].name.as_ref() {
                 debug_assert!(
@@ -1087,6 +1109,7 @@ impl FunctionBuilder {
             .variable_assignments
             .get(&var)
             .and_then(|assignments| assignments.get(&block))
+            .and_then(|assignments| assignments.last())
         {
             return *value;
         }

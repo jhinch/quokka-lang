@@ -15,7 +15,7 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    v#1: <unresolved> = load P.x
+    v#1: u8 = load P.x
     return
 """
 

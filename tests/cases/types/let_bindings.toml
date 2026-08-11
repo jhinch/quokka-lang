@@ -9,7 +9,7 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
+    x#1: u8 = copy 1
     return
 """
 
@@ -50,8 +50,8 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
-    x#2: <unresolved> = copy 2
+    x#1: u8 = copy 1
+    x#2: u1 = copy 2
     return
 """
 
@@ -70,8 +70,8 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
-    x#2: <unresolved> = copy 1
+    x#1: u8 = copy 1
+    x#2: u1 = copy 1
     inner#3: u1 = copy x#2
     return
 """
@@ -87,7 +87,7 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 200
+    x#1: u1 = copy 200
     return
 """
 
@@ -103,7 +103,7 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
+    x#1: u8 = copy 1
     y#2: u8 = copy x#1
     return
 """

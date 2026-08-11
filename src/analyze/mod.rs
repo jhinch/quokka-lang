@@ -285,9 +285,15 @@ impl Analyzer {
         let (_, inferred_ty, _) =
             self.analyze_expr(&const_decl.value, block, &mut mir, &mut type_solver, scopes);
         type_solver.check_const_decl(const_decl, inferred_ty, const_ty);
-        if let Err(errors) = type_solver.solve(&self.ty_registry) {
-            self.result_builder.add_errors(errors);
+        match type_solver.solve(&self.ty_registry) {
+            Ok(local_types) => {
+                for (local, ty) in local_types {
+                    mir.set_local_ty(local, ty);
+                }
+            }
+            Err(errors) => self.result_builder.add_errors(errors),
         }
+        mir.propagate_variable_types();
     }
 
     fn analyze_fn_decl(
@@ -346,9 +352,15 @@ impl Analyzer {
             }
         }
         scopes.exit_fn_scope();
-        if let Err(errors) = type_solver.solve(&self.ty_registry) {
-            self.result_builder.add_errors(errors);
+        match type_solver.solve(&self.ty_registry) {
+            Ok(local_types) => {
+                for (local, ty) in local_types {
+                    mir.set_local_ty(local, ty);
+                }
+            }
+            Err(errors) => self.result_builder.add_errors(errors),
         }
+        mir.propagate_variable_types();
 
         self.mir_builder.seal_function(function_id, mir);
     }
@@ -413,7 +425,7 @@ impl Analyzer {
                     //      let b: u8 = a;
                     // in these situations, add a copy instruction to allow
                     // the new target to be named as the variable.
-                    let target = mir.new_local(let_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    let target = type_solver.new_registered_local(mir, &let_ty);
                     mir.push_instr(
                         block,
                         Instr::Copy {
@@ -719,7 +731,7 @@ impl Analyzer {
                 let target = if let Operand::Local(target) = source {
                     target
                 } else {
-                    let target = mir.new_local(ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                    let target = type_solver.new_registered_local(mir, &ty);
                     mir.push_instr(block, Instr::Copy { target, source });
                     target
                 };
@@ -727,7 +739,7 @@ impl Analyzer {
             }
             ast::ExprData::Integer(literal) => {
                 let ty = type_solver.check_integer_expr(literal, expr.span);
-                let target = mir.new_local(Ty::UNRESOLVED);
+                let target = type_solver.new_registered_local(mir, &ty);
                 mir.push_instr(
                     block,
                     Instr::Copy {
@@ -741,7 +753,7 @@ impl Analyzer {
                 let (block, inner_ty, source) =
                     self.analyze_expr(&op.expr, block, mir, type_solver, scopes);
                 let expr_ty = type_solver.check_unary_expr(op, expr.span, inner_ty);
-                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                let target = type_solver.new_registered_local(mir, &expr_ty);
                 mir.push_instr(
                     block,
                     match op.kind {
@@ -821,7 +833,7 @@ impl Analyzer {
                 let (block, right_ty, right) =
                     self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty = type_solver.check_arithmetic_expr(op, expr.span, left_ty, right_ty);
-                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                let target = type_solver.new_registered_local(mir, &expr_ty);
                 mir.push_instr(
                     block,
                     match op.kind {
@@ -860,7 +872,7 @@ impl Analyzer {
                 let (block, right_ty, right) =
                     self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty = type_solver.check_comparison_expr(op, expr.span, left_ty, right_ty);
-                let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                let target = type_solver.new_registered_local(mir, &expr_ty);
                 mir.push_instr(
                     block,
                     match op.kind {
@@ -928,8 +940,7 @@ impl Analyzer {
                                 Operand::Local(local)
                             }
                             Some(ResolvedPlace::Global(source)) => {
-                                let target =
-                                    mir.new_local(left_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                                let target = type_solver.new_registered_local(mir, &left_ty);
                                 mir.push_instr(
                                     block,
                                     Instr::Load {
@@ -941,7 +952,7 @@ impl Analyzer {
                             }
                         };
 
-                        let target = mir.new_local(expr_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                        let target = type_solver.new_registered_local(mir, &expr_ty);
                         mir.push_instr(
                             block,
                             match kind {
@@ -1186,7 +1197,7 @@ impl Analyzer {
                     },
                 );
                 mir.seal_block(return_block);
-                let target = mir.new_local(Ty::UNRESOLVED);
+                let target = type_solver.new_registered_local(mir, &return_ty);
                 mir.push_instr(return_block, Instr::ReturnValue { target });
                 (return_block, return_ty, target)
             }
@@ -1219,7 +1230,7 @@ impl Analyzer {
                 (block, place_ty, Operand::Local(local))
             }
             ResolvedPlace::Global(source) => {
-                let target = mir.new_local(place_ty.to_concrete().unwrap_or(Ty::UNRESOLVED));
+                let target = type_solver.new_registered_local(mir, &place_ty);
                 mir.push_instr(block, Instr::Load { target, source });
                 (block, place_ty, Operand::Local(target))
             }

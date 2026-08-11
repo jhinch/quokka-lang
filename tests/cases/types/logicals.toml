@@ -11,14 +11,14 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
-    y#2: <unresolved> = copy 0
+    x#1: u1 = copy 1
+    y#2: u1 = copy 0
     jumpif x#1 != 0, .bb2, .bb3
   .bb2:
-    y#3: <unresolved> = copy y#2
+    y#3: u1 = copy y#2
     jump .bb3
   .bb3:
-    b#4: <unresolved> = phi x#1 <- .bb1, y#3 <- .bb2
+    b#4: u1 = phi x#1 <- .bb1, y#3 <- .bb2
     return
 """
 
@@ -35,13 +35,13 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    x#1: <unresolved> = copy 1
-    y#2: <unresolved> = copy 0
+    x#1: u1 = copy 1
+    y#2: u1 = copy 0
     jumpif x#1 == 0, .bb2, .bb3
   .bb2:
-    y#3: <unresolved> = copy y#2
+    y#3: u1 = copy y#2
     jump .bb3
   .bb3:
-    b#4: <unresolved> = phi x#1 <- .bb1, y#3 <- .bb2
+    b#4: u1 = phi x#1 <- .bb1, y#3 <- .bb2
     return
 """

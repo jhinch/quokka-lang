@@ -8,9 +8,11 @@ use crate::ast::{
     ArithmeticOp, AssignOp, BreakSmt, Call, ComparisonOp, ConstDecl, Expr, If, IntegerLiteral,
     LetSmt, LogicalOp, ReturnSmt, SpannedIdentifier, UnaryOp, UnaryOpKind, YieldSmt,
 };
+use crate::mir::{FunctionBuilder, LocalId};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use miette::SourceSpan;
+use slotmap::SparseSecondaryMap;
 use std::collections::VecDeque;
 
 #[derive(Default)]
@@ -18,11 +20,24 @@ pub struct TypeSolver {
     constraints: VecDeque<InferenceConstraint>,
     inferrer: Inferrer,
     result_builder: MultiResultBuilder,
+    outstanding_locals: SparseSecondaryMap<LocalId, TyVar>,
 }
 
 impl TypeSolver {
     pub fn fresh_ty_var(&mut self) -> TyVar {
         self.inferrer.fresh()
+    }
+
+    pub fn new_registered_local(&mut self, mir: &mut FunctionBuilder, ty: &InferredTy) -> LocalId {
+        let (concrete_ty, ty_var) = match ty {
+            InferredTy::Variable(ty_var) => (Ty::UNRESOLVED, Some(*ty_var)),
+            InferredTy::Concrete(concrete_ty) => (*concrete_ty, None),
+        };
+        let local = mir.new_local(concrete_ty);
+        if let Some(ty_var) = ty_var {
+            self.outstanding_locals.insert(local, ty_var);
+        }
+        local
     }
 
     pub fn check_const_decl(&mut self, const_decl: &ConstDecl, expr_ty: InferredTy, const_ty: Ty) {
@@ -398,7 +413,10 @@ impl TypeSolver {
         InferredTy::Variable(item_ty)
     }
 
-    pub fn solve(mut self, ty_registry: &TyRegistry) -> Result<(), MultiError> {
+    pub fn solve(
+        mut self,
+        ty_registry: &TyRegistry,
+    ) -> Result<SparseSecondaryMap<LocalId, Ty>, MultiError> {
         let mut skipped = 0;
         while let Some(constraint) = self.constraints.pop_front() {
             let constraint = match constraint {
@@ -618,7 +636,19 @@ impl TypeSolver {
                 }
             }
         }
-        self.result_builder.finish(()).into_result()
+        let _ = self.result_builder.finish(()).into_result()?;
+        Ok(self
+            .outstanding_locals
+            .into_iter()
+            .map(|(local, ty_var)| {
+                (
+                    local,
+                    self.inferrer
+                        .resolve(ty_var)
+                        .unwrap_or_else(|| panic!("type variable {ty_var:?} unresolved")),
+                )
+            })
+            .collect())
     }
 }
 

@@ -11,8 +11,8 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    #1: <unresolved> = copy 0
-    v#2: <unresolved> = load A[#1]
+    #1: u16 = copy 0
+    v#2: u8 = load A[#1]
     return
 """
 
@@ -89,7 +89,7 @@ fn main() {
 expected_mir = """
 main -> unit:
   .bb1:
-    #1: <unresolved> = copy 0
-    #2: <unresolved> = load A[#1]
+    #1: u16 = copy 0
+    #2: u8 = load A[#1]
     return
 """
