@@ -199,6 +199,88 @@ expected_errors = [
 ]
 
 [[case]]
+name = "section_on_global_decl"
+kind = "analyzer"
+source = """
+#[section = vram]
+global A: u8;
+
+fn main() {}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "section_missing_value_on_global_decl"
+kind = "analyzer"
+source = """
+#[section]
+global A: u8;
+
+fn main() {}
+"""
+expected_errors = [
+    "malformed attributes: invalid type: unit value, expected variant identifier @ [0:1]",
+]
+
+[[case]]
+name = "section_rom0_on_global_decl"
+kind = "analyzer"
+source = """
+#[section = rom0]
+global A: u8;
+
+fn main() {}
+"""
+expected_errors = [
+    "malformed attributes: unknown variant `rom0`, expected one of `auto`, `wram0`, `vram`, `hram`, `wramx`, `sram`, `oam` @ [0:1]",
+]
+
+[[case]]
+name = "section_on_const_decl"
+kind = "analyzer"
+source = """
+#[section = rom0]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "section_missing_value_on_const_decl"
+kind = "analyzer"
+source = """
+#[section]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_errors = [
+    "malformed attributes: invalid type: unit value, expected variant identifier @ [0:1]",
+]
+
+[[case]]
+name = "section_hram_on_const_decl"
+kind = "analyzer"
+source = """
+#[section = hram]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_errors = [
+    "malformed attributes: unknown variant `hram`, expected one of `auto`, `romx`, `rom0` @ [0:1]",
+]
+
+[[case]]
 name = "unknown_attr_on_struct_decl"
 kind = "analyzer"
 source = """

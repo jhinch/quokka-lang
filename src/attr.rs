@@ -17,7 +17,7 @@ pub struct FnDeclAttributes {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum InlineKind {
     #[default]
     Auto,
@@ -28,11 +28,39 @@ pub enum InlineKind {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ConstDeclAttributes {}
+pub struct ConstDeclAttributes {
+    #[serde(default)]
+    section: RomSectionKind,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RomSectionKind {
+    #[default]
+    Auto,
+    RomX,
+    Rom0,
+}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GlobalDeclAttributes {}
+pub struct GlobalDeclAttributes {
+    #[serde(default)]
+    section: RamSectionKind,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RamSectionKind {
+    #[default]
+    Auto,
+    WRam0,
+    VRam,
+    HRam,
+    WRamX,
+    SRam,
+    Oam,
+}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
