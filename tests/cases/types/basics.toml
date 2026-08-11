@@ -47,6 +47,22 @@ expected_errors = [
 ]
 
 [[case]]
+name = "break_with_value_from_unit_loop"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+fn main() {
+    loop {
+        let a: u8 = 1;
+        break a;
+    }
+}
+"""
+expected_errors = [
+    "cannot `break` with value from a unit loop @ [16:68]",
+]
+
+[[case]]
 name = "continue_outside_loop"
 kind = "analyzer"
 source = """
@@ -71,7 +87,24 @@ expected_errors = [
 ]
 
 [[case]]
-name = "return_value_type_mismatch"
+name = "yield_in_unit_block"
+kind = "analyzer"
+source = """
+fn main() {
+    let a: u8 = 1;
+    {
+        let b: u8 = 2;
+        yield a;
+    }
+}
+"""
+expected_errors = [
+    "cannot `yield` from a unit block @ [35:82]",
+]
+
+
+[[case]]
+name = "return_value_missing"
 kind = "analyzer"
 source = """
 fn foo() -> u8 {
@@ -80,7 +113,21 @@ fn foo() -> u8 {
 fn main() {}
 """
 expected_errors = [
-    "`u8` is not equal to `unit` @ [21:28]",
+    "`return` missing a value @ [12:14]",
+]
+
+[[case]]
+name = "return_value_unexpected"
+kind = "analyzer"
+source = """
+fn foo() {
+    let a: u8 = 1;
+    return a;
+}
+fn main() {}
+"""
+expected_errors = [
+    "unexpected `return` value @ [3:6]",
 ]
 
 [[case]]

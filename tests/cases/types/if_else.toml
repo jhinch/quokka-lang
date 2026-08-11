@@ -75,7 +75,6 @@ fn main() {
 """
 expected_errors = [
     "`u8` is not equal to `u1` @ [109:121]",
-    "`u8` is not equal to `u1` @ [109:121]",
 ]
 
 [[case]]

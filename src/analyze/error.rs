@@ -79,11 +79,51 @@ pub struct YieldMissingError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("cannot `yield` from a unit block")]
+#[diagnostic()]
+pub struct YieldUnexpectedError {
+    #[label("value yielded here")]
+    pub yield_span: SourceSpan,
+    #[label("block does not produce a value")]
+    pub block_span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("`return` missing in block")]
 #[diagnostic()]
 pub struct ReturnMissingError {
     #[label("expected `return` before this closing brace")]
     pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`return` missing a value")]
+#[diagnostic()]
+pub struct ReturnExprMissingError {
+    #[label("missing value here")]
+    pub return_span: SourceSpan,
+    #[label("return type declared")]
+    pub function_span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("unexpected `return` value")]
+#[diagnostic()]
+pub struct ReturnExprUnexpectedError {
+    #[label("value returned here")]
+    pub return_span: SourceSpan,
+    #[label("no return type declared")]
+    pub function_span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("cannot `break` with value from a unit loop")]
+#[diagnostic()]
+pub struct BreakExprUnexpectedError {
+    #[label("break value here")]
+    pub break_span: SourceSpan,
+    #[label("loop does not produce a value")]
+    pub loop_span: SourceSpan,
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
