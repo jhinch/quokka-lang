@@ -245,6 +245,14 @@ pub struct FnPtrNotAssignableError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("cannot assign to a constant")]
+#[diagnostic()]
+pub struct ConstNotAssignableError {
+    #[label("this is a constant")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("unreachable code")]
 #[diagnostic()]
 pub struct UnreachableError {

@@ -418,6 +418,15 @@ pub struct Global {
     pub attrs: GlobalAttributes,
 }
 
+impl Global {
+    pub fn is_mutable(&self) -> bool {
+        match self.attrs {
+            GlobalAttributes::Rom(_) => false,
+            GlobalAttributes::Ram(_) => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum GlobalAttributes {
     Rom(ConstDeclAttributes),
@@ -815,6 +824,10 @@ impl MirBuilder {
         attrs: GlobalAttributes,
     ) -> GlobalId {
         self.mir.globals.insert(Global { name, ty, attrs })
+    }
+
+    pub fn global(&self, id: GlobalId) -> &Global {
+        &self.mir.globals[id]
     }
 
     pub fn reserve_function(&mut self) -> FunctionId {

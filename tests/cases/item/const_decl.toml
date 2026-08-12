@@ -252,3 +252,16 @@ fn main() {}
 expected_errors = [
     "name `A` defined multiple times in scope @ [20:21]",
 ]
+
+[[case]]
+name = "const_cannot_be_assigned"
+kind = "analyzer"
+source = """
+const A: u8 = 1;
+fn main() {
+    A = 3;
+}
+"""
+expected_errors = [
+    "cannot assign to a constant @ [33:34]",
+]

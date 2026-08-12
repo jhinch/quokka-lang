@@ -917,6 +917,12 @@ impl Analyzer {
                     self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty =
                     type_solver.check_assign_expr(op, expr.span, left_ty.clone(), right_ty);
+                if let Some(ResolvedPlace::Global(place)) = &left
+                    && !self.mir_builder.global(place.global).is_mutable()
+                {
+                    self.result_builder
+                        .add_error(ConstNotAssignableError { span: op.left.span })
+                }
                 let target = match op.kind {
                     AssignOpKind::Assign => right,
                     kind => {
