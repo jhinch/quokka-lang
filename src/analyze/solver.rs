@@ -636,7 +636,7 @@ impl TypeSolver {
                 }
             }
         }
-        let _ = self.result_builder.finish(()).into_result()?;
+        self.result_builder.finish(()).into_result()?;
         Ok(self
             .outstanding_locals
             .into_iter()

@@ -419,6 +419,7 @@ pub struct Global {
 }
 
 impl Global {
+    #[must_use]
     pub fn is_mutable(&self) -> bool {
         match self.attrs {
             GlobalAttributes::Rom(_) => false,
@@ -826,6 +827,7 @@ impl MirBuilder {
         self.mir.globals.insert(Global { name, ty, attrs })
     }
 
+    #[must_use]
     pub fn global(&self, id: GlobalId) -> &Global {
         &self.mir.globals[id]
     }

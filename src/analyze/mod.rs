@@ -921,7 +921,7 @@ impl Analyzer {
                     && !self.mir_builder.global(place.global).is_mutable()
                 {
                     self.result_builder
-                        .add_error(ConstNotAssignableError { span: op.left.span })
+                        .add_error(ConstNotAssignableError { span: op.left.span });
                 }
                 let target = match op.kind {
                     AssignOpKind::Assign => right,
