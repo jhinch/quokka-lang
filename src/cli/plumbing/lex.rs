@@ -23,3 +23,42 @@ impl Execute for LexCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[derive(clap::Parser)]
+    struct TestCli {
+        #[command(flatten)]
+        cmd: LexCommand,
+    }
+
+    fn parse(args: &[&str]) -> Result<LexCommand, clap::Error> {
+        let mut full = vec!["cmd"];
+        full.extend_from_slice(args);
+        TestCli::try_parse_from(full).map(|cli| cli.cmd)
+    }
+
+    #[test]
+    fn parses_filename() {
+        let cmd = parse(&["file.q"]).unwrap();
+        assert_eq!(cmd.filename, "file.q");
+    }
+
+    #[test]
+    fn missing_filename_is_error() {
+        assert!(parse(&[]).is_err());
+    }
+
+    #[test]
+    fn too_many_positional_args_is_error() {
+        assert!(parse(&["file.q", "extra.q"]).is_err());
+    }
+
+    #[test]
+    fn unknown_flag_is_error() {
+        assert!(parse(&["--not-a-flag", "file.q"]).is_err());
+    }
+}

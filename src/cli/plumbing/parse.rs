@@ -37,3 +37,52 @@ impl Execute for ParseCommand {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[derive(clap::Parser)]
+    struct TestCli {
+        #[command(flatten)]
+        cmd: ParseCommand,
+    }
+
+    fn parse(args: &[&str]) -> Result<ParseCommand, clap::Error> {
+        let mut full = vec!["cmd"];
+        full.extend_from_slice(args);
+        TestCli::try_parse_from(full).map(|cli| cli.cmd)
+    }
+
+    #[test]
+    fn parses_filename_only() {
+        let cmd = parse(&["file.q"]).unwrap();
+        assert_eq!(cmd.filename, "file.q");
+        assert!(cmd.preview_features.is_empty());
+    }
+
+    #[test]
+    fn missing_filename_is_error() {
+        assert!(parse(&[]).is_err());
+    }
+
+    #[test]
+    fn parses_multiple_preview_features() {
+        let cmd = parse(&["-p", "array", "-p", "if-else", "file.q"]).unwrap();
+        assert_eq!(
+            cmd.preview_features,
+            vec![PreviewFeature::Array, PreviewFeature::IfElse]
+        );
+    }
+
+    #[test]
+    fn unknown_preview_feature_is_error() {
+        assert!(parse(&["--preview", "bogus", "file.q"]).is_err());
+    }
+
+    #[test]
+    fn unknown_flag_is_error() {
+        assert!(parse(&["--not-a-flag", "file.q"]).is_err());
+    }
+}
