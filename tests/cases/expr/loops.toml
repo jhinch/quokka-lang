@@ -207,7 +207,7 @@ source = """
 loop
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [LeftBrace] @ [5:5]",
+    "Syntax error: found <EOF> when expecting { @ [5:5]",
 ]
 
 [[case]]

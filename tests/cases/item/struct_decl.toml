@@ -93,7 +93,7 @@ struct Point {
 }
 """
 expected_errors = [
-    "Syntax error: found Ident when expecting [Comma] @ [29:30]",
+    "Syntax error: found <ident> when expecting , @ [29:30]",
 ]
 
 [[case]]

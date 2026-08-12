@@ -20,7 +20,7 @@ source = """
 continue
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [9:9]",
+    "Syntax error: found <EOF> when expecting ; @ [9:9]",
 ]
 
 [[case]]
@@ -31,5 +31,5 @@ source = """
 continue 1;
 """
 expected_errors = [
-    "Syntax error: found Number when expecting [Semicolon] @ [9:10]",
+    "Syntax error: found <number> when expecting ; @ [9:10]",
 ]

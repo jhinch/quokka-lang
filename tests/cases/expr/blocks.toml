@@ -177,5 +177,5 @@ source = """
 fn main() {
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [RightBrace] @ [12:12]",
+    "Syntax error: found <EOF> when expecting } @ [12:12]",
 ]

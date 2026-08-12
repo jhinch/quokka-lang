@@ -65,7 +65,7 @@ source = """
 fn main() {}
 """
 expected_errors = [
-    "Syntax error: found Fn when expecting [RightBracket] @ [17:19]",
+    "Syntax error: found fn when expecting ] @ [17:19]",
 ]
 
 [[case]]
@@ -77,7 +77,7 @@ source = """
 fn main() {}
 """
 expected_errors = [
-    "Syntax error: found RightBracket when expecting [Ident] @ [2:3]",
+    "Syntax error: found ] when expecting <ident> @ [2:3]",
 ]
 
 [[case]]

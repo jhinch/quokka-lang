@@ -1,5 +1,6 @@
 use miette::{SourceOffset, SourceSpan};
 use std::borrow::Cow;
+use std::fmt;
 use std::num::{IntErrorKind, NonZeroU16};
 use std::str::Chars;
 
@@ -131,6 +132,66 @@ pub enum TokenKind {
     Asm,
     // other
     Eof,
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TokenKind::LeftParen => "(",
+            TokenKind::RightParen => ")",
+            TokenKind::LeftBrace => "{",
+            TokenKind::RightBrace => "}",
+            TokenKind::LeftBracket => "[",
+            TokenKind::RightBracket => "]",
+            TokenKind::Comma => ",",
+            TokenKind::Semicolon => ";",
+            TokenKind::Colon => ":",
+            TokenKind::Equal => "=",
+            TokenKind::EqualEqual => "==",
+            TokenKind::Ampersand => "&",
+            TokenKind::AmpersandAmpersand => "&&",
+            TokenKind::Pipe => "|",
+            TokenKind::PipePipe => "||",
+            TokenKind::Bang => "!",
+            TokenKind::BangEqual => "!=",
+            TokenKind::Hash => "#",
+            TokenKind::Dot => ".",
+            TokenKind::Carrot => "^",
+            TokenKind::Plus => "+",
+            TokenKind::Minus => "-",
+            TokenKind::MinusGreaterThan => "->",
+            TokenKind::LessThan => "<",
+            TokenKind::LessThanLessThan => "<<",
+            TokenKind::LessThanEqual => "<=",
+            TokenKind::LessThanPercent => "<%",
+            TokenKind::GreaterThan => ">",
+            TokenKind::GreaterThanGreaterThan => ">>",
+            TokenKind::GreaterThanEqual => ">=",
+            TokenKind::GreaterThanPercent => ">%",
+            TokenKind::PlusEqual => "+=",
+            TokenKind::MinusEqual => "-=",
+            TokenKind::AmpersandEqual => "&=",
+            TokenKind::PipeEqual => "|=",
+            TokenKind::CarrotEqual => "^=",
+            TokenKind::Number => "<number>",
+            TokenKind::Ident => "<ident>",
+            TokenKind::Fn => "fn",
+            TokenKind::Let => "let",
+            TokenKind::Loop => "loop",
+            TokenKind::Break => "break",
+            TokenKind::Yield => "yield",
+            TokenKind::Return => "return",
+            TokenKind::Continue => "continue",
+            TokenKind::If => "if",
+            TokenKind::Then => "then",
+            TokenKind::Else => "else",
+            TokenKind::Struct => "struct",
+            TokenKind::Global => "global",
+            TokenKind::Const => "const",
+            TokenKind::Asm => "asm",
+            TokenKind::Eof => "<EOF>",
+        })
+    }
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]

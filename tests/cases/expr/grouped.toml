@@ -142,5 +142,5 @@ source = """
 (1
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [RightParen] @ [3:3]",
+    "Syntax error: found <EOF> when expecting ) @ [3:3]",
 ]

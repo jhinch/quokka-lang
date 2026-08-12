@@ -224,7 +224,7 @@ source = """
 return 1
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [9:9]",
+    "Syntax error: found <EOF> when expecting ; @ [9:9]",
 ]
 
 [[case]]
@@ -235,7 +235,7 @@ source = """
 return {}
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [10:10]",
+    "Syntax error: found <EOF> when expecting ; @ [10:10]",
 ]
 
 [[case]]
@@ -246,5 +246,5 @@ source = """
 return
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [7:7]",
+    "Syntax error: found <EOF> when expecting <number>, <ident>, (, !, -, if or loop @ [7:7]",
 ]

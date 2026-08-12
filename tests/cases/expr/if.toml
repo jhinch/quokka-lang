@@ -447,7 +447,7 @@ if 1 {
 }
 """
 expected_errors = [
-    "Syntax error: found LeftBrace when expecting [Equal, EqualEqual, BangEqual, Ampersand, AmpersandAmpersand, AmpersandEqual, Pipe, PipePipe, PipeEqual, Plus, PlusEqual, Minus, MinusEqual, Carrot, CarrotEqual, LessThan, LessThanEqual, LessThanLessThan, LessThanPercent, GreaterThan, GreaterThanEqual, GreaterThanGreaterThan, GreaterThanPercent] @ [5:6]",
+    "Syntax error: found { when expecting =, ==, !=, &, &&, &=, |, ||, |=, +, +=, -, -=, ^, ^=, <, <=, <<, <%, >, >=, >> or >% @ [5:6]",
 ]
 
 [[case]]
@@ -459,7 +459,7 @@ source = """
 if then 1
 """
 expected_errors = [
-    "Syntax error: found Then when expecting [Number, Ident, LeftParen, Bang, Minus, If, Loop] @ [3:7]",
+    "Syntax error: found then when expecting <number>, <ident>, (, !, -, if or loop @ [3:7]",
 ]
 
 [[case]]

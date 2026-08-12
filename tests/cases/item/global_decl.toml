@@ -54,7 +54,7 @@ source = """
 global A;
 """
 expected_errors = [
-    "Syntax error: found Semicolon when expecting [Colon] @ [8:9]",
+    "Syntax error: found ; when expecting : @ [8:9]",
 ]
 
 [[case]]
@@ -65,7 +65,7 @@ source = """
 global A: u8
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [13:13]",
+    "Syntax error: found <EOF> when expecting ; @ [13:13]",
 ]
 
 [[case]]

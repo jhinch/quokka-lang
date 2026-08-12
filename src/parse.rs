@@ -4,6 +4,7 @@ use crate::lex::{self, Token, TokenKind};
 use crate::multi::{MultiResult, MultiResultBuilder};
 use crate::source::span::span_between;
 use miette::SourceSpan;
+use std::fmt;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -34,13 +35,32 @@ pub enum Error {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("Syntax error: found {unexpected:?} when expecting {expected:?}")]
+#[error("Syntax error: found {unexpected} when expecting {expected}")]
 #[diagnostic()]
 pub struct SyntaxError {
     #[label("this token")]
     pub span: SourceSpan,
     pub unexpected: TokenKind,
-    pub expected: Vec<TokenKind>,
+    pub expected: ExpectedTokens,
+}
+
+#[derive(Debug)]
+pub struct ExpectedTokens(Vec<TokenKind>);
+
+impl fmt::Display for ExpectedTokens {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0.as_slice() {
+            [] => f.write_str("nothing"),
+            [token] => write!(f, "{token}"),
+            [first, middle @ .., last] => {
+                write!(f, "{first}")?;
+                for token in middle {
+                    write!(f, ", {token}")?;
+                }
+                write!(f, " or {last}")
+            }
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -125,7 +145,7 @@ impl<'de> Parser<'de> {
             Err(Error::Syntax(SyntaxError {
                 span: token.span(),
                 unexpected: token.kind(),
-                expected: vec![kind],
+                expected: ExpectedTokens(vec![kind]),
             }))
         }
     }
@@ -246,7 +266,7 @@ impl Parser<'_> {
                 return Err(Error::from(SyntaxError {
                     span: token.span(),
                     unexpected,
-                    expected: vec![TokenKind::Ident, TokenKind::Number],
+                    expected: ExpectedTokens(vec![TokenKind::Ident, TokenKind::Number]),
                 }));
             }
         })
@@ -264,12 +284,12 @@ impl Parser<'_> {
                 return Err(Error::from(SyntaxError {
                     span: token.span(),
                     unexpected,
-                    expected: vec![
+                    expected: ExpectedTokens(vec![
                         TokenKind::Fn,
                         TokenKind::Global,
                         TokenKind::Const,
                         TokenKind::Struct,
-                    ],
+                    ]),
                 }));
             }
         };
@@ -587,7 +607,7 @@ impl Parser<'_> {
                     return Err(Error::from(SyntaxError {
                         span: lhs_token.span(),
                         unexpected,
-                        expected: vec![
+                        expected: ExpectedTokens(vec![
                             TokenKind::Number,
                             TokenKind::Ident,
                             TokenKind::LeftParen,
@@ -595,7 +615,7 @@ impl Parser<'_> {
                             TokenKind::Minus,
                             TokenKind::If,
                             TokenKind::Loop,
-                        ],
+                        ]),
                     }));
                 }
             };
@@ -652,7 +672,7 @@ impl Parser<'_> {
                     return Err(Error::from(SyntaxError {
                         span,
                         unexpected,
-                        expected: vec![
+                        expected: ExpectedTokens(vec![
                             TokenKind::Equal,
                             TokenKind::EqualEqual,
                             TokenKind::BangEqual,
@@ -676,7 +696,7 @@ impl Parser<'_> {
                             TokenKind::GreaterThanEqual,
                             TokenKind::GreaterThanGreaterThan,
                             TokenKind::GreaterThanPercent,
-                        ],
+                        ]),
                     }));
                 }
             };

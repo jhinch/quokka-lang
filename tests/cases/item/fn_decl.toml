@@ -29,7 +29,7 @@ source = """
 fn main() {
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [RightBrace] @ [12:12]",
+    "Syntax error: found <EOF> when expecting } @ [12:12]",
 ]
 expected_ast = """
 Root(
@@ -44,7 +44,7 @@ source = """
 fn main() 1 + 2
 """
 expected_errors = [
-    "Syntax error: found Number when expecting [LeftBrace] @ [10:11]",
+    "Syntax error: found <number> when expecting { @ [10:11]",
 ]
 expected_ast = """
 Root(

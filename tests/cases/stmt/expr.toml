@@ -231,7 +231,7 @@ source = """
 1 + 2
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [6:6]",
+    "Syntax error: found <EOF> when expecting ; @ [6:6]",
 ]
 
 [[case]]
@@ -242,5 +242,5 @@ source = """
 x
 """
 expected_errors = [
-    "Syntax error: found Eof when expecting [Semicolon] @ [2:2]",
+    "Syntax error: found <EOF> when expecting ; @ [2:2]",
 ]
