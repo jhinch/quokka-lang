@@ -5,6 +5,7 @@ use crate::multi::{MultiResult, MultiResultBuilder};
 use crate::source::span::span_between;
 use miette::SourceSpan;
 use std::fmt;
+use tracing::instrument;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum Error {
@@ -173,18 +174,22 @@ impl Parser<'_> {
 }
 
 impl Parser<'_> {
+    #[instrument(skip(self))]
     pub fn parse(self) -> MultiResult<Root> {
         self.parse_as_root(Parser::parse_root)
     }
 
+    #[instrument(skip(self))]
     pub fn parse_item_as_root(self) -> MultiResult<Item> {
         self.parse_as_root(Parser::parse_item)
     }
 
+    #[instrument(skip(self))]
     pub fn parse_statement_as_root(self) -> MultiResult<Statement> {
         self.parse_as_root(Parser::parse_statement)
     }
 
+    #[instrument(skip(self))]
     pub fn parse_expr_as_root(self) -> MultiResult<Expr> {
         self.parse_as_root(Parser::parse_expr)
     }

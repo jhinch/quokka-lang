@@ -1,6 +1,7 @@
 use crate::cli::Execute;
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::parse::Parser;
+use tracing::instrument;
 
 #[derive(clap::Args)]
 pub struct ParseCommand {
@@ -11,6 +12,7 @@ pub struct ParseCommand {
 }
 
 impl Execute for ParseCommand {
+    #[instrument(skip(self))]
     fn execute(self) -> miette::Result<()> {
         let file_contents =
             std::fs::read_to_string(&self.filename).map_err(|e| miette::miette!(e))?;

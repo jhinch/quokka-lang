@@ -20,6 +20,7 @@ use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
 use std::collections::{HashMap, VecDeque};
+use tracing::instrument;
 
 pub mod error;
 pub mod infer;
@@ -33,6 +34,7 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
+    #[instrument(skip(self, root))]
     pub fn analyze(mut self, root: &ast::Root) -> Result<(Mir, TyRegistry), MultiError> {
         self.register_types(root)?;
         let AnalyzedGlobalScope {

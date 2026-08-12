@@ -6,17 +6,19 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
+clap = { version = "4.6.6", features = ["derive"] }
 derive_more = { version = "2.1.1", features = ["from"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 libtest-mimic = "0.8.2"
 miette = { version = "7.6.0", features = ["fancy"] }
-owo-colors = "4.2.2"
+owo-colors = "4.3.0"
 ron = "0.12.2"
-toml_edit = { version = "0.25.12", features = ["serde"] }
-serde = { version = "1.0.228", features = ["derive"] }
+toml_edit = { version = "0.25.13", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
 slotmap = "1.1.1"
-thiserror = "2.0.18"
+thiserror = "2.0.20"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["fmt"] }
 unicode-ident = "1.0.24"
 
 [package]
@@ -39,6 +41,8 @@ ron.workspace = true
 serde.workspace = true
 slotmap.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 unicode-ident.workspace = true
 
 [dev-dependencies]

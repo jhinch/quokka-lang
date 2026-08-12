@@ -12,5 +12,12 @@ fn main() -> miette::Result<()> {
         )
     }))?;
     let cli = <cli::Cli as clap::Parser>::parse();
+
+    tracing_subscriber::fmt()
+        .with_max_level(cli.tracing_level())
+        .with_target(false)
+        .with_writer(std::io::stderr)
+        .init();
+
     cli.execute()
 }

@@ -1,6 +1,7 @@
 use crate::cli::Execute;
 use miette::{NamedSource, Report};
 use quokka_lang::lex::Lexer;
+use tracing::instrument;
 
 #[derive(clap::Args)]
 pub struct LexCommand {
@@ -8,6 +9,7 @@ pub struct LexCommand {
 }
 
 impl Execute for LexCommand {
+    #[instrument(skip(self))]
     fn execute(self) -> miette::Result<()> {
         let file_contents =
             std::fs::read_to_string(&self.filename).map_err(|e| miette::miette!(e))?;
