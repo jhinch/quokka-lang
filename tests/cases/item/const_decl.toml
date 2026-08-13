@@ -133,14 +133,14 @@ main -> unit:
 [[case]]
 name = "const_type_checks"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
-const A: u8 = loop {};
+const A: u1 = 1;
+const B: u8 = A;
 
 fn main() {}
 """
 expected_errors = [
-    "`never` is not equal to `u8` @ [9:11]",
+    "`u1` is not equal to `u8` @ [26:28]",
 ]
 
 [[case]]
@@ -264,4 +264,55 @@ fn main() {
 """
 expected_errors = [
     "cannot assign to a constant @ [33:34]",
+]
+
+[[case]]
+name = "global_referenced_in_const"
+kind = "analyzer"
+source = """
+global A: u8;
+const B: u8 = A;
+fn main() {}
+"""
+expected_errors = [
+    "cannot be reference global `A` in constant declaration @ [28:29]",
+]
+
+[[case]]
+name = "if_in_const"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = if 1 then 2 else 3;
+fn main() {}
+"""
+expected_errors = [
+    "if expression are not support in constant declarations @ [14:32]",
+]
+
+[[case]]
+name = "loop_in_const"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+const A: u8 = loop {
+    break 1;
+};
+fn main() {}
+"""
+expected_errors = [
+    "loops are not support in constant declarations @ [14:35]",
+]
+
+[[case]]
+name = "call_in_const"
+kind = "analyzer"
+preview_features = ["function-call"]
+source = """
+const A: u8 = one();
+fn one() -> u8 { return 1; }
+fn main() {}
+"""
+expected_errors = [
+    "function calls are not support in constant declarations @ [14:19]",
 ]

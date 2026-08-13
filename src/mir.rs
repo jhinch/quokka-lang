@@ -407,6 +407,7 @@ pub struct Global {
     pub ty: Ty,
     pub name: SpannedIdentifier,
     pub attrs: GlobalAttributes,
+    pub value: Vec<u8>,
 }
 
 impl Global {
@@ -799,12 +800,31 @@ impl MirBuilder {
         ty: Ty,
         attrs: GlobalAttributes,
     ) -> GlobalId {
-        self.mir.globals.insert(Global { name, ty, attrs })
+        self.mir.globals.insert(Global {
+            name,
+            ty,
+            attrs,
+            value: Vec::new(),
+        })
     }
 
     #[must_use]
-    pub fn global(&self, id: GlobalId) -> &Global {
-        &self.mir.globals[id]
+    pub fn is_mutable_global(&self, id: GlobalId) -> bool {
+        self.mir.globals[id].is_mutable()
+    }
+
+    pub fn set_global_value(&mut self, id: GlobalId, value: Vec<u8>) {
+        let global = &mut self.mir.globals[id];
+        // mutable is reflecting runtime mutability, which is the inverse
+        // at compile time (as you need to define values for all constants
+        // at compile time
+        assert!(!global.is_mutable(), "can only set value for constants");
+        assert!(
+            global.value.is_empty(),
+            "value already set for constant {id:?}"
+        );
+        assert!(!value.is_empty(), "value must not be empty");
+        global.value = value;
     }
 
     pub fn reserve_function(&mut self) -> FunctionId {
@@ -1459,6 +1479,7 @@ mod tests {
             ty: Ty::U8,
             name: ident("g"),
             attrs: GlobalDeclAttributes::default().into(),
+            value: Vec::new(),
         });
 
         assert_eq!(
@@ -1523,6 +1544,7 @@ mod tests {
             ty: Ty::U8,
             name: ident("g"),
             attrs: GlobalDeclAttributes::default().into(),
+            value: Vec::new(),
         });
         let load = Instr::Load {
             target: ids[0],

@@ -279,6 +279,9 @@ impl Analyzer {
         scopes: &mut Scopes,
     ) {
         let mut mir = FunctionBuilder::new(const_decl.name.data.clone(), const_ty);
+
+        scopes.enter_const_decl_scope();
+
         let mut type_solver = TypeSolver::default();
 
         let block = mir.new_block();
@@ -287,6 +290,9 @@ impl Analyzer {
         let (_, inferred_ty, _) =
             self.analyze_expr(&const_decl.value, block, &mut mir, &mut type_solver, scopes);
         type_solver.check_const_decl(const_decl, inferred_ty, const_ty);
+
+        scopes.exit_const_decl_scope();
+
         match type_solver.solve(&self.ty_registry) {
             Ok(local_types) => {
                 for (local, ty) in local_types {
@@ -900,7 +906,7 @@ impl Analyzer {
                 let expr_ty =
                     type_solver.check_assign_expr(op, expr.span, left_ty.clone(), right_ty);
                 if let Some(ResolvedPlace::Global(place)) = &left
-                    && !self.mir_builder.global(place.global).is_mutable()
+                    && !self.mir_builder.is_mutable_global(place.global)
                 {
                     self.result_builder
                         .add_error(ConstNotAssignableError { span: op.left.span });
@@ -1051,6 +1057,13 @@ impl Analyzer {
                 (block, expr_ty, target)
             }
             ast::ExprData::If(if_expr) => {
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder
+                        .add_error(IfNotSupportInConstDeclError { span: expr.span });
+                    let target = mir.new_local(Ty::ERROR);
+                    mir.push_instr(block, Instr::Undefined { target });
+                    return (block, InferredTy::Concrete(Ty::ERROR), target);
+                }
                 let (block, cond_ty, source) =
                     self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
                 type_solver.check_if_expr_condition(if_expr, cond_ty);
@@ -1105,6 +1118,13 @@ impl Analyzer {
                 (end_block, ty, local)
             }
             ast::ExprData::Loop(loop_expr) => {
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder
+                        .add_error(LoopNotSupportInConstDeclError { span: expr.span });
+                    let target = mir.new_local(Ty::ERROR);
+                    mir.push_instr(block, Instr::Undefined { target });
+                    return (block, InferredTy::Concrete(Ty::ERROR), target);
+                }
                 let start_block = mir.new_block();
                 let end_block = mir.new_block();
                 mir.set_terminator(
@@ -1155,6 +1175,13 @@ impl Analyzer {
                 (end_block, expr_ty, target)
             }
             ast::ExprData::Call(call_expr) => {
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder
+                        .add_error(CallNotSupportInConstDeclError { span: expr.span });
+                    let target = mir.new_local(Ty::ERROR);
+                    mir.push_instr(block, Instr::Undefined { target });
+                    return (block, InferredTy::Concrete(Ty::ERROR), target);
+                }
                 let (block, callee_ty, callee) =
                     self.analyze_place_expr(&call_expr.callee, block, mir, type_solver, scopes);
 
@@ -1241,28 +1268,36 @@ impl Analyzer {
             }
         };
         if place.projections.is_empty() {
-            return match place_id {
+            match place_id {
                 PlaceId::Function(function) => {
-                    (block, place_ty, Some(ResolvedPlace::Function(function)))
+                    return (block, place_ty, Some(ResolvedPlace::Function(function)));
                 }
                 PlaceId::Variable(variable) => {
-                    (block, place_ty, Some(ResolvedPlace::Variable(variable)))
+                    return (block, place_ty, Some(ResolvedPlace::Variable(variable)));
                 }
-                PlaceId::Global(global) => (
-                    block,
-                    place_ty,
-                    Some(ResolvedPlace::Global(GlobalPlace {
-                        global,
-                        projections: Vec::new(),
-                    })),
-                ),
-            };
+                PlaceId::Global(_) => {
+                    // handled below
+                }
+            }
         }
         let mut global_place = match place_id {
-            PlaceId::Global(global) => Some(GlobalPlace {
-                global,
-                projections: Vec::new(),
-            }),
+            PlaceId::Global(global) => {
+                if let Some(const_decl_scope) = scopes.const_decl_scope() {
+                    if self.mir_builder.is_mutable_global(global) {
+                        self.result_builder
+                            .add_error(GlobalReferencedInConstDeclError::from(place.name.clone()));
+                    } else {
+                        const_decl_scope
+                            .used_const_decls
+                            .entry(global)
+                            .or_insert(place.span);
+                    }
+                }
+                Some(GlobalPlace {
+                    global,
+                    projections: Vec::new(),
+                })
+            }
             _ => None,
         };
         for part in &place.projections {
@@ -1303,6 +1338,7 @@ impl Analyzer {
 #[derive(Default)]
 struct Scopes {
     fn_scope: Option<FnScope>,
+    const_decl_scope: Option<ConstDeclScope>,
     place_scopes: Vec<HashMap<Identifier, PlaceScope>>,
     global_frozen: bool,
     block_scopes: Vec<Option<BlockScope>>,
@@ -1411,6 +1447,10 @@ impl Scopes {
 
     fn enter_fn_scope(&mut self, return_ty: Ty, span: SourceSpan, return_local: Option<LocalId>) {
         assert!(self.fn_scope.is_none(), "already in fn scope");
+        assert!(
+            self.const_decl_scope.is_none(),
+            "already in const decl scope"
+        );
         assert_eq!(self.place_scopes.len(), 1, "missing global place scope");
         self.fn_scope = Some(FnScope {
             return_ty,
@@ -1433,6 +1473,39 @@ impl Scopes {
         debug_assert!(
             option.is_some() && option.unwrap().is_none(),
             "not in function scope"
+        );
+    }
+
+    fn const_decl_scope(&mut self) -> Option<&mut ConstDeclScope> {
+        self.const_decl_scope.as_mut()
+    }
+
+    fn enter_const_decl_scope(&mut self) {
+        assert!(
+            self.const_decl_scope.is_none(),
+            "already in const decl scope"
+        );
+        assert!(self.fn_scope.is_none(), "already in fn scope");
+        assert_eq!(self.place_scopes.len(), 1, "missing global place scope");
+        self.const_decl_scope = Some(ConstDeclScope {
+            used_const_decls: IndexMap::new(),
+        });
+        self.place_scopes.push(HashMap::new());
+        self.block_scopes.push(None);
+    }
+
+    fn exit_const_decl_scope(&mut self) {
+        assert!(self.const_decl_scope.is_some(), "not in const decl scope");
+        assert_eq!(self.block_scopes.len(), 1, "unbalanced block enters/exits");
+        assert!(self.loop_scopes.is_empty(), "unbalanced loop enters/exits");
+        assert_eq!(self.place_scopes.len(), 2, "unbalanced place enters/exits");
+        self.const_decl_scope = None;
+        let option = self.place_scopes.pop();
+        debug_assert!(option.is_some(), "not in place scope");
+        let option = self.block_scopes.pop();
+        debug_assert!(
+            option.is_some() && option.unwrap().is_none(),
+            "not in const decl scope"
         );
     }
 }
@@ -1466,6 +1539,10 @@ struct FnScope {
     return_ty: Ty,
     span: SourceSpan,
     return_local: Option<LocalId>,
+}
+
+struct ConstDeclScope {
+    used_const_decls: IndexMap<GlobalId, SourceSpan>,
 }
 
 struct BlockScope {

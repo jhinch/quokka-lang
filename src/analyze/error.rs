@@ -267,3 +267,45 @@ pub struct TypeUnresolvedError {
     #[label("needs type annotation")]
     pub span: SourceSpan,
 }
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("if expression are not support in constant declarations")]
+#[diagnostic()]
+pub struct IfNotSupportInConstDeclError {
+    #[label("not permitted")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("function calls are not support in constant declarations")]
+#[diagnostic()]
+pub struct CallNotSupportInConstDeclError {
+    #[label("not permitted")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("loops are not support in constant declarations")]
+#[diagnostic()]
+pub struct LoopNotSupportInConstDeclError {
+    #[label("not permitted")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("cannot be reference global `{name}` in constant declaration")]
+#[diagnostic()]
+pub struct GlobalReferencedInConstDeclError {
+    pub name: Identifier,
+    #[label("not permitted")]
+    pub span: SourceSpan,
+}
+
+impl From<SpannedIdentifier> for GlobalReferencedInConstDeclError {
+    fn from(value: SpannedIdentifier) -> Self {
+        GlobalReferencedInConstDeclError {
+            name: value.data,
+            span: value.span,
+        }
+    }
+}
