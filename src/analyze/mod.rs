@@ -759,30 +759,12 @@ impl Analyzer {
                 mir.push_instr(
                     block,
                     match op.kind {
-                        UnaryOpKind::Neg => Instr::Neg {
-                            target,
-                            source: Operand::Local(source),
-                        },
-                        UnaryOpKind::Not => Instr::Not {
-                            target,
-                            source: Operand::Local(source),
-                        },
-                        UnaryOpKind::ShiftLeft => Instr::ShiftLeft {
-                            target,
-                            source: Operand::Local(source),
-                        },
-                        UnaryOpKind::ShiftRight => Instr::ShiftRight {
-                            target,
-                            source: Operand::Local(source),
-                        },
-                        UnaryOpKind::RotateLeft => Instr::RotateLeft {
-                            target,
-                            source: Operand::Local(source),
-                        },
-                        UnaryOpKind::RotateRight => Instr::RotateRight {
-                            target,
-                            source: Operand::Local(source),
-                        },
+                        UnaryOpKind::Neg => Instr::Neg { target, source },
+                        UnaryOpKind::Not => Instr::Not { target, source },
+                        UnaryOpKind::ShiftLeft => Instr::ShiftLeft { target, source },
+                        UnaryOpKind::ShiftRight => Instr::ShiftRight { target, source },
+                        UnaryOpKind::RotateLeft => Instr::RotateLeft { target, source },
+                        UnaryOpKind::RotateRight => Instr::RotateRight { target, source },
                     },
                 );
                 (block, expr_ty, target)
@@ -839,27 +821,27 @@ impl Analyzer {
                     match op.kind {
                         ArithmeticOpKind::BitAnd => Instr::BitAnd {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ArithmeticOpKind::BitOr => Instr::BitOr {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ArithmeticOpKind::BitXor => Instr::BitXor {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ArithmeticOpKind::Add => Instr::Add {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ArithmeticOpKind::Sub => Instr::Sub {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                     },
@@ -878,32 +860,32 @@ impl Analyzer {
                     match op.kind {
                         ComparisonOpKind::Eq => Instr::Eq {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ComparisonOpKind::Ne => Instr::Ne {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ComparisonOpKind::Lt => Instr::Lt {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ComparisonOpKind::Le => Instr::Le {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ComparisonOpKind::Gt => Instr::Gt {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                         ComparisonOpKind::Ge => Instr::Ge {
                             target,
-                            left: Operand::Local(left),
+                            left,
                             right: Operand::Local(right),
                         },
                     },
@@ -942,8 +924,7 @@ impl Analyzer {
                                 return (block, expr_ty, target);
                             }
                             Some(ResolvedPlace::Variable(variable)) => {
-                                let local = mir.read_variable(*variable, block);
-                                Operand::Local(local)
+                                mir.read_variable(*variable, block)
                             }
                             Some(ResolvedPlace::Global(source)) => {
                                 let target = type_solver.new_registered_local(mir, &left_ty);
@@ -954,7 +935,7 @@ impl Analyzer {
                                         source: source.clone(),
                                     },
                                 );
-                                Operand::Local(target)
+                                target
                             }
                         };
 

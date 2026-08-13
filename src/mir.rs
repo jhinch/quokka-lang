@@ -23,6 +23,17 @@ new_key_type! { pub struct FunctionId; }
 new_key_type! { pub struct BlockId; }
 new_key_type! { pub struct LocalId; }
 
+impl LocalId {
+    #[must_use]
+    pub fn display<'a>(
+        self,
+        function: &'a Function,
+        ty_registry: &'a TyRegistry,
+    ) -> impl fmt::Display + 'a {
+        function.locals[self].display(self, ty_registry)
+    }
+}
+
 impl fmt::Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, ".bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
@@ -56,11 +67,7 @@ impl Mir {
                     for instruction in &block.instructions {
                         write!(f, "    ")?;
                         if let Some(target) = instruction.target_local() {
-                            write!(
-                                f,
-                                "{:#} = ",
-                                function.locals[target].display(target, ty_registry)
-                            )?;
+                            write!(f, "{:#} = ", target.display(function, ty_registry))?;
                         }
                         match instruction {
                             Instr::Undefined { target: _ } => write!(f, "undefined"),
@@ -77,7 +84,7 @@ impl Mir {
                                     write!(
                                         f,
                                         "{sep}{} <- {}",
-                                        function.locals[source].display(source, ty_registry),
+                                        source.display(function, ty_registry),
                                         block
                                     )?;
                                     sep = ", ";
@@ -99,10 +106,10 @@ impl Mir {
                                 write!(f, "copy {}", source.display(self, function, ty_registry))
                             }
                             Instr::Not { target: _, source } => {
-                                write!(f, "not {}", source.display(self, function, ty_registry))
+                                write!(f, "not {}", source.display(function, ty_registry))
                             }
                             Instr::Neg { target: _, source } => {
-                                write!(f, "neg {}", source.display(self, function, ty_registry))
+                                write!(f, "neg {}", source.display(function, ty_registry))
                             }
                             Instr::Eq {
                                 target: _,
@@ -112,7 +119,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "eq {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -124,7 +131,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "ne {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -136,7 +143,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "lt {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -148,7 +155,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "le {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -160,7 +167,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "ge {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -172,7 +179,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "gt {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -184,7 +191,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "bitand {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -196,7 +203,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "bitor {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -208,37 +215,21 @@ impl Mir {
                                 write!(
                                     f,
                                     "bitxor {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
                             Instr::RotateLeft { target: _, source } => {
-                                write!(
-                                    f,
-                                    "rotateleft {}",
-                                    source.display(self, function, ty_registry)
-                                )
+                                write!(f, "rotateleft {}", source.display(function, ty_registry),)
                             }
                             Instr::RotateRight { target: _, source } => {
-                                write!(
-                                    f,
-                                    "rotateright {}",
-                                    source.display(self, function, ty_registry)
-                                )
+                                write!(f, "rotateright {}", source.display(function, ty_registry))
                             }
                             Instr::ShiftLeft { target: _, source } => {
-                                write!(
-                                    f,
-                                    "shiftleft {}",
-                                    source.display(self, function, ty_registry)
-                                )
+                                write!(f, "shiftleft {}", source.display(function, ty_registry))
                             }
                             Instr::ShiftRight { target: _, source } => {
-                                write!(
-                                    f,
-                                    "shiftright {}",
-                                    source.display(self, function, ty_registry)
-                                )
+                                write!(f, "shiftright {}", source.display(function, ty_registry))
                             }
                             Instr::Add {
                                 target: _,
@@ -248,7 +239,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "add {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -260,7 +251,7 @@ impl Mir {
                                 write!(
                                     f,
                                     "sub {}, {}",
-                                    left.display(self, function, ty_registry),
+                                    left.display(function, ty_registry),
                                     right.display(self, function, ty_registry)
                                 )
                             }
@@ -290,7 +281,7 @@ impl Mir {
                             write!(
                                 f,
                                 "callif {}, {} {condition}, {return_block}, {else_block}",
-                                function.locals[*source].display(*source, ty_registry),
+                                source.display(function, ty_registry),
                                 callee.display(self, function, ty_registry)
                             )
                         }
@@ -306,7 +297,7 @@ impl Mir {
                             write!(
                                 f,
                                 "jumpif {} {condition}, {then_block}, {else_block}",
-                                function.locals[*source].display(*source, ty_registry)
+                                source.display(function, ty_registry)
                             )
                         }
                         Terminator::ReturnIf {
@@ -317,7 +308,7 @@ impl Mir {
                             write!(
                                 f,
                                 "returnif {} {condition}, {else_block}",
-                                function.locals[*source].display(*source, ty_registry)
+                                source.display(function, ty_registry)
                             )
                         }
                     }?;
@@ -512,83 +503,83 @@ pub enum Instr {
     // unary
     Not {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     Neg {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     RotateLeft {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     RotateRight {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     ShiftLeft {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     ShiftRight {
         target: LocalId,
-        source: Operand,
+        source: LocalId,
     },
     // comparison
     Eq {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Ne {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Lt {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Le {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Ge {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Gt {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     // arithmetic
     BitAnd {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     BitOr {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     BitXor {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Add {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
     Sub {
         target: LocalId,
-        left: Operand,
+        left: LocalId,
         right: Operand,
     },
 }
@@ -626,48 +617,40 @@ impl Instr {
     pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {
         let mut next = 0;
         std::iter::from_fn(move || {
-            let value = loop {
-                break match self {
-                    Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Load { .. } => {
-                        None
-                    }
-                    Instr::Store { source, .. }
-                    | Instr::Copy { source, .. }
-                    | Instr::Not { source, .. }
-                    | Instr::Neg { source, .. }
-                    | Instr::RotateLeft { source, .. }
-                    | Instr::RotateRight { source, .. }
-                    | Instr::ShiftLeft { source, .. }
-                    | Instr::ShiftRight { source, .. } => match (next, source) {
-                        (0, Operand::Local(local)) => Some(local),
+            let value = match self {
+                Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Load { .. } => None,
+                Instr::Store { source, .. } | Instr::Copy { source, .. } => match (next, source) {
+                    (0, Operand::Local(local)) => Some(local),
+                    _ => None,
+                },
+                Instr::Not { source, .. }
+                | Instr::Neg { source, .. }
+                | Instr::RotateLeft { source, .. }
+                | Instr::RotateRight { source, .. }
+                | Instr::ShiftLeft { source, .. }
+                | Instr::ShiftRight { source, .. } => match next {
+                    0 => Some(source),
+                    _ => None,
+                },
+                Instr::Eq { left, right, .. }
+                | Instr::Ne { left, right, .. }
+                | Instr::Lt { left, right, .. }
+                | Instr::Le { left, right, .. }
+                | Instr::Ge { left, right, .. }
+                | Instr::Gt { left, right, .. }
+                | Instr::BitAnd { left, right, .. }
+                | Instr::BitOr { left, right, .. }
+                | Instr::BitXor { left, right, .. }
+                | Instr::Add { left, right, .. }
+                | Instr::Sub { left, right, .. } => match next {
+                    0 => Some(left),
+                    1 => match right {
+                        Operand::Local(local) => Some(local),
                         _ => None,
                     },
-                    Instr::Eq { left, right, .. }
-                    | Instr::Ne { left, right, .. }
-                    | Instr::Lt { left, right, .. }
-                    | Instr::Le { left, right, .. }
-                    | Instr::Ge { left, right, .. }
-                    | Instr::Gt { left, right, .. }
-                    | Instr::BitAnd { left, right, .. }
-                    | Instr::BitOr { left, right, .. }
-                    | Instr::BitXor { left, right, .. }
-                    | Instr::Add { left, right, .. }
-                    | Instr::Sub { left, right, .. } => match next {
-                        0 => match left {
-                            Operand::Local(local) => Some(local),
-                            _ => {
-                                next += 1;
-                                continue;
-                            }
-                        },
-                        1 => match right {
-                            Operand::Local(local) => Some(local),
-                            _ => None,
-                        },
-                        _ => None,
-                    },
-                    Instr::Phi { sources, .. } => sources.values().nth(next),
-                };
+                    _ => None,
+                },
+                Instr::Phi { sources, .. } => sources.values().nth(next),
             }?;
             next += 1;
             Some(*value)
@@ -721,11 +704,7 @@ impl Callee {
         ty_registry: &'a TyRegistry,
     ) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
-            Callee::Local(local) => write!(
-                f,
-                "{}",
-                function.locals[*local].display(*local, ty_registry)
-            ),
+            Callee::Local(local) => write!(f, "{}", local.display(function, ty_registry)),
             Callee::FnPtr(fn_ptr) => write!(f, "{}", mir.functions[*fn_ptr].name),
         })
     }
@@ -747,11 +726,7 @@ impl Operand {
         ty_registry: &'a TyRegistry,
     ) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
-            Operand::Local(local) => write!(
-                f,
-                "{}",
-                function.locals[*local].display(*local, ty_registry)
-            ),
+            Operand::Local(local) => write!(f, "{}", local.display(function, ty_registry)),
             Operand::Literal(int) => write!(f, "{}", int.value),
             Operand::FnPtr(fn_ptr) => write!(f, "{}", mir.functions[*fn_ptr].name),
         })
@@ -1520,7 +1495,7 @@ mod tests {
         let (_locals, ids) = new_local_ids(3);
         let instr = Instr::Add {
             target: ids[0],
-            left: Operand::Local(ids[1]),
+            left: ids[1],
             right: Operand::Local(ids[2]),
         };
         assert_eq!(
@@ -1534,8 +1509,8 @@ mod tests {
         let (_locals, ids) = new_local_ids(2);
         let instr = Instr::Add {
             target: ids[0],
-            left: Operand::Literal(IntegerLiteral { value: 5 }),
-            right: Operand::Local(ids[1]),
+            left: ids[1],
+            right: Operand::Literal(IntegerLiteral { value: 5 }),
         };
         assert_eq!(instr.source_locals().collect::<Vec<_>>(), vec![ids[1]]);
     }
