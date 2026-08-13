@@ -319,3 +319,14 @@ pub struct TyTooLargeForLocalVariableError {
     #[label("too large")]
     pub span: SourceSpan,
 }
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("const `{name}` has a cyclic dependency")]
+#[diagnostic()]
+pub struct CyclicConstDeclError {
+    pub name: Identifier,
+    #[label("this constant")]
+    pub span: SourceSpan,
+    #[label(collection, "require `{name}` to be initialized")]
+    pub dependencies: Vec<SourceSpan>,
+}

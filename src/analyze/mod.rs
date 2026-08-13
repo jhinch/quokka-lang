@@ -19,7 +19,7 @@ use crate::ty::{StructFieldTyData, Ty, TyRegistry};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use tracing::instrument;
 
 pub mod error;
@@ -36,23 +36,33 @@ pub struct Analyzer {
 impl Analyzer {
     #[instrument(skip(self, root))]
     pub fn analyze(mut self, root: &ast::Root) -> Result<(Mir, TyRegistry), MultiError> {
-        self.register_types(root)?;
+        self.register_types(root);
+        self.check_errors()?;
         let AnalyzedGlobalScope {
             mut scopes,
             fn_decls,
             const_decls,
         } = self.define_global_scope(root);
-        for (const_decl, ty, _) in const_decls {
-            self.analyze_const_decl(const_decl, ty, &mut scopes);
+
+        let mut compiled_const_decls = IndexMap::new();
+        for (const_decl_id, (const_decl, ty)) in const_decls {
+            let (mir, used_const_decls) = self.analyze_const_decl(const_decl, ty, &mut scopes);
+            compiled_const_decls.insert(const_decl_id, (mir, used_const_decls));
         }
-        for (fn_decl, ty, attrs, function_id) in fn_decls {
+        for (function_id, (fn_decl, ty, attrs)) in fn_decls {
             self.analyze_fn_decl(fn_decl, ty, attrs, function_id, &mut scopes);
         }
-        self.result_builder.take().finish(()).into_result()?;
+        self.check_errors()?;
+        self.initialize_const_decls(compiled_const_decls);
+        self.check_errors()?;
         Ok((self.mir_builder.build(), self.ty_registry))
     }
 
-    fn register_types(&mut self, root: &ast::Root) -> Result<(), MultiError> {
+    fn check_errors(&mut self) -> Result<(), MultiError> {
+        self.result_builder.take().finish(()).into_result()
+    }
+
+    fn register_types(&mut self, root: &ast::Root) {
         // first register all the structs
         let registered_types = root
             .items
@@ -170,14 +180,13 @@ impl Analyzer {
                 unprocessed_types.shift_remove(&ty);
             }
         }
-        self.result_builder.take().finish(()).into_result()
     }
 
     fn define_global_scope<'ast>(&mut self, root: &'ast ast::Root) -> AnalyzedGlobalScope<'ast> {
         let mut scopes = Scopes::default();
         scopes.enter_global_scope();
-        let mut fn_decls = Vec::new();
-        let mut const_decls = Vec::new();
+        let mut fn_decls = IndexMap::new();
+        let mut const_decls = IndexMap::new();
         for item in &root.items {
             let (name, ty, mir_id) = match &item.data {
                 ast::ItemData::FnDecl(decl) => {
@@ -194,7 +203,7 @@ impl Analyzer {
                     };
                     let fn_ptr_ty = self.ty_registry.register_fn_ptr(return_ty);
                     let function_id = self.mir_builder.reserve_function();
-                    fn_decls.push((decl, fn_ptr_ty, attrs, function_id));
+                    fn_decls.insert(function_id, (decl, fn_ptr_ty, attrs));
                     (
                         &decl.signature.name,
                         InferredTy::Concrete(fn_ptr_ty),
@@ -230,15 +239,16 @@ impl Analyzer {
                             ConstDeclAttributes::default()
                         }
                     };
-                    const_decls.push((decl, const_ty, attrs.clone()));
+                    let global_id = self.mir_builder.insert_global(
+                        decl.name.clone(),
+                        const_ty,
+                        attrs.clone().into(),
+                    );
+                    const_decls.insert(global_id, (decl, const_ty));
                     (
                         &decl.name,
                         InferredTy::Concrete(const_ty),
-                        PlaceId::from(self.mir_builder.insert_global(
-                            decl.name.clone(),
-                            const_ty,
-                            attrs.into(),
-                        )),
+                        PlaceId::from(global_id),
                     )
                 }
             };
@@ -277,8 +287,9 @@ impl Analyzer {
         const_decl: &ast::ConstDecl,
         const_ty: Ty,
         scopes: &mut Scopes,
-    ) {
+    ) -> (FunctionBuilder, HashMap<GlobalId, SourceSpan>) {
         let mut mir = FunctionBuilder::new(const_decl.name.data.clone(), const_ty);
+        let target = mir.create_return_local(const_ty);
 
         scopes.enter_const_decl_scope();
 
@@ -287,9 +298,24 @@ impl Analyzer {
         let block = mir.new_block();
         mir.seal_block(block);
 
-        let (_, inferred_ty, _) =
+        let (block, inferred_ty, source) =
             self.analyze_expr(&const_decl.value, block, &mut mir, &mut type_solver, scopes);
         type_solver.check_const_decl(const_decl, inferred_ty, const_ty);
+        mir.push_instr(
+            block,
+            Instr::Copy {
+                target,
+                source: Operand::Local(source),
+            },
+        );
+        mir.set_terminator(block, Terminator::Return);
+
+        let used_const_decls = std::mem::take(
+            &mut scopes
+                .const_decl_scope()
+                .expect("missing const decl scope")
+                .used_const_decls,
+        );
 
         scopes.exit_const_decl_scope();
 
@@ -302,6 +328,67 @@ impl Analyzer {
             Err(errors) => self.result_builder.add_errors(errors),
         }
         mir.propagate_variable_types();
+        (mir, used_const_decls)
+    }
+
+    fn initialize_const_decls(
+        &mut self,
+        mut compiled_const_decls: IndexMap<
+            GlobalId,
+            (FunctionBuilder, HashMap<GlobalId, SourceSpan>),
+        >,
+    ) {
+        compiled_const_decls.reverse();
+        let dependents = compiled_const_decls
+            .iter()
+            .flat_map(|(const_decl_id, (_, used_const_decls))| {
+                used_const_decls
+                    .keys()
+                    .map(|used_const_decl_id| (*used_const_decl_id, *const_decl_id))
+            })
+            .fold(
+                HashMap::<GlobalId, HashSet<GlobalId>>::new(),
+                |mut map, (used_const_decl_id, const_decl_id)| {
+                    map.entry(used_const_decl_id)
+                        .or_default()
+                        .insert(const_decl_id);
+                    map
+                },
+            );
+        while !compiled_const_decls.is_empty() {
+            let const_decl_id =
+                compiled_const_decls
+                    .iter()
+                    .rev()
+                    .find_map(|(const_decl_id, (_, uses))| {
+                        if uses.is_empty() {
+                            Some(*const_decl_id)
+                        } else {
+                            None
+                        }
+                    });
+            let const_decl_id = match const_decl_id {
+                Some(const_decl_id) => const_decl_id,
+                None => break,
+            };
+            let (mir, _) = compiled_const_decls
+                .swap_remove(&const_decl_id)
+                .expect("key just found");
+            let _mir = mir.build();
+            // todo eval(mir)
+            for dependent in dependents.get(&const_decl_id).unwrap_or(&HashSet::new()) {
+                compiled_const_decls[dependent].1.remove(&const_decl_id);
+            }
+        }
+        for (const_decl_id, (_, uses)) in compiled_const_decls.into_iter().rev() {
+            let dependencies = uses.into_values().collect::<Vec<_>>();
+            let name = self.mir_builder.global_name(const_decl_id).clone();
+            self.result_builder.add_error(CyclicConstDeclError {
+                name: name.data,
+                span: name.span,
+                dependencies,
+            });
+        }
     }
 
     fn analyze_fn_decl(
@@ -1502,7 +1589,7 @@ impl Scopes {
         assert!(self.fn_scope.is_none(), "already in fn scope");
         assert_eq!(self.place_scopes.len(), 1, "missing global place scope");
         self.const_decl_scope = Some(ConstDeclScope {
-            used_const_decls: IndexMap::new(),
+            used_const_decls: HashMap::new(),
         });
         self.place_scopes.push(HashMap::new());
         self.block_scopes.push(None);
@@ -1545,8 +1632,8 @@ enum ResolvedPlace {
 
 struct AnalyzedGlobalScope<'ast> {
     scopes: Scopes,
-    fn_decls: Vec<(&'ast ast::FnDecl, Ty, FnDeclAttributes, FunctionId)>,
-    const_decls: Vec<(&'ast ast::ConstDecl, Ty, ConstDeclAttributes)>,
+    fn_decls: IndexMap<FunctionId, (&'ast ast::FnDecl, Ty, FnDeclAttributes)>,
+    const_decls: IndexMap<GlobalId, (&'ast ast::ConstDecl, Ty)>,
 }
 
 struct FnScope {
@@ -1556,7 +1643,7 @@ struct FnScope {
 }
 
 struct ConstDeclScope {
-    used_const_decls: IndexMap<GlobalId, SourceSpan>,
+    used_const_decls: HashMap<GlobalId, SourceSpan>,
 }
 
 struct BlockScope {

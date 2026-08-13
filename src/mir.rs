@@ -813,6 +813,11 @@ impl MirBuilder {
         self.mir.globals[id].is_mutable()
     }
 
+    #[must_use]
+    pub fn global_name(&self, id: GlobalId) -> &SpannedIdentifier {
+        &self.mir.globals[id].name
+    }
+
     pub fn set_global_value(&mut self, id: GlobalId, value: Vec<u8>) {
         let global = &mut self.mir.globals[id];
         // mutable is reflecting runtime mutability, which is the inverse

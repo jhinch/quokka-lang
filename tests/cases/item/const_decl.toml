@@ -336,3 +336,31 @@ fn main() {}
 expected_errors = [
     "function calls are not support in constant declarations @ [14:19]",
 ]
+
+[[case]]
+name = "directly_cyclic_const"
+kind = "analyzer"
+source = """
+const A: u8 = B;
+const B: u8 = A;
+fn main() {}
+"""
+expected_errors = [
+    "const `A` has a cyclic dependency @ [14:15]",
+    "const `B` has a cyclic dependency @ [31:32]",
+]
+
+[[case]]
+name = "indirectly_cyclic_const"
+kind = "analyzer"
+source = """
+const A: u8 = C;
+const B: u8 = A;
+const C: u8 = B;
+fn main() {}
+"""
+expected_errors = [
+    "const `A` has a cyclic dependency @ [14:15]",
+    "const `B` has a cyclic dependency @ [31:32]",
+    "const `C` has a cyclic dependency @ [48:49]",
+]
