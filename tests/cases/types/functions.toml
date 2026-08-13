@@ -105,6 +105,9 @@ fn get_a() -> Point {
 fn main() {}
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global A: Point
+
 get_a -> Point:
   .bb1:
     #2: Point = load A

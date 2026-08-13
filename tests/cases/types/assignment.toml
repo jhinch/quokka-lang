@@ -25,6 +25,9 @@ fn main() {
 }
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global x: u8
+
 main -> unit:
   .bb1:
     #1: u8 = copy 2
@@ -46,6 +49,11 @@ fn main() {
 }
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global A: Point
+GlobalDeclAttributes { section: Auto }
+global B: Point
+
 main -> unit:
   .bb1:
     #1: Point = load B
@@ -68,6 +76,11 @@ fn main() {
 }
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global A: Point
+GlobalDeclAttributes { section: Auto }
+global B: Point
+
 main -> unit:
   .bb1:
     #1: Point = load B
@@ -88,6 +101,9 @@ fn main() {
 }
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global A: Point
+
 main -> unit:
   .bb1:
     b#1: Point = load A
@@ -139,6 +155,9 @@ fn main() {
 }
 """
 expected_mir = """
+GlobalDeclAttributes { section: Auto }
+global x: u8
+
 main -> unit:
   .bb1:
     #1: u8 = copy 1

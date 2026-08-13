@@ -51,6 +51,10 @@ impl Mir {
     #[must_use]
     pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
+            for global in self.globals.values() {
+                write!(f, "{}", global.display(ty_registry))?;
+            }
+            writeln!(f)?;
             for function in self.functions.values() {
                 if function.attrs != FnDeclAttributes::default() {
                     writeln!(f, "@{:?}", function.attrs)?;
@@ -417,6 +421,34 @@ impl Global {
             GlobalAttributes::Rom(_) => false,
             GlobalAttributes::Ram(_) => true,
         }
+    }
+
+    #[must_use]
+    pub fn display<'a>(&'a self, ty_registry: &'a TyRegistry) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            match &self.attrs {
+                GlobalAttributes::Rom(attrs) => {
+                    writeln!(f, "{:?}", attrs)?;
+                    writeln!(
+                        f,
+                        "const {}: {} = {:?}",
+                        self.name.data,
+                        self.ty.display(ty_registry),
+                        self.value
+                    )?;
+                }
+                GlobalAttributes::Ram(attrs) => {
+                    writeln!(f, "{:?}", attrs)?;
+                    writeln!(
+                        f,
+                        "global {}: {}",
+                        self.name.data,
+                        self.ty.display(ty_registry)
+                    )?;
+                }
+            }
+            Ok(())
+        })
     }
 }
 
@@ -816,6 +848,16 @@ impl MirBuilder {
     #[must_use]
     pub fn global_name(&self, id: GlobalId) -> &SpannedIdentifier {
         &self.mir.globals[id].name
+    }
+
+    #[must_use]
+    pub fn global_value(&self, id: GlobalId) -> &[u8] {
+        self.mir.globals[id].value.as_slice()
+    }
+
+    #[must_use]
+    pub fn global_ty(&self, id: GlobalId) -> Ty {
+        self.mir.globals[id].ty
     }
 
     pub fn set_global_value(&mut self, id: GlobalId, value: Vec<u8>) {

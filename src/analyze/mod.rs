@@ -9,6 +9,7 @@ use crate::attr::{
     ConstDeclAttributes, FieldDeclAttributes, FnDeclAttributes, GlobalDeclAttributes,
     StructDeclAttributes,
 };
+use crate::consteval;
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
     GlobalPlaceProjection, Instr, LocalId, Mir, MirBuilder, Operand, Terminator, Variable,
@@ -19,6 +20,7 @@ use crate::ty::{StructFieldTyData, Ty, TyRegistry};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
+use slotmap::SparseSecondaryMap;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tracing::instrument;
 
@@ -339,6 +341,7 @@ impl Analyzer {
         >,
     ) {
         compiled_const_decls.reverse();
+        let mut completed = HashSet::new();
         let dependents = compiled_const_decls
             .iter()
             .flat_map(|(const_decl_id, (_, used_const_decls))| {
@@ -374,11 +377,31 @@ impl Analyzer {
             let (mir, _) = compiled_const_decls
                 .swap_remove(&const_decl_id)
                 .expect("key just found");
-            let _mir = mir.build();
-            // todo eval(mir)
+            let mir = mir.build();
+            self.mir_builder.set_global_value(
+                const_decl_id,
+                consteval::evaluate(
+                    &mir,
+                    &completed
+                        .iter()
+                        .copied()
+                        .map(|global_id| {
+                            (
+                                global_id,
+                                (
+                                    self.mir_builder.global_ty(global_id),
+                                    self.mir_builder.global_value(global_id),
+                                ),
+                            )
+                        })
+                        .collect::<SparseSecondaryMap<_, _>>(),
+                    &self.ty_registry,
+                ),
+            );
             for dependent in dependents.get(&const_decl_id).unwrap_or(&HashSet::new()) {
                 compiled_const_decls[dependent].1.remove(&const_decl_id);
             }
+            completed.insert(const_decl_id);
         }
         for (const_decl_id, (_, uses)) in compiled_const_decls.into_iter().rev() {
             let dependencies = uses.into_values().collect::<Vec<_>>();
