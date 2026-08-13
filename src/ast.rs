@@ -4,12 +4,12 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::num::NonZeroU16;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Root {
     pub items: Vec<Item>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AttributeDecl {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
@@ -18,7 +18,7 @@ pub struct AttributeDecl {
     pub value: Option<AttributeValue>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AttributeValue {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
@@ -34,7 +34,7 @@ impl From<SpannedIdentifier> for AttributeValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum AttributeValueData {
     Ident(Identifier),
     Integer(IntegerLiteral),
@@ -52,14 +52,14 @@ impl From<IntegerLiteral> for AttributeValueData {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Item {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attributes: Vec<AttributeDecl>,
     pub data: ItemData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, derive_more::From)]
 pub enum ItemData {
     FnDecl(FnDecl),
     StructDecl(StructDecl),
@@ -67,26 +67,26 @@ pub enum ItemData {
     ConstDecl(ConstDecl),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FnDecl {
     pub signature: FnSig,
     pub body: Block,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FnSig {
     pub name: SpannedIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ty: Option<TyRef>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct StructDecl {
     pub name: SpannedIdentifier,
     pub fields: Vec<FieldDecl>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FieldDecl {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attributes: Vec<AttributeDecl>,
@@ -94,27 +94,27 @@ pub struct FieldDecl {
     pub ty: TyRef,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct GlobalDecl {
     pub name: SpannedIdentifier,
     pub ty: TyRef,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ConstDecl {
     pub name: SpannedIdentifier,
     pub ty: TyRef,
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct TyRef {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub data: TyRefData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum TyRefData {
     Simple(SpannedIdentifier),
     Array(Box<TyRef>, NonZeroU16),
@@ -138,14 +138,14 @@ impl TyRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Block {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub statements: Vec<Statement>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize)]
 #[serde(transparent)]
 pub struct Identifier {
     pub value: String,
@@ -185,14 +185,14 @@ impl Borrow<str> for Identifier {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Statement {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub data: StatementData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, derive_more::From)]
 pub enum StatementData {
     Expr(ExprSmt),
     Let(LetSmt),
@@ -202,12 +202,12 @@ pub enum StatementData {
     Yield(YieldSmt),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ExprSmt {
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct LetSmt {
     pub name: SpannedIdentifier,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -215,34 +215,34 @@ pub struct LetSmt {
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ReturnSmt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct BreakSmt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct YieldSmt {
     pub value: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ContinueSmt;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Expr {
     #[serde(with = "crate::source::span")]
     pub span: SourceSpan,
     pub data: ExprData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, derive_more::From)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, derive_more::From)]
 pub enum ExprData {
     Place(Place),
     Integer(IntegerLiteral),
@@ -258,7 +258,7 @@ pub enum ExprData {
     Paren(Box<Expr>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Place {
     pub name: SpannedIdentifier,
     #[serde(with = "crate::source::span")]
@@ -267,13 +267,13 @@ pub struct Place {
     pub projections: Vec<PlaceProjection>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum PlaceProjection {
     Field(SpannedIdentifier),
     Index(Box<Expr>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct IntegerLiteral {
     pub value: u32,
 }
@@ -296,7 +296,7 @@ pub enum OpKind {
     FunctionCall,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum UnaryOpKind {
     Not,
     Neg,
@@ -306,13 +306,13 @@ pub enum UnaryOpKind {
     RotateRight,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum LogicalOpKind {
     And,
     Or,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ArithmeticOpKind {
     BitAnd,
     BitOr,
@@ -321,7 +321,7 @@ pub enum ArithmeticOpKind {
     Sub,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ComparisonOpKind {
     Eq,
     Ne,
@@ -331,7 +331,7 @@ pub enum ComparisonOpKind {
     Ge,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum AssignOpKind {
     Assign,
     AddAssign,
@@ -341,53 +341,53 @@ pub enum AssignOpKind {
     BitXorAssign,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct UnaryOp {
     pub kind: UnaryOpKind,
     pub expr: Box<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct LogicalOp {
     pub kind: LogicalOpKind,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ArithmeticOp {
     pub kind: ArithmeticOpKind,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ComparisonOp {
     pub kind: ComparisonOpKind,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AssignOp {
     pub kind: AssignOpKind,
     pub left: Box<Place>,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct If {
     pub condition: Box<Expr>,
     pub true_block: Box<Expr>,
     pub false_block: Option<Box<Expr>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Loop {
     pub body: Block,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Call {
     pub callee: Place,
 }
