@@ -1,6 +1,5 @@
 use lasso::{MemoryLimits, Spur, ThreadedRodeo};
 use std::fmt;
-use std::ops::Deref;
 use std::sync::OnceLock;
 
 fn symbol_table() -> &'static ThreadedRodeo {
@@ -34,8 +33,8 @@ impl Symbol {
     }
 
     #[must_use]
-    pub fn as_str(&self) -> &str {
-        self
+    pub fn as_str(&self) -> &'static str {
+        symbol_table().resolve(&self.0)
     }
 }
 
@@ -45,22 +44,14 @@ impl<T: AsRef<str>> From<T> for Symbol {
     }
 }
 
-impl Deref for Symbol {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        symbol_table().resolve(&self.0)
-    }
-}
-
 impl From<Symbol> for &'static str {
     fn from(value: Symbol) -> Self {
-        symbol_table().resolve(&value.0)
+        value.as_str()
     }
 }
 
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self)
+        f.write_str(self.as_str())
     }
 }

@@ -20,7 +20,7 @@ impl TyRegistry {
         if let Some((index, _, _)) = self.struct_types.get_full(name) {
             return Some(Ty::struct_ty(index));
         }
-        self.resolve_builtin(&name.value)
+        self.resolve_builtin(name.value.as_str())
     }
 
     fn resolve_builtin(&self, name: &str) -> Option<Ty> {
