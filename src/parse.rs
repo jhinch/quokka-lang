@@ -234,7 +234,7 @@ impl Parser<'_> {
         let start_span = self.expect(TokenKind::Hash)?.span();
         self.expect(TokenKind::LeftBracket)?;
         let name = self.parse_identifier()?;
-        if name.data.value == "preview_flag_example" {
+        if name.data.as_str() == "preview_flag_example" {
             self.features.check_enabled(
                 PreviewFeature::ExamplePreview,
                 name.span,

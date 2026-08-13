@@ -134,11 +134,10 @@ impl Inferrer {
     }
 
     fn bind_without_pruning(&mut self, var: TyVar, other: InferredTy) {
-        if self.occurs(var, &other) {
-            panic!(
-                "{var:?} occurs in {other:?} however quokka does not syntactically support cyclic type definitions"
-            );
-        }
+        assert!(
+            !self.occurs(var, &other),
+            "{var:?} occurs in {other:?} however quokka does not syntactically support cyclic type definitions"
+        );
         self.substitutions.insert(var, other);
     }
 

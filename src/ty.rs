@@ -124,26 +124,29 @@ impl Ty {
 
     #[must_use]
     pub fn struct_ty(index: usize) -> Self {
-        if index > Ty::INDEX_MASK as usize {
-            panic!("Too many struct types. {} > {}", index, Ty::INDEX_MASK);
-        }
-        Ty(Ty::STRUCT_TAG | index as u32)
+        let index = u32::try_from(index)
+            .ok()
+            .filter(|index| *index <= Ty::INDEX_MASK)
+            .unwrap_or_else(|| panic!("Too many struct types. {} > {}", index, Ty::INDEX_MASK));
+        Ty(Ty::STRUCT_TAG | index)
     }
 
     #[must_use]
     pub fn array_ty(index: usize) -> Self {
-        if index > Ty::INDEX_MASK as usize {
-            panic!("Too many array types. {} > {}", index, Ty::INDEX_MASK);
-        }
-        Ty(Ty::ARRAY_TAG | index as u32)
+        let index = u32::try_from(index)
+            .ok()
+            .filter(|index| *index <= Ty::INDEX_MASK)
+            .unwrap_or_else(|| panic!("Too many array types. {} > {}", index, Ty::INDEX_MASK));
+        Ty(Ty::ARRAY_TAG | index)
     }
 
     #[must_use]
     pub fn fn_ptr_ty(index: usize) -> Self {
-        if index > Ty::INDEX_MASK as usize {
-            panic!("Too many fn pointer types. {} > {}", index, Ty::INDEX_MASK);
-        }
-        Ty(Ty::FN_PTR_TAG | index as u32)
+        let index = u32::try_from(index)
+            .ok()
+            .filter(|index| *index <= Ty::INDEX_MASK)
+            .unwrap_or_else(|| panic!("Too many fn pointer types. {} > {}", index, Ty::INDEX_MASK));
+        Ty(Ty::FN_PTR_TAG | index)
     }
 
     #[must_use]

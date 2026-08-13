@@ -1,6 +1,6 @@
 use crate::source::Spanned;
+use crate::symbol::Symbol;
 use miette::SourceSpan;
-use std::borrow::Borrow;
 use std::fmt;
 use std::num::NonZeroU16;
 
@@ -148,7 +148,14 @@ pub struct Block {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize)]
 #[serde(transparent)]
 pub struct Identifier {
-    pub value: String,
+    pub value: Symbol,
+}
+
+impl Identifier {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.value.as_str()
+    }
 }
 
 pub type SpannedIdentifier = Spanned<Identifier>;
@@ -159,29 +166,25 @@ impl fmt::Display for Identifier {
     }
 }
 
+impl From<Symbol> for Identifier {
+    fn from(value: Symbol) -> Self {
+        Identifier { value }
+    }
+}
+
 impl From<String> for Identifier {
     fn from(value: String) -> Self {
-        Identifier { value }
+        Identifier {
+            value: Symbol::from(value),
+        }
     }
 }
 
 impl From<&str> for Identifier {
     fn from(value: &str) -> Self {
         Identifier {
-            value: String::from(value),
+            value: Symbol::from(value),
         }
-    }
-}
-
-impl From<Identifier> for String {
-    fn from(value: Identifier) -> Self {
-        value.value
-    }
-}
-
-impl Borrow<str> for Identifier {
-    fn borrow(&self) -> &str {
-        &self.value
     }
 }
 
@@ -398,7 +401,6 @@ mod tests {
     use crate::source::Spanned;
     use miette::{SourceOffset, SourceSpan};
     use std::assert_matches;
-    use std::borrow::Borrow;
 
     fn dummy_span() -> SourceSpan {
         SourceSpan::new(SourceOffset::from(0), 0)
@@ -423,35 +425,13 @@ mod tests {
     #[test]
     fn identifier_from_string() {
         let id = Identifier::from(String::from("foo"));
-        assert_eq!(id.value, "foo");
+        assert_eq!(id.value.as_str(), "foo");
     }
 
     #[test]
     fn identifier_from_str() {
         let id = Identifier::from("bar");
-        assert_eq!(id.value, "bar");
-    }
-
-    #[test]
-    fn string_from_identifier() {
-        let id = Identifier::from("baz");
-        let s = String::from(id);
-        assert_eq!(s, "baz");
-    }
-
-    #[test]
-    fn identifier_borrow_str() {
-        let id = Identifier::from("qux");
-        let borrowed: &str = id.borrow();
-        assert_eq!(borrowed, "qux");
-    }
-
-    #[test]
-    fn identifier_borrow_allows_hashmap_str_lookup() {
-        use std::collections::HashMap;
-        let mut map: HashMap<Identifier, i32> = HashMap::new();
-        map.insert(Identifier::from("key"), 42);
-        assert_eq!(map.get("key"), Some(&42));
+        assert_eq!(id.value.as_str(), "bar");
     }
 
     #[test]
@@ -475,13 +455,13 @@ mod tests {
     #[test]
     fn ty_ref_new_is_scalar() {
         let ty = TyRef::new(ident("u32"));
-        assert_matches!(ty.data, TyRefData::Simple(name) if name.data.value == "u32");
+        assert_matches!(ty.data, TyRefData::Simple(name) if &*name.data.as_str() == "u32");
     }
 
     #[test]
     fn ty_ref_array() {
         let count = NonZeroU16::new(8).unwrap();
         let ty = TyRef::array(dummy_span(), TyRef::new(ident("u8")), count);
-        assert_matches!(ty.data, TyRefData::Array(item, count) if matches!(&item.data, TyRefData::Simple(name) if name.data.value == "u8") && count.get() == 8);
+        assert_matches!(ty.data, TyRefData::Array(item, count) if matches!(&item.data, TyRefData::Simple(name) if name.data.as_str() == "u8") && count.get() == 8);
     }
 }

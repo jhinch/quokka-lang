@@ -55,14 +55,13 @@ impl Token<'_> {
     }
 
     pub fn try_parse_non_zero_u16(&self) -> Result<NonZeroU16, Error> {
-        let value = self.try_parse_u32()?;
-        if value > u16::MAX as u32 {
-            return Err(Error::from(InvalidNumberError {
+        let value = u16::try_from(self.try_parse_u32()?).map_err(|_| {
+            Error::from(InvalidNumberError {
                 span: self.span(),
                 kind: IntErrorKind::PosOverflow,
-            }));
-        }
-        NonZeroU16::try_from(value as u16).map_err(|_| {
+            })
+        })?;
+        NonZeroU16::try_from(value).map_err(|_| {
             Error::from(InvalidNumberError {
                 span: self.span(),
                 kind: IntErrorKind::Zero,

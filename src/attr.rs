@@ -1,5 +1,6 @@
 use crate::ast;
 use crate::source::span::span_between;
+use crate::symbol::Symbol;
 use miette::SourceSpan;
 use serde::de::value::{StrDeserializer, U32Deserializer, UnitDeserializer};
 use std::fmt;
@@ -123,7 +124,7 @@ pub struct UnknownAttributeError {
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("attribute `{name}` cannot be defined multiple times")]
 pub struct DuplicateAttributeError {
-    pub name: String,
+    pub name: Symbol,
     #[label("previously defined here")]
     pub defined: Option<SourceSpan>,
     #[label("redefined here")]
@@ -148,7 +149,7 @@ impl serde::de::Error for Error {
 
     fn duplicate_field(field: &'static str) -> Self {
         Error::from(DuplicateAttributeError {
-            name: field.to_string(),
+            name: Symbol::from_static(field),
             defined: None,
             redefined: None,
         })
@@ -296,7 +297,7 @@ impl<'de> serde::Deserializer<'de> for AttrNameDeserializer<'de> {
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
         visitor
-            .visit_borrowed_str::<Self::Error>(self.attribute.name.data.value.as_str())
+            .visit_borrowed_str::<Self::Error>(self.attribute.name.data.as_str())
             .map_err(|error| match error {
                 AttrNameError::Unknown(mut error) => {
                     error.span = self.attribute.name.span;
@@ -570,7 +571,7 @@ mod tests {
             FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap_err();
         match err {
             Error::Duplicate(inner) => {
-                assert_eq!(inner.name, "entrypoint");
+                assert_eq!(inner.name.as_str(), "entrypoint");
                 assert_eq!(inner.defined.map(|s| s.offset()), Some(0));
                 assert_eq!(inner.redefined.map(|s| s.offset()), Some(18));
             }

@@ -4,6 +4,8 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(clippy::must_use_candidate)]
 #![deny(clippy::return_self_not_must_use)]
+#![deny(clippy::cast_possible_truncation)]
+#![deny(clippy::manual_assert)]
 pub mod analyze;
 pub mod ast;
 pub mod attr;
@@ -15,4 +17,5 @@ pub mod mir;
 pub mod multi;
 pub mod parse;
 pub mod source;
+pub mod symbol;
 pub mod ty;
