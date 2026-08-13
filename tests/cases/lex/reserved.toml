@@ -1,0 +1,412 @@
+[[case]]
+name = "underscore"
+kind = "parser"
+entrypoint = "expr"
+source = """
+_
+"""
+expected_errors = [
+    '"_" is a reserved word @ [0:1]',
+]
+expected_ast = """
+Expr(
+  span: (0, 1),
+  data: Place(Place(
+    name: ("_", (0, 1)),
+    span: (0, 1),
+  )),
+)
+"""
+
+[[case]]
+name = "as"
+kind = "parser"
+entrypoint = "expr"
+source = """
+as
+"""
+expected_errors = [
+    '"as" is a reserved word @ [0:2]',
+]
+expected_ast = """
+Expr(
+  span: (0, 2),
+  data: Place(Place(
+    name: ("as", (0, 2)),
+    span: (0, 2),
+  )),
+)
+"""
+
+[[case]]
+name = "while"
+kind = "parser"
+entrypoint = "expr"
+source = """
+while
+"""
+expected_errors = [
+    '"while" is a reserved word @ [0:5]',
+]
+expected_ast = """
+Expr(
+  span: (0, 5),
+  data: Place(Place(
+    name: ("while", (0, 5)),
+    span: (0, 5),
+  )),
+)
+"""
+
+[[case]]
+name = "do"
+kind = "parser"
+entrypoint = "expr"
+source = """
+do
+"""
+expected_errors = [
+    '"do" is a reserved word @ [0:2]',
+]
+expected_ast = """
+Expr(
+  span: (0, 2),
+  data: Place(Place(
+    name: ("do", (0, 2)),
+    span: (0, 2),
+  )),
+)
+"""
+
+[[case]]
+name = "match"
+kind = "parser"
+entrypoint = "expr"
+source = """
+match
+"""
+expected_errors = [
+    '"match" is a reserved word @ [0:5]',
+]
+expected_ast = """
+Expr(
+  span: (0, 5),
+  data: Place(Place(
+    name: ("match", (0, 5)),
+    span: (0, 5),
+  )),
+)
+"""
+
+[[case]]
+name = "case"
+kind = "parser"
+entrypoint = "expr"
+source = """
+case
+"""
+expected_errors = [
+    '"case" is a reserved word @ [0:4]',
+]
+expected_ast = """
+Expr(
+  span: (0, 4),
+  data: Place(Place(
+    name: ("case", (0, 4)),
+    span: (0, 4),
+  )),
+)
+"""
+
+[[case]]
+name = "enum"
+kind = "parser"
+entrypoint = "expr"
+source = """
+enum
+"""
+expected_errors = [
+    '"enum" is a reserved word @ [0:4]',
+]
+expected_ast = """
+Expr(
+  span: (0, 4),
+  data: Place(Place(
+    name: ("enum", (0, 4)),
+    span: (0, 4),
+  )),
+)
+"""
+
+[[case]]
+name = "false"
+kind = "parser"
+entrypoint = "expr"
+source = """
+false
+"""
+expected_errors = [
+    '"false" is a reserved word @ [0:5]',
+]
+expected_ast = """
+Expr(
+  span: (0, 5),
+  data: Place(Place(
+    name: ("false", (0, 5)),
+    span: (0, 5),
+  )),
+)
+"""
+
+[[case]]
+name = "true"
+kind = "parser"
+entrypoint = "expr"
+source = """
+true
+"""
+expected_errors = [
+    '"true" is a reserved word @ [0:4]',
+]
+expected_ast = """
+Expr(
+  span: (0, 4),
+  data: Place(Place(
+    name: ("true", (0, 4)),
+    span: (0, 4),
+  )),
+)
+"""
+
+[[case]]
+name = "for"
+kind = "parser"
+entrypoint = "expr"
+source = """
+for
+"""
+expected_errors = [
+    '"for" is a reserved word @ [0:3]',
+]
+expected_ast = """
+Expr(
+  span: (0, 3),
+  data: Place(Place(
+    name: ("for", (0, 3)),
+    span: (0, 3),
+  )),
+)
+"""
+
+[[case]]
+name = "switch"
+kind = "parser"
+entrypoint = "expr"
+source = """
+switch
+"""
+expected_errors = [
+    '"switch" is a reserved word @ [0:6]',
+]
+expected_ast = """
+Expr(
+  span: (0, 6),
+  data: Place(Place(
+    name: ("switch", (0, 6)),
+    span: (0, 6),
+  )),
+)
+"""
+
+[[case]]
+name = "in"
+kind = "parser"
+entrypoint = "expr"
+source = """
+in
+"""
+expected_errors = [
+    '"in" is a reserved word @ [0:2]',
+]
+expected_ast = """
+Expr(
+  span: (0, 2),
+  data: Place(Place(
+    name: ("in", (0, 2)),
+    span: (0, 2),
+  )),
+)
+"""
+
+[[case]]
+name = "void"
+kind = "parser"
+entrypoint = "expr"
+source = """
+void
+"""
+expected_errors = [
+    '"void" is a reserved word @ [0:4]',
+]
+expected_ast = """
+Expr(
+  span: (0, 4),
+  data: Place(Place(
+    name: ("void", (0, 4)),
+    span: (0, 4),
+  )),
+)
+"""
+
+[[case]]
+name = "to"
+kind = "parser"
+entrypoint = "expr"
+source = """
+to
+"""
+expected_errors = [
+    '"to" is a reserved word @ [0:2]',
+]
+expected_ast = """
+Expr(
+  span: (0, 2),
+  data: Place(Place(
+    name: ("to", (0, 2)),
+    span: (0, 2),
+  )),
+)
+"""
+
+[[case]]
+name = "mod"
+kind = "parser"
+entrypoint = "expr"
+source = """
+mod
+"""
+expected_errors = [
+    '"mod" is a reserved word @ [0:3]',
+]
+expected_ast = """
+Expr(
+  span: (0, 3),
+  data: Place(Place(
+    name: ("mod", (0, 3)),
+    span: (0, 3),
+  )),
+)
+"""
+
+[[case]]
+name = "root"
+kind = "parser"
+entrypoint = "expr"
+source = """
+root
+"""
+expected_errors = [
+    '"root" is a reserved word @ [0:4]',
+]
+expected_ast = """
+Expr(
+  span: (0, 4),
+  data: Place(Place(
+    name: ("root", (0, 4)),
+    span: (0, 4),
+  )),
+)
+"""
+
+[[case]]
+name = "non_reserved"
+kind = "parser"
+entrypoint = "expr"
+source = """
+foo
+"""
+expected_ast = """
+Expr(
+  span: (0, 3),
+  data: Place(Place(
+    name: ("foo", (0, 3)),
+    span: (0, 3),
+  )),
+)
+"""
+
+[[case]]
+name = "reserved_as_let_decl_name"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let for = 1;
+"""
+expected_errors = [
+    '"for" is a reserved word @ [4:7]',
+]
+expected_ast = """
+Statement(
+  span: (0, 12),
+  data: Let(LetSmt(
+    name: ("for", (4, 3)),
+    value: Expr(
+      span: (10, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "reserved_as_fn_decl_name"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn match() {}
+"""
+expected_errors = [
+    '"match" is a reserved word @ [3:8]',
+]
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("match", (3, 5)),
+    ),
+    body: Block(
+      span: (11, 2),
+      statements: [],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "reserved_as_struct_field_name"
+kind = "parser"
+entrypoint = "item"
+source = """
+struct S { root: u8 }
+"""
+expected_errors = [
+    '"root" is a reserved word @ [11:15]',
+]
+expected_ast = """
+Item(
+  data: StructDecl(StructDecl(
+    name: ("S", (7, 1)),
+    fields: [
+      FieldDecl(
+        name: ("root", (11, 4)),
+        ty: TyRef(
+          span: (17, 2),
+          data: Simple(("u8", (17, 2))),
+        ),
+      ),
+    ],
+  )),
+)
+"""

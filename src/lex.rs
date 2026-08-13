@@ -69,6 +69,19 @@ impl Token<'_> {
             })
         })
     }
+
+    pub fn check_unused_reserved(&self) -> Result<(), Error> {
+        match self.text {
+            "_" | "as" | "while" | "do" | "match" | "case" | "enum" | "false" | "true" | "for"
+            | "switch" | "in" | "void" | "to" | "mod" | "root" => {
+                Err(Error::from(ReservedWordError {
+                    span: self.span(),
+                    reserved: self.text.to_string(),
+                }))
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -205,6 +218,9 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     InvalidNumber(#[from] InvalidNumberError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    ReservedWord(#[from] ReservedWordError),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
@@ -223,6 +239,15 @@ pub struct InvalidNumberError {
     #[label("this number")]
     pub span: SourceSpan,
     pub kind: IntErrorKind,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
+#[error("{reserved:?} is a reserved word")]
+#[diagnostic()]
+pub struct ReservedWordError {
+    #[label("this identifier")]
+    pub span: SourceSpan,
+    pub reserved: String,
 }
 
 pub struct Lexer<'de> {

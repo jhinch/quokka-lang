@@ -315,6 +315,9 @@ impl Parser<'_> {
 
     fn parse_identifier(&mut self) -> Result<SpannedIdentifier, Error> {
         let token = self.expect(TokenKind::Ident)?;
+        if let Err(error) = token.check_unused_reserved() {
+            self.result_builder.add_error(error);
+        }
         Ok(SpannedIdentifier::new(token.text(), token.span()))
     }
 
@@ -545,6 +548,9 @@ impl Parser<'_> {
                 }
                 TokenKind::Ident => {
                     let span = lhs_token.span();
+                    if let Err(error) = lhs_token.check_unused_reserved() {
+                        self.result_builder.add_error(error);
+                    }
                     let name = SpannedIdentifier::new(lhs_token.text(), span);
                     ExprData::from(Place {
                         name,
@@ -747,9 +753,8 @@ impl Parser<'_> {
                                 }
                             }
                             OpKind::FieldAccess => {
-                                let token = self.expect(TokenKind::Ident)?;
-                                let name = SpannedIdentifier::new(token.text(), token.span());
-                                let span = span_between(op_token.span(), token.span());
+                                let name = self.parse_identifier()?;
+                                let span = span_between(op_token.span(), name.span);
                                 self.features.check_enabled(
                                     PreviewFeature::FieldAccess,
                                     span,
