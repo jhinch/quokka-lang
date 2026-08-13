@@ -159,21 +159,6 @@ expected_errors = [
 ]
 
 [[case]]
-name = "const_with_infinite_loop"
-kind = "analyzer"
-preview_features = ["loop"]
-source = """
-const A: u8 = {
-    loop {}
-};
-
-fn main() {}
-"""
-expected_errors = [
-    "`never` is not equal to `u8` @ [9:11]",
-]
-
-[[case]]
 name = "const_with_continue"
 kind = "analyzer"
 source = """
@@ -291,6 +276,24 @@ expected_errors = [
 ]
 
 [[case]]
+name = "if_unit_in_const"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = {
+    let a: u8 = 1;
+    if 1 then {
+        a = 2;
+    }
+    yield a;
+};
+fn main() {}
+"""
+expected_errors = [
+    "if expression are not support in constant declarations @ [39:71]",
+]
+
+[[case]]
 name = "loop_in_const"
 kind = "analyzer"
 preview_features = ["loop"]
@@ -302,6 +305,23 @@ fn main() {}
 """
 expected_errors = [
     "loops are not support in constant declarations @ [14:35]",
+]
+
+[[case]]
+name = "loop_unit_in_const"
+kind = "analyzer"
+preview_features = ["loop"]
+source = """
+const A: u8 = {
+    loop {
+        break;
+    }
+    yield 1;
+};
+fn main() {}
+"""
+expected_errors = [
+    "loops are not support in constant declarations @ [20:47]",
 ]
 
 [[case]]

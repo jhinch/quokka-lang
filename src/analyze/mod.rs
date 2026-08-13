@@ -619,6 +619,10 @@ impl Analyzer {
                 (block, ty)
             }
             ast::ExprData::If(if_expr) => {
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder
+                        .add_error(IfNotSupportInConstDeclError { span: expr.span });
+                }
                 let (block, cond_ty, source) =
                     self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
                 type_solver.check_if_expr_condition(if_expr, cond_ty);
@@ -681,6 +685,10 @@ impl Analyzer {
                 (end_block, outcome)
             }
             ast::ExprData::Loop(loop_expr) => {
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder
+                        .add_error(LoopNotSupportInConstDeclError { span: expr.span });
+                }
                 let start_block = mir.new_block();
                 let end_block = mir.new_block();
                 mir.set_terminator(
