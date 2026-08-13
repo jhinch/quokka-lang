@@ -90,3 +90,46 @@ fn main() {
 expected_errors = [
     "`u1` is not equal to `u8` @ [64:72]",
 ]
+
+[[case]]
+name = "return_struct"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u16,
+}
+global A: Point;
+fn get_a() -> Point {
+    return A;
+}
+fn main() {}
+"""
+expected_mir = """
+get_a -> Point:
+  .bb1:
+    #2: Point = load A
+    #RET: Point = copy #2
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "return_oversized_struct"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u16,
+    y: u16,
+}
+global A: Point;
+fn get_a() -> Point {
+    return A;
+}
+fn main() {}
+"""
+expected_errors = [
+    "type `Point` too large to fit in a local variable. 32 bits > 16 bits @ [84:93]",
+]

@@ -167,13 +167,12 @@ kind = "analyzer"
 source = """
 fn main() {
     return;
-    let x = 1;
+    let x: u8 = 1;
     x;
 }
 """
 expected_errors = [
-    "unreachable code @ [28:45]",
-    "type cannot be determined by inference @ [36:37]",
+    "unreachable code @ [28:49]",
 ]
 
 [[case]]

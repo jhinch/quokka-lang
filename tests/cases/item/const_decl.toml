@@ -275,7 +275,7 @@ const B: u8 = A;
 fn main() {}
 """
 expected_errors = [
-    "cannot be reference global `A` in constant declaration @ [28:29]",
+    "cannot reference global `A` in constant declaration @ [28:29]",
 ]
 
 [[case]]

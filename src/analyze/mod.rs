@@ -426,7 +426,13 @@ impl Analyzer {
                 let let_ty = stmt.ty.as_ref().map(|ty_ref| self.resolve_ty_ref(ty_ref));
                 let (block, expr_ty, source) =
                     self.analyze_expr(&stmt.value, block, mir, type_solver, scopes);
-                let let_ty = type_solver.check_let_stmt(stmt, statement.span, let_ty, expr_ty);
+                let let_ty = type_solver.check_let_stmt(
+                    stmt,
+                    statement.span,
+                    let_ty,
+                    expr_ty,
+                    scopes.const_decl_scope().is_some(),
+                );
                 let target = if mir.is_named_local(source) {
                     // this can occur in simple assignments like:
                     //      let a: u8 = 1;

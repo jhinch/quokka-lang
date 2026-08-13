@@ -293,7 +293,7 @@ pub struct LoopNotSupportInConstDeclError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("cannot be reference global `{name}` in constant declaration")]
+#[error("cannot reference global `{name}` in constant declaration")]
 #[diagnostic()]
 pub struct GlobalReferencedInConstDeclError {
     pub name: Identifier,
@@ -308,4 +308,14 @@ impl From<SpannedIdentifier> for GlobalReferencedInConstDeclError {
             span: value.span,
         }
     }
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("type `{ty}` too large to fit in a local variable. {bit_size} bits > 16 bits")]
+#[diagnostic()]
+pub struct TyTooLargeForLocalVariableError {
+    pub ty: TyDisplay<'static>,
+    pub bit_size: u32,
+    #[label("too large")]
+    pub span: SourceSpan,
 }

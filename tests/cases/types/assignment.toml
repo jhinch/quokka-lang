@@ -33,7 +33,7 @@ main -> unit:
 """
 
 [[case]]
-name = "assign_struct_typed_place_currently_rejected_as_non_int"
+name = "assign_struct_global_to_global"
 kind = "analyzer"
 source = """
 struct Point {
@@ -45,8 +45,70 @@ fn main() {
     A = B;
 }
 """
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Point = load B
+    store A = #1
+    return
+"""
+
+[[case]]
+name = "assign_oversized_struct_global_to_global"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u16,
+    y: u16,
+}
+global A: Point;
+global B: Point;
+fn main() {
+    A = B;
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Point = load B
+    store A = #1
+    return
+"""
+
+[[case]]
+name = "assign_struct_global_to_local"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u16,
+}
+global A: Point;
+fn main() {
+    let b = A;
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    b#1: Point = load A
+    return
+"""
+
+[[case]]
+name = "assign_oversized_struct_global_to_local"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u16,
+    y: u16,
+}
+global A: Point;
+fn main() {
+    let b = A;
+}
+"""
 expected_errors = [
-    "`Point` is not an integer type @ [78:83]",
+    "type `Point` too large to fit in a local variable. 32 bits > 16 bits @ [74:84]",
 ]
 
 [[case]]

@@ -1,7 +1,7 @@
 use crate::analyze::error::{
     BreakExprUnexpectedError, FieldNotDefinedError, NotArrayError, NotFnPtrError, NotIntError,
     NotSignedIntError, NotStructError, ReturnExprMissingError, ReturnExprUnexpectedError,
-    TyMismatchError, TypeUnresolvedError, YieldUnexpectedError,
+    TyMismatchError, TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
 };
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
@@ -55,11 +55,23 @@ impl TypeSolver {
         expr_span: SourceSpan,
         let_ty: Option<Ty>,
         expr_ty: InferredTy,
+        is_in_const_decl: bool,
     ) -> InferredTy {
         let let_ty = match let_ty {
             Some(let_ty) => InferredTy::Concrete(let_ty),
             None => InferredTy::Variable(self.fresh_ty_var()),
         };
+        if !is_in_const_decl {
+            self.constraints
+                .push_back(InferenceConstraint::IsRegisterSized {
+                    span: stmt
+                        .ty
+                        .as_ref()
+                        .map(|ty_ref| ty_ref.span)
+                        .unwrap_or(expr_span),
+                    ty: let_ty.clone(),
+                });
+        }
         self.constraints.push_back(InferenceConstraint::Equal {
             ty1: let_ty.clone(),
             ty1_span: stmt
@@ -101,7 +113,7 @@ impl TypeSolver {
             }),
             (return_ty, Some(return_expr_ty)) => {
                 self.constraints.push_back(InferenceConstraint::Equal {
-                    ty1: return_expr_ty,
+                    ty1: return_expr_ty.clone(),
                     ty1_span: stmt
                         .value
                         .as_ref()
@@ -110,6 +122,11 @@ impl TypeSolver {
                     ty2: InferredTy::Concrete(return_ty),
                     ty2_span: function_span,
                 });
+                self.constraints
+                    .push_back(InferenceConstraint::IsRegisterSized {
+                        span: statement_span,
+                        ty: return_expr_ty,
+                    });
             }
         }
     }
@@ -300,13 +317,6 @@ impl TypeSolver {
         right_ty: InferredTy,
     ) -> InferredTy {
         let expr_ty = InferredTy::Variable(self.fresh_ty_var());
-        // currently, assign-like operands assert that the LHS is an int
-        // to ensure that it can fit in a register. Eventually we need
-        // to calculate size of types and assert it can fit in 1 or 2 bytes
-        self.constraints.push_back(InferenceConstraint::IsInt {
-            ty: expr_ty.clone(),
-            span: expr_span,
-        });
         self.constraints.push_back(InferenceConstraint::Equal {
             ty1: expr_ty.clone(),
             ty1_span: expr_span,
@@ -582,6 +592,27 @@ impl TypeSolver {
                         }),
                     }
                 }
+                InferenceConstraint::IsRegisterSized { mut ty, span } => {
+                    self.inferrer.prune(&mut ty);
+                    match ty {
+                        InferredTy::Concrete(ty) => {
+                            if ty != Ty::ERROR {
+                                let bit_size = ty.bit_size(ty_registry);
+                                if bit_size > 16 {
+                                    self.result_builder.add_error(
+                                        TyTooLargeForLocalVariableError {
+                                            ty: ty.display(ty_registry).into_detached(),
+                                            bit_size,
+                                            span,
+                                        },
+                                    );
+                                }
+                            }
+                            None
+                        }
+                        ty => Some(InferenceConstraint::IsRegisterSized { ty, span }),
+                    }
+                }
             };
             match constraint {
                 None => {
@@ -626,7 +657,8 @@ impl TypeSolver {
                     InferenceConstraint::IsInt { span, .. }
                     | InferenceConstraint::IsSignedInt { span, .. }
                     | InferenceConstraint::IsArray { span, .. }
-                    | InferenceConstraint::IsFnPtr { span, .. } => {
+                    | InferenceConstraint::IsFnPtr { span, .. }
+                    | InferenceConstraint::IsRegisterSized { span, .. } => {
                         self.result_builder.add_error(TypeUnresolvedError { span });
                     }
                     InferenceConstraint::HasField { field, .. } => {
@@ -683,5 +715,9 @@ enum InferenceConstraint {
         ty: InferredTy,
         span: SourceSpan,
         return_ty: TyVar,
+    },
+    IsRegisterSized {
+        ty: InferredTy,
+        span: SourceSpan,
     },
 }
