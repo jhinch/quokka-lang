@@ -208,7 +208,7 @@ global A: u8;
 fn main() {}
 """
 expected_mir = """
-GlobalDeclAttributes { section: VRam }
+@GlobalDeclAttributes { section: VRam }
 global A: u8
 
 main -> unit:
@@ -252,7 +252,7 @@ const A: u8 = 1;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Rom0 }
+@ConstDeclAttributes { section: Rom0 }
 const A: u8 = [1]
 
 main -> unit:

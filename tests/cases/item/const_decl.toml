@@ -125,7 +125,7 @@ const A: u8 = 1;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [1]
 
 main -> unit:
@@ -377,9 +377,9 @@ const B: u8 = A;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [1]
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const B: u8 = [1]
 
 main -> unit:
@@ -395,7 +395,7 @@ const A: u8 = 1 + 2;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [3]
 
 main -> unit:
@@ -411,7 +411,7 @@ const A: u8 = 255 + 2;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [1]
 
 main -> unit:
@@ -427,7 +427,7 @@ const A: u8 = 3 - 2;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [1]
 
 main -> unit:
@@ -443,8 +443,1096 @@ const A: u8 = 0 - 1;
 fn main() {}
 """
 expected_mir = """
-ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { section: Auto }
 const A: u8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitand_const"
+kind = "analyzer"
+source = """
+const A: u8 = 6 & 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitor_const"
+kind = "analyzer"
+source = """
+const A: u8 = 4 | 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [7]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitxor_const"
+kind = "analyzer"
+source = """
+const A: u8 = 6 ^ 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [5]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "eq_true_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 4;
+    let y: u8 = 4;
+    yield x == y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "eq_false_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    yield x == y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "ne_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    yield x != y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "lt_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 1;
+    let y: u8 = 2;
+    yield x < y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "lt_false_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 2;
+    let y: u8 = 1;
+    yield x < y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "le_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 2;
+    let y: u8 = 2;
+    yield x <= y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "ge_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 2;
+    let y: u8 = 2;
+    yield x >= y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "gt_const"
+kind = "analyzer"
+source = """
+const A: u1 = {
+    let x: u8 = 3;
+    let y: u8 = 2;
+    yield x > y;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "logical_and_const"
+kind = "analyzer"
+source = """
+const A: u1 = 1 && 0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "logical_or_const"
+kind = "analyzer"
+source = """
+const A: u1 = 0 || 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = !0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_u1"
+kind = "analyzer"
+source = """
+const A: u1 = !0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_u16"
+kind = "analyzer"
+source = """
+const A: u16 = !0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u16 = [255, 255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = !0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "neg_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = -1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "neg_const_i16"
+kind = "analyzer"
+source = """
+const A: i16 = -1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i16 = [255, 255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 1 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_wrapping_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 128 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_right_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 2 >>;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_right_arithmetic_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = (-2) >>;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_left_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 1 <%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_left_wrapping_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 128 <%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_right_const_u8"
+kind = "analyzer"
+source = """
+const A: u8 = 1 >%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [128]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_u1"
+kind = "analyzer"
+source = """
+const A: u1 = 1 + 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_u1"
+kind = "analyzer"
+source = """
+const A: u1 = 1 - 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u1 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_u16"
+kind = "analyzer"
+source = """
+const A: u16 = 300 + 300;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u16 = [88, 2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const_u16"
+kind = "analyzer"
+source = """
+const A: u16 = 65535 + 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u16 = [0, 0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_u16"
+kind = "analyzer"
+source = """
+const A: u16 = 600 - 300;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u16 = [44, 1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const_u16"
+kind = "analyzer"
+source = """
+const A: u16 = 0 - 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u16 = [255, 255]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = 100 + 27;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [127]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = 127 + 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [128]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = 100 - 27;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [73]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const_i8"
+kind = "analyzer"
+source = """
+const A: i8 = -2 - 127;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i8 = [127]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_i16"
+kind = "analyzer"
+source = """
+const A: i16 = 30000 + 2000;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i16 = [0, 125]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const_i16"
+kind = "analyzer"
+source = """
+const A: i16 = 32767 + 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i16 = [0, 128]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_i16"
+kind = "analyzer"
+source = """
+const A: i16 = 30000 - 2000;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i16 = [96, 109]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const_i16"
+kind = "analyzer"
+source = """
+const A: i16 = -2 - 32767;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: i16 = [255, 127]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 1 + 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 3 - 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitand_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 3 & 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitor_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 2 | 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [3]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitxor_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 3 ^ 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 1 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_right_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 3 >>;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 5 + 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [8]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 10 - 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [7]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitand_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 12 & 10;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [8]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitor_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 4 | 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [7]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "bitxor_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 12 ^ 10;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [6]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 3 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [6]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_right_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 12 >>;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [6]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 3 + 2;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 0 - 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [3]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = !1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_wrapping_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 2 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [0]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_left_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 2 <%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_right_const_u2"
+kind = "analyzer"
+source = """
+const A: u2 = 1 >%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u2 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 15 + 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 0 - 1;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [15]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "not_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = !5;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [10]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "shift_left_wrapping_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 12 <<;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [8]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_left_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 8 <%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rotate_right_const_u4"
+kind = "analyzer"
+source = """
+const A: u4 = 1 >%;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u4 = [8]
 
 main -> unit:
   .bb1:

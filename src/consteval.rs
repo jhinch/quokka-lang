@@ -502,8 +502,8 @@ impl Value {
     fn rotate_left_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
-            Value::U2(value) => Value::U2(value.rotate_left(1)),
-            Value::U4(value) => Value::U4(value.rotate_left(1)),
+            Value::U2(value) => Value::U2((value << 1 | value >> 1) & 0b11),
+            Value::U4(value) => Value::U4((value << 1 | value >> 3) & 0b1111),
             Value::U8(value) => Value::U8(value.rotate_left(1)),
             Value::U16(value) => Value::U16(value.rotate_left(1)),
             Value::I8(value) => Value::I8(value.rotate_left(1)),
@@ -515,8 +515,8 @@ impl Value {
     fn rotate_right_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
-            Value::U2(value) => Value::U2(value.rotate_right(1)),
-            Value::U4(value) => Value::U4(value.rotate_right(1)),
+            Value::U2(value) => Value::U2((value >> 1 | value << 1) & 0b11),
+            Value::U4(value) => Value::U4((value >> 1 | value << 3) & 0b1111),
             Value::U8(value) => Value::U8(value.rotate_right(1)),
             Value::U16(value) => Value::U16(value.rotate_right(1)),
             Value::I8(value) => Value::I8(value.rotate_right(1)),
@@ -528,8 +528,8 @@ impl Value {
     fn shift_left_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
-            Value::U2(value) => Value::U2(value << 1),
-            Value::U4(value) => Value::U4(value << 1),
+            Value::U2(value) => Value::U2((value << 1) & 0b11),
+            Value::U4(value) => Value::U4((value << 1) & 0b1111),
             Value::U8(value) => Value::U8(value << 1),
             Value::U16(value) => Value::U16(value << 1),
             Value::I8(value) => Value::I8(value << 1),
@@ -541,8 +541,8 @@ impl Value {
     fn shift_right_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
-            Value::U2(value) => Value::U2(value >> 1),
-            Value::U4(value) => Value::U4(value >> 1),
+            Value::U2(value) => Value::U2((value >> 1) & 0b11),
+            Value::U4(value) => Value::U4((value >> 1) & 0b1111),
             Value::U8(value) => Value::U8(value >> 1),
             Value::U16(value) => Value::U16(value >> 1),
             Value::I8(value) => Value::I8(value >> 1),
@@ -558,8 +558,8 @@ impl Not for Value {
     fn not(self) -> Self::Output {
         match self {
             Value::U1(value) => Value::U1(!value),
-            Value::U2(value) => Value::U2(!value),
-            Value::U4(value) => Value::U4(!value),
+            Value::U2(value) => Value::U2(!value & 0b11),
+            Value::U4(value) => Value::U4(!value & 0b1111),
             Value::U8(value) => Value::U8(!value),
             Value::U16(value) => Value::U16(!value),
             Value::I8(value) => Value::I8(!value),
@@ -647,8 +647,8 @@ impl AddAssign for Value {
         match (self, rhs) {
             #[allow(clippy::suspicious_op_assign_impl)]
             (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
-            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_add(rhs),
-            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_add(rhs) % (0b11 + 1),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_add(rhs) % (0b1111 + 1),
             (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_add(rhs),
             (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_add(rhs),
             (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_add(rhs),
@@ -663,8 +663,8 @@ impl SubAssign for Value {
         match (self, rhs) {
             #[allow(clippy::suspicious_op_assign_impl)]
             (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
-            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_sub(rhs),
-            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_sub(rhs) % (0b11 + 1),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_sub(rhs) % (0b1111 + 1),
             (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_sub(rhs),
             (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_sub(rhs),
             (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_sub(rhs),

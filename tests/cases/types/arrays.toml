@@ -9,7 +9,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: [u8; 3]
 
 main -> unit:
@@ -90,7 +90,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: [u8; 3]
 
 main -> unit:

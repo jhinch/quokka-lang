@@ -428,7 +428,7 @@ impl Global {
         fmt::from_fn(move |f| {
             match &self.attrs {
                 GlobalAttributes::Rom(attrs) => {
-                    writeln!(f, "{:?}", attrs)?;
+                    writeln!(f, "@{:?}", attrs)?;
                     writeln!(
                         f,
                         "const {}: {} = {:?}",
@@ -438,7 +438,7 @@ impl Global {
                     )?;
                 }
                 GlobalAttributes::Ram(attrs) => {
-                    writeln!(f, "{:?}", attrs)?;
+                    writeln!(f, "@{:?}", attrs)?;
                     writeln!(
                         f,
                         "global {}: {}",

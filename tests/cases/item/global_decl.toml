@@ -76,7 +76,7 @@ global A: u8;
 fn main() {}
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: u8
 
 main -> unit:

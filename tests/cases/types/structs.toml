@@ -13,7 +13,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global P: Point
 
 main -> unit:
@@ -170,7 +170,7 @@ global Foo: u8;
 fn main() {}
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global Foo: u8
 
 main -> unit:

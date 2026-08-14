@@ -25,7 +25,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global x: u8
 
 main -> unit:
@@ -49,9 +49,9 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: Point
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global B: Point
 
 main -> unit:
@@ -76,9 +76,9 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: Point
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global B: Point
 
 main -> unit:
@@ -101,7 +101,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global A: Point
 
 main -> unit:
@@ -155,7 +155,7 @@ fn main() {
 }
 """
 expected_mir = """
-GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { section: Auto }
 global x: u8
 
 main -> unit:
