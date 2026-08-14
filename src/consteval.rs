@@ -1,7 +1,10 @@
 use crate::mir;
-use crate::mir::{Condition, GlobalId, GlobalPlaceProjection, Instr, Operand, Terminator};
+use crate::mir::{Condition, GlobalId, GlobalPlaceProjection, Instr, LocalId, Operand, Terminator};
 use crate::ty::{Ty, TyRegistry};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
+use std::cmp::Ordering;
+use std::num::NonZeroU16;
+use std::ops::{AddAssign, BitAndAssign, BitOrAssign, BitXorAssign, Neg, Not, SubAssign};
 
 #[must_use]
 pub fn evaluate(
@@ -9,22 +12,12 @@ pub fn evaluate(
     globals: &SparseSecondaryMap<GlobalId, (Ty, &[u8])>,
     ty_registry: &TyRegistry,
 ) -> Vec<u8> {
-    let mut local_slots = SecondaryMap::new();
+    let mut local_slots = SecondaryMap::<LocalId, Option<Value>>::new();
     let return_local = function
         .return_local
         .expect("cannot evaluate unit function");
     for local in function.locals.keys() {
-        local_slots.insert(
-            local,
-            vec![
-                0u8;
-                function.locals[local]
-                    .ty
-                    .bit_size(ty_registry)
-                    .next_multiple_of(8) as usize
-                    / 8
-            ],
-        );
+        local_slots.insert(local, None);
     }
     let mut previous_block = None;
     let mut block = function.start_block;
@@ -37,63 +30,329 @@ pub fn evaluate(
                 Instr::Phi { target, sources } => {
                     let source = sources
                         [previous_block.expect("phi cannot be resolved when no previous block")];
-                    let [target, source] = local_slots
-                        .get_disjoint_mut([*target, source])
-                        .expect("slots");
-                    target.as_mut_slice().copy_from_slice(source);
+                    let source = local_slots[source]
+                        .check_init(source, function, ty_registry)
+                        .clone();
+                    local_slots[*target].init(*target, function, ty_registry, source);
                 }
                 Instr::Load {
                     target,
                     source: place,
                 } => {
-                    let (mut ty, mut source) = globals[place.global];
+                    let (global_ty, source) = globals[place.global];
+                    // This is not particularly efficient as it clones for each projection.
+                    // However, it should work correctly for now.
+                    let mut source = Value::from_bytes(global_ty, ty_registry, source);
                     for projection in &place.projections {
-                        match projection {
-                            GlobalPlaceProjection::Field(field) => {
-                                let field = &ty_registry.struct_ty_data(ty).fields[field];
-                                let offset = field.bit_offset as usize / 8;
-                                source = &source[offset
-                                    ..(offset + (field.ty.bit_size(ty_registry) as usize / 8))];
-                                ty = field.ty;
-                            }
-                            GlobalPlaceProjection::Index(_) => todo!("array index"),
+                        source = match projection {
+                            GlobalPlaceProjection::Field(field) => match source {
+                                Value::Struct { ty, bytes, .. } => {
+                                    let field = &ty_registry.struct_ty_data(ty).fields[field];
+                                    let offset = field.bit_offset as usize / 8;
+                                    Value::from_bytes(
+                                        field.ty,
+                                        ty_registry,
+                                        &bytes[offset
+                                            ..(offset
+                                                + (field
+                                                    .ty
+                                                    .bit_size(ty_registry)
+                                                    .next_multiple_of(8)
+                                                    as usize))],
+                                    )
+                                }
+                                value => {
+                                    unimplemented!("cannot lookup field {field} on value {value:?}")
+                                }
+                            },
+                            GlobalPlaceProjection::Index(index) => match source {
+                                Value::Array { item_ty, bytes, .. } => {
+                                    let index = Value::from_operand(
+                                        &local_slots,
+                                        function,
+                                        Ty::U16,
+                                        ty_registry,
+                                        index,
+                                    );
+                                    let index = match index {
+                                        Value::U16(index) => index as usize,
+                                        index => unimplemented!(
+                                            "cannot array index on with index {index:?}"
+                                        ),
+                                    };
+                                    let item_byte_width =
+                                        item_ty.bit_size(ty_registry).next_multiple_of(8) as usize
+                                            / 8;
+                                    let offset = index * item_byte_width;
+                                    Value::from_bytes(
+                                        item_ty,
+                                        ty_registry,
+                                        &bytes[offset..(offset + item_byte_width)],
+                                    )
+                                }
+                                value => unimplemented!("cannot array index on value {value:?}"),
+                            },
                         }
                     }
-                    let target = &mut local_slots[*target];
-                    target.copy_from_slice(source);
+                    local_slots[*target].init(*target, function, ty_registry, source);
                 }
-                Instr::Copy { target, source } => match source {
-                    Operand::Local(source) => {
-                        let [target, source] = local_slots
-                            .get_disjoint_mut([*target, *source])
-                            .expect("slots");
-                        target.as_mut_slice().copy_from_slice(source);
-                    }
-                    Operand::Literal(int) => {
-                        let source = int.value.to_le_bytes();
-                        let target = &mut local_slots[*target];
-                        let byte_len = target.len().min(source.len());
-                        target[..byte_len].copy_from_slice(&source[..byte_len]);
-                    }
-                    Operand::FnPtr(_) => unimplemented!("Unsupported instruction {instruction:?}"),
-                },
-                Instr::Not { .. } => todo!("not"),
-                Instr::Neg { .. } => todo!("neg"),
-                Instr::RotateLeft { .. } => todo!("rotateleft"),
-                Instr::RotateRight { .. } => todo!("rotateright"),
-                Instr::ShiftLeft { .. } => todo!("shiftleft"),
-                Instr::ShiftRight { .. } => todo!("shiftright"),
-                Instr::Eq { .. } => todo!("eq"),
-                Instr::Ne { .. } => todo!("ne"),
-                Instr::Lt { .. } => todo!("lt"),
-                Instr::Le { .. } => todo!("le"),
-                Instr::Ge { .. } => todo!("ge"),
-                Instr::Gt { .. } => todo!("gt"),
-                Instr::BitAnd { .. } => todo!("bitand"),
-                Instr::BitOr { .. } => todo!("bitor"),
-                Instr::BitXor { .. } => todo!("bitxor"),
-                Instr::Add { .. } => todo!("add"),
-                Instr::Sub { .. } => todo!("sub"),
+                Instr::Copy { target, source } => {
+                    let source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        source,
+                    );
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Not { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = !source;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Neg { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = -source;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::RotateLeft { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = source.rotate_left_one();
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::RotateRight { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = source.rotate_right_one();
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::ShiftLeft { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = source.shift_left_one();
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::ShiftRight { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    source = source.shift_right_one();
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Eq {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left == &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Ne {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left != &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Lt {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left < &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Le {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left <= &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Ge {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left >= &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Gt {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let source = Value::U1(left > &right);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::BitAnd {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let mut source = left.clone();
+                    source &= right;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::BitOr {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let mut source = left.clone();
+                    source |= right;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::BitXor {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let mut source = left.clone();
+                    source ^= right;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Add {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let mut source = left.clone();
+                    source += right;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Sub {
+                    target,
+                    left,
+                    right,
+                } => {
+                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let right = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        right,
+                    );
+                    let mut source = left.clone();
+                    source -= right;
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
             }
         }
         let terminator = &function.blocks[block].terminator;
@@ -109,24 +368,28 @@ pub fn evaluate(
                 then_block,
                 else_block,
             } => {
-                let mask = local_slots[*source].iter().fold(0, |a, b| a | b);
-                let cond = match condition {
-                    Condition::Zero => mask == 0,
-                    Condition::NotZero => mask != 0,
-                };
-                if cond { *then_block } else { *else_block }
+                if local_slots[*source]
+                    .check_init(*source, function, ty_registry)
+                    .as_bool(*condition)
+                {
+                    *then_block
+                } else {
+                    *else_block
+                }
             }
             Terminator::ReturnIf {
                 source,
                 condition,
                 else_block,
             } => {
-                let mask = local_slots[*source].iter().fold(0, |a, b| a | b);
-                let cond = match condition {
-                    Condition::Zero => mask == 0,
-                    Condition::NotZero => mask != 0,
-                };
-                if cond { break } else { *else_block }
+                if local_slots[*source]
+                    .check_init(*source, function, ty_registry)
+                    .as_bool(*condition)
+                {
+                    break;
+                } else {
+                    *else_block
+                }
             }
         };
         previous_block = Some(block);
@@ -134,5 +397,318 @@ pub fn evaluate(
     }
     local_slots
         .remove(return_local)
-        .expect("return slot not found")
+        .flatten()
+        .expect("return slot not set")
+        .into_vec()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Value {
+    U1(bool),
+    U2(u8),
+    U4(u8),
+    U8(u8),
+    U16(u16),
+    I8(i8),
+    I16(i16),
+    Array {
+        item_ty: Ty,
+        count: NonZeroU16,
+        bytes: Vec<u8>,
+    },
+    Struct {
+        ty: Ty,
+        bit_width: u32,
+        bytes: Vec<u8>,
+    },
+}
+
+impl Value {
+    pub fn from_operand(
+        slots: &SecondaryMap<LocalId, Option<Value>>,
+        function: &mir::Function,
+        ty: Ty,
+        ty_registry: &TyRegistry,
+        operand: &Operand,
+    ) -> Self {
+        match operand {
+            Operand::Local(local) => slots[*local]
+                .check_init(*local, function, ty_registry)
+                .clone(),
+            Operand::Literal(int) => {
+                let byte_width = ty.bit_size(ty_registry).div_ceil(8) as usize;
+                Value::from_bytes(ty, ty_registry, &int.value.to_le_bytes()[..byte_width])
+            }
+            operand => unimplemented!("unsupported operand {operand:?}"),
+        }
+    }
+
+    pub fn from_bytes(ty: Ty, ty_registry: &TyRegistry, bytes: &[u8]) -> Self {
+        let bit_width = ty.bit_size(ty_registry);
+        let byte_width = bit_width.div_ceil(8);
+        assert_eq!(
+            bytes.len(),
+            byte_width as usize,
+            "{} has bit_width {bit_width} byte_width {byte_width} but got {} bytes",
+            ty.display(ty_registry),
+            bytes.len()
+        );
+        match ty {
+            Ty::U1 => Value::U1(bytes[0] != 0),
+            Ty::U2 => Value::U2(bytes[0]),
+            Ty::U4 => Value::U4(bytes[0]),
+            Ty::U8 => Value::U8(bytes[0]),
+            Ty::U16 => Value::U16(u16::from_le_bytes(*bytes.as_array::<2>().unwrap())),
+            Ty::I8 => Value::I8(i8::from_le_bytes(*bytes.as_array::<1>().unwrap())),
+            Ty::I16 => Value::I16(i16::from_le_bytes(*bytes.as_array::<2>().unwrap())),
+            ty if ty.is_array() => {
+                let array_ty_data = ty_registry.array_ty_data(ty);
+                Value::Array {
+                    item_ty: array_ty_data.item_ty,
+                    count: array_ty_data.count,
+                    bytes: bytes.to_vec(),
+                }
+            }
+            ty if ty.is_struct() => Value::Struct {
+                ty,
+                bit_width,
+                bytes: bytes.to_vec(),
+            },
+            ty => unimplemented!("unsupported type {}", ty.display(ty_registry)),
+        }
+    }
+
+    pub fn into_vec(self) -> Vec<u8> {
+        match self {
+            Value::U1(value) => (value as u8).to_le_bytes().to_vec(),
+            Value::U2(value) | Value::U4(value) | Value::U8(value) => value.to_le_bytes().to_vec(),
+            Value::U16(value) => value.to_le_bytes().to_vec(),
+            Value::I8(value) => value.to_le_bytes().to_vec(),
+            Value::I16(value) => value.to_le_bytes().to_vec(),
+            Value::Array { bytes, .. } | Value::Struct { bytes, .. } => bytes,
+        }
+    }
+
+    pub fn as_bool(&self, condition: Condition) -> bool {
+        match self {
+            Value::U1(value) => match condition {
+                Condition::Zero => !value,
+                Condition::NotZero => *value,
+            },
+            value => unimplemented!("{value:?} is not a u1"),
+        }
+    }
+
+    fn rotate_left_one(self) -> Self {
+        match self {
+            Value::U1(value) => Value::U1(value),
+            Value::U2(value) => Value::U2(value.rotate_left(1)),
+            Value::U4(value) => Value::U4(value.rotate_left(1)),
+            Value::U8(value) => Value::U8(value.rotate_left(1)),
+            Value::U16(value) => Value::U16(value.rotate_left(1)),
+            Value::I8(value) => Value::I8(value.rotate_left(1)),
+            Value::I16(value) => Value::I16(value.rotate_left(1)),
+            value => unimplemented!("rotate_left operation not supported on {value:?}"),
+        }
+    }
+
+    fn rotate_right_one(self) -> Self {
+        match self {
+            Value::U1(value) => Value::U1(value),
+            Value::U2(value) => Value::U2(value.rotate_right(1)),
+            Value::U4(value) => Value::U4(value.rotate_right(1)),
+            Value::U8(value) => Value::U8(value.rotate_right(1)),
+            Value::U16(value) => Value::U16(value.rotate_right(1)),
+            Value::I8(value) => Value::I8(value.rotate_right(1)),
+            Value::I16(value) => Value::I16(value.rotate_right(1)),
+            value => unimplemented!("rotate_right operation not supported on {value:?}"),
+        }
+    }
+
+    fn shift_left_one(self) -> Self {
+        match self {
+            Value::U1(_) => Value::U1(false),
+            Value::U2(value) => Value::U2(value << 1),
+            Value::U4(value) => Value::U4(value << 1),
+            Value::U8(value) => Value::U8(value << 1),
+            Value::U16(value) => Value::U16(value << 1),
+            Value::I8(value) => Value::I8(value << 1),
+            Value::I16(value) => Value::I16(value << 1),
+            value => unimplemented!("shift_left operation not supported on {value:?}"),
+        }
+    }
+
+    fn shift_right_one(self) -> Self {
+        match self {
+            Value::U1(_) => Value::U1(false),
+            Value::U2(value) => Value::U2(value >> 1),
+            Value::U4(value) => Value::U4(value >> 1),
+            Value::U8(value) => Value::U8(value >> 1),
+            Value::U16(value) => Value::U16(value >> 1),
+            Value::I8(value) => Value::I8(value >> 1),
+            Value::I16(value) => Value::I16(value >> 1),
+            value => unimplemented!("shift_left operation not supported on {value:?}"),
+        }
+    }
+}
+
+impl Not for Value {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Value::U1(value) => Value::U1(!value),
+            Value::U2(value) => Value::U2(!value),
+            Value::U4(value) => Value::U4(!value),
+            Value::U8(value) => Value::U8(!value),
+            Value::U16(value) => Value::U16(!value),
+            Value::I8(value) => Value::I8(!value),
+            Value::I16(value) => Value::I16(!value),
+            value => unimplemented!("not operation not supported on {value:?}"),
+        }
+    }
+}
+
+impl Neg for Value {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Value::I8(value) => Value::I8(-value),
+            Value::I16(value) => Value::I16(-value),
+            value => unimplemented!("neg operation not supported on {value:?}"),
+        }
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Value::U1(this), Value::U1(other)) => this.partial_cmp(other),
+            (Value::U2(this), Value::U2(other)) => this.partial_cmp(other),
+            (Value::U4(this), Value::U4(other)) => this.partial_cmp(other),
+            (Value::U8(this), Value::U8(other)) => this.partial_cmp(other),
+            (Value::U16(this), Value::U16(other)) => this.partial_cmp(other),
+            (Value::I8(this), Value::I8(other)) => this.partial_cmp(other),
+            (Value::I16(this), Value::I16(other)) => this.partial_cmp(other),
+            (this, other) if this == other => Some(Ordering::Equal),
+            _ => None,
+        }
+    }
+}
+
+impl BitAndAssign for Value {
+    fn bitand_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Value::U1(this), Value::U1(rhs)) => *this &= rhs,
+            (Value::U2(this), Value::U2(rhs)) => *this &= rhs,
+            (Value::U4(this), Value::U4(rhs)) => *this &= rhs,
+            (Value::U8(this), Value::U8(rhs)) => *this &= rhs,
+            (Value::U16(this), Value::U16(rhs)) => *this &= rhs,
+            (Value::I8(this), Value::I8(rhs)) => *this &= rhs,
+            (Value::I16(this), Value::I16(rhs)) => *this &= rhs,
+            params => unimplemented!("bitand operation not supported on {params:?}"),
+        }
+    }
+}
+
+impl BitOrAssign for Value {
+    fn bitor_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Value::U1(this), Value::U1(rhs)) => *this |= rhs,
+            (Value::U2(this), Value::U2(rhs)) => *this |= rhs,
+            (Value::U4(this), Value::U4(rhs)) => *this |= rhs,
+            (Value::U8(this), Value::U8(rhs)) => *this |= rhs,
+            (Value::U16(this), Value::U16(rhs)) => *this |= rhs,
+            (Value::I8(this), Value::I8(rhs)) => *this |= rhs,
+            (Value::I16(this), Value::I16(rhs)) => *this |= rhs,
+            params => unimplemented!("bitor operation not supported on {params:?}"),
+        }
+    }
+}
+
+impl BitXorAssign for Value {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
+            (Value::U2(this), Value::U2(rhs)) => *this ^= rhs,
+            (Value::U4(this), Value::U4(rhs)) => *this ^= rhs,
+            (Value::U8(this), Value::U8(rhs)) => *this ^= rhs,
+            (Value::U16(this), Value::U16(rhs)) => *this ^= rhs,
+            (Value::I8(this), Value::I8(rhs)) => *this ^= rhs,
+            (Value::I16(this), Value::I16(rhs)) => *this ^= rhs,
+            params => unimplemented!("bitxor operation not supported on {params:?}"),
+        }
+    }
+}
+
+impl AddAssign for Value {
+    fn add_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            #[allow(clippy::suspicious_op_assign_impl)]
+            (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::I16(this), Value::I16(rhs)) => *this = this.wrapping_add(rhs),
+            params => unimplemented!("add operation not supported on {params:?}"),
+        }
+    }
+}
+
+impl SubAssign for Value {
+    fn sub_assign(&mut self, rhs: Self) {
+        match (self, rhs) {
+            #[allow(clippy::suspicious_op_assign_impl)]
+            (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::I16(this), Value::I16(rhs)) => *this = this.wrapping_sub(rhs),
+            params => unimplemented!("sub operation not supported on {params:?}"),
+        }
+    }
+}
+
+trait Slot {
+    fn check_init(&self, id: LocalId, function: &mir::Function, ty_registry: &TyRegistry)
+    -> &Value;
+    fn init(
+        &mut self,
+        id: LocalId,
+        function: &mir::Function,
+        ty_registry: &TyRegistry,
+        value: Value,
+    );
+}
+
+impl Slot for Option<Value> {
+    fn check_init(
+        &self,
+        id: LocalId,
+        function: &mir::Function,
+        ty_registry: &TyRegistry,
+    ) -> &Value {
+        self.as_ref()
+            .unwrap_or_else(|| panic!("{:#} not initialized", id.display(function, ty_registry)))
+    }
+
+    fn init(
+        &mut self,
+        id: LocalId,
+        function: &mir::Function,
+        ty_registry: &TyRegistry,
+        value: Value,
+    ) {
+        assert!(
+            self.is_none(),
+            "{:#} already initialized",
+            id.display(function, ty_registry)
+        );
+        *self = Some(value);
+    }
 }

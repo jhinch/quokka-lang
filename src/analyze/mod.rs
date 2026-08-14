@@ -289,7 +289,7 @@ impl Analyzer {
         const_decl: &ast::ConstDecl,
         const_ty: Ty,
         scopes: &mut Scopes,
-    ) -> (FunctionBuilder, HashMap<GlobalId, SourceSpan>) {
+    ) -> (FunctionBuilder, SparseSecondaryMap<GlobalId, SourceSpan>) {
         let mut mir = FunctionBuilder::new(const_decl.name.data.clone(), const_ty);
         let target = mir.create_return_local(const_ty);
 
@@ -337,7 +337,7 @@ impl Analyzer {
         &mut self,
         mut compiled_const_decls: IndexMap<
             GlobalId,
-            (FunctionBuilder, HashMap<GlobalId, SourceSpan>),
+            (FunctionBuilder, SparseSecondaryMap<GlobalId, SourceSpan>),
         >,
     ) {
         compiled_const_decls.reverse();
@@ -347,7 +347,7 @@ impl Analyzer {
             .flat_map(|(const_decl_id, (_, used_const_decls))| {
                 used_const_decls
                     .keys()
-                    .map(|used_const_decl_id| (*used_const_decl_id, *const_decl_id))
+                    .map(|used_const_decl_id| (used_const_decl_id, *const_decl_id))
             })
             .fold(
                 HashMap::<GlobalId, HashSet<GlobalId>>::new(),
@@ -399,12 +399,12 @@ impl Analyzer {
                 ),
             );
             for dependent in dependents.get(&const_decl_id).unwrap_or(&HashSet::new()) {
-                compiled_const_decls[dependent].1.remove(&const_decl_id);
+                compiled_const_decls[dependent].1.remove(const_decl_id);
             }
             completed.insert(const_decl_id);
         }
         for (const_decl_id, (_, uses)) in compiled_const_decls.into_iter().rev() {
-            let dependencies = uses.into_values().collect::<Vec<_>>();
+            let dependencies = uses.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
             let name = self.mir_builder.global_name(const_decl_id).clone();
             self.result_builder.add_error(CyclicConstDeclError {
                 name: name.data,
@@ -1411,10 +1411,9 @@ impl Analyzer {
                         self.result_builder
                             .add_error(GlobalReferencedInConstDeclError::from(place.name.clone()));
                     } else {
-                        const_decl_scope
-                            .used_const_decls
-                            .entry(global)
-                            .or_insert(place.span);
+                        if !const_decl_scope.used_const_decls.contains_key(global) {
+                            const_decl_scope.used_const_decls.insert(global, place.span);
+                        }
                     }
                 }
                 Some(GlobalPlace {
@@ -1612,7 +1611,7 @@ impl Scopes {
         assert!(self.fn_scope.is_none(), "already in fn scope");
         assert_eq!(self.place_scopes.len(), 1, "missing global place scope");
         self.const_decl_scope = Some(ConstDeclScope {
-            used_const_decls: HashMap::new(),
+            used_const_decls: SparseSecondaryMap::new(),
         });
         self.place_scopes.push(HashMap::new());
         self.block_scopes.push(None);
@@ -1666,7 +1665,7 @@ struct FnScope {
 }
 
 struct ConstDeclScope {
-    used_const_decls: HashMap<GlobalId, SourceSpan>,
+    used_const_decls: SparseSecondaryMap<GlobalId, SourceSpan>,
 }
 
 struct BlockScope {

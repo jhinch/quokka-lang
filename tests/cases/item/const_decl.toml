@@ -386,3 +386,67 @@ main -> unit:
   .bb1:
     return
 """
+
+[[case]]
+name = "add_const"
+kind = "analyzer"
+source = """
+const A: u8 = 1 + 2;
+fn main() {}
+"""
+expected_mir = """
+ConstDeclAttributes { section: Auto }
+const A: u8 = [3]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "add_wrapping_const"
+kind = "analyzer"
+source = """
+const A: u8 = 255 + 2;
+fn main() {}
+"""
+expected_mir = """
+ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_const"
+kind = "analyzer"
+source = """
+const A: u8 = 3 - 2;
+fn main() {}
+"""
+expected_mir = """
+ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "sub_wrapping_const"
+kind = "analyzer"
+source = """
+const A: u8 = 0 - 1;
+fn main() {}
+"""
+expected_mir = """
+ConstDeclAttributes { section: Auto }
+const A: u8 = [255]
+
+main -> unit:
+  .bb1:
+    return
+"""
