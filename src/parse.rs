@@ -552,11 +552,51 @@ impl Parser<'_> {
                         self.result_builder.add_error(error);
                     }
                     let name = SpannedIdentifier::new(lhs_token.text(), span);
-                    ExprData::from(Place {
-                        name,
-                        span,
-                        projections: Vec::new(),
-                    })
+                    if self.peek_token()?.kind() == TokenKind::LeftBrace {
+                        self.expect(TokenKind::LeftBrace)?;
+                        let mut fields = Vec::new();
+                        while self.peek_token()?.kind() != TokenKind::RightBrace {
+                            let name = self.parse_identifier()?;
+                            self.expect(TokenKind::Colon)?;
+                            let value = self.parse_expr_above(0)?;
+                            fields.push(StructExprField { name, value });
+                            if self.peek_token()?.kind() != TokenKind::RightBrace {
+                                self.expect(TokenKind::Comma)?;
+                            }
+                        }
+                        self.expect(TokenKind::RightBrace)?;
+                        ExprData::from(StructExpr { name, fields })
+                    } else {
+                        ExprData::from(Place {
+                            name,
+                            span,
+                            projections: Vec::new(),
+                        })
+                    }
+                }
+                TokenKind::LeftBracket => {
+                    let first = self.parse_expr_above(0)?;
+                    if self.peek_token()?.kind() == TokenKind::Semicolon {
+                        self.expect(TokenKind::Semicolon)?;
+                        let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
+                        self.expect(TokenKind::RightBracket)?;
+                        ExprData::from(RepeatExpr {
+                            item: Box::new(first),
+                            count,
+                        })
+                    } else {
+                        let mut items = vec![first];
+                        while self.peek_token()?.kind() != TokenKind::RightBracket {
+                            self.expect(TokenKind::Comma)?;
+                            if self.peek_token()?.kind() == TokenKind::RightBracket {
+                                break;
+                            }
+                            let item = self.parse_expr_above(0)?;
+                            items.push(item);
+                        }
+                        self.expect(TokenKind::RightBracket)?;
+                        ExprData::from(ArrayExpr { items })
+                    }
                 }
                 // group
                 TokenKind::LeftParen => {
@@ -622,6 +662,7 @@ impl Parser<'_> {
                             TokenKind::Number,
                             TokenKind::Ident,
                             TokenKind::LeftParen,
+                            TokenKind::LeftBracket,
                             TokenKind::Bang,
                             TokenKind::Minus,
                             TokenKind::If,
@@ -643,6 +684,7 @@ impl Parser<'_> {
                 TokenKind::Eof
                 | TokenKind::RightParen
                 | TokenKind::Semicolon
+                | TokenKind::Comma
                 | TokenKind::RightBrace
                 | TokenKind::RightBracket
                 | TokenKind::Then

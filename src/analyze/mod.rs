@@ -881,6 +881,15 @@ impl Analyzer {
                 );
                 (block, ty, target)
             }
+            ast::ExprData::Struct(struct_expr) => {
+                todo!()
+            }
+            ast::ExprData::Array(array_expr) => {
+                todo!()
+            }
+            ast::ExprData::Repeat(repeat_expr) => {
+                todo!()
+            }
             ast::ExprData::Unary(op) => {
                 let (block, inner_ty, source) =
                     self.analyze_expr(&op.expr, block, mir, type_solver, scopes);

@@ -249,6 +249,9 @@ pub struct Expr {
 pub enum ExprData {
     Place(Place),
     Integer(IntegerLiteral),
+    Struct(StructExpr),
+    Array(ArrayExpr),
+    Repeat(RepeatExpr),
     Unary(UnaryOp),
     Logical(LogicalOp),
     Arithmetic(ArithmeticOp),
@@ -285,6 +288,29 @@ impl From<u32> for IntegerLiteral {
     fn from(value: u32) -> Self {
         IntegerLiteral { value }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct StructExpr {
+    pub name: SpannedIdentifier,
+    pub fields: Vec<StructExprField>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct StructExprField {
+    pub name: SpannedIdentifier,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ArrayExpr {
+    pub items: Vec<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct RepeatExpr {
+    pub item: Box<Expr>,
+    pub count: NonZeroU16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::From)]

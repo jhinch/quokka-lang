@@ -372,5 +372,5 @@ source = """
 let x = ;
 """
 expected_errors = [
-    "Syntax error: found ; when expecting <number>, <ident>, (, !, -, if or loop @ [8:9]",
+    "Syntax error: found ; when expecting <number>, <ident>, (, [, !, -, if or loop @ [8:9]",
 ]

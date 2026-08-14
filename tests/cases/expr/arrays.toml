@@ -1,0 +1,621 @@
+[[case]]
+name = "empty_array"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[]
+"""
+expected_errors = [
+    "Syntax error: found ] when expecting <number>, <ident>, (, [, !, -, if or loop @ [1:2]",
+]
+
+[[case]]
+name = "single_item"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1]
+"""
+expected_ast = """
+Expr(
+  span: (0, 3),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 1),
+        data: Integer(IntegerLiteral(
+          value: 1,
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "two_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2]
+"""
+expected_ast = """
+Expr(
+  span: (0, 6),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 1),
+        data: Integer(IntegerLiteral(
+          value: 1,
+        )),
+      ),
+      Expr(
+        span: (4, 1),
+        data: Integer(IntegerLiteral(
+          value: 2,
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "three_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2, 3]
+"""
+expected_ast = """
+Expr(
+  span: (0, 9),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 1),
+        data: Integer(IntegerLiteral(
+          value: 1,
+        )),
+      ),
+      Expr(
+        span: (4, 1),
+        data: Integer(IntegerLiteral(
+          value: 2,
+        )),
+      ),
+      Expr(
+        span: (7, 1),
+        data: Integer(IntegerLiteral(
+          value: 3,
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "trailing_comma"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2, 3,]
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 1),
+        data: Integer(IntegerLiteral(
+          value: 1,
+        )),
+      ),
+      Expr(
+        span: (4, 1),
+        data: Integer(IntegerLiteral(
+          value: 2,
+        )),
+      ),
+      Expr(
+        span: (7, 1),
+        data: Integer(IntegerLiteral(
+          value: 3,
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "multiline"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[
+    1,
+    2,
+    3,
+]
+"""
+expected_ast = """
+Expr(
+  span: (0, 24),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (6, 1),
+        data: Integer(IntegerLiteral(
+          value: 1,
+        )),
+      ),
+      Expr(
+        span: (13, 1),
+        data: Integer(IntegerLiteral(
+          value: 2,
+        )),
+      ),
+      Expr(
+        span: (20, 1),
+        data: Integer(IntegerLiteral(
+          value: 3,
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "item_is_expression"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1 + 2, 3 - 4]
+"""
+expected_ast = """
+Expr(
+  span: (0, 14),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 5),
+        data: Arithmetic(ArithmeticOp(
+          kind: Add,
+          left: Expr(
+            span: (1, 1),
+            data: Integer(IntegerLiteral(
+              value: 1,
+            )),
+          ),
+          right: Expr(
+            span: (5, 1),
+            data: Integer(IntegerLiteral(
+              value: 2,
+            )),
+          ),
+        )),
+      ),
+      Expr(
+        span: (8, 5),
+        data: Arithmetic(ArithmeticOp(
+          kind: Sub,
+          left: Expr(
+            span: (8, 1),
+            data: Integer(IntegerLiteral(
+              value: 3,
+            )),
+          ),
+          right: Expr(
+            span: (12, 1),
+            data: Integer(IntegerLiteral(
+              value: 4,
+            )),
+          ),
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "item_is_struct_expr"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[Foo { a: 1 }, Foo { a: 2 }]
+"""
+expected_ast = """
+Expr(
+  span: (0, 28),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 12),
+        data: Struct(StructExpr(
+          name: ("Foo", (1, 3)),
+          fields: [
+            StructExprField(
+              name: ("a", (7, 1)),
+              value: Expr(
+                span: (10, 1),
+                data: Integer(IntegerLiteral(
+                  value: 1,
+                )),
+              ),
+            ),
+          ],
+        )),
+      ),
+      Expr(
+        span: (15, 12),
+        data: Struct(StructExpr(
+          name: ("Foo", (15, 3)),
+          fields: [
+            StructExprField(
+              name: ("a", (21, 1)),
+              value: Expr(
+                span: (24, 1),
+                data: Integer(IntegerLiteral(
+                  value: 2,
+                )),
+              ),
+            ),
+          ],
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "nested_array"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[[1, 2], [3, 4]]
+"""
+expected_ast = """
+Expr(
+  span: (0, 16),
+  data: Array(ArrayExpr(
+    items: [
+      Expr(
+        span: (1, 6),
+        data: Array(ArrayExpr(
+          items: [
+            Expr(
+              span: (2, 1),
+              data: Integer(IntegerLiteral(
+                value: 1,
+              )),
+            ),
+            Expr(
+              span: (5, 1),
+              data: Integer(IntegerLiteral(
+                value: 2,
+              )),
+            ),
+          ],
+        )),
+      ),
+      Expr(
+        span: (9, 6),
+        data: Array(ArrayExpr(
+          items: [
+            Expr(
+              span: (10, 1),
+              data: Integer(IntegerLiteral(
+                value: 3,
+              )),
+            ),
+            Expr(
+              span: (13, 1),
+              data: Integer(IntegerLiteral(
+                value: 4,
+              )),
+            ),
+          ],
+        )),
+      ),
+    ],
+  )),
+)
+"""
+
+[[case]]
+name = "missing_comma_between_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1 2]
+"""
+expected_errors = [
+    "Syntax error: found <number> when expecting =, ==, !=, &, &&, &=, |, ||, |=, +, +=, -, -=, ^, ^=, <, <=, <<, <%, >, >=, >> or >% @ [3:4]",
+]
+
+[[case]]
+name = "leading_comma"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[, 1]
+"""
+expected_errors = [
+    "Syntax error: found , when expecting <number>, <ident>, (, [, !, -, if or loop @ [1:2]",
+]
+
+[[case]]
+name = "double_comma_between_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1,, 2]
+"""
+expected_errors = [
+    "Syntax error: found , when expecting <number>, <ident>, (, [, !, -, if or loop @ [3:4]",
+]
+
+[[case]]
+name = "missing_closing_bracket"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2
+"""
+expected_errors = [
+    "Syntax error: found <EOF> when expecting , @ [6:6]",
+]
+
+[[case]]
+name = "missing_closing_bracket_single_item"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1
+"""
+expected_errors = [
+    "Syntax error: found <EOF> when expecting , @ [3:3]",
+]
+
+[[case]]
+name = "repeat_expr"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 3]
+"""
+expected_ast = """
+Expr(
+  span: (0, 6),
+  data: Repeat(RepeatExpr(
+    item: Expr(
+      span: (1, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+    count: 3,
+  )),
+)
+"""
+
+[[case]]
+name = "repeat_expr_item_is_expression"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1 + 2; 3]
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: Repeat(RepeatExpr(
+    item: Expr(
+      span: (1, 5),
+      data: Arithmetic(ArithmeticOp(
+        kind: Add,
+        left: Expr(
+          span: (1, 1),
+          data: Integer(IntegerLiteral(
+            value: 1,
+          )),
+        ),
+        right: Expr(
+          span: (5, 1),
+          data: Integer(IntegerLiteral(
+            value: 2,
+          )),
+        ),
+      )),
+    ),
+    count: 3,
+  )),
+)
+"""
+
+[[case]]
+name = "repeat_expr_item_is_struct_expr"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[Foo { a: 1 }; 3]
+"""
+expected_ast = """
+Expr(
+  span: (0, 17),
+  data: Repeat(RepeatExpr(
+    item: Expr(
+      span: (1, 12),
+      data: Struct(StructExpr(
+        name: ("Foo", (1, 3)),
+        fields: [
+          StructExprField(
+            name: ("a", (7, 1)),
+            value: Expr(
+              span: (10, 1),
+              data: Integer(IntegerLiteral(
+                value: 1,
+              )),
+            ),
+          ),
+        ],
+      )),
+    ),
+    count: 3,
+  )),
+)
+"""
+
+[[case]]
+name = "repeat_expr_item_is_nested_array"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[[1, 2]; 3]
+"""
+expected_ast = """
+Expr(
+  span: (0, 11),
+  data: Repeat(RepeatExpr(
+    item: Expr(
+      span: (1, 6),
+      data: Array(ArrayExpr(
+        items: [
+          Expr(
+            span: (2, 1),
+            data: Integer(IntegerLiteral(
+              value: 1,
+            )),
+          ),
+          Expr(
+            span: (5, 1),
+            data: Integer(IntegerLiteral(
+              value: 2,
+            )),
+          ),
+        ],
+      )),
+    ),
+    count: 3,
+  )),
+)
+"""
+
+[[case]]
+name = "repeat_expr_zero_count"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 0]
+"""
+expected_errors = [
+    "Invalid number. Zero @ [4:5]",
+]
+
+[[case]]
+name = "repeat_expr_count_overflows_u16"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 70000]
+"""
+expected_errors = [
+    "Invalid number. PosOverflow @ [4:9]",
+]
+
+[[case]]
+name = "repeat_expr_count_is_max_u16"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 65535]
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: Repeat(RepeatExpr(
+    item: Expr(
+      span: (1, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+    count: 65535,
+  )),
+)
+"""
+
+[[case]]
+name = "repeat_expr_count_is_not_a_number"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; a]
+"""
+expected_errors = [
+    "Syntax error: found <ident> when expecting <number> @ [4:5]",
+]
+
+[[case]]
+name = "repeat_expr_missing_count"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1;]
+"""
+expected_errors = [
+    "Syntax error: found ] when expecting <number> @ [3:4]",
+]
+
+[[case]]
+name = "repeat_expr_missing_closing_bracket"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 3
+"""
+expected_errors = [
+    "Syntax error: found <EOF> when expecting ] @ [6:6]",
+]
+
+[[case]]
+name = "repeat_expr_extra_semicolon"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1; 3; 3]
+"""
+expected_errors = [
+    "Syntax error: found ; when expecting ] @ [5:6]",
+]
+
+[[case]]
+name = "array_literal_indexed"
+kind = "parser"
+entrypoint = "expr"
+preview_features = ["array"]
+source = """
+[1, 2, 3][0]
+"""
+expected_errors = [
+    "Syntax error: array index requires array @ [9:12]",
+]
+
+[[case]]
+name = "array_literal_index_without_preview_feature"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2, 3][0]
+"""
+expected_errors = [
+    "Preview feature error: use --preview array @ [9:12]",
+    "Syntax error: array index requires array @ [9:12]",
+]

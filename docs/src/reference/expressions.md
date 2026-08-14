@@ -15,6 +15,8 @@ ExpressionWithoutBlock  = GroupedExpression
                         | OperatorExpression
                         | PlaceExpression
                         | FunctionCallExpression
+                        | StructExpression
+                        | ArrayExpression
                         ;
 PlaceExpression         = PathExpression
                         | ArrayIndexExpression
