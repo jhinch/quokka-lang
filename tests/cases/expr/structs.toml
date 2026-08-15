@@ -520,3 +520,348 @@ Foo { a: 1 }.a
 expected_errors = [
     "Syntax error: field access requires struct @ [12:14]",
 ]
+
+# --- analyzer tests ---
+
+[[case]]
+name = "analyzer_empty_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Empty {}
+fn main() {
+    let v = Empty {};
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    v#1: Empty = alloc
+    return
+"""
+
+[[case]]
+name = "analyzer_single_field_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+fn main() {
+    let v = Point { x: 1 };
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Point = alloc
+    #2: u8 = copy 1
+    v#3: Point = write #1.x = #2
+    return
+"""
+
+[[case]]
+name = "analyzer_multi_field_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { x: 1, y: 2 };
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Point = alloc
+    #2: u8 = copy 1
+    #3: Point = write #1.x = #2
+    #4: u8 = copy 2
+    v#5: Point = write #3.y = #4
+    return
+"""
+
+[[case]]
+name = "analyzer_fields_in_different_order_than_declaration_valid"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { y: 2, x: 1 };
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Point = alloc
+    #2: u8 = copy 2
+    #3: Point = write #1.y = #2
+    #4: u8 = copy 1
+    v#5: Point = write #3.x = #4
+    return
+"""
+
+[[case]]
+name = "analyzer_nested_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Inner {
+    value: u8,
+}
+struct Wrapper {
+    inner: Inner,
+}
+fn main() {
+    let v = Wrapper { inner: Inner { value: 1 } };
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: Wrapper = alloc
+    #2: Inner = alloc
+    #3: u8 = copy 1
+    #4: Inner = write #2.value = #3
+    v#5: Wrapper = write #1.inner = #4
+    return
+"""
+
+[[case]]
+name = "analyzer_struct_expr_field_value_is_complex_expression_valid"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+fn main() {
+    let a: u8 = 1;
+    let v = Point { x: a + 1 };
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    a#1: u8 = copy 1
+    #2: Point = alloc
+    #3: u8 = copy 1
+    #4: u8 = add a#1, #3
+    v#5: Point = write #2.x = #4
+    return
+"""
+
+[[case]]
+name = "analyzer_unknown_struct_name"
+kind = "analyzer"
+source = """
+fn main() {
+    let v = DoesNotExist { x: 1 };
+}
+"""
+expected_errors = [
+    "cannot find type `DoesNotExist` @ [24:36]",
+]
+
+[[case]]
+name = "analyzer_primitive_as_struct_name"
+kind = "analyzer"
+source = """
+fn main() {
+    let v = u8 { x: 1 };
+}
+"""
+expected_errors = [
+    "`u8` is not a struct type @ [24:26]",
+]
+
+[[case]]
+name = "analyzer_missing_single_field"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { x: 1 };
+}
+"""
+expected_errors = [
+    "field `y` is missing in struct expression @ [76:77]",
+]
+
+[[case]]
+name = "analyzer_missing_multiple_fields"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point {};
+}
+"""
+expected_errors = [
+    "field `x` is missing in struct expression @ [70:71]",
+    "field `y` is missing in struct expression @ [70:71]",
+]
+
+[[case]]
+name = "analyzer_duplicate_field_in_struct_expr"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { x: 1, x: 2, y: 3 };
+}
+"""
+expected_errors = [
+    "field `x` defined multiple times in struct expression @ [77:78]",
+]
+
+[[case]]
+name = "analyzer_duplicate_field_and_missing_field_combo"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { x: 1, x: 2 };
+}
+"""
+expected_errors = [
+    "field `x` defined multiple times in struct expression @ [77:78]",
+    "field `y` is missing in struct expression @ [82:83]",
+]
+
+[[case]]
+name = "analyzer_unknown_field_in_struct_expr"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+fn main() {
+    let v = Point { z: 1 };
+}
+"""
+expected_errors = [
+    "field `z` is not defined on `Point` @ [60:61]",
+    "field `x` is missing in struct expression @ [65:66]",
+]
+
+[[case]]
+name = "analyzer_unknown_field_and_missing_field_combo"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let v = Point { z: 1 };
+}
+"""
+expected_errors = [
+    "field `z` is not defined on `Point` @ [71:72]",
+    "field `x` is missing in struct expression @ [76:77]",
+    "field `y` is missing in struct expression @ [76:77]",
+]
+
+[[case]]
+name = "analyzer_field_expr_type_mismatch"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+fn main() {
+    let a: u16 = 1;
+    let v = Point { x: a };
+}
+"""
+expected_errors = [
+    "`u16` is not equal to `u8` @ [22:24]",
+]
+
+[[case]]
+name = "analyzer_field_expr_type_mismatch_multiple_fields"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let a: u16 = 1;
+    let b: u16 = 2;
+    let v = Point { x: a, y: b };
+}
+"""
+expected_errors = [
+    "`u16` is not equal to `u8` @ [22:24]",
+    "`u16` is not equal to `u8` @ [33:35]",
+]
+
+[[case]]
+name = "analyzer_struct_expr_wrong_target_type_annotation"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+struct Other {
+    x: u8,
+}
+fn main() {
+    let v: Other = Point { x: 1 };
+}
+"""
+expected_errors = [
+    "`Other` is not equal to `Point` @ [87:101]",
+]
+
+[[case]]
+name = "analyzer_field_value_references_undefined_variable"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+}
+fn main() {
+    let v = Point { x: does_not_exist };
+}
+"""
+expected_errors = [
+    "name `does_not_exist` not defined in scope @ [63:77]",
+]
+
+[[case]]
+name = "analyzer_all_errors_at_once"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+fn main() {
+    let a: u16 = 1;
+    let v = Point { z: 1, z: 2, x: a };
+}
+"""
+expected_errors = [
+    "field `z` is not defined on `Point` @ [91:92]",
+    "field `z` defined multiple times in struct expression @ [97:98]",
+    "field `z` is not defined on `Point` @ [97:98]",
+    "field `y` is missing in struct expression @ [108:109]",
+    "`u16` is not equal to `u8` @ [22:24]",
+]

@@ -416,7 +416,7 @@ impl TypeSolver {
                     });
                 }
             }
-            if ty.is_struct() {
+            let (field_ty, field_ty_span) = if ty.is_struct() {
                 let struct_ty_data = ty_registry.struct_ty_data(ty);
                 match struct_ty_data.fields.get(&field.data) {
                     None => {
@@ -426,17 +426,19 @@ impl TypeSolver {
                             field_span: field.span,
                             field: field.data.clone(),
                         });
+                        (Ty::ERROR, field.span)
                     }
-                    Some(field_ty_data) => {
-                        self.constraints.push_back(InferenceConstraint::Equal {
-                            ty1: field_expr_ty,
-                            ty1_span: field_expr_span,
-                            ty2: InferredTy::Concrete(field_ty_data.ty),
-                            ty2_span: field_ty_data.ty_span,
-                        });
-                    }
+                    Some(field_ty_data) => (field_ty_data.ty, field_ty_data.ty_span),
                 }
-            }
+            } else {
+                (Ty::ERROR, field.span)
+            };
+            self.constraints.push_back(InferenceConstraint::Equal {
+                ty1: field_expr_ty,
+                ty1_span: field_expr_span,
+                ty2: InferredTy::Concrete(field_ty),
+                ty2_span: field_ty_span,
+            });
         }
         if ty.is_struct() {
             for (field, field_ty_data) in &ty_registry.struct_ty_data(ty).fields {
