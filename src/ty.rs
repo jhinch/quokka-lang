@@ -187,8 +187,7 @@ impl Ty {
     #[must_use]
     pub fn display(self, registry: &TyRegistry) -> TyDisplay<'_> {
         TyDisplay {
-            registry_or_rendered: RegistryOrRendered::Registry(registry),
-            ty: self,
+            data: TyDisplayData::Deferred(registry, self),
         }
     }
 
@@ -271,28 +270,31 @@ pub struct FnPtrTyData {
 }
 
 pub struct TyDisplay<'a> {
-    registry_or_rendered: RegistryOrRendered<'a>,
-    ty: Ty,
+    data: TyDisplayData<'a>,
+}
+
+enum TyDisplayData<'a> {
+    Deferred(&'a TyRegistry, Ty),
+    Rendered(String),
 }
 
 impl TyDisplay<'_> {
     #[must_use]
     pub fn into_detached(self) -> TyDisplay<'static> {
-        let rendered = match self.registry_or_rendered {
-            RegistryOrRendered::Registry(registry) => format!("{}", self.ty.display(registry)),
-            RegistryOrRendered::Rendered(rendered) => rendered,
+        let rendered = match self.data {
+            TyDisplayData::Deferred(registry, ty) => format!("{}", ty.display(registry)),
+            TyDisplayData::Rendered(rendered) => rendered,
         };
         TyDisplay {
-            registry_or_rendered: RegistryOrRendered::Rendered(rendered),
-            ty: self.ty,
+            data: TyDisplayData::Rendered(rendered),
         }
     }
 }
 
 impl fmt::Display for TyDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.registry_or_rendered {
-            RegistryOrRendered::Registry(registry) => match self.ty {
+        match &self.data {
+            TyDisplayData::Deferred(registry, ty) => match *ty {
                 ty if ty.is_array() => {
                     let data = registry.array_ty_data(ty);
                     write!(f, "[{}; {}]", data.item_ty.display(registry), data.count)
@@ -307,20 +309,18 @@ impl fmt::Display for TyDisplay<'_> {
                 }
                 ty => fmt::Debug::fmt(&ty, f),
             },
-            RegistryOrRendered::Rendered(rendered) => f.write_str(rendered),
+            TyDisplayData::Rendered(rendered) => f.write_str(rendered),
         }
     }
 }
 
 impl fmt::Debug for TyDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.ty, f)
+        match &self.data {
+            TyDisplayData::Deferred(_, ty) => write!(f, "{ty:?}"),
+            TyDisplayData::Rendered(rendered) => write!(f, "{rendered}"),
+        }
     }
-}
-
-enum RegistryOrRendered<'a> {
-    Registry(&'a TyRegistry),
-    Rendered(String),
 }
 
 #[cfg(test)]

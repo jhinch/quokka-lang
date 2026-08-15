@@ -1,3 +1,4 @@
+use crate::analyze::infer::InferredTyDisplay;
 use crate::ast::{Identifier, SpannedIdentifier};
 use crate::ty::TyDisplay;
 use miette::SourceSpan;
@@ -161,10 +162,10 @@ impl From<SpannedIdentifier> for NotDefinedError {
 pub struct TyMismatchError {
     #[label("has type `{ty1}`")]
     pub ty1_span: SourceSpan,
-    pub ty1: TyDisplay<'static>,
+    pub ty1: InferredTyDisplay<'static>,
     #[label("has type `{ty2}`")]
     pub ty2_span: SourceSpan,
-    pub ty2: TyDisplay<'static>,
+    pub ty2: InferredTyDisplay<'static>,
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]

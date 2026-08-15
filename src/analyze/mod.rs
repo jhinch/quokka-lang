@@ -321,7 +321,7 @@ impl Analyzer {
 
         scopes.exit_const_decl_scope();
 
-        match type_solver.solve(&self.ty_registry) {
+        match type_solver.solve(&mut self.ty_registry) {
             Ok(local_types) => {
                 for (local, ty) in local_types {
                     mir.set_local_ty(local, ty);
@@ -470,7 +470,7 @@ impl Analyzer {
             }
         }
         scopes.exit_fn_scope();
-        match type_solver.solve(&self.ty_registry) {
+        match type_solver.solve(&mut self.ty_registry) {
             Ok(local_types) => {
                 for (local, ty) in local_types {
                     mir.set_local_ty(local, ty);

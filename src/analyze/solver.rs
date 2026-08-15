@@ -23,7 +23,7 @@ pub struct TypeSolver {
     constraints: VecDeque<InferenceConstraint>,
     inferrer: Inferrer,
     result_builder: MultiResultBuilder,
-    outstanding_locals: SparseSecondaryMap<LocalId, TyVar>,
+    outstanding_locals: SparseSecondaryMap<LocalId, InferredTy>,
 }
 
 impl TypeSolver {
@@ -32,13 +32,13 @@ impl TypeSolver {
     }
 
     pub fn new_registered_local(&mut self, mir: &mut FunctionBuilder, ty: &InferredTy) -> LocalId {
-        let (concrete_ty, ty_var) = match ty {
-            InferredTy::Variable(ty_var) => (Ty::UNRESOLVED, Some(*ty_var)),
+        let (concrete_ty, outstanding_ty) = match ty {
             InferredTy::Concrete(concrete_ty) => (*concrete_ty, None),
+            ty => (Ty::UNRESOLVED, Some(ty.clone())),
         };
         let local = mir.new_local(concrete_ty);
-        if let Some(ty_var) = ty_var {
-            self.outstanding_locals.insert(local, ty_var);
+        if let Some(outstanding_ty) = outstanding_ty {
+            self.outstanding_locals.insert(local, outstanding_ty);
         }
         local
     }
@@ -495,7 +495,7 @@ impl TypeSolver {
 
     pub fn solve(
         mut self,
-        ty_registry: &TyRegistry,
+        ty_registry: &mut TyRegistry,
     ) -> Result<SparseSecondaryMap<LocalId, Ty>, MultiError> {
         let mut skipped = 0;
         while let Some(constraint) = self.constraints.pop_front() {
@@ -506,24 +506,13 @@ impl TypeSolver {
                     ty2,
                     ty2_span,
                 } => {
-                    match self.inferrer.unify(ty1, ty2) {
+                    match self.inferrer.unify(ty1, ty2, ty_registry) {
                         Ok(()) => {}
-                        Err(UnificationError {
-                            ty1: InferredTy::Concrete(ty1),
-                            ty2: InferredTy::Concrete(ty2),
-                        }) => {
+                        Err(UnificationError { ty1, ty2 }) => {
                             self.result_builder.add_error(TyMismatchError {
                                 ty1: ty1.display(ty_registry).into_detached(),
                                 ty1_span,
                                 ty2: ty2.display(ty_registry).into_detached(),
-                                ty2_span,
-                            });
-                        }
-                        Err(UnificationError { .. }) => {
-                            self.result_builder.add_error(TyMismatchError {
-                                ty1: Ty::UNRESOLVED.display(ty_registry).into_detached(),
-                                ty1_span,
-                                ty2: Ty::UNRESOLVED.display(ty_registry).into_detached(),
                                 ty2_span,
                             });
                         }
@@ -709,14 +698,6 @@ impl TypeSolver {
                     } => {
                         self.inferrer.prune(&mut ty1);
                         self.inferrer.prune(&mut ty2);
-                        let ty1 = match ty1 {
-                            InferredTy::Concrete(ty) => ty,
-                            InferredTy::Variable(_) => Ty::UNRESOLVED,
-                        };
-                        let ty2 = match ty2 {
-                            InferredTy::Concrete(ty) => ty,
-                            InferredTy::Variable(_) => Ty::UNRESOLVED,
-                        };
                         self.result_builder.add_error(TyMismatchError {
                             ty1: ty1.display(ty_registry).into_detached(),
                             ty1_span,
@@ -742,15 +723,25 @@ impl TypeSolver {
         Ok(self
             .outstanding_locals
             .into_iter()
-            .map(|(local, ty_var)| {
+            .map(|(local, mut ty)| {
+                self.inferrer.prune(&mut ty);
                 (
                     local,
-                    self.inferrer
-                        .resolve(ty_var)
-                        .unwrap_or_else(|| panic!("type variable {ty_var:?} unresolved")),
+                    resolve(&ty, ty_registry).unwrap_or_else(|| panic!("type {ty:?} unresolved")),
                 )
             })
             .collect())
+    }
+}
+
+fn resolve(ty: &InferredTy, ty_registry: &mut TyRegistry) -> Option<Ty> {
+    match ty {
+        InferredTy::Variable(_) => None,
+        InferredTy::Concrete(ty) => Some(*ty),
+        InferredTy::Array(item_ty, count) => {
+            let item_ty = resolve(item_ty, ty_registry)?;
+            Some(ty_registry.register_array(item_ty, *count))
+        }
     }
 }
 
