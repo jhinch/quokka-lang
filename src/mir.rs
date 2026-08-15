@@ -1,12 +1,12 @@
 //! # Quokka Lang's Middle Intermediate Representation (MIR)
 //!
-//! MIR ([Mir]) represents a Quokka program as a collection of control flow
-//! graphs in static single assignment (SSA) form. The instructions ([Instr]) within
-//! a basic block ([Block]) represent language concepts rather than machine level
-//! concepts like [crate::lir::Lir] does.
+//! MIR ([`Mir`]) represents a Quokka program as a collection of control flow
+//! graphs in static single assignment (SSA) form. The instructions ([`Instr`]) within
+//! a basic block ([`Block`]) represent language concepts rather than machine level
+//! concepts like [`crate::lir::Lir`] does.
 //!
-//! Once built, MIR can be evaluated provided it depends only on constants and can
-//! be used to evaluate the value of a constant.
+//! Once built, MIR [`Function`] can be [evaluated](crate::consteval::evaluate) provided it depends
+//! only on constants and can be used to evaluate the value of a constant.
 //!
 
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
@@ -18,10 +18,22 @@ use std::assert_matches;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 
-new_key_type! { pub struct GlobalId; }
-new_key_type! { pub struct FunctionId; }
-new_key_type! { pub struct BlockId; }
-new_key_type! { pub struct LocalId; }
+new_key_type! {
+    /// Identifies a [`Global`] within a [`Mir`]'s global table.
+    pub struct GlobalId;
+}
+new_key_type! {
+    /// Identifies a [`Function`] within a [`Mir`]'s function table.
+    pub struct FunctionId;
+}
+new_key_type! {
+    /// Identifies a [`Block`] within a [`Function`]'s control flow graph.
+    pub struct BlockId;
+}
+new_key_type! {
+    /// Identifies a [`Local`] (an SSA value) within a [`Function`].
+    pub struct LocalId;
+}
 
 impl LocalId {
     #[must_use]
@@ -48,9 +60,14 @@ impl fmt::Display for BlockId {
 }
 
 /// Middle Intermediate Representation (MIR)
+///
+/// A complete MIR program: every global (constant or mutable) and every function
+/// that make up a compiled Quokka program.
 #[derive(Debug, Clone, Default)]
 pub struct Mir {
+    /// All globals (constants and mutable globals) defined by the program.
     pub globals: SlotMap<GlobalId, Global>,
+    /// All functions defined by the program.
     pub functions: SlotMap<FunctionId, Function>,
 }
 
@@ -389,14 +406,22 @@ pub struct Function {
     pub name: Identifier,
     pub attrs: FnDeclAttributes,
     pub return_ty: Ty,
+    /// The local that holds the function's return value, if any.
     pub return_local: Option<LocalId>,
+    /// All basic blocks belonging to the function's control flow graph.
     pub blocks: SlotMap<BlockId, Block>,
+    /// All SSA locals (values) used by the function.
     pub locals: SlotMap<LocalId, Local>,
+    /// The block where execution of the function begins.
     pub start_block: BlockId,
+    /// The blocks that may terminate execution of the function (i.e. those ending in
+    /// [`Terminator::Return`] or [`Terminator::ReturnIf`]).
     pub end_blocks: Vec<BlockId>,
 }
 
 impl Function {
+    /// Iterates the function's blocks in breadth-first order starting from
+    /// [`Function::start_block`], visiting each reachable block exactly once.
     pub fn traverse_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
         let mut processed_blocks = SecondaryMap::new();
         let mut block_queue = VecDeque::new();
@@ -414,14 +439,21 @@ impl Function {
 }
 
 /// MIR Basic block
+///
+/// A straight-line sequence of instructions ending in a single [`Terminator`] that determines
+/// which block (if any) executes next.
 #[derive(Debug, Clone, Default)]
 pub struct Block {
+    /// The instructions executed in order when this block runs.
     pub instructions: Vec<Instr>,
+    /// The instruction that determines how control leaves this block.
     pub terminator: Terminator,
+    /// The blocks known to jump or call into this block.
     previous: Vec<BlockId>,
 }
 
 impl Block {
+    /// Iterates the blocks this block's [Terminator] may transfer control to.
     pub fn next_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
         let mut next = 0;
         std::iter::from_fn(move || {
@@ -459,20 +491,24 @@ impl Block {
         })
     }
 
+    /// Iterates the blocks known to jump or call into this block.
     pub fn previous_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
         self.previous.iter().copied()
     }
 }
 
+/// A global value: either a read-only constant (ROM) or a mutable global (RAM).
 #[derive(Debug, Clone)]
 pub struct Global {
     pub ty: Ty,
     pub name: SpannedIdentifier,
     pub attrs: GlobalAttributes,
+    /// The global's constant value, encoded as bytes. Empty for mutable globals.
     pub value: Vec<u8>,
 }
 
 impl Global {
+    /// Returns `true` if the global is a mutable (RAM) global rather than a read-only constant.
     #[must_use]
     pub fn is_mutable(&self) -> bool {
         match self.attrs {
@@ -510,9 +546,12 @@ impl Global {
     }
 }
 
+/// The declaration kind and attributes of a [`Global`].
 #[derive(Debug, Clone)]
 pub enum GlobalAttributes {
+    /// Attributes declared on the `const`.
     Rom(ConstDeclAttributes),
+    /// Attributes declared on the `global`.
     Ram(GlobalDeclAttributes),
 }
 
@@ -528,11 +567,21 @@ impl From<GlobalDeclAttributes> for GlobalAttributes {
     }
 }
 
+/// An SSA value (local variable) within a [`Function`].
+///
+/// Each local is defined by at most one instruction, per SSA form.
 #[derive(Debug, Clone)]
 pub struct Local {
+    /// The type of the local's value.
     pub ty: Ty,
+    /// Whether this local is the function's designated return-value local.
+    ///
+    /// Return locals are exempt from the "defined exactly once, before use" SSA rule enforced
+    /// by [`FunctionBuilder::build`], since they are conceptually assigned once per exit path.
     pub is_return: bool,
+    /// The block and instruction index that defines this local, if it has been defined yet.
     pub defined: Option<(BlockId, usize)>,
+    /// The source-level variable name this local corresponds to, if any.
     pub name: Option<SpannedIdentifier>,
 }
 
@@ -563,44 +612,50 @@ impl Local {
 }
 
 /// A MIR Instruction
+///
+/// Every variant assigns at most one [`LocalId`] (returned by [`Instr::target_local`]), except
+/// [`Instr::Store`] which writes to a [`Global`] instead.
 #[derive(Debug, Clone)]
 pub enum Instr {
     // assignment
     /// Placeholder instruction which can be used to recover generating MIR due to an error.
     /// However, it is expected that build() is never called for MIR with blocks containing
     /// such instructions
-    Undefined {
-        target: LocalId,
-    },
-    Alloc {
-        target: LocalId,
-    },
-    ReturnValue {
-        target: LocalId,
-    },
+    Undefined { target: LocalId },
+    /// Allocates storage for a local without initializing it.
+    Alloc { target: LocalId },
+    /// Reads the current value of the function's return local.
+    ReturnValue { target: LocalId },
+    /// An SSA phi node: selects a value for `target` based on which predecessor block control
+    /// arrived from, as recorded in `sources`.
     Phi {
         target: LocalId,
         sources: SparseSecondaryMap<BlockId, LocalId>,
     },
+    /// Loads a value from a global (optionally projecting into a field or element of it) into
+    /// `target`.
     Load {
         target: LocalId,
         source: GlobalId,
         projections: Vec<PlaceProjection>,
     },
+    /// Stores `source` into a global (optionally projecting into a field or element of it).
     Store {
         target: GlobalId,
         projections: Vec<PlaceProjection>,
         source: Operand,
     },
-    Copy {
-        target: LocalId,
-        source: Operand,
-    },
+    /// Copies an operand's value into `target`.
+    Copy { target: LocalId, source: Operand },
+    /// Reads a value from `source` (optionally projecting into a field or element of it) into
+    /// `target`.
     Read {
         target: LocalId,
         source: LocalId,
         projections: Vec<PlaceProjection>,
     },
+    /// Writes `right` into `left` (optionally projecting into a field or element of it),
+    /// producing the updated aggregate value in `target`.
     Write {
         target: LocalId,
         left: LocalId,
@@ -608,82 +663,81 @@ pub enum Instr {
         right: Operand,
     },
     // unary
-    Not {
-        target: LocalId,
-        source: LocalId,
-    },
-    Neg {
-        target: LocalId,
-        source: LocalId,
-    },
-    RotateLeft {
-        target: LocalId,
-        source: LocalId,
-    },
-    RotateRight {
-        target: LocalId,
-        source: LocalId,
-    },
-    ShiftLeft {
-        target: LocalId,
-        source: LocalId,
-    },
-    ShiftRight {
-        target: LocalId,
-        source: LocalId,
-    },
+    /// `!source`
+    Not { target: LocalId, source: LocalId },
+    /// `-source`
+    Neg { target: LocalId, source: LocalId },
+    /// Bitwise rotation of `source` to the left.
+    RotateLeft { target: LocalId, source: LocalId },
+    /// Bitwise rotation of `source` to the right.
+    RotateRight { target: LocalId, source: LocalId },
+    /// Bitwise shift of `source` to the left.
+    ShiftLeft { target: LocalId, source: LocalId },
+    /// Bitwise shift of `source` to the right.
+    ShiftRight { target: LocalId, source: LocalId },
     // comparison
+    /// `left == right`
     Eq {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left != right`
     Ne {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left < right`
     Lt {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left <= right`
     Le {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left >= right`
     Ge {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left > right`
     Gt {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
     // arithmetic
+    /// Bitwise AND of `left` and `right`.
     BitAnd {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// Bitwise OR of `left` and `right`.
     BitOr {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// Bitwise XOR of `left` and `right`.
     BitXor {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left + right` wrapping any overflow
     Add {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
+    /// `left - right` wrapping any underflow
     Sub {
         target: LocalId,
         left: LocalId,
@@ -692,6 +746,8 @@ pub enum Instr {
 }
 
 impl Instr {
+    /// Returns the local this instruction assigns, or `None` for [`Instr::Store`] which writes to
+    /// a global instead.
     #[must_use]
     pub fn target_local(&self) -> Option<LocalId> {
         match self {
@@ -724,6 +780,8 @@ impl Instr {
         }
     }
 
+    /// Iterates the locals this instruction reads from, including locals used as index
+    /// operands within its [`PlaceProjection`]s.
     pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {
         let mut next = 0;
         let mut projections_offset = 0;
@@ -814,14 +872,21 @@ impl Instr {
     }
 }
 
+/// The instruction that ends a [`Block`], determining which block(s) execution may transfer to
+/// next.
 #[derive(Debug, Clone, Default)]
 pub enum Terminator {
+    /// Returns from the function.
     #[default]
     Return,
+    /// Unconditionally calls `callee` and, once it returns, transfers control to
+    /// `return_block`.
     Call {
         callee: Callee,
         return_block: BlockId,
     },
+    /// Tests `source` against `condition`: if true, calls `callee` and transfers control to
+    /// `return_block` once it returns; otherwise transfers control directly to `else_block`.
     CallIf {
         source: LocalId,
         condition: Condition,
@@ -829,15 +894,18 @@ pub enum Terminator {
         return_block: BlockId,
         else_block: BlockId,
     },
-    Jump {
-        target_block: BlockId,
-    },
+    /// Unconditionally transfers control to `target_block`.
+    Jump { target_block: BlockId },
+    /// Tests `source` against `condition` and transfers control to `then_block` if true, or
+    /// `else_block` otherwise.
     JumpIf {
         source: LocalId,
         condition: Condition,
         then_block: BlockId,
         else_block: BlockId,
     },
+    /// Tests `source` against `condition`: if true, returns from the function; otherwise
+    /// transfers control to `else_block`.
     ReturnIf {
         source: LocalId,
         condition: Condition,
@@ -845,9 +913,12 @@ pub enum Terminator {
     },
 }
 
+/// The target of a [`Terminator::Call`] or [`Terminator::CallIf`].
 #[derive(Debug, Clone)]
 pub enum Callee {
+    /// Calls a function pointer held in a local.
     Local(LocalId),
+    /// Calls a statically known function.
     FnPtr(FunctionId),
 }
 
@@ -866,10 +937,15 @@ impl Callee {
     }
 }
 
+/// A value used as the operand of an [`Instr`]: either read from a local, given as a literal, or
+/// referencing a function pointer.
 #[derive(Debug, Clone)]
 pub enum Operand {
+    /// The value of a local.
     Local(LocalId),
+    /// A constant integer literal.
     Literal(IntegerLiteral),
+    /// A pointer to a statically known function.
     FnPtr(FunctionId),
 }
 
@@ -889,9 +965,13 @@ impl Operand {
     }
 }
 
+/// A single step of a place projection, used by [`Instr::Load`], [`Instr::Store`], [`Instr::Read`]
+/// and [`Instr::Write`] to navigate into a field or element of an aggregate value.
 #[derive(Debug, Clone)]
 pub enum PlaceProjection {
+    /// Projects into a named field, e.g. `.field`.
     Field(Identifier),
+    /// Projects into an indexed element, e.g. `[index]`.
     Index(Operand),
 }
 
@@ -915,9 +995,12 @@ impl PlaceProjection {
     }
 }
 
+/// The condition tested by a conditional [`Terminator`] against its `source` local.
 #[derive(Debug, Clone, Copy)]
 pub enum Condition {
+    /// True when `source` is zero.
     Zero,
+    /// True when `source` is non-zero.
     NotZero,
 }
 
@@ -930,9 +1013,16 @@ impl fmt::Display for Condition {
     }
 }
 
+/// A source-level variable used during SSA construction (via the Braun et al.'s algorithm)
+/// by [`FunctionBuilder`].
+///
+/// Unlike [`LocalId`], a `Variable` may be written to and read from multiple times across a
+/// function's blocks; [`FunctionBuilder::write_variable`] and [`FunctionBuilder::read_variable`]
+/// resolve each read to the appropriate SSA [`LocalId`], inserting [`Instr::Phi`] nodes as needed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Variable(u32);
 
+/// Incrementally builds a [Mir].
 #[derive(Default)]
 pub struct MirBuilder {
     mir: Mir,
@@ -1017,6 +1107,8 @@ impl MirBuilder {
     }
 }
 
+/// Incrementally builds a [`Function`], performing SSA construction (including phi node
+/// insertion and trivial phi elimination) as blocks are sealed.
 pub struct FunctionBuilder {
     function: Function,
     variable_assignments: HashMap<Variable, HashMap<BlockId, Vec<LocalId>>>,
@@ -1257,6 +1349,8 @@ impl FunctionBuilder {
         self.terminated_blocks.insert(block, ());
     }
 
+    /// Record the `local` as the current value for `var` in `block` (as per `writeVariable`
+    /// defined in the Braun et al.'s algorithm)
     pub fn write_variable(&mut self, var: Variable, block: BlockId, local: LocalId) {
         self.variable_assignments
             .entry(var)
@@ -1275,6 +1369,9 @@ impl FunctionBuilder {
         }
     }
 
+    /// Read the effective `local` for the `var` in `block` (as per `readVariable`
+    /// defined in the Braun et al.'s algorithm). If the block does not assign
+    /// `var`, `read_variable_recursive` will be used to resolve the effective local.
     pub fn read_variable(&mut self, var: Variable, block: BlockId) -> LocalId {
         if let Some(value) = self
             .variable_assignments
@@ -1287,6 +1384,9 @@ impl FunctionBuilder {
         self.read_variable_recursive(var, block)
     }
 
+    /// Read the effective `local` for the `var` in `block` (as per `readVariableRecursive`
+    /// defined in the Braun et al.'s algorithm) by traversing previous blocks, inserting
+    /// phi nodes when necessary.
     fn read_variable_recursive(&mut self, var: Variable, block: BlockId) -> LocalId {
         let value = if !self.sealed_blocks.contains_key(block) {
             let target = self.new_local(Ty::UNRESOLVED);
