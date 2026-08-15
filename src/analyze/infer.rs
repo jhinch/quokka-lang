@@ -17,6 +17,18 @@ impl InferredTy {
             data: InferredTyDisplayData::Deferred(registry, self),
         }
     }
+
+    #[must_use]
+    pub fn resolve(&self, ty_registry: &mut TyRegistry) -> Option<Ty> {
+        match self {
+            InferredTy::Variable(_) => None,
+            InferredTy::Concrete(ty) => Some(*ty),
+            InferredTy::Array(item_ty, count) => {
+                let item_ty = item_ty.resolve(ty_registry)?;
+                Some(ty_registry.register_array(item_ty, *count))
+            }
+        }
+    }
 }
 
 pub struct InferredTyDisplay<'a> {

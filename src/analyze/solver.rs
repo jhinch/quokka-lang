@@ -574,7 +574,7 @@ impl TypeSolver {
                 }
                 InferenceConstraint::IsInt { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             if !ty.is_int() && ty != Ty::ERROR {
                                 self.result_builder.add_error(NotIntError {
@@ -589,7 +589,7 @@ impl TypeSolver {
                 }
                 InferenceConstraint::IsSignedInt { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             if !ty.is_signed_int() && ty != Ty::ERROR {
                                 self.result_builder.add_error(NotSignedIntError {
@@ -609,7 +609,7 @@ impl TypeSolver {
                     field_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             let concrete_field_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
@@ -652,7 +652,7 @@ impl TypeSolver {
                     item_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             let concrete_item_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
@@ -679,7 +679,7 @@ impl TypeSolver {
                     return_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             let concrete_return_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
@@ -706,7 +706,7 @@ impl TypeSolver {
                 }
                 InferenceConstraint::IsRegisterSized { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match resolve(&ty, ty_registry) {
+                    match ty.resolve(ty_registry) {
                         Some(ty) => {
                             if ty != Ty::ERROR {
                                 let bit_size = ty.bit_size(ty_registry);
@@ -780,21 +780,11 @@ impl TypeSolver {
                 self.inferrer.prune(&mut ty);
                 (
                     local,
-                    resolve(&ty, ty_registry).unwrap_or_else(|| panic!("type {ty:?} unresolved")),
+                    ty.resolve(ty_registry)
+                        .unwrap_or_else(|| panic!("type {ty:?} unresolved")),
                 )
             })
             .collect())
-    }
-}
-
-fn resolve(ty: &InferredTy, ty_registry: &mut TyRegistry) -> Option<Ty> {
-    match ty {
-        InferredTy::Variable(_) => None,
-        InferredTy::Concrete(ty) => Some(*ty),
-        InferredTy::Array(item_ty, count) => {
-            let item_ty = resolve(item_ty, ty_registry)?;
-            Some(ty_registry.register_array(item_ty, *count))
-        }
     }
 }
 
