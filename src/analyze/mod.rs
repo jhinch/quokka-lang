@@ -3,7 +3,7 @@ use crate::analyze::infer::{InferredTy, TyVar};
 use crate::analyze::solver::TypeSolver;
 use crate::ast::{
     self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
-    PlaceProjection, SpannedIdentifier, TyRefData, UnaryOpKind,
+    SpannedIdentifier, TyRefData, UnaryOpKind,
 };
 use crate::attr::{
     ConstDeclAttributes, FieldDeclAttributes, FnDeclAttributes, GlobalDeclAttributes,
@@ -11,8 +11,8 @@ use crate::attr::{
 };
 use crate::consteval;
 use crate::mir::{
-    BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, GlobalPlace,
-    GlobalPlaceProjection, Instr, LocalId, Mir, MirBuilder, Operand, Terminator, Variable,
+    BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, Instr, LocalId, Mir,
+    MirBuilder, Operand, PlaceProjection, Terminator, Variable,
 };
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::source::span::span_between;
@@ -882,13 +882,49 @@ impl Analyzer {
                 (block, ty, target)
             }
             ast::ExprData::Struct(struct_expr) => {
-                todo!()
+                let ty = self
+                    .ty_registry
+                    .resolve(&struct_expr.name.data)
+                    .unwrap_or_else(|| {
+                        self.result_builder
+                            .add_error(TypeNotFoundError::from(struct_expr.name.clone()));
+                        Ty::ERROR
+                    });
+                let mut target = mir.new_local(ty);
+                mir.push_instr(block, Instr::Alloc { target });
+                let mut field_types = Vec::new();
+                let mut block = block;
+                for field in &struct_expr.fields {
+                    let (new_block, field_expr_ty, source) =
+                        self.analyze_expr(&field.value, block, mir, type_solver, scopes);
+                    field_types.push((&field.name, field_expr_ty, field.value.span));
+                    block = new_block;
+                    let new_target = mir.new_local(ty);
+                    mir.push_instr(
+                        block,
+                        Instr::Write {
+                            target: new_target,
+                            left: target,
+                            projections: vec![PlaceProjection::Field(field.name.data.clone())],
+                            right: Operand::Local(source),
+                        },
+                    );
+                    target = new_target;
+                }
+                type_solver.check_struct_expr_fields(
+                    struct_expr,
+                    expr.span,
+                    field_types,
+                    ty,
+                    &self.ty_registry,
+                );
+                (block, InferredTy::Concrete(ty), target)
             }
             ast::ExprData::Array(array_expr) => {
-                todo!()
+                todo!("{array_expr:?}")
             }
             ast::ExprData::Repeat(repeat_expr) => {
-                todo!()
+                todo!("{repeat_expr:?}")
             }
             ast::ExprData::Unary(op) => {
                 let (block, inner_ty, source) =
@@ -1038,8 +1074,8 @@ impl Analyzer {
                     self.analyze_expr(&op.right, block, mir, type_solver, scopes);
                 let expr_ty =
                     type_solver.check_assign_expr(op, expr.span, left_ty.clone(), right_ty);
-                if let Some(ResolvedPlace::Global(place)) = &left
-                    && !self.mir_builder.is_mutable_global(place.global)
+                if let Some(ResolvedPlace::Global(global, _)) = &left
+                    && !self.mir_builder.is_mutable_global(*global)
                 {
                     self.result_builder
                         .add_error(ConstNotAssignableError { span: op.left.span });
@@ -1062,16 +1098,31 @@ impl Analyzer {
                                 mir.push_instr(block, Instr::Undefined { target });
                                 return (block, expr_ty, target);
                             }
-                            Some(ResolvedPlace::Variable(variable)) => {
-                                mir.read_variable(*variable, block)
+                            Some(ResolvedPlace::Variable(variable, _, projections)) => {
+                                let source = mir.read_variable(*variable, block);
+                                if projections.is_empty() {
+                                    source
+                                } else {
+                                    let target = type_solver.new_registered_local(mir, &left_ty);
+                                    mir.push_instr(
+                                        block,
+                                        Instr::Read {
+                                            target,
+                                            source,
+                                            projections: projections.clone(),
+                                        },
+                                    );
+                                    target
+                                }
                             }
-                            Some(ResolvedPlace::Global(source)) => {
+                            Some(ResolvedPlace::Global(source, projections)) => {
                                 let target = type_solver.new_registered_local(mir, &left_ty);
                                 mir.push_instr(
                                     block,
                                     Instr::Load {
                                         target,
-                                        source: source.clone(),
+                                        source: *source,
+                                        projections: projections.clone(),
                                     },
                                 );
                                 target
@@ -1122,29 +1173,47 @@ impl Analyzer {
                         // should already have been added in resolve_place()
                         let target = mir.new_local(Ty::ERROR);
                         mir.push_instr(block, Instr::Undefined { target });
-                        return (block, expr_ty, target);
+                        (block, expr_ty, target)
                     }
                     Some(ResolvedPlace::Function(_)) => {
                         self.result_builder
                             .add_error(FnPtrNotAssignableError { span: op.left.span });
                         let target = mir.new_local(Ty::ERROR);
                         mir.push_instr(block, Instr::Undefined { target });
-                        return (block, expr_ty, target);
+                        (block, expr_ty, target)
                     }
-                    Some(ResolvedPlace::Variable(variable)) => {
-                        mir.write_variable(variable, block, target);
+                    Some(ResolvedPlace::Variable(variable, place_ty, projections)) => {
+                        let variable_target = if projections.is_empty() {
+                            target
+                        } else {
+                            let write_target = type_solver.new_registered_local(mir, &place_ty);
+                            let left = mir.read_variable(variable, block);
+                            mir.push_instr(
+                                block,
+                                Instr::Write {
+                                    target: write_target,
+                                    left,
+                                    projections,
+                                    right: Operand::Local(target),
+                                },
+                            );
+                            write_target
+                        };
+                        mir.write_variable(variable, block, variable_target);
+                        (block, expr_ty, target)
                     }
-                    Some(ResolvedPlace::Global(global)) => {
+                    Some(ResolvedPlace::Global(global, projections)) => {
                         mir.push_instr(
                             block,
                             Instr::Store {
                                 target: global,
+                                projections,
                                 source: Operand::Local(target),
                             },
                         );
+                        (block, expr_ty, target)
                     }
                 }
-                (block, expr_ty, target)
             }
             ast::ExprData::Block(ast_block) => {
                 let yield_ty = type_solver.fresh_ty_var();
@@ -1372,13 +1441,34 @@ impl Analyzer {
         };
         match resolved_place {
             ResolvedPlace::Function(fn_ptr) => (block, place_ty, Operand::FnPtr(fn_ptr)),
-            ResolvedPlace::Variable(variable) => {
-                let local = mir.read_variable(variable, block);
-                (block, place_ty, Operand::Local(local))
+            ResolvedPlace::Variable(variable, _, projections) => {
+                let source = mir.read_variable(variable, block);
+                let target = if projections.is_empty() {
+                    source
+                } else {
+                    let target = type_solver.new_registered_local(mir, &place_ty);
+                    mir.push_instr(
+                        block,
+                        Instr::Read {
+                            target,
+                            source,
+                            projections,
+                        },
+                    );
+                    target
+                };
+                (block, place_ty, Operand::Local(target))
             }
-            ResolvedPlace::Global(source) => {
+            ResolvedPlace::Global(source, projections) => {
                 let target = type_solver.new_registered_local(mir, &place_ty);
-                mir.push_instr(block, Instr::Load { target, source });
+                mir.push_instr(
+                    block,
+                    Instr::Load {
+                        target,
+                        source,
+                        projections,
+                    },
+                );
                 (block, place_ty, Operand::Local(target))
             }
         }
@@ -1392,7 +1482,7 @@ impl Analyzer {
         type_solver: &mut TypeSolver,
         scopes: &mut Scopes,
     ) -> (BlockId, InferredTy, Option<ResolvedPlace>) {
-        let (mut place_ty, mut place_span, place_id) = match scopes.get_place(&place.name.data) {
+        let (place_ty, mut place_span, place_id) = match scopes.get_place(&place.name.data) {
             Some(place_scope) => (place_scope.ty.clone(), place.name.span, place_scope.mir_id),
             None => {
                 self.result_builder
@@ -1400,70 +1490,64 @@ impl Analyzer {
                 return (block, InferredTy::Concrete(Ty::ERROR), None);
             }
         };
-        if place.projections.is_empty() {
-            match place_id {
-                PlaceId::Function(function) => {
-                    return (block, place_ty, Some(ResolvedPlace::Function(function)));
-                }
-                PlaceId::Variable(variable) => {
-                    return (block, place_ty, Some(ResolvedPlace::Variable(variable)));
-                }
-                PlaceId::Global(_) => {
-                    // handled below
+        if let PlaceId::Global(global) = place_id
+            && let Some(const_decl_scope) = scopes.const_decl_scope()
+        {
+            if self.mir_builder.is_mutable_global(global) {
+                self.result_builder
+                    .add_error(GlobalReferencedInConstDeclError::from(place.name.clone()));
+            } else {
+                if !const_decl_scope.used_const_decls.contains_key(global) {
+                    const_decl_scope.used_const_decls.insert(global, place.span);
                 }
             }
         }
-        let mut global_place = match place_id {
-            PlaceId::Global(global) => {
-                if let Some(const_decl_scope) = scopes.const_decl_scope() {
-                    if self.mir_builder.is_mutable_global(global) {
-                        self.result_builder
-                            .add_error(GlobalReferencedInConstDeclError::from(place.name.clone()));
-                    } else {
-                        if !const_decl_scope.used_const_decls.contains_key(global) {
-                            const_decl_scope.used_const_decls.insert(global, place.span);
-                        }
-                    }
-                }
-                Some(GlobalPlace {
-                    global,
-                    projections: Vec::new(),
-                })
-            }
-            _ => None,
-        };
+        let mut projections = Vec::new();
+        let mut projected_ty = place_ty.clone();
         for part in &place.projections {
-            let (new_place_ty, new_place_span, new_block, projection) = match part {
-                PlaceProjection::Field(field) => {
-                    let field_ty = type_solver.check_field_access(field, place_span, place_ty);
+            let (new_projected_ty, new_place_span, new_block, projection) = match part {
+                ast::PlaceProjection::Field(field) => {
+                    let field_ty = type_solver.check_field_access(field, place_span, projected_ty);
                     (
                         field_ty,
                         field.span,
                         block,
-                        GlobalPlaceProjection::Field(field.data.clone()),
+                        PlaceProjection::Field(field.data.clone()),
                     )
                 }
-                PlaceProjection::Index(index) => {
+                ast::PlaceProjection::Index(index) => {
                     let (block, index_expr_ty, target) =
                         self.analyze_expr(index, block, mir, type_solver, scopes);
-                    let item_ty =
-                        type_solver.check_array_index(index, place_span, place_ty, index_expr_ty);
+                    let item_ty = type_solver.check_array_index(
+                        index,
+                        place_span,
+                        projected_ty,
+                        index_expr_ty,
+                    );
                     (
                         item_ty,
                         index.span,
                         block,
-                        GlobalPlaceProjection::Index(Operand::Local(target)),
+                        PlaceProjection::Index(Operand::Local(target)),
                     )
                 }
             };
-            if let Some(global_place) = global_place.as_mut() {
-                global_place.projections.push(projection);
-            }
-            place_ty = new_place_ty;
+            projections.push(projection);
+            projected_ty = new_projected_ty;
             place_span = new_place_span;
             block = new_block;
         }
-        (block, place_ty, global_place.map(ResolvedPlace::Global))
+        let resolved_place = match place_id {
+            PlaceId::Function(function) if projections.is_empty() => {
+                Some(ResolvedPlace::Function(function))
+            }
+            PlaceId::Function(_) => None,
+            PlaceId::Variable(variable) => {
+                Some(ResolvedPlace::Variable(variable, place_ty, projections))
+            }
+            PlaceId::Global(global) => Some(ResolvedPlace::Global(global, projections)),
+        };
+        (block, projected_ty, resolved_place)
     }
 }
 
@@ -1657,8 +1741,8 @@ enum PlaceId {
 
 enum ResolvedPlace {
     Function(FunctionId),
-    Variable(Variable),
-    Global(GlobalPlace),
+    Variable(Variable, InferredTy, Vec<PlaceProjection>),
+    Global(GlobalId, Vec<PlaceProjection>),
 }
 
 struct AnalyzedGlobalScope<'ast> {

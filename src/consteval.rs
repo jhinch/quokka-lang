@@ -1,5 +1,5 @@
 use crate::mir;
-use crate::mir::{Condition, GlobalId, GlobalPlaceProjection, Instr, LocalId, Operand, Terminator};
+use crate::mir::{Condition, GlobalId, Instr, LocalId, Operand, PlaceProjection, Terminator};
 use crate::ty::{Ty, TyRegistry};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 use std::cmp::Ordering;
@@ -27,6 +27,10 @@ pub fn evaluate(
                 Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Store { .. } => {
                     unimplemented!("Unsupported instruction {instruction:?}")
                 }
+                Instr::Alloc { target } => {
+                    let source = Value::zeros(function.locals[*target].ty, ty_registry);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
                 Instr::Phi { target, sources } => {
                     let source = sources
                         [previous_block.expect("phi cannot be resolved when no previous block")];
@@ -37,15 +41,16 @@ pub fn evaluate(
                 }
                 Instr::Load {
                     target,
-                    source: place,
+                    source,
+                    projections,
                 } => {
-                    let (global_ty, source) = globals[place.global];
+                    let (global_ty, source) = globals[*source];
                     // This is not particularly efficient as it clones for each projection.
                     // However, it should work correctly for now.
                     let mut source = Value::from_bytes(global_ty, ty_registry, source);
-                    for projection in &place.projections {
+                    for projection in projections {
                         source = match projection {
-                            GlobalPlaceProjection::Field(field) => match source {
+                            PlaceProjection::Field(field) => match source {
                                 Value::Struct { ty, bytes, .. } => {
                                     let field = &ty_registry.struct_ty_data(ty).fields[field];
                                     let offset = field.bit_offset as usize / 8;
@@ -65,7 +70,7 @@ pub fn evaluate(
                                     unimplemented!("cannot lookup field {field} on value {value:?}")
                                 }
                             },
-                            GlobalPlaceProjection::Index(index) => match source {
+                            PlaceProjection::Index(index) => match source {
                                 Value::Array { item_ty, bytes, .. } => {
                                     let index = Value::from_operand(
                                         &local_slots,
@@ -96,6 +101,8 @@ pub fn evaluate(
                     }
                     local_slots[*target].init(*target, function, ty_registry, source);
                 }
+                Instr::Read { .. } => todo!("read {instruction:?}"),
+                Instr::Write { .. } => todo!("write {instruction:?}"),
                 Instr::Copy { target, source } => {
                     let source = Value::from_operand(
                         &local_slots,
@@ -424,6 +431,35 @@ enum Value {
 }
 
 impl Value {
+    pub fn zeros(ty: Ty, ty_registry: &TyRegistry) -> Self {
+        match ty {
+            Ty::U1 => Value::U1(false),
+            Ty::U2 => Value::U2(0),
+            Ty::U4 => Value::U4(0),
+            Ty::U8 => Value::U8(0),
+            Ty::U16 => Value::U16(0),
+            Ty::I8 => Value::I8(0),
+            Ty::I16 => Value::I16(0),
+            ty if ty.is_array() => {
+                let array_ty_data = ty_registry.array_ty_data(ty);
+                Value::Array {
+                    item_ty: array_ty_data.item_ty,
+                    count: array_ty_data.count,
+                    bytes: vec![0; ty.bit_size(ty_registry).div_ceil(8) as usize],
+                }
+            }
+            ty if ty.is_struct() => {
+                let bit_width = ty.bit_size(ty_registry);
+                Value::Struct {
+                    ty,
+                    bit_width,
+                    bytes: vec![0; bit_width.div_ceil(8) as usize],
+                }
+            }
+            ty => unimplemented!("unsupported type {}", ty.display(ty_registry)),
+        }
+    }
+
     pub fn from_operand(
         slots: &SecondaryMap<LocalId, Option<Value>>,
         function: &mir::Function,

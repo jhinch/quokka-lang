@@ -1,5 +1,5 @@
 [[case]]
-name = "field_access_ok"
+name = "field_access_on_global_ok"
 kind = "analyzer"
 preview_features = ["field-access"]
 source = """
@@ -23,7 +23,7 @@ main -> unit:
 """
 
 [[case]]
-name = "field_not_defined"
+name = "field_on_global_not_defined"
 kind = "analyzer"
 preview_features = ["field-access"]
 source = """
@@ -40,7 +40,7 @@ expected_errors = [
 ]
 
 [[case]]
-name = "field_access_on_non_struct"
+name = "field_access_on_global_on_non_struct"
 kind = "analyzer"
 preview_features = ["field-access"]
 source = """
@@ -54,7 +54,7 @@ expected_errors = [
 ]
 
 [[case]]
-name = "field_access_wrong_type_annotation"
+name = "field_access_on_global_wrong_type_annotation"
 kind = "analyzer"
 preview_features = ["field-access"]
 source = """
@@ -68,6 +68,82 @@ fn main() {
 """
 expected_errors = [
     "`u1` is not equal to `u8` @ [73:76]",
+]
+
+[[case]]
+name = "field_access_on_local_ok"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+global P: Point;
+fn main() {
+    let p = P;
+    let v: u8 = p.x;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global P: Point
+
+main -> unit:
+  .bb1:
+    p#1: Point = load P
+    v#2: u8 = read p#1.x
+    return
+"""
+
+[[case]]
+name = "field_on_local_not_defined"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+struct Point {
+    x: u8,
+}
+global P: Point;
+fn main() {
+    let p = P;
+    let v: u8 = p.z;
+}
+"""
+expected_errors = [
+    "field `z` is not defined on `Point` @ [90:91]",
+]
+
+[[case]]
+name = "field_access_on_local_on_non_struct"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+fn main() {
+    let a: u8 = 1;
+    let v: u8 = a.x;
+}
+"""
+expected_errors = [
+    "`u8` is not a struct type @ [47:48]",
+]
+
+[[case]]
+name = "field_access_on_local_wrong_type_annotation"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+struct Point {
+    x: u8,
+}
+global P: Point;
+fn main() {
+    let p = P;
+    let v: u1 = P.x;
+}
+"""
+expected_errors = [
+    "`u1` is not equal to `u8` @ [88:91]",
 ]
 
 [[case]]

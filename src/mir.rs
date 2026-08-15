@@ -34,6 +34,13 @@ impl LocalId {
     }
 }
 
+impl GlobalId {
+    #[must_use]
+    pub fn display<'a>(self, mir: &'a Mir) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| write!(f, "{}", mir.globals[self].name.data))
+    }
+}
+
 impl fmt::Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, ".bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
@@ -75,6 +82,7 @@ impl Mir {
                         }
                         match instruction {
                             Instr::Undefined { target: _ } => write!(f, "undefined"),
+                            Instr::Alloc { target: _ } => write!(f, "alloc"),
                             Instr::ReturnValue { target: _ } => write!(f, "returnvalue"),
                             Instr::Phi { target: _, sources } => {
                                 write!(f, "phi")?;
@@ -95,16 +103,66 @@ impl Mir {
                                 }
                                 Ok(())
                             }
-                            Instr::Load { target: _, source } => {
-                                write!(f, "load {}", source.display(self, function, ty_registry))
+                            Instr::Load {
+                                target: _,
+                                source,
+                                projections,
+                            } => {
+                                write!(f, "load {}", source.display(self))?;
+                                for projection in projections {
+                                    write!(
+                                        f,
+                                        "{}",
+                                        projection.display(self, function, ty_registry)
+                                    )?;
+                                }
+                                Ok(())
                             }
-                            Instr::Store { target, source } => {
-                                write!(
-                                    f,
-                                    "store {} = {}",
-                                    target.display(self, function, ty_registry),
-                                    source.display(self, function, ty_registry)
-                                )
+                            Instr::Store {
+                                target,
+                                projections,
+                                source,
+                            } => {
+                                write!(f, "store {}", target.display(self))?;
+                                for projection in projections {
+                                    write!(
+                                        f,
+                                        "{}",
+                                        projection.display(self, function, ty_registry)
+                                    )?;
+                                }
+                                write!(f, " = {}", source.display(self, function, ty_registry))
+                            }
+                            Instr::Read {
+                                target: _,
+                                source,
+                                projections,
+                            } => {
+                                write!(f, "read {}", source.display(function, ty_registry))?;
+                                for projection in projections {
+                                    write!(
+                                        f,
+                                        "{}",
+                                        projection.display(self, function, ty_registry)
+                                    )?;
+                                }
+                                Ok(())
+                            }
+                            Instr::Write {
+                                target: _,
+                                left,
+                                projections,
+                                right,
+                            } => {
+                                write!(f, "write {}", left.display(function, ty_registry))?;
+                                for projection in projections {
+                                    write!(
+                                        f,
+                                        "{}",
+                                        projection.display(self, function, ty_registry)
+                                    )?;
+                                }
+                                write!(f, " = {}", right.display(self, function, ty_registry))
                             }
                             Instr::Copy { target: _, source } => {
                                 write!(f, "copy {}", source.display(self, function, ty_registry))
@@ -509,9 +567,12 @@ impl Local {
 pub enum Instr {
     // assignment
     /// Placeholder instruction which can be used to recover generating MIR due to an error.
-    /// However, it is expected that build() is never called MIR with blocks containing
+    /// However, it is expected that build() is never called for MIR with blocks containing
     /// such instructions
     Undefined {
+        target: LocalId,
+    },
+    Alloc {
         target: LocalId,
     },
     ReturnValue {
@@ -523,15 +584,28 @@ pub enum Instr {
     },
     Load {
         target: LocalId,
-        source: GlobalPlace,
+        source: GlobalId,
+        projections: Vec<PlaceProjection>,
     },
     Store {
-        target: GlobalPlace,
+        target: GlobalId,
+        projections: Vec<PlaceProjection>,
         source: Operand,
     },
     Copy {
         target: LocalId,
         source: Operand,
+    },
+    Read {
+        target: LocalId,
+        source: LocalId,
+        projections: Vec<PlaceProjection>,
+    },
+    Write {
+        target: LocalId,
+        left: LocalId,
+        projections: Vec<PlaceProjection>,
+        right: Operand,
     },
     // unary
     Not {
@@ -622,9 +696,12 @@ impl Instr {
     pub fn target_local(&self) -> Option<LocalId> {
         match self {
             Instr::Undefined { target, .. }
+            | Instr::Alloc { target, .. }
             | Instr::ReturnValue { target, .. }
             | Instr::Phi { target, .. }
             | Instr::Load { target, .. }
+            | Instr::Read { target, .. }
+            | Instr::Write { target, .. }
             | Instr::Copy { target, .. }
             | Instr::Not { target, .. }
             | Instr::Neg { target, .. }
@@ -649,10 +726,11 @@ impl Instr {
 
     pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {
         let mut next = 0;
+        let mut projections_offset = 0;
         std::iter::from_fn(move || {
             let value = match self {
-                Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Load { .. } => None,
-                Instr::Store { source, .. } | Instr::Copy { source, .. } => match (next, source) {
+                Instr::Undefined { .. } | Instr::Alloc { .. } | Instr::ReturnValue { .. } => None,
+                Instr::Copy { source, .. } => match (next, source) {
                     (0, Operand::Local(local)) => Some(local),
                     _ => None,
                 },
@@ -684,6 +762,51 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Phi { sources, .. } => sources.values().nth(next),
+                this @ Instr::Load { .. }
+                | this @ Instr::Store { .. }
+                | this @ Instr::Read { .. }
+                | this @ Instr::Write { .. } => match (next, this) {
+                    (
+                        0,
+                        Instr::Store {
+                            source: Operand::Local(local),
+                            ..
+                        },
+                    ) => Some(local),
+                    (0, Instr::Read { source, .. }) => Some(source),
+                    (0, Instr::Write { left, .. }) => Some(left),
+                    (
+                        1,
+                        Instr::Write {
+                            right: Operand::Local(local),
+                            ..
+                        },
+                    ) => Some(local),
+                    (
+                        _,
+                        Instr::Load { projections, .. }
+                        | Instr::Store { projections, .. }
+                        | Instr::Read { projections, .. }
+                        | Instr::Write { projections, .. },
+                    ) => {
+                        let (index, local) = projections
+                            .iter()
+                            .enumerate()
+                            .skip(projections_offset)
+                            .find_map(|(i, projection)| {
+                                if let PlaceProjection::Index(Operand::Local(local)) = projection {
+                                    Some((i, local))
+                                } else {
+                                    None
+                                }
+                            })?;
+                        projections_offset = index + 1;
+                        Some(local)
+                    }
+                    _ => unreachable!(
+                        "Only load, store, read and write instructions reach this match"
+                    ),
+                },
             }?;
             next += 1;
             Some(*value)
@@ -767,12 +890,12 @@ impl Operand {
 }
 
 #[derive(Debug, Clone)]
-pub struct GlobalPlace {
-    pub global: GlobalId,
-    pub projections: Vec<GlobalPlaceProjection>,
+pub enum PlaceProjection {
+    Field(Identifier),
+    Index(Operand),
 }
 
-impl GlobalPlace {
+impl PlaceProjection {
     #[must_use]
     pub fn display<'a>(
         &'a self,
@@ -781,24 +904,15 @@ impl GlobalPlace {
         ty_registry: &'a TyRegistry,
     ) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
-            write!(f, "{}", mir.globals[self.global].name.data)?;
-            for projection in &self.projections {
-                match projection {
-                    GlobalPlaceProjection::Field(field) => write!(f, ".{field}"),
-                    GlobalPlaceProjection::Index(index) => {
-                        write!(f, "[{}]", index.display(mir, function, ty_registry))
-                    }
-                }?;
-            }
+            match self {
+                PlaceProjection::Field(field) => write!(f, ".{field}"),
+                PlaceProjection::Index(index) => {
+                    write!(f, "[{}]", index.display(mir, function, ty_registry))
+                }
+            }?;
             Ok(())
         })
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum GlobalPlaceProjection {
-    Field(Identifier),
-    Index(Operand),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1547,10 +1661,8 @@ mod tests {
         );
         assert_eq!(
             Instr::Store {
-                target: GlobalPlace {
-                    global,
-                    projections: vec![]
-                },
+                target: global,
+                projections: vec![],
                 source: Operand::Local(ids[1])
             }
             .target_local(),
@@ -1595,10 +1707,8 @@ mod tests {
         });
         let load = Instr::Load {
             target: ids[0],
-            source: GlobalPlace {
-                global,
-                projections: vec![],
-            },
+            source: global,
+            projections: vec![],
         };
         assert_eq!(load.source_locals().collect::<Vec<_>>(), vec![]);
         assert_eq!(
@@ -2066,24 +2176,28 @@ mod tests {
     }
 
     #[test]
-    fn global_place_display_includes_field_and_index_projections() {
-        let mut mir_builder = MirBuilder::default();
-        let global =
-            mir_builder.insert_global(ident("g"), Ty::U8, GlobalDeclAttributes::default().into());
-        let mir = mir_builder.build();
+    fn display_field_projections() {
+        let mir = MirBuilder::default().build();
         let function = trivially_built_function();
         let registry = TyRegistry::default();
 
-        let place = GlobalPlace {
-            global,
-            projections: vec![
-                GlobalPlaceProjection::Field(Identifier::from("field")),
-                GlobalPlaceProjection::Index(Operand::Literal(IntegerLiteral { value: 3 })),
-            ],
-        };
+        let projection = PlaceProjection::Field(Identifier::from("field"));
         assert_eq!(
-            format!("{}", place.display(&mir, &function, &registry)),
-            "g.field[3]"
+            format!("{}", projection.display(&mir, &function, &registry)),
+            ".field"
+        );
+    }
+
+    #[test]
+    fn display_index_projections() {
+        let mir = MirBuilder::default().build();
+        let function = trivially_built_function();
+        let registry = TyRegistry::default();
+
+        let projection = PlaceProjection::Index(Operand::Literal(IntegerLiteral { value: 3 }));
+        assert_eq!(
+            format!("{}", projection.display(&mir, &function, &registry)),
+            "[3]"
         );
     }
 }

@@ -330,3 +330,25 @@ pub struct CyclicConstDeclError {
     #[label(collection, "require `{name}` to be initialized")]
     pub dependencies: Vec<SourceSpan>,
 }
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("field `{name}` defined multiple times in struct expression")]
+#[diagnostic()]
+pub struct DuplicateFieldExprError {
+    pub name: Identifier,
+    #[label("previously defined here")]
+    pub defined: SourceSpan,
+    #[label("redefined here")]
+    pub redefined: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("field `{name}` is missing in struct expression")]
+#[diagnostic()]
+pub struct MissingFieldExprError {
+    pub name: Identifier,
+    #[label("defined here")]
+    pub defined: SourceSpan,
+    #[label("missing here")]
+    pub missing: SourceSpan,
+}

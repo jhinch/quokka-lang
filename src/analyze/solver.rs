@@ -1,16 +1,19 @@
 use crate::analyze::error::{
-    BreakExprUnexpectedError, FieldNotDefinedError, NotArrayError, NotFnPtrError, NotIntError,
-    NotSignedIntError, NotStructError, ReturnExprMissingError, ReturnExprUnexpectedError,
-    TyMismatchError, TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
+    BreakExprUnexpectedError, DuplicateFieldExprError, FieldNotDefinedError, MissingFieldExprError,
+    NotArrayError, NotFnPtrError, NotIntError, NotSignedIntError, NotStructError,
+    ReturnExprMissingError, ReturnExprUnexpectedError, TyMismatchError,
+    TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
 };
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
     ArithmeticOp, AssignOp, BreakSmt, Call, ComparisonOp, ConstDecl, Expr, If, IntegerLiteral,
-    LetSmt, LogicalOp, ReturnSmt, SpannedIdentifier, UnaryOp, UnaryOpKind, YieldSmt,
+    LetSmt, LogicalOp, ReturnSmt, SpannedIdentifier, StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
 };
 use crate::mir::{FunctionBuilder, LocalId};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
+use indexmap::IndexMap;
+use indexmap::map::Entry;
 use miette::SourceSpan;
 use slotmap::SparseSecondaryMap;
 use std::collections::VecDeque;
@@ -383,6 +386,71 @@ impl TypeSolver {
             return_ty,
         });
         InferredTy::Variable(return_ty)
+    }
+
+    pub fn check_struct_expr_fields(
+        &mut self,
+        expr: &StructExpr,
+        expr_span: SourceSpan,
+        field_expr_types: Vec<(&SpannedIdentifier, InferredTy, SourceSpan)>,
+        ty: Ty,
+        ty_registry: &TyRegistry,
+    ) {
+        if ty != Ty::ERROR && !ty.is_struct() {
+            self.result_builder.add_error(NotStructError {
+                span: expr.name.span,
+                ty: ty.display(ty_registry).into_detached(),
+            });
+        }
+        let mut fields = IndexMap::new();
+        for (field, field_expr_ty, field_expr_span) in field_expr_types {
+            match fields.entry(&field.data) {
+                Entry::Vacant(entry) => {
+                    entry.insert(field.span);
+                }
+                Entry::Occupied(entry) => {
+                    self.result_builder.add_error(DuplicateFieldExprError {
+                        name: field.data.clone(),
+                        defined: *entry.get(),
+                        redefined: field.span,
+                    });
+                }
+            }
+            if ty.is_struct() {
+                let struct_ty_data = ty_registry.struct_ty_data(ty);
+                match struct_ty_data.fields.get(&field.data) {
+                    None => {
+                        self.result_builder.add_error(FieldNotDefinedError {
+                            struct_span: struct_ty_data.name.span,
+                            ty: ty.display(ty_registry).into_detached(),
+                            field_span: field.span,
+                            field: field.data.clone(),
+                        });
+                    }
+                    Some(field_ty_data) => {
+                        self.constraints.push_back(InferenceConstraint::Equal {
+                            ty1: field_expr_ty,
+                            ty1_span: field_expr_span,
+                            ty2: InferredTy::Concrete(field_ty_data.ty),
+                            ty2_span: field_ty_data.ty_span,
+                        });
+                    }
+                }
+            }
+        }
+        if ty.is_struct() {
+            for (field, field_ty_data) in &ty_registry.struct_ty_data(ty).fields {
+                if !fields.contains_key(field) {
+                    let end_offset = expr_span.offset() + expr_span.len();
+                    let start_offset = end_offset - 1;
+                    self.result_builder.add_error(MissingFieldExprError {
+                        name: field.clone(),
+                        defined: field_ty_data.name.span,
+                        missing: SourceSpan::from(start_offset..end_offset),
+                    });
+                }
+            }
+        }
     }
 
     pub fn check_field_access(
