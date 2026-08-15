@@ -45,64 +45,48 @@ pub fn evaluate(
                     projections,
                 } => {
                     let (global_ty, source) = globals[*source];
-                    // This is not particularly efficient as it clones for each projection.
-                    // However, it should work correctly for now.
-                    let mut source = Value::from_bytes(global_ty, ty_registry, source);
-                    for projection in projections {
-                        source = match projection {
-                            PlaceProjection::Field(field) => match source {
-                                Value::Struct { ty, bytes, .. } => {
-                                    let field = &ty_registry.struct_ty_data(ty).fields[field];
-                                    let offset = field.bit_offset as usize / 8;
-                                    Value::from_bytes(
-                                        field.ty,
-                                        ty_registry,
-                                        &bytes[offset
-                                            ..(offset
-                                                + (field
-                                                    .ty
-                                                    .bit_size(ty_registry)
-                                                    .next_multiple_of(8)
-                                                    as usize))],
-                                    )
-                                }
-                                value => {
-                                    unimplemented!("cannot lookup field {field} on value {value:?}")
-                                }
-                            },
-                            PlaceProjection::Index(index) => match source {
-                                Value::Array { item_ty, bytes, .. } => {
-                                    let index = Value::from_operand(
-                                        &local_slots,
-                                        function,
-                                        Ty::U16,
-                                        ty_registry,
-                                        index,
-                                    );
-                                    let index = match index {
-                                        Value::U16(index) => index as usize,
-                                        index => unimplemented!(
-                                            "cannot array index on with index {index:?}"
-                                        ),
-                                    };
-                                    let item_byte_width =
-                                        item_ty.bit_size(ty_registry).next_multiple_of(8) as usize
-                                            / 8;
-                                    let offset = index * item_byte_width;
-                                    Value::from_bytes(
-                                        item_ty,
-                                        ty_registry,
-                                        &bytes[offset..(offset + item_byte_width)],
-                                    )
-                                }
-                                value => unimplemented!("cannot array index on value {value:?}"),
-                            },
-                        }
-                    }
+                    let source = Value::from_bytes(global_ty, ty_registry, source);
+                    let source =
+                        read_projections(source, projections, &local_slots, function, ty_registry);
                     local_slots[*target].init(*target, function, ty_registry, source);
                 }
-                Instr::Read { .. } => todo!("read {instruction:?}"),
-                Instr::Write { .. } => todo!("write {instruction:?}"),
+                Instr::Read {
+                    target,
+                    source,
+                    projections,
+                } => {
+                    let source = local_slots[*source]
+                        .check_init(*source, function, ty_registry)
+                        .clone();
+                    let source =
+                        read_projections(source, projections, &local_slots, function, ty_registry);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
+                Instr::Write {
+                    target,
+                    left,
+                    projections,
+                    right,
+                } => {
+                    let left_value = local_slots[*left]
+                        .check_init(*left, function, ty_registry)
+                        .clone();
+                    let right_ty =
+                        projected_ty(function.locals[*left].ty, projections, ty_registry);
+                    let right =
+                        Value::from_operand(&local_slots, function, right_ty, ty_registry, right);
+                    let new_bytes = write_projections(
+                        left_value,
+                        projections,
+                        &right.into_vec(),
+                        &local_slots,
+                        function,
+                        ty_registry,
+                    );
+                    let source =
+                        Value::from_bytes(function.locals[*target].ty, ty_registry, &new_bytes);
+                    local_slots[*target].init(*target, function, ty_registry, source);
+                }
                 Instr::Copy { target, source } => {
                     let source = Value::from_operand(
                         &local_slots,
@@ -407,6 +391,118 @@ pub fn evaluate(
         .flatten()
         .expect("return slot not set")
         .into_vec()
+}
+
+/// Narrows `value` down to the value at `projections`, resolving each field/index lookup in turn.
+///
+/// This is not particularly efficient as it clones for each projection. However, it should work
+/// correctly for now.
+fn read_projections(
+    mut value: Value,
+    projections: &[PlaceProjection],
+    local_slots: &SecondaryMap<LocalId, Option<Value>>,
+    function: &mir::Function,
+    ty_registry: &TyRegistry,
+) -> Value {
+    for projection in projections {
+        value = match projection {
+            PlaceProjection::Field(field) => match value {
+                Value::Struct { ty, bytes, .. } => {
+                    let field = &ty_registry.struct_ty_data(ty).fields[field];
+                    let offset = field.bit_offset as usize / 8;
+                    let width = field.ty.bit_size(ty_registry).div_ceil(8) as usize;
+                    Value::from_bytes(field.ty, ty_registry, &bytes[offset..(offset + width)])
+                }
+                value => unimplemented!("cannot lookup field {field} on value {value:?}"),
+            },
+            PlaceProjection::Index(index) => match value {
+                Value::Array { item_ty, bytes, .. } => {
+                    let index =
+                        Value::from_operand(local_slots, function, Ty::U16, ty_registry, index);
+                    let index = match index {
+                        Value::U16(index) => index as usize,
+                        index => unimplemented!("cannot array index on with index {index:?}"),
+                    };
+                    let item_byte_width = item_ty.bit_size(ty_registry).div_ceil(8) as usize;
+                    let offset = index * item_byte_width;
+                    Value::from_bytes(
+                        item_ty,
+                        ty_registry,
+                        &bytes[offset..(offset + item_byte_width)],
+                    )
+                }
+                value => unimplemented!("cannot array index on value {value:?}"),
+            },
+        }
+    }
+    value
+}
+
+/// Returns the byte representation of `value` with `right_bytes` spliced in at `projections`.
+///
+/// This is not particularly efficient as it clones for each projection. However, it should work
+/// correctly for now.
+fn write_projections(
+    value: Value,
+    projections: &[PlaceProjection],
+    right_bytes: &[u8],
+    local_slots: &SecondaryMap<LocalId, Option<Value>>,
+    function: &mir::Function,
+    ty_registry: &TyRegistry,
+) -> Vec<u8> {
+    let Some((projection, rest)) = projections.split_first() else {
+        return right_bytes.to_vec();
+    };
+    match projection {
+        PlaceProjection::Field(field) => match value {
+            Value::Struct { ty, mut bytes, .. } => {
+                let field = &ty_registry.struct_ty_data(ty).fields[field];
+                let offset = field.bit_offset as usize / 8;
+                let width = field.ty.bit_size(ty_registry).div_ceil(8) as usize;
+                let child =
+                    Value::from_bytes(field.ty, ty_registry, &bytes[offset..(offset + width)]);
+                let child_bytes =
+                    write_projections(child, rest, right_bytes, local_slots, function, ty_registry);
+                bytes[offset..(offset + width)].copy_from_slice(&child_bytes);
+                bytes
+            }
+            value => unimplemented!("cannot lookup field {field} on value {value:?}"),
+        },
+        PlaceProjection::Index(index) => match value {
+            Value::Array {
+                item_ty, mut bytes, ..
+            } => {
+                let index = Value::from_operand(local_slots, function, Ty::U16, ty_registry, index);
+                let index = match index {
+                    Value::U16(index) => index as usize,
+                    index => unimplemented!("cannot array index on with index {index:?}"),
+                };
+                let item_byte_width = item_ty.bit_size(ty_registry).div_ceil(8) as usize;
+                let offset = index * item_byte_width;
+                let child = Value::from_bytes(
+                    item_ty,
+                    ty_registry,
+                    &bytes[offset..(offset + item_byte_width)],
+                );
+                let child_bytes =
+                    write_projections(child, rest, right_bytes, local_slots, function, ty_registry);
+                bytes[offset..(offset + item_byte_width)].copy_from_slice(&child_bytes);
+                bytes
+            }
+            value => unimplemented!("cannot array index on value {value:?}"),
+        },
+    }
+}
+
+/// Returns the type reached by resolving `projections` in turn, starting from `ty`.
+fn projected_ty(mut ty: Ty, projections: &[PlaceProjection], ty_registry: &TyRegistry) -> Ty {
+    for projection in projections {
+        ty = match projection {
+            PlaceProjection::Field(field) => ty_registry.struct_ty_data(ty).fields[field].ty,
+            PlaceProjection::Index(_) => ty_registry.array_ty_data(ty).item_ty,
+        };
+    }
+    ty
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

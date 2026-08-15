@@ -521,8 +521,6 @@ expected_errors = [
     "Syntax error: field access requires struct @ [12:14]",
 ]
 
-# --- analyzer tests ---
-
 [[case]]
 name = "analyzer_empty_struct_expr_valid"
 kind = "analyzer"
@@ -776,6 +774,100 @@ expected_errors = [
     "field `x` is missing in struct expression @ [76:77]",
     "field `y` is missing in struct expression @ [76:77]",
 ]
+
+[[case]]
+name = "const_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+const A: Point = Point { x: 1, y: 2 };
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: Point = [1, 2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "const_nested_struct_expr_valid"
+kind = "analyzer"
+source = """
+struct Inner {
+    value: u8,
+}
+struct Wrapper {
+    inner: Inner,
+}
+const A: Wrapper = Wrapper { inner: Inner { value: 5 } };
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: Wrapper = [5]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "const_struct_field_write_and_read_valid"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+struct Point {
+    x: u8,
+    y: u8,
+}
+const A: u8 = {
+    let p = Point { x: 1, y: 2 };
+    p.x = 5;
+    yield p.x;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [5]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "const_nested_struct_field_write_and_read_valid"
+kind = "analyzer"
+preview_features = ["field-access"]
+source = """
+struct Inner {
+    value: u8,
+}
+struct Wrapper {
+    inner: Inner,
+}
+const A: u8 = {
+    let w = Wrapper { inner: Inner { value: 1 } };
+    w.inner.value = 9;
+    yield w.inner.value;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [9]
+
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "analyzer_field_expr_type_mismatch"
