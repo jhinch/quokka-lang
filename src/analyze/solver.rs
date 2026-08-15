@@ -1,13 +1,14 @@
 use crate::analyze::error::{
-    BreakExprUnexpectedError, DuplicateFieldExprError, FieldNotDefinedError, MissingFieldExprError,
-    NotArrayError, NotFnPtrError, NotIntError, NotSignedIntError, NotStructError,
-    ReturnExprMissingError, ReturnExprUnexpectedError, TyMismatchError,
-    TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
+    BreakExprUnexpectedError, DuplicateFieldExprError, EmptyArrayExprError, FieldNotDefinedError,
+    MissingFieldExprError, NotArrayError, NotFnPtrError, NotIntError, NotSignedIntError,
+    NotStructError, OversizedArrayExprError, ReturnExprMissingError, ReturnExprUnexpectedError,
+    TyMismatchError, TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
 };
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    ArithmeticOp, AssignOp, BreakSmt, Call, ComparisonOp, ConstDecl, Expr, If, IntegerLiteral,
-    LetSmt, LogicalOp, ReturnSmt, SpannedIdentifier, StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
+    ArithmeticOp, ArrayExpr, AssignOp, BreakSmt, Call, ComparisonOp, ConstDecl, Expr, If,
+    IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt, SpannedIdentifier, StructExpr,
+    UnaryOp, UnaryOpKind, YieldSmt,
 };
 use crate::mir::{FunctionBuilder, LocalId};
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -17,6 +18,7 @@ use indexmap::map::Entry;
 use miette::SourceSpan;
 use slotmap::SparseSecondaryMap;
 use std::collections::VecDeque;
+use std::num::NonZeroU16;
 
 #[derive(Default)]
 pub struct TypeSolver {
@@ -455,6 +457,57 @@ impl TypeSolver {
         }
     }
 
+    pub fn check_array_expr(
+        &mut self,
+        expr: &ArrayExpr,
+        expr_span: SourceSpan,
+    ) -> (InferredTy, InferredTy) {
+        let item_ty = self.fresh_ty_var();
+        let item_ty = InferredTy::Variable(item_ty);
+        if expr.items.is_empty() {
+            self.result_builder
+                .add_error(EmptyArrayExprError { span: expr_span });
+            return (InferredTy::Concrete(Ty::ERROR), item_ty);
+        }
+        let Some(count) = u16::try_from(expr.items.len())
+            .ok()
+            .and_then(NonZeroU16::new)
+        else {
+            self.result_builder
+                .add_error(OversizedArrayExprError { span: expr_span });
+            return (InferredTy::Concrete(Ty::ERROR), item_ty);
+        };
+        (InferredTy::Array(Box::new(item_ty.clone()), count), item_ty)
+    }
+
+    pub fn check_repeat_expr(
+        &mut self,
+        expr: &RepeatExpr,
+        _: SourceSpan,
+    ) -> (InferredTy, InferredTy) {
+        let item_ty = self.fresh_ty_var();
+        let item_ty = InferredTy::Variable(item_ty);
+        (
+            InferredTy::Array(Box::new(item_ty.clone()), expr.count),
+            item_ty,
+        )
+    }
+
+    pub fn check_item_expr(
+        &mut self,
+        expr_span: SourceSpan,
+        item_expr: &Expr,
+        item_ty: InferredTy,
+        item_expr_ty: InferredTy,
+    ) {
+        self.constraints.push_back(InferenceConstraint::Equal {
+            ty1: item_expr_ty,
+            ty1_span: item_expr.span,
+            ty2: item_ty,
+            ty2_span: expr_span,
+        });
+    }
+
     pub fn check_field_access(
         &mut self,
         field: &SpannedIdentifier,
@@ -521,8 +574,8 @@ impl TypeSolver {
                 }
                 InferenceConstraint::IsInt { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             if !ty.is_int() && ty != Ty::ERROR {
                                 self.result_builder.add_error(NotIntError {
                                     ty: ty.display(ty_registry).into_detached(),
@@ -531,13 +584,13 @@ impl TypeSolver {
                             }
                             None
                         }
-                        ty => Some(InferenceConstraint::IsInt { ty, span }),
+                        None => Some(InferenceConstraint::IsInt { ty, span }),
                     }
                 }
                 InferenceConstraint::IsSignedInt { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             if !ty.is_signed_int() && ty != Ty::ERROR {
                                 self.result_builder.add_error(NotSignedIntError {
                                     ty: ty.display(ty_registry).into_detached(),
@@ -546,7 +599,7 @@ impl TypeSolver {
                             }
                             None
                         }
-                        ty => Some(InferenceConstraint::IsSignedInt { ty, span }),
+                        None => Some(InferenceConstraint::IsSignedInt { ty, span }),
                     }
                 }
                 InferenceConstraint::HasField {
@@ -556,8 +609,8 @@ impl TypeSolver {
                     field_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             let concrete_field_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
                             } else if !ty.is_struct() {
@@ -585,7 +638,7 @@ impl TypeSolver {
                                 .bind(field_ty, InferredTy::Concrete(concrete_field_ty));
                             None
                         }
-                        ty => Some(InferenceConstraint::HasField {
+                        None => Some(InferenceConstraint::HasField {
                             ty,
                             place_span,
                             field,
@@ -599,8 +652,8 @@ impl TypeSolver {
                     item_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             let concrete_item_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
                             } else if !ty.is_array() {
@@ -617,7 +670,7 @@ impl TypeSolver {
                                 .bind(item_ty, InferredTy::Concrete(concrete_item_ty));
                             None
                         }
-                        ty => Some(InferenceConstraint::IsArray { ty, span, item_ty }),
+                        None => Some(InferenceConstraint::IsArray { ty, span, item_ty }),
                     }
                 }
                 InferenceConstraint::IsFnPtr {
@@ -626,8 +679,8 @@ impl TypeSolver {
                     return_ty,
                 } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             let concrete_return_ty = if ty == Ty::ERROR {
                                 Ty::ERROR
                             } else if !ty.is_fn_ptr() {
@@ -644,7 +697,7 @@ impl TypeSolver {
                                 .bind(return_ty, InferredTy::Concrete(concrete_return_ty));
                             None
                         }
-                        ty => Some(InferenceConstraint::IsFnPtr {
+                        None => Some(InferenceConstraint::IsFnPtr {
                             ty,
                             span,
                             return_ty,
@@ -653,8 +706,8 @@ impl TypeSolver {
                 }
                 InferenceConstraint::IsRegisterSized { mut ty, span } => {
                     self.inferrer.prune(&mut ty);
-                    match ty {
-                        InferredTy::Concrete(ty) => {
+                    match resolve(&ty, ty_registry) {
+                        Some(ty) => {
                             if ty != Ty::ERROR {
                                 let bit_size = ty.bit_size(ty_registry);
                                 if bit_size > 16 {
@@ -669,7 +722,7 @@ impl TypeSolver {
                             }
                             None
                         }
-                        ty => Some(InferenceConstraint::IsRegisterSized { ty, span }),
+                        None => Some(InferenceConstraint::IsRegisterSized { ty, span }),
                     }
                 }
             };

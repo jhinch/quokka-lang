@@ -619,3 +619,185 @@ expected_errors = [
     "Preview feature error: use --preview array @ [9:12]",
     "Syntax error: array index requires array @ [9:12]",
 ]
+
+[[case]]
+name = "analyzer_array_expr_with_all_type_annotations"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b: [u8; 1] = [a];
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    a#1: u8 = copy 1
+    #2: [u8; 1] = alloc
+    b#3: [u8; 1] = write #2[0] = a#1
+    return
+"""
+
+[[case]]
+name = "analyzer_array_expr_inferred_item"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let a: [u8; 1] = [1];
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    #1: [u8; 1] = alloc
+    #2: u8 = copy 1
+    a#3: [u8; 1] = write #1[0] = #2
+    return
+"""
+
+[[case]]
+name = "analyzer_array_expr_inferred_ty"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b = [a];
+}
+"""
+expected_mir = """
+main -> unit:
+  .bb1:
+    a#1: u8 = copy 1
+    #2: [u8; 1] = alloc
+    b#3: [u8; 1] = write #2[0] = a#1
+    return
+"""
+
+[[case]]
+name = "analyzer_array_expr_size_mismatch"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b: [u8; 2] = [a];
+}
+"""
+expected_errors = [
+    "`[u8; 2]` is not equal to `[u8; 1]` @ [52:55]",
+]
+
+[[case]]
+name = "analyzer_array_expr_size_mismatch_with_inferred_item_ty"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let b: [u8; 2] = [1];
+}
+"""
+expected_errors = [
+    "`[u8; 2]` is not equal to `[u8; 1]` @ [33:36]",
+]
+
+[[case]]
+name = "analyzer_repeat_expr_size_mismatch"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b: [u8; 1] = [a; 2];
+}
+"""
+expected_errors = [
+    "`[u8; 1]` is not equal to `[u8; 2]` @ [52:58]",
+]
+
+[[case]]
+name = "analyzer_repeat_expr_size_mismatch_with_inferred_item_ty"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+fn main() {
+    let b: [u8; 2] = [1; 1];
+}
+"""
+expected_errors = [
+    "`[u8; 2]` is not equal to `[u8; 1]` @ [33:39]",
+]
+
+[[case]]
+name = "analyzer_array_expr_in_const_decl"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+const A: [u8; 4] = [1, 2, 3, 4];
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: [u8; 4] = [1, 2, 3, 4]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "analyzer_array_expr_in_const_decl_with_inferred_local"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+const A: [u8; 3] = {
+    yield [1, 2, 3];
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: [u8; 3] = [1, 2, 3]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "analyzer_repeat_expr_in_const_decl"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+const A: [u8; 4] = [1; 4];
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: [u8; 4] = [1, 1, 1, 1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "analyzer_repeat_expr_in_const_decl_with_inferred_local"
+kind = "analyzer"
+preview_features = ["array"]
+source = """
+const A: [u8; 3] = {
+    yield [2; 3];
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: [u8; 3] = [2, 2, 2]
+
+main -> unit:
+  .bb1:
+    return
+"""

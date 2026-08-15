@@ -112,30 +112,26 @@ impl Inferrer {
                 Ok(())
             }
             (InferredTy::Array(item_ty1, count1), InferredTy::Array(item_ty2, count2)) => {
+                self.unify(*item_ty1.clone(), *item_ty2.clone(), ty_registry)
+                    .map_err(
+                        |UnificationError {
+                             ty1: item_ty1,
+                             ty2: item_ty2,
+                         }| UnificationError {
+                            ty1: InferredTy::Array(Box::new(item_ty1), count1),
+                            ty2: InferredTy::Array(Box::new(item_ty2), count2),
+                        },
+                    )?;
                 if count1 != count2 {
                     return Err(UnificationError {
                         ty1: InferredTy::Array(item_ty1, count1),
                         ty2: InferredTy::Array(item_ty2, count2),
                     });
                 }
-                self.unify(*item_ty1, *item_ty2, ty_registry).map_err(
-                    |UnificationError {
-                         ty1: item_ty1,
-                         ty2: item_ty2,
-                     }| UnificationError {
-                        ty1: InferredTy::Array(Box::new(item_ty1), count1),
-                        ty2: InferredTy::Array(Box::new(item_ty2), count2),
-                    },
-                )
+                Ok(())
             }
             (InferredTy::Concrete(ty1), InferredTy::Array(item_ty2, count2)) if ty1.is_array() => {
                 let ty1_data = ty_registry.array_ty_data(ty1);
-                if ty1_data.count != count2 {
-                    return Err(UnificationError {
-                        ty1: InferredTy::Concrete(ty1),
-                        ty2: InferredTy::Array(item_ty2, count2),
-                    });
-                }
                 self.unify(
                     InferredTy::Concrete(ty1_data.item_ty),
                     *item_ty2,
@@ -144,16 +140,22 @@ impl Inferrer {
                 .map_err(|UnificationError { ty2: item_ty2, .. }| UnificationError {
                     ty1: InferredTy::Concrete(ty1),
                     ty2: InferredTy::Array(Box::new(item_ty2), count2),
-                })
+                })?;
+                if ty1_data.count != count2 {
+                    return Err(UnificationError {
+                        ty1: InferredTy::Concrete(ty1),
+                        // if the item types are unified above, we can use the concrete item type here
+                        // and produce a better error message
+                        ty2: InferredTy::Array(
+                            Box::new(InferredTy::Concrete(ty1_data.item_ty)),
+                            count2,
+                        ),
+                    });
+                }
+                Ok(())
             }
             (InferredTy::Array(item_ty1, count1), InferredTy::Concrete(ty2)) if ty2.is_array() => {
                 let ty2_data = ty_registry.array_ty_data(ty2);
-                if count1 != ty2_data.count {
-                    return Err(UnificationError {
-                        ty1: InferredTy::Array(item_ty1, count1),
-                        ty2: InferredTy::Concrete(ty2),
-                    });
-                }
                 self.unify(
                     *item_ty1,
                     InferredTy::Concrete(ty2_data.item_ty),
@@ -162,7 +164,19 @@ impl Inferrer {
                 .map_err(|UnificationError { ty1: item_ty1, .. }| UnificationError {
                     ty1: InferredTy::Array(Box::new(item_ty1), count1),
                     ty2: InferredTy::Concrete(ty2),
-                })
+                })?;
+                if count1 != ty2_data.count {
+                    return Err(UnificationError {
+                        // if the item types are unified above, we can use the concrete item type here
+                        // and produce a better error message
+                        ty1: InferredTy::Array(
+                            Box::new(InferredTy::Concrete(ty2_data.item_ty)),
+                            count1,
+                        ),
+                        ty2: InferredTy::Concrete(ty2),
+                    });
+                }
+                Ok(())
             }
             (InferredTy::Concrete(ty1), InferredTy::Concrete(ty2)) if ty1 == ty2 => Ok(()),
             (ty1, ty2) => Err(UnificationError { ty1, ty2 }),
@@ -468,22 +482,6 @@ mod tests {
     }
 
     #[test]
-    fn unify_arrays_with_different_counts_fails_without_unifying_items() {
-        let mut inferrer = Inferrer::default();
-        let ty_registry = TyRegistry::default();
-        let var = inferrer.fresh();
-        let result = inferrer.unify(
-            InferredTy::Array(Box::new(InferredTy::Variable(var)), count(3)),
-            InferredTy::Array(Box::new(InferredTy::Concrete(Ty::U8)), count(4)),
-            &ty_registry,
-        );
-        assert!(result.is_err());
-        let mut item = InferredTy::Variable(var);
-        inferrer.prune(&mut item);
-        assert_eq!(item, InferredTy::Variable(var));
-    }
-
-    #[test]
     fn unify_arrays_with_same_count_but_mismatched_items_fails() {
         let mut inferrer = Inferrer::default();
         let ty_registry = TyRegistry::default();
@@ -569,23 +567,6 @@ mod tests {
             &ty_registry,
         );
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn unify_concrete_array_with_mismatched_count_does_not_unify_items() {
-        let mut inferrer = Inferrer::default();
-        let mut ty_registry = TyRegistry::default();
-        let concrete_array = ty_registry.register_array(Ty::U8, count(3));
-        let var = inferrer.fresh();
-        let result = inferrer.unify(
-            InferredTy::Concrete(concrete_array),
-            InferredTy::Array(Box::new(InferredTy::Variable(var)), count(4)),
-            &ty_registry,
-        );
-        assert!(result.is_err());
-        let mut item = InferredTy::Variable(var);
-        inferrer.prune(&mut item);
-        assert_eq!(item, InferredTy::Variable(var));
     }
 
     #[test]

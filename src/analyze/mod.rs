@@ -2,8 +2,8 @@ use crate::analyze::error::*;
 use crate::analyze::infer::{InferredTy, TyVar};
 use crate::analyze::solver::TypeSolver;
 use crate::ast::{
-    self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, LogicalOpKind,
-    SpannedIdentifier, TyRefData, UnaryOpKind,
+    self, ArithmeticOpKind, AssignOpKind, ComparisonOpKind, Identifier, IntegerLiteral,
+    LogicalOpKind, SpannedIdentifier, TyRefData, UnaryOpKind,
 };
 use crate::attr::{
     ConstDeclAttributes, FieldDeclAttributes, FnDeclAttributes, GlobalDeclAttributes,
@@ -921,10 +921,61 @@ impl Analyzer {
                 (block, InferredTy::Concrete(ty), target)
             }
             ast::ExprData::Array(array_expr) => {
-                todo!("{array_expr:?}")
+                let mut block = block;
+                let (expr_ty, item_ty) = type_solver.check_array_expr(array_expr, expr.span);
+                let mut target = type_solver.new_registered_local(mir, &expr_ty);
+                mir.push_instr(block, Instr::Alloc { target });
+                for (index, item_expr) in array_expr.items.iter().enumerate() {
+                    let (new_block, item_expr_ty, source) =
+                        self.analyze_expr(item_expr, block, mir, type_solver, scopes);
+                    type_solver.check_item_expr(
+                        expr.span,
+                        item_expr,
+                        item_ty.clone(),
+                        item_expr_ty,
+                    );
+                    block = new_block;
+                    let new_target = type_solver.new_registered_local(mir, &expr_ty);
+                    mir.push_instr(
+                        block,
+                        Instr::Write {
+                            target: new_target,
+                            left: target,
+                            projections: vec![PlaceProjection::Index(Operand::Literal(
+                                #[allow(clippy::cast_possible_truncation)]
+                                IntegerLiteral::from(index as u32),
+                            ))],
+                            right: Operand::Local(source),
+                        },
+                    );
+                    target = new_target;
+                }
+                (block, expr_ty, target)
             }
             ast::ExprData::Repeat(repeat_expr) => {
-                todo!("{repeat_expr:?}")
+                let (expr_ty, item_ty) = type_solver.check_repeat_expr(repeat_expr, expr.span);
+                let mut target = type_solver.new_registered_local(mir, &expr_ty);
+                mir.push_instr(block, Instr::Alloc { target });
+                let (block, item_expr_ty, source) =
+                    self.analyze_expr(&repeat_expr.item, block, mir, type_solver, scopes);
+                type_solver.check_item_expr(expr.span, &repeat_expr.item, item_ty, item_expr_ty);
+                for index in 0..repeat_expr.count.get() {
+                    let new_target = type_solver.new_registered_local(mir, &expr_ty);
+                    mir.push_instr(
+                        block,
+                        Instr::Write {
+                            target: new_target,
+                            left: target,
+                            projections: vec![PlaceProjection::Index(Operand::Literal(
+                                #[allow(clippy::cast_possible_truncation)]
+                                IntegerLiteral::from(index as u32),
+                            ))],
+                            right: Operand::Local(source),
+                        },
+                    );
+                    target = new_target;
+                }
+                (block, expr_ty, target)
             }
             ast::ExprData::Unary(op) => {
                 let (block, inner_ty, source) =

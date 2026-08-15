@@ -353,3 +353,19 @@ pub struct MissingFieldExprError {
     #[label("missing here")]
     pub missing: SourceSpan,
 }
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("empty array expressions are not allowed")]
+#[diagnostic()]
+pub struct EmptyArrayExprError {
+    #[label("this array is empty")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("array expression is too large")]
+#[diagnostic()]
+pub struct OversizedArrayExprError {
+    #[label("too many items")]
+    pub span: SourceSpan,
+}
