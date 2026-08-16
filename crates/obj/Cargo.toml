@@ -2,8 +2,3 @@
 name = "quokka-lang-obj"
 version.workspace = true
 edition.workspace = true
-
-[dependencies]
-derive_more.workspace = true
-miette.workspace = true
-thiserror.workspace = true
