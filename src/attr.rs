@@ -31,7 +31,7 @@ pub enum InlineKind {
 #[serde(deny_unknown_fields)]
 pub struct ConstDeclAttributes {
     #[serde(default)]
-    section: RomSectionKind,
+    pub section: RomSectionKind,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -47,7 +47,7 @@ pub enum RomSectionKind {
 #[serde(deny_unknown_fields)]
 pub struct GlobalDeclAttributes {
     #[serde(default)]
-    section: RamSectionKind,
+    pub section: RamSectionKind,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]

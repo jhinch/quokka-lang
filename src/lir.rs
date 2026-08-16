@@ -24,7 +24,7 @@ new_key_type! { pub struct CarryFlagId; }
 new_key_type! { pub struct R8Id; }
 new_key_type! { pub struct R16Id; }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
 pub enum FlagId {
     Zero(ZeroFlagId),
     Carry(CarryFlagId),
@@ -132,8 +132,9 @@ pub struct RamSectionData {
     pub address: u16,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum RamRegionKind {
+    #[default]
     WRam0,
     VRam,
     HRam,
@@ -226,7 +227,6 @@ pub enum Instr {
     /// `CP A,[HL]`
     /// `CP A,n8`
     Cp {
-        target: R8Id,
         z: ZeroFlagId,
         c: CarryFlagId,
         left: R8Id,
@@ -459,7 +459,6 @@ impl Instr {
             | Instr::Ld8Dec { target, .. }
             | Instr::Adc { target, .. }
             | Instr::Add { target, .. }
-            | Instr::Cp { target, .. }
             | Instr::Dec { target, .. }
             | Instr::Inc { target, .. }
             | Instr::Sbc { target, .. }
@@ -484,6 +483,7 @@ impl Instr {
             | Instr::StoreValue { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
+            | Instr::Cp { .. }
             | Instr::DecPtr { .. }
             | Instr::IncPtr { .. }
             | Instr::Bit { .. }
@@ -1071,21 +1071,11 @@ impl CodeSectionBuilder {
         block: BlockId,
         left: R8Id,
         right: Operand8,
-    ) -> (R8Id, ZeroFlagId, CarryFlagId) {
-        let target = self.new_r8();
+    ) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(
-            block,
-            Instr::Cp {
-                target,
-                z,
-                c,
-                left,
-                right,
-            },
-        );
-        (target, z, c)
+        self.insert_instr(block, Instr::Cp { z, c, left, right });
+        (z, c)
     }
 
     /// `DEC r8`

@@ -996,7 +996,7 @@ impl PlaceProjection {
 }
 
 /// The condition tested by a conditional [`Terminator`] against its `source` local.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Condition {
     /// True when `source` is zero.
     Zero,

@@ -9,6 +9,7 @@
 pub mod analyze;
 pub mod ast;
 pub mod attr;
+pub mod codegen;
 pub mod consteval;
 pub mod feature;
 pub mod highlight;

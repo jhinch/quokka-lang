@@ -16,10 +16,10 @@ The compilation goes through following phases:
 - Lexing (Lexical analysis)
 - Parsing (Syntactic analysis)
 - Analysis (Semantic analysis / type checking)
+- Lowering (lowering AST to MIR / conversion to static single assignment form)
 
 And then the following phases (to be implemented)
 
-- Lowering (lowering AST to MIR / conversion to static single assignment form)
 - Optimization (dead code elimination, inlining, etc.)
 - Code gen (lowering MIR to LIR)
 - Phi elimination
