@@ -80,9 +80,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
     ) {
         let mut mir_block_to_block = SecondaryMap::new();
-        let mut local_to_r8 = SparseSecondaryMap::new();
-        let mut local_to_r16 = SparseSecondaryMap::new();
-        let mut local_to_flag = SparseSecondaryMap::new();
+        let mut locals = Locals::default();
         mir_block_to_block.insert(function.start_block, start_block);
         for mir_block in function.traverse_blocks() {
             mir_block_to_block.insert(
@@ -97,15 +95,7 @@ impl CodeGen {
         for mir_block in function.traverse_blocks() {
             let block = mir_block_to_block[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
-                self.generate_from_instr(
-                    function,
-                    instruction,
-                    block,
-                    lir,
-                    &mut local_to_r8,
-                    &mut local_to_r16,
-                    &mut local_to_flag,
-                );
+                self.generate_from_instr(function, instruction, block, lir, &mut locals);
             }
             let terminator = &function.blocks[mir_block].terminator;
             match terminator {
@@ -135,7 +125,7 @@ impl CodeGen {
                     return_block: mir_return_block,
                     else_block: mir_else_block,
                 } => {
-                    let (source, condition) = local_to_flag[*mir_source];
+                    let (source, condition) = locals.flags[*mir_source];
                     let callee_block = function_to_block[*callee];
                     let return_block = mir_block_to_block[*mir_return_block];
                     let else_block = mir_block_to_block[*mir_else_block];
@@ -169,7 +159,7 @@ impl CodeGen {
                     then_block: mir_then_block,
                     else_block: mir_else_block,
                 } => {
-                    let (source, condition) = local_to_flag[*mir_source];
+                    let (source, condition) = locals.flags[*mir_source];
                     let then_block = mir_block_to_block[*mir_then_block];
                     let else_block = mir_block_to_block[*mir_else_block];
                     lir.set_terminator(
@@ -187,7 +177,7 @@ impl CodeGen {
                     condition: mir_condition,
                     else_block: mir_else_block,
                 } => {
-                    let (source, condition) = local_to_flag[*mir_source];
+                    let (source, condition) = locals.flags[*mir_source];
                     let else_block = mir_block_to_block[*mir_else_block];
                     lir.set_terminator(
                         block,
@@ -208,20 +198,18 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        local_to_r8: &mut SparseSecondaryMap<mir::LocalId, R8Id>,
-        local_to_r16: &mut SparseSecondaryMap<mir::LocalId, R16Id>,
-        local_to_flag: &mut SparseSecondaryMap<mir::LocalId, (FlagId, mir::Condition)>,
+        locals: &mut Locals,
     ) {
         match instruction {
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
                     let r8 = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
-                    local_to_r8.insert(*target, r8);
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => {
                     let r16 = lir.insert_ld16(block, 0);
-                    local_to_r16.insert(*target, r16);
+                    locals.r16s.insert(*target, r16);
                 }
             },
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
@@ -233,9 +221,9 @@ impl CodeGen {
                     RegKind::R8 => {
                         let r8 = lir.insert_ld8(
                             block,
-                            Ld8Source::Operand(self.to_operand8(source, local_to_r8)),
+                            Ld8Source::Operand(self.to_operand8(source, locals)),
                         );
-                        local_to_r8.insert(*target, r8);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -245,8 +233,8 @@ impl CodeGen {
             mir::Instr::Not { target, source } => {
                 match self.reg_kind(function.locals[*target].ty) {
                     RegKind::R8 => {
-                        let r8 = lir.insert_cpl(block, local_to_r8[*source]);
-                        local_to_r8.insert(*target, r8);
+                        let r8 = lir.insert_cpl(block, locals.r8s[*source]);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -256,10 +244,10 @@ impl CodeGen {
                     RegKind::R8 => {
                         let (r8, _z, _c) = lir.insert_xor(
                             block,
-                            local_to_r8[*source],
+                            locals.r8s[*source],
                             Operand8::Literal(0b1000_0000),
                         );
-                        local_to_r8.insert(*target, r8);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -267,8 +255,8 @@ impl CodeGen {
             mir::Instr::RotateLeft { target, source } => {
                 match self.reg_kind(function.locals[*target].ty) {
                     RegKind::R8 => {
-                        let (r8, _z, _c) = lir.insert_rlc(block, local_to_r8[*source]);
-                        local_to_r8.insert(*target, r8);
+                        let (r8, _z, _c) = lir.insert_rlc(block, locals.r8s[*source]);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -276,8 +264,8 @@ impl CodeGen {
             mir::Instr::RotateRight { target, source } => {
                 match self.reg_kind(function.locals[*target].ty) {
                     RegKind::R8 => {
-                        let (r8, _z, _c) = lir.insert_rrc(block, local_to_r8[*source]);
-                        local_to_r8.insert(*target, r8);
+                        let (r8, _z, _c) = lir.insert_rrc(block, locals.r8s[*source]);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -285,8 +273,8 @@ impl CodeGen {
             mir::Instr::ShiftLeft { target, source } => {
                 match self.reg_kind(function.locals[*target].ty) {
                     RegKind::R8 => {
-                        let (r8, _z, _c) = lir.insert_sla(block, local_to_r8[*source]);
-                        local_to_r8.insert(*target, r8);
+                        let (r8, _z, _c) = lir.insert_sla(block, locals.r8s[*source]);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -296,11 +284,11 @@ impl CodeGen {
                 match self.reg_kind(ty) {
                     RegKind::R8 => {
                         let (r8, _z, _c) = if ty.is_signed_int() {
-                            lir.insert_srl(block, local_to_r8[*source])
+                            lir.insert_srl(block, locals.r8s[*source])
                         } else {
-                            lir.insert_sra(block, local_to_r8[*source])
+                            lir.insert_sra(block, locals.r8s[*source])
                         };
-                        local_to_r8.insert(*target, r8);
+                        locals.r8s.insert(*target, r8);
                     }
                     RegKind::R16 => todo!("{instruction:?}"),
                 }
@@ -311,12 +299,11 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (z, _c) = lir.insert_cp(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_flag.insert(*target, (FlagId::from(z), mir::Condition::Zero));
+                    let (z, _c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(z), mir::Condition::Zero));
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -326,12 +313,11 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (z, _c) = lir.insert_cp(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_flag.insert(*target, (FlagId::from(z), mir::Condition::NotZero));
+                    let (z, _c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(z), mir::Condition::NotZero));
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -341,12 +327,11 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (_z, c) = lir.insert_cp(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_flag.insert(*target, (FlagId::from(c), mir::Condition::NotZero));
+                    let (_z, c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(c), mir::Condition::NotZero));
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -359,12 +344,11 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (_z, c) = lir.insert_cp(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_flag.insert(*target, (FlagId::from(c), mir::Condition::Zero));
+                    let (_z, c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(c), mir::Condition::Zero));
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -377,12 +361,9 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (r8, _z, _c) = lir.insert_and(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_r8.insert(*target, r8);
+                    let (r8, _z, _c) =
+                        lir.insert_and(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -392,12 +373,9 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (r8, _z, _c) = lir.insert_or(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_r8.insert(*target, r8);
+                    let (r8, _z, _c) =
+                        lir.insert_or(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -407,12 +385,9 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (r8, _z, _c) = lir.insert_xor(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_r8.insert(*target, r8);
+                    let (r8, _z, _c) =
+                        lir.insert_xor(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -422,12 +397,9 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (r8, _z, _c) = lir.insert_add(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_r8.insert(*target, r8);
+                    let (r8, _z, _c) =
+                        lir.insert_add(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
@@ -437,25 +409,18 @@ impl CodeGen {
                 right,
             } => match self.reg_kind(function.locals[*target].ty) {
                 RegKind::R8 => {
-                    let (r8, _z, _c) = lir.insert_sub(
-                        block,
-                        local_to_r8[*left],
-                        self.to_operand8(right, local_to_r8),
-                    );
-                    local_to_r8.insert(*target, r8);
+                    let (r8, _z, _c) =
+                        lir.insert_sub(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals.r8s.insert(*target, r8);
                 }
                 RegKind::R16 => todo!("{instruction:?}"),
             },
         }
     }
 
-    fn to_operand8(
-        &self,
-        right: &mir::Operand,
-        local_to_r8: &SparseSecondaryMap<mir::LocalId, R8Id>,
-    ) -> Operand8 {
+    fn to_operand8(&self, right: &mir::Operand, locals: &Locals) -> Operand8 {
         match right {
-            mir::Operand::Local(right) => Operand8::Direct(local_to_r8[*right]),
+            mir::Operand::Local(right) => Operand8::Direct(locals.r8s[*right]),
             #[allow(clippy::cast_possible_truncation)]
             mir::Operand::Literal(right) => Operand8::Literal(right.value as u8),
             mir::Operand::FnPtr(_) => {
@@ -471,6 +436,13 @@ impl CodeGen {
             RegKind::R8
         }
     }
+}
+
+#[derive(Default)]
+struct Locals {
+    r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
+    r16s: SparseSecondaryMap<mir::LocalId, R16Id>,
+    flags: SparseSecondaryMap<mir::LocalId, (FlagId, mir::Condition)>,
 }
 
 enum RegKind {

@@ -448,62 +448,87 @@ pub enum Instr {
     Dec16 { target: R16Id, source: R16Id },
     /// `INC r16`
     Inc16 { target: R16Id, source: R16Id },
+    /// Join 2x 8-bit registers into 1x 16-bit register
+    Join {
+        target: R16Id,
+        high_in: R8Id,
+        low_in: R8Id,
+    },
+    /// Split 1 x 16-bit register into 2x 8-bit registers
+    Split {
+        high: R8Id,
+        low: R8Id,
+        source: R16Id,
+    },
 }
 
 impl Instr {
-    #[must_use]
-    pub fn target_r8(&self) -> Option<R8Id> {
-        match self {
-            Instr::Ld8 { target, .. }
-            | Instr::Ld8Inc { target, .. }
-            | Instr::Ld8Dec { target, .. }
-            | Instr::Adc { target, .. }
-            | Instr::Add { target, .. }
-            | Instr::Dec { target, .. }
-            | Instr::Inc { target, .. }
-            | Instr::Sbc { target, .. }
-            | Instr::Sub { target, .. }
-            | Instr::And { target, .. }
-            | Instr::Cpl { target, .. }
-            | Instr::Or { target, .. }
-            | Instr::Xor { target, .. }
-            | Instr::Res { target, .. }
-            | Instr::Set { target, .. }
-            | Instr::Rl { target, .. }
-            | Instr::Rlc { target, .. }
-            | Instr::Rr { target, .. }
-            | Instr::Rrc { target, .. }
-            | Instr::Sla { target, .. }
-            | Instr::Sra { target, .. }
-            | Instr::Srl { target, .. }
-            | Instr::Swap { target, .. } => Some(*target),
-            Instr::Nop
-            | Instr::Ld16 { .. }
-            | Instr::Store { .. }
-            | Instr::StoreValue { .. }
-            | Instr::StoreInc { .. }
-            | Instr::StoreDec { .. }
-            | Instr::Cp { .. }
-            | Instr::DecPtr { .. }
-            | Instr::IncPtr { .. }
-            | Instr::Bit { .. }
-            | Instr::BitPtr { .. }
-            | Instr::ResPtr { .. }
-            | Instr::SetPtr { .. }
-            | Instr::RlPtr { .. }
-            | Instr::RlcPtr { .. }
-            | Instr::RrPtr { .. }
-            | Instr::RrcPtr { .. }
-            | Instr::SlaPtr { .. }
-            | Instr::SraPtr { .. }
-            | Instr::SrlPtr { .. }
-            | Instr::SwapPtr { .. }
-            | Instr::Ccf { .. }
-            | Instr::Scf { .. }
-            | Instr::Add16 { .. }
-            | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. } => None,
-        }
+    pub fn target_r8(&self) -> impl Iterator<Item = R8Id> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let r8 = match self {
+                Instr::Split { high, low, .. } => match next {
+                    0 => Some(*low),
+                    1 => Some(*high),
+                    _ => None,
+                },
+                Instr::Ld8 { target, .. }
+                | Instr::Ld8Inc { target, .. }
+                | Instr::Ld8Dec { target, .. }
+                | Instr::Adc { target, .. }
+                | Instr::Add { target, .. }
+                | Instr::Dec { target, .. }
+                | Instr::Inc { target, .. }
+                | Instr::Sbc { target, .. }
+                | Instr::Sub { target, .. }
+                | Instr::And { target, .. }
+                | Instr::Cpl { target, .. }
+                | Instr::Or { target, .. }
+                | Instr::Xor { target, .. }
+                | Instr::Res { target, .. }
+                | Instr::Set { target, .. }
+                | Instr::Rl { target, .. }
+                | Instr::Rlc { target, .. }
+                | Instr::Rr { target, .. }
+                | Instr::Rrc { target, .. }
+                | Instr::Sla { target, .. }
+                | Instr::Sra { target, .. }
+                | Instr::Srl { target, .. }
+                | Instr::Swap { target, .. } => match next {
+                    0 => Some(*target),
+                    _ => None,
+                },
+                Instr::Nop
+                | Instr::Ld16 { .. }
+                | Instr::Store { .. }
+                | Instr::StoreValue { .. }
+                | Instr::StoreInc { .. }
+                | Instr::StoreDec { .. }
+                | Instr::Cp { .. }
+                | Instr::DecPtr { .. }
+                | Instr::IncPtr { .. }
+                | Instr::Bit { .. }
+                | Instr::BitPtr { .. }
+                | Instr::ResPtr { .. }
+                | Instr::SetPtr { .. }
+                | Instr::RlPtr { .. }
+                | Instr::RlcPtr { .. }
+                | Instr::RrPtr { .. }
+                | Instr::RrcPtr { .. }
+                | Instr::SlaPtr { .. }
+                | Instr::SraPtr { .. }
+                | Instr::SrlPtr { .. }
+                | Instr::SwapPtr { .. }
+                | Instr::Ccf { .. }
+                | Instr::Scf { .. }
+                | Instr::Add16 { .. }
+                | Instr::Dec16 { .. }
+                | Instr::Inc16 { .. }
+                | Instr::Join { .. } => None,
+            }?;
+            next += 1;
+            Some(r8)
+        })
     }
 
     #[must_use]
@@ -511,7 +536,8 @@ impl Instr {
         match self {
             Instr::Add16 { target, .. }
             | Instr::Dec16 { target, .. }
-            | Instr::Inc16 { target, .. } => Some(*target),
+            | Instr::Inc16 { target, .. }
+            | Instr::Join { target, .. } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Inc { .. }
@@ -557,7 +583,8 @@ impl Instr {
             | Instr::SrlPtr { .. }
             | Instr::SwapPtr { .. }
             | Instr::Ccf { .. }
-            | Instr::Scf { .. } => None,
+            | Instr::Scf { .. }
+            | Instr::Split { .. } => None,
         }
     }
 
@@ -612,7 +639,9 @@ impl Instr {
             | Instr::Scf { .. }
             | Instr::Add16 { .. }
             | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. } => None,
+            | Instr::Inc16 { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. } => None,
         }
     }
 
@@ -667,7 +696,9 @@ impl Instr {
             | Instr::Set { .. }
             | Instr::SetPtr { .. }
             | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. } => None,
+            | Instr::Inc16 { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. } => None,
         }
     }
 }
@@ -891,7 +922,7 @@ impl CodeSectionBuilder {
 
     fn insert_instr(&mut self, block: BlockId, instr: Instr) {
         let index = self.data.blocks[block].instructions.len();
-        if let Some(target) = instr.target_r8() {
+        for target in instr.target_r8() {
             assert!(!self.data.r8_registers[target].defined.contains_key(block));
             self.data.r8_registers[target].defined.insert(block, index);
         }
