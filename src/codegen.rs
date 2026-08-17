@@ -1,8 +1,9 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
     BlockId, CARRY_FLAG_BIT, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder, DataSectionData,
-    FlagId, Ld8Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind, RamSectionData,
-    RomRegionKind, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK, ZeroFlagId,
+    FlagId, FunctionId, Ld8Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind,
+    RamSectionData, RomRegionKind, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK,
+    ZeroFlagId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -30,17 +31,17 @@ impl CodeGen {
         }
         let code_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
-        let mut function_to_block = SecondaryMap::new();
+        let mut mir_function_to_function = SecondaryMap::new();
         for (function_id, function) in &mir.functions {
             let block = code_section.new_function(function.name.clone());
-            function_to_block.insert(function_id, block);
+            mir_function_to_function.insert(function_id, block);
         }
         for (function_id, function) in &mir.functions {
             self.generate_from_function(
+                function_id,
                 function,
-                function_to_block[function_id],
                 &global_to_section,
-                &function_to_block,
+                &mir_function_to_function,
                 &mut code_section,
             );
         }
@@ -75,14 +76,17 @@ impl CodeGen {
 
     fn generate_from_function(
         &mut self,
+        mir_function_id: mir::FunctionId,
         function: &mir::Function,
-        start_block: BlockId,
         _global_to_section: &SecondaryMap<mir::GlobalId, SectionId>,
-        function_to_block: &SecondaryMap<mir::FunctionId, BlockId>,
+        mir_function_to_function: &SecondaryMap<mir::FunctionId, FunctionId>,
         lir: &mut CodeSectionBuilder,
     ) {
         let mut mir_block_to_block = SecondaryMap::new();
         let mut locals = Locals::default();
+        let start_block = lir
+            .function(mir_function_to_function[mir_function_id])
+            .start_block;
         mir_block_to_block.insert(function.start_block, start_block);
         for mir_block in function.traverse_blocks() {
             mir_block_to_block.insert(
@@ -108,13 +112,13 @@ impl CodeGen {
                     callee: mir::Callee::FnPtr(callee),
                     return_block: mir_return_block,
                 } => {
-                    let callee_block = function_to_block[*callee];
+                    let callee_function = mir_function_to_function[*callee];
                     let return_block = mir_block_to_block[*mir_return_block];
                     lir.set_terminator(
                         block,
                         Terminator::Call {
                             callee_section: None,
-                            callee_block,
+                            callee_function,
                             return_block,
                         },
                     );
@@ -128,7 +132,7 @@ impl CodeGen {
                     else_block: mir_else_block,
                 } => {
                     let (source, condition) = self.r1_to_flag(*mir_source, block, lir, &locals);
-                    let callee_block = function_to_block[*callee];
+                    let callee_function = mir_function_to_function[*callee];
                     let return_block = mir_block_to_block[*mir_return_block];
                     let else_block = mir_block_to_block[*mir_else_block];
                     lir.set_terminator(
@@ -137,7 +141,7 @@ impl CodeGen {
                             source,
                             negate: *mir_condition != condition,
                             callee_section: None,
-                            callee_block,
+                            callee_function,
                             return_block,
                             else_block,
                         },

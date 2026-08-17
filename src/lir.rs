@@ -11,14 +11,13 @@
 
 use crate::ast::Identifier;
 use crate::num::u3;
-use indexmap::IndexMap;
-use indexmap::map::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
 use std::cmp::Ordering;
 use std::num::NonZeroU16;
 
 new_key_type! { pub struct SectionId; }
+new_key_type! { pub struct FunctionId; }
 new_key_type! { pub struct BlockId; }
 new_key_type! { pub struct ZeroFlagId; }
 new_key_type! { pub struct CarryFlagId; }
@@ -111,8 +110,8 @@ pub enum SectionData {
 pub struct CodeSectionData {
     pub region: Option<RomRegionKind>,
     pub address: Option<u16>,
+    pub functions: SlotMap<FunctionId, Function>,
     pub blocks: SlotMap<BlockId, Block>,
-    pub functions: Box<IndexMap<Identifier, BlockId>>,
     pub zero_flags: SlotMap<ZeroFlagId, Register>,
     pub carry_flags: SlotMap<CarryFlagId, Register>,
     pub r8_registers: SlotMap<R8Id, Register>,
@@ -147,6 +146,13 @@ pub enum RamRegionKind {
     WRamX(Option<NonZeroU16>),
     SRam,
     Oam,
+}
+
+/// LIR function
+#[derive(Debug)]
+pub struct Function {
+    pub name: Identifier,
+    pub start_block: BlockId,
 }
 
 /// LIR Basic block
@@ -744,7 +750,7 @@ pub enum Terminator {
     /// `CALL n16`
     Call {
         callee_section: Option<SectionId>,
-        callee_block: BlockId,
+        callee_function: FunctionId,
         return_block: BlockId,
     },
     /// `CALL cc,n16`
@@ -752,7 +758,7 @@ pub enum Terminator {
         source: FlagId,
         negate: bool,
         callee_section: Option<SectionId>,
-        callee_block: BlockId,
+        callee_function: FunctionId,
         return_block: BlockId,
         else_block: BlockId,
     },
@@ -869,21 +875,18 @@ impl CodeSectionBuilder {
 
 impl CodeSectionBuilder {
     #[must_use]
-    pub fn new_function(&mut self, name: Identifier) -> BlockId {
-        let block = self.data.blocks.insert(Block {
+    pub fn new_function(&mut self, name: Identifier) -> FunctionId {
+        let start_block = self.data.blocks.insert(Block {
             instructions: Vec::new(),
             terminator: Terminator::Ret,
             previous: Vec::new(),
         });
-        match self.data.functions.entry(name) {
-            Entry::Occupied(entry) => {
-                panic!("{} already defined", entry.key());
-            }
-            Entry::Vacant(entry) => {
-                entry.insert(block);
-            }
-        }
-        block
+        self.data.functions.insert(Function { name, start_block })
+    }
+
+    #[must_use]
+    pub fn function(&self, function_id: FunctionId) -> &Function {
+        &self.data.functions[function_id]
     }
 
     #[must_use]
