@@ -17,6 +17,7 @@ use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
+use std::ops::Not;
 
 new_key_type! {
     /// Identifies a [`Global`] within a [`Mir`]'s global table.
@@ -1010,6 +1011,17 @@ impl fmt::Display for Condition {
             Condition::Zero => "== 0",
             Condition::NotZero => "!= 0",
         })
+    }
+}
+
+impl Not for Condition {
+    type Output = Condition;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Condition::Zero => Condition::NotZero,
+            Condition::NotZero => Condition::Zero,
+        }
     }
 }
 

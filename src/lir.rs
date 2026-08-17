@@ -1656,4 +1656,26 @@ impl CodeSectionBuilder {
         self.insert_instr(block, Instr::Inc16 { target, source });
         target
     }
+
+    #[must_use]
+    pub fn insert_split(&mut self, block: BlockId, source: R16Id) -> (R8Id, R8Id) {
+        let low = self.new_r8();
+        let high = self.new_r8();
+        self.insert_instr(block, Instr::Split { high, low, source });
+        (high, low)
+    }
+
+    #[must_use]
+    pub fn insert_join(&mut self, block: BlockId, high_in: R8Id, low_in: R8Id) -> R16Id {
+        let target = self.new_r16();
+        self.insert_instr(
+            block,
+            Instr::Join {
+                target,
+                high_in,
+                low_in,
+            },
+        );
+        target
+    }
 }

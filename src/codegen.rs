@@ -204,7 +204,9 @@ impl CodeGen {
             .target_local()
             .map(|target| function.locals[target].ty)
         {
-            Some(Ty::U1) => todo!("{instruction:?} {:?}", Ty::U1),
+            Some(Ty::U1) => {
+                self.generate_from_u1_instr(function, instruction, block, lir, locals);
+            }
             Some(Ty::U2) => todo!("{instruction:?} {:?}", Ty::U2),
             Some(Ty::U4) => todo!("{instruction:?} {:?}", Ty::U4),
             Some(Ty::U8 | Ty::I8) => {
@@ -217,6 +219,182 @@ impl CodeGen {
             Some(ty) if ty.is_array() => todo!("{instruction:?} {:?}", ty),
             Some(ty) => unimplemented!("{instruction:?} {:?}", ty),
             None => todo!("{instruction:?}"),
+        }
+    }
+
+    fn generate_from_u1_instr(
+        &mut self,
+        function: &mir::Function,
+        instruction: &mir::Instr,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        locals: &mut Locals,
+    ) {
+        match instruction {
+            mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
+            mir::Instr::Alloc { target } => {
+                let c = lir.insert_scf(block);
+                locals
+                    .flags
+                    .insert(*target, (FlagId::from(c), mir::Condition::Zero));
+            }
+            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
+            mir::Instr::Phi { .. } => todo!("{instruction:?}"),
+            mir::Instr::Load { .. } => todo!("{instruction:?}"),
+            mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
+            mir::Instr::Copy { target, source } => {
+                let (flag, condition) = match source {
+                    mir::Operand::Local(source) => locals.flags[*source],
+                    mir::Operand::Literal(source) => {
+                        let c = lir.insert_scf(block);
+                        (
+                            FlagId::from(c),
+                            if source.value == 0 {
+                                mir::Condition::Zero
+                            } else {
+                                mir::Condition::NotZero
+                            },
+                        )
+                    }
+                    mir::Operand::FnPtr(_) => {
+                        unimplemented!("cannot perform 1-bit instruction using fn ptr")
+                    }
+                };
+                locals.flags.insert(*target, (flag, condition));
+            }
+            mir::Instr::Read { .. } => todo!("{instruction:?}"),
+            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Not { target, source } => {
+                let (flag, condition) = locals.flags[*source];
+                locals.flags.insert(*target, (flag, !condition));
+            }
+            mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
+            mir::Instr::RotateLeft { target, source }
+            | mir::Instr::RotateRight { target, source } => {
+                let (flag, condition) = locals.flags[*source];
+                locals.flags.insert(*target, (flag, condition));
+            }
+            mir::Instr::ShiftLeft { target, source: _ }
+            | mir::Instr::ShiftRight { target, source: _ } => {
+                let c = lir.insert_scf(block);
+                locals
+                    .flags
+                    .insert(*target, (FlagId::from(c), mir::Condition::Zero));
+            }
+            mir::Instr::Eq {
+                target,
+                left,
+                right,
+            } => match function.locals[*left].ty {
+                Ty::U1 => todo!("{instruction:?}"),
+                Ty::U2 => todo!("{instruction:?}"),
+                Ty::U4 => todo!("{instruction:?}"),
+                ty if ty.bit_size(&self.ty_registry) == 8 => {
+                    let (z, _c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(z), mir::Condition::Zero));
+                }
+                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
+                ty => unimplemented!("{instruction:?} {ty:?}"),
+            },
+            mir::Instr::Ne {
+                target,
+                left,
+                right,
+            } => match function.locals[*left].ty {
+                Ty::U1 => todo!("{instruction:?}"),
+                Ty::U2 => todo!("{instruction:?}"),
+                Ty::U4 => todo!("{instruction:?}"),
+                ty if ty.bit_size(&self.ty_registry) == 8 => {
+                    let (z, _c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(z), mir::Condition::NotZero));
+                }
+                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
+                ty => unimplemented!("{instruction:?} {ty:?}"),
+            },
+            mir::Instr::Lt {
+                target,
+                left,
+                right,
+            } => match function.locals[*left].ty {
+                Ty::U1 => todo!("{instruction:?}"),
+                Ty::U2 => todo!("{instruction:?}"),
+                Ty::U4 => todo!("{instruction:?}"),
+                ty if ty.bit_size(&self.ty_registry) == 8 => {
+                    let (_z, c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(c), mir::Condition::NotZero));
+                }
+                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
+                ty => unimplemented!("{instruction:?} {ty:?}"),
+            },
+            mir::Instr::Le { .. } => unimplemented!(
+                "{instruction:?} as it should be rewritten within the optimization phase"
+            ),
+            mir::Instr::Ge {
+                target,
+                left,
+                right,
+            } => match function.locals[*left].ty {
+                Ty::U1 => todo!("{instruction:?}"),
+                Ty::U2 => todo!("{instruction:?}"),
+                Ty::U4 => todo!("{instruction:?}"),
+                ty if ty.bit_size(&self.ty_registry) == 8 => {
+                    let (_z, c) =
+                        lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
+                    locals
+                        .flags
+                        .insert(*target, (FlagId::from(c), mir::Condition::Zero));
+                }
+                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
+                ty => unimplemented!("{instruction:?} {ty:?}"),
+            },
+            mir::Instr::Gt { .. } => unimplemented!(
+                "{instruction:?} as it should be rewritten within the optimization phase"
+            ),
+            mir::Instr::BitAnd { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitOr { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitXor {
+                target,
+                left,
+                right,
+            }
+            | mir::Instr::Add {
+                target,
+                left,
+                right,
+            }
+            | mir::Instr::Sub {
+                target,
+                left,
+                right,
+            } => match right {
+                mir::Operand::Local(_) => todo!("{instruction:?}"),
+                mir::Operand::Literal(right) => {
+                    let (left, left_condition) = locals.flags[*left];
+                    locals.flags.insert(
+                        *target,
+                        (
+                            left,
+                            if right.value == 0 {
+                                left_condition
+                            } else {
+                                !left_condition
+                            },
+                        ),
+                    );
+                }
+                mir::Operand::FnPtr(_) => {
+                    unimplemented!("cannot perform 1-bit instruction using fn ptr")
+                }
+            },
         }
     }
 
@@ -274,56 +452,14 @@ impl CodeGen {
                 };
                 locals.r8s.insert(*target, r8);
             }
-            mir::Instr::Eq {
-                target,
-                left,
-                right,
-            } => {
-                let (z, _c) =
-                    lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
-                locals
-                    .flags
-                    .insert(*target, (FlagId::from(z), mir::Condition::Zero));
+            mir::Instr::Eq { .. }
+            | mir::Instr::Ne { .. }
+            | mir::Instr::Lt { .. }
+            | mir::Instr::Le { .. }
+            | mir::Instr::Ge { .. }
+            | mir::Instr::Gt { .. } => {
+                unimplemented!("{instruction:?} comparisons always produce U1")
             }
-            mir::Instr::Ne {
-                target,
-                left,
-                right,
-            } => {
-                let (z, _c) =
-                    lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
-                locals
-                    .flags
-                    .insert(*target, (FlagId::from(z), mir::Condition::NotZero));
-            }
-            mir::Instr::Lt {
-                target,
-                left,
-                right,
-            } => {
-                let (_z, c) =
-                    lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
-                locals
-                    .flags
-                    .insert(*target, (FlagId::from(c), mir::Condition::NotZero));
-            }
-            mir::Instr::Le { .. } => unimplemented!(
-                "{instruction:?} as it should be rewritten within the optimization phase"
-            ),
-            mir::Instr::Ge {
-                target,
-                left,
-                right,
-            } => {
-                let (_z, c) =
-                    lir.insert_cp(block, locals.r8s[*left], self.to_operand8(right, locals));
-                locals
-                    .flags
-                    .insert(*target, (FlagId::from(c), mir::Condition::Zero));
-            }
-            mir::Instr::Gt { .. } => unimplemented!(
-                "{instruction:?} as it should be rewritten within the optimization phase"
-            ),
             mir::Instr::BitAnd {
                 target,
                 left,
@@ -390,7 +526,15 @@ impl CodeGen {
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
             mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
-            mir::Instr::Copy { .. } => todo!("{instruction:?}"),
+            mir::Instr::Copy { target, source } => {
+                let (source_high, source_low) = self.to_operand16(source, block, lir, locals);
+                let target_high =
+                    lir.insert_ld8(block, Ld8Source::Operand(Operand8::Direct(source_high)));
+                let target_low =
+                    lir.insert_ld8(block, Ld8Source::Operand(Operand8::Direct(source_low)));
+                let r16 = lir.insert_join(block, target_high, target_low);
+                locals.r16s.insert(*target, r16);
+            }
             mir::Instr::Read { .. } => todo!("{instruction:?}"),
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { .. } => todo!("{instruction:?}"),
@@ -419,8 +563,29 @@ impl CodeGen {
             #[allow(clippy::cast_possible_truncation)]
             mir::Operand::Literal(right) => Operand8::Literal(right.value as u8),
             mir::Operand::FnPtr(_) => {
-                unimplemented!("cannot perform bit8 instructing using fn ptr")
+                unimplemented!("cannot perform 8-bit instruction using fn ptr")
             }
+        }
+    }
+
+    fn to_operand16(
+        &self,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        locals: &Locals,
+    ) -> (R8Id, R8Id) {
+        match right {
+            mir::Operand::Local(right) => {
+                let right = locals.r16s[*right];
+                lir.insert_split(block, right)
+            }
+            mir::Operand::Literal(right) => {
+                #[allow(clippy::cast_possible_truncation)]
+                let right = lir.insert_ld16(block, right.value as u16);
+                lir.insert_split(block, right)
+            }
+            mir::Operand::FnPtr(_) => todo!("{right:?}"),
         }
     }
 }
