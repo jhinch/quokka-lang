@@ -24,6 +24,11 @@ new_key_type! { pub struct CarryFlagId; }
 new_key_type! { pub struct R8Id; }
 new_key_type! { pub struct R16Id; }
 
+pub const ZERO_FLAG_BIT: u8 = 7;
+pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
+pub const CARRY_FLAG_BIT: u8 = 4;
+pub const CARRY_FLAG_MASK: u8 = 1 << CARRY_FLAG_BIT;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
 pub enum FlagId {
     Zero(ZeroFlagId),
@@ -448,18 +453,40 @@ pub enum Instr {
     Dec16 { target: R16Id, source: R16Id },
     /// `INC r16`
     Inc16 { target: R16Id, source: R16Id },
-    /// Join 2x 8-bit registers into 1x 16-bit register
+    /// Virtual instruction to join 2x 8-bit registers into 1x 16-bit register.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
     Join {
         target: R16Id,
         high_in: R8Id,
         low_in: R8Id,
     },
-    /// Split 1 x 16-bit register into 2x 8-bit registers
+    /// Virtual instruction to split 1 x 16-bit register into 2x 8-bit registers.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
     Split {
         high: R8Id,
         low: R8Id,
         source: R16Id,
     },
+    /// Virtual instruction to convert a zero flag into an 8-bit register.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
+    ///
+    /// Zero flag is guaranteed set in bit [`ZERO_FLAG_BIT`].
+    /// All other bits have undefined behavior.
+    LdZero { target: R8Id, z_in: ZeroFlagId },
+    /// Virtual instruction to convert a carry flag into an 8-bit register.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
+    ///
+    /// Carry flag is guaranteed set in bit [`CARRY_FLAG_BIT`].
+    /// All other bits have undefined behavior.
+    LdCarry { target: R8Id, c_in: CarryFlagId },
 }
 
 impl Instr {
@@ -494,7 +521,9 @@ impl Instr {
                 | Instr::Sla { target, .. }
                 | Instr::Sra { target, .. }
                 | Instr::Srl { target, .. }
-                | Instr::Swap { target, .. } => match next {
+                | Instr::Swap { target, .. }
+                | Instr::LdZero { target, .. }
+                | Instr::LdCarry { target, .. } => match next {
                     0 => Some(*target),
                     _ => None,
                 },
@@ -584,7 +613,9 @@ impl Instr {
             | Instr::SwapPtr { .. }
             | Instr::Ccf { .. }
             | Instr::Scf { .. }
-            | Instr::Split { .. } => None,
+            | Instr::Split { .. }
+            | Instr::LdZero { .. }
+            | Instr::LdCarry { .. } => None,
         }
     }
 
@@ -641,7 +672,9 @@ impl Instr {
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::Join { .. }
-            | Instr::Split { .. } => None,
+            | Instr::Split { .. }
+            | Instr::LdZero { .. }
+            | Instr::LdCarry { .. } => None,
         }
     }
 
@@ -698,7 +731,9 @@ impl Instr {
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::Join { .. }
-            | Instr::Split { .. } => None,
+            | Instr::Split { .. }
+            | Instr::LdZero { .. }
+            | Instr::LdCarry { .. } => None,
         }
     }
 }
@@ -1676,6 +1711,20 @@ impl CodeSectionBuilder {
                 low_in,
             },
         );
+        target
+    }
+
+    #[must_use]
+    pub fn insert_ld_zero(&mut self, block: BlockId, z_in: ZeroFlagId) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(block, Instr::LdZero { target, z_in });
+        target
+    }
+
+    #[must_use]
+    pub fn insert_ld_carry(&mut self, block: BlockId, c_in: CarryFlagId) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(block, Instr::LdCarry { target, c_in });
         target
     }
 }
