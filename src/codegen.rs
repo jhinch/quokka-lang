@@ -1,8 +1,8 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
-    BlockId, CARRY_FLAG_BIT, CarryFlagId, CodeSectionBuilder, DataSectionData, FlagId, Ld8Source,
-    Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind, RamSectionData, RomRegionKind,
-    SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK, ZeroFlagId,
+    BlockId, CARRY_FLAG_BIT, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder, DataSectionData,
+    FlagId, Ld8Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind, RamSectionData,
+    RomRegionKind, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK, ZeroFlagId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -252,11 +252,12 @@ impl CodeGen {
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
             mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
-                let (source, bit, condition) = self.r1_to_operand(source, block, lir, locals);
+                let (source, bit, state, condition) =
+                    self.r1_to_operand(source, block, lir, locals);
                 let r8 = lir.insert_ld8(block, Ld8Source::Operand(source));
                 locals
                     .r1s
-                    .insert(*target, (R1::Dirty { r8, bit }, condition));
+                    .insert(*target, (R1::from((r8, bit, state)), condition));
             }
             mir::Instr::Read { .. } => todo!("{instruction:?}"),
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
@@ -267,10 +268,10 @@ impl CodeGen {
             mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
             mir::Instr::RotateLeft { target, source }
             | mir::Instr::RotateRight { target, source } => {
-                let (r8, bit, condition) = self.r1_to_r8(source, block, lir, locals);
+                let (r8, bit, state, condition) = self.r1_to_r8(*source, block, lir, locals);
                 locals
                     .r1s
-                    .insert(*target, (R1::Dirty { r8, bit }, condition));
+                    .insert(*target, (R1::from((r8, bit, state)), condition));
             }
             mir::Instr::ShiftLeft { target, source: _ }
             | mir::Instr::ShiftRight { target, source: _ } => {
@@ -291,57 +292,35 @@ impl CodeGen {
                 target,
                 left,
                 right,
-            } => match function.locals[*left].ty {
-                Ty::U1 => todo!("{instruction:?}"),
-                Ty::U2 => todo!("{instruction:?}"),
-                Ty::U4 => todo!("{instruction:?}"),
-                ty if ty.bit_size(&self.ty_registry) == 8 => {
-                    let (z, _c) =
-                        lir.insert_cp(block, locals.r8s[*left], self.r8_to_operand(right, locals));
-                    locals
-                        .r1s
-                        .insert(*target, (R1::Flag(FlagId::from(z)), mir::Condition::Zero));
-                }
-                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
-                ty => unimplemented!("{instruction:?} {ty:?}"),
-            },
+            } => {
+                let (z, _c) =
+                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
+                locals
+                    .r1s
+                    .insert(*target, (R1::from(z), mir::Condition::Zero));
+            }
             mir::Instr::Ne {
                 target,
                 left,
                 right,
-            } => match function.locals[*left].ty {
-                Ty::U1 => todo!("{instruction:?}"),
-                Ty::U2 => todo!("{instruction:?}"),
-                Ty::U4 => todo!("{instruction:?}"),
-                ty if ty.bit_size(&self.ty_registry) == 8 => {
-                    let (z, _c) =
-                        lir.insert_cp(block, locals.r8s[*left], self.r8_to_operand(right, locals));
-                    locals.r1s.insert(
-                        *target,
-                        (R1::Flag(FlagId::from(z)), mir::Condition::NotZero),
-                    );
-                }
-                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
-                ty => unimplemented!("{instruction:?} {ty:?}"),
-            },
+            } => {
+                let (z, _c) =
+                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
+                locals
+                    .r1s
+                    .insert(*target, (R1::from(z), mir::Condition::NotZero));
+            }
             mir::Instr::Lt {
                 target,
                 left,
                 right,
-            } => match function.locals[*left].ty {
-                Ty::U1 => todo!("{instruction:?}"),
-                Ty::U2 => todo!("{instruction:?}"),
-                Ty::U4 => todo!("{instruction:?}"),
-                ty if ty.bit_size(&self.ty_registry) == 8 => {
-                    let (_z, c) =
-                        lir.insert_cp(block, locals.r8s[*left], self.r8_to_operand(right, locals));
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(c), mir::Condition::NotZero));
-                }
-                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
-                ty => unimplemented!("{instruction:?} {ty:?}"),
-            },
+            } => {
+                let (_z, c) =
+                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
+                locals
+                    .r1s
+                    .insert(*target, (R1::from(c), mir::Condition::NotZero));
+            }
             mir::Instr::Le { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
             ),
@@ -349,68 +328,99 @@ impl CodeGen {
                 target,
                 left,
                 right,
-            } => match function.locals[*left].ty {
-                Ty::U1 => todo!("{instruction:?}"),
-                Ty::U2 => todo!("{instruction:?}"),
-                Ty::U4 => todo!("{instruction:?}"),
-                ty if ty.bit_size(&self.ty_registry) == 8 => {
-                    let (_z, c) =
-                        lir.insert_cp(block, locals.r8s[*left], self.r8_to_operand(right, locals));
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(c), mir::Condition::Zero));
-                }
-                ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{instruction:?}"),
-                ty => unimplemented!("{instruction:?} {ty:?}"),
-            },
+            } => {
+                let (_z, c) =
+                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
+                locals
+                    .r1s
+                    .insert(*target, (R1::from(c), mir::Condition::Zero));
+            }
             mir::Instr::Gt { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
             ),
             mir::Instr::BitAnd {
-                target: _,
+                target,
                 left,
                 right,
             } => {
-                let (_left, left_mask, left_condition) = self.r1_to_r8(left, block, lir, locals);
-                let (_right, right_mask, right_condition) =
-                    self.r1_to_operand(right, block, lir, locals);
-                todo!(
-                    "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                );
+                let (left, left_mask, left_condition) =
+                    self.r1_to_r8_clean(*left, block, lir, locals);
+                let (right, right_mask, right_condition) =
+                    self.r1_to_operand_clean(right, block, lir, locals);
+                if left_condition == right_condition {
+                    if left_condition == mir::Condition::NotZero {
+                        let (_r8, z, _c) = lir.insert_and(block, left, right);
+                        locals
+                            .r1s
+                            .insert(*target, (R1::from(z), mir::Condition::NotZero));
+                    } else {
+                        let (_r8, z, _c) = lir.insert_or(block, left, right);
+                        locals
+                            .r1s
+                            .insert(*target, (R1::from(z), mir::Condition::Zero));
+                    }
+                } else {
+                    todo!(
+                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
+                    );
+                }
             }
             mir::Instr::BitOr {
-                target: _,
+                target,
                 left,
                 right,
             } => {
-                let (_left, left_mask, left_condition) = self.r1_to_r8(left, block, lir, locals);
-                let (_right, right_mask, right_condition) =
-                    self.r1_to_operand(right, block, lir, locals);
-                todo!(
-                    "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                );
+                let (left, left_mask, left_condition) =
+                    self.r1_to_r8_clean(*left, block, lir, locals);
+                let (right, right_mask, right_condition) =
+                    self.r1_to_operand_clean(right, block, lir, locals);
+                if left_condition == right_condition {
+                    if left_condition == mir::Condition::NotZero {
+                        let (_r8, z, _c) = lir.insert_or(block, left, right);
+                        locals
+                            .r1s
+                            .insert(*target, (R1::from(z), mir::Condition::NotZero));
+                    } else {
+                        let (_r8, z, _c) = lir.insert_and(block, left, right);
+                        locals
+                            .r1s
+                            .insert(*target, (R1::from(z), mir::Condition::Zero));
+                    }
+                } else {
+                    todo!(
+                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
+                    );
+                }
             }
             mir::Instr::BitXor {
-                target: _,
+                target,
                 left,
                 right,
             }
             | mir::Instr::Add {
-                target: _,
+                target,
                 left,
                 right,
             }
             | mir::Instr::Sub {
-                target: _,
+                target,
                 left,
                 right,
             } => {
-                let (_left, left_mask, left_condition) = self.r1_to_r8(left, block, lir, locals);
-                let (_right, right_mask, right_condition) =
-                    self.r1_to_operand(right, block, lir, locals);
-                todo!(
-                    "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                );
+                let (left, left_mask, left_condition) =
+                    self.r1_to_r8_clean(*left, block, lir, locals);
+                let (right, right_mask, right_condition) =
+                    self.r1_to_operand_clean(right, block, lir, locals);
+                if left_condition == right_condition {
+                    let (_r8, z, _c) = lir.insert_xor(block, left, right);
+                    locals
+                        .r1s
+                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
+                } else {
+                    todo!(
+                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
+                    );
+                }
             }
         }
     }
@@ -627,22 +637,52 @@ impl CodeGen {
 
     fn r1_to_r8(
         &self,
-        right: &mir::LocalId,
+        right: mir::LocalId,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        locals: &Locals,
+    ) -> (R8Id, u3, R1State, mir::Condition) {
+        let (right, condition) = locals.r1s[right];
+        match right {
+            R1::Flag(FlagId::Zero(z_in)) => {
+                let right = lir.insert_ld_zero(block, z_in);
+                (right, u3::new(ZERO_FLAG_BIT), R1State::Dirty, condition)
+            }
+            R1::Flag(FlagId::Carry(c_in)) => {
+                let right = lir.insert_ld_carry(block, c_in);
+                (right, u3::new(CARRY_FLAG_BIT), R1State::Dirty, condition)
+            }
+            R1::Dirty { r8: right, bit } => (right, bit, R1State::Dirty, condition),
+            R1::Clean { r8: right, bit } => (right, bit, R1State::Clean, condition),
+        }
+    }
+
+    fn r1_to_r8_clean(
+        &self,
+        right: mir::LocalId,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         locals: &Locals,
     ) -> (R8Id, u3, mir::Condition) {
-        let (right, condition) = locals.r1s[*right];
+        let (right, condition) = locals.r1s[right];
         match right {
             R1::Flag(FlagId::Zero(z_in)) => {
                 let right = lir.insert_ld_zero(block, z_in);
+                let (right, _z, _c) =
+                    lir.insert_and(block, right, Operand8::Literal(ZERO_FLAG_MASK));
                 (right, u3::new(ZERO_FLAG_BIT), condition)
             }
             R1::Flag(FlagId::Carry(c_in)) => {
                 let right = lir.insert_ld_carry(block, c_in);
+                let (right, _z, _c) =
+                    lir.insert_and(block, right, Operand8::Literal(CARRY_FLAG_MASK));
                 (right, u3::new(CARRY_FLAG_BIT), condition)
             }
-            R1::Dirty { r8: right, bit } => (right, bit, condition),
+            R1::Dirty { r8: right, bit } => {
+                let (right, _z, _c) =
+                    lir.insert_and(block, right, Operand8::Literal(1 << u8::from(bit)));
+                (right, bit, condition)
+            }
             R1::Clean { r8: right, bit } => (right, bit, condition),
         }
     }
@@ -653,10 +693,34 @@ impl CodeGen {
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         locals: &Locals,
+    ) -> (Operand8, u3, R1State, mir::Condition) {
+        match right {
+            mir::Operand::Local(right) => {
+                let (right, bit, state, condition) = self.r1_to_r8(*right, block, lir, locals);
+                (Operand8::Direct(right), bit, state, condition)
+            }
+            mir::Operand::Literal(right) => (
+                Operand8::Literal(if right.value != 0 { ZERO_FLAG_MASK } else { 0 }),
+                u3::new(ZERO_FLAG_BIT),
+                R1State::Clean,
+                mir::Condition::NotZero,
+            ),
+            mir::Operand::FnPtr(_) => {
+                unimplemented!("cannot perform 1-bit instruction using fn ptr")
+            }
+        }
+    }
+
+    fn r1_to_operand_clean(
+        &self,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        locals: &Locals,
     ) -> (Operand8, u3, mir::Condition) {
         match right {
             mir::Operand::Local(right) => {
-                let (right, bit, condition) = self.r1_to_r8(right, block, lir, locals);
+                let (right, bit, condition) = self.r1_to_r8_clean(*right, block, lir, locals);
                 (Operand8::Direct(right), bit, condition)
             }
             mir::Operand::Literal(right) => (
@@ -667,6 +731,57 @@ impl CodeGen {
             mir::Operand::FnPtr(_) => {
                 unimplemented!("cannot perform 1-bit instruction using fn ptr")
             }
+        }
+    }
+
+    fn cp_from_comparison_op(
+        &mut self,
+        function: &mir::Function,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        locals: &mut Locals,
+    ) -> (ZeroFlagId, CarryFlagId) {
+        match function.locals[left].ty {
+            Ty::U1 => {
+                let (mut left, left_bit, left_condition) =
+                    self.r1_to_r8_clean(left, block, lir, locals);
+                let (mut right, right_bit, right_condition) =
+                    self.r1_to_operand_clean(right, block, lir, locals);
+                if left_condition != right_condition {
+                    if left_condition == mir::Condition::Zero {
+                        let (r8, _z, _c) =
+                            lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
+                        left = r8;
+                    } else {
+                        right = match right {
+                            Operand8::Ptr(_) => {
+                                unreachable!("r1_to_operand should not produce Operand8::Ptr")
+                            }
+                            Operand8::Direct(right) => {
+                                let (right, _z, _c) = lir.insert_xor(
+                                    block,
+                                    right,
+                                    Operand8::Literal(1 << u8::from(right_bit)),
+                                );
+                                Operand8::Direct(right)
+                            }
+                            Operand8::Literal(value) => {
+                                Operand8::Literal(value ^ (1 << u8::from(right_bit)))
+                            }
+                        };
+                    }
+                }
+                lir.insert_cp(block, left, right)
+            }
+            Ty::U2 => todo!("{left:?} {right:?} u2"),
+            Ty::U4 => todo!("{left:?} {right:?} u4"),
+            ty if ty.bit_size(&self.ty_registry) == 8 => {
+                lir.insert_cp(block, locals.r8s[left], self.r8_to_operand(right, locals))
+            }
+            ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{left:?} {right:?} u16"),
+            ty => unimplemented!("{ty:?}"),
         }
     }
 }
@@ -693,6 +808,12 @@ enum R1 {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum R1State {
+    Dirty,
+    Clean,
+}
+
 impl From<FlagId> for R1 {
     fn from(value: FlagId) -> Self {
         R1::Flag(value)
@@ -708,5 +829,14 @@ impl From<ZeroFlagId> for R1 {
 impl From<CarryFlagId> for R1 {
     fn from(value: CarryFlagId) -> Self {
         R1::Flag(value.into())
+    }
+}
+
+impl From<(R8Id, u3, R1State)> for R1 {
+    fn from((r8, bit, state): (R8Id, u3, R1State)) -> Self {
+        match state {
+            R1State::Dirty => R1::Dirty { r8, bit },
+            R1State::Clean => R1::Clean { r8, bit },
+        }
     }
 }

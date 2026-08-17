@@ -54,6 +54,12 @@ impl<const BITS: u8> TryFrom<u32> for UInt<BITS> {
     }
 }
 
+impl<const BITS: u8> From<UInt<BITS>> for u8 {
+    fn from(value: UInt<BITS>) -> Self {
+        value.data
+    }
+}
+
 impl<const BITS: u8> fmt::Debug for UInt<BITS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.data, f)
