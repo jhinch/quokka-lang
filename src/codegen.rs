@@ -79,17 +79,15 @@ impl CodeGen {
         mir_function_id: mir::FunctionId,
         function: &mir::Function,
         _global_to_section: &SecondaryMap<mir::GlobalId, SectionId>,
-        mir_function_to_function: &SecondaryMap<mir::FunctionId, FunctionId>,
+        functions: &SecondaryMap<mir::FunctionId, FunctionId>,
         lir: &mut CodeSectionBuilder,
     ) {
-        let mut mir_block_to_block = SecondaryMap::new();
+        let mut blocks = SecondaryMap::new();
         let mut locals = Locals::default();
-        let start_block = lir
-            .function(mir_function_to_function[mir_function_id])
-            .start_block;
-        mir_block_to_block.insert(function.start_block, start_block);
+        let start_block = lir.function(functions[mir_function_id]).start_block;
+        blocks.insert(function.start_block, start_block);
         for mir_block in function.traverse_blocks() {
-            mir_block_to_block.insert(
+            blocks.insert(
                 mir_block,
                 if function.start_block == mir_block {
                     start_block
@@ -99,102 +97,31 @@ impl CodeGen {
             );
         }
         for mir_block in function.traverse_blocks() {
-            let block = mir_block_to_block[mir_block];
+            let block = blocks[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
-                self.generate_from_instr(function, instruction, block, lir, &mut locals);
+                self.generate_from_instr(
+                    function,
+                    instruction,
+                    block,
+                    lir,
+                    &Ids {
+                        functions,
+                        blocks: &blocks,
+                    },
+                    &mut locals,
+                );
             }
-            let terminator = &function.blocks[mir_block].terminator;
-            match terminator {
-                mir::Terminator::Return => {
-                    lir.set_terminator(block, Terminator::Ret);
-                }
-                mir::Terminator::Call {
-                    callee: mir::Callee::FnPtr(callee),
-                    return_block: mir_return_block,
-                } => {
-                    let callee_function = mir_function_to_function[*callee];
-                    let return_block = mir_block_to_block[*mir_return_block];
-                    lir.set_terminator(
-                        block,
-                        Terminator::Call {
-                            callee_section: None,
-                            callee_function,
-                            return_block,
-                        },
-                    );
-                }
-                mir::Terminator::Call { .. } => todo!("{terminator:?}"),
-                mir::Terminator::CallIf {
-                    source: mir_source,
-                    condition: mir_condition,
-                    callee: mir::Callee::FnPtr(callee),
-                    return_block: mir_return_block,
-                    else_block: mir_else_block,
-                } => {
-                    let (source, condition) = self.r1_to_flag(*mir_source, block, lir, &locals);
-                    let callee_function = mir_function_to_function[*callee];
-                    let return_block = mir_block_to_block[*mir_return_block];
-                    let else_block = mir_block_to_block[*mir_else_block];
-                    lir.set_terminator(
-                        block,
-                        Terminator::CallIf {
-                            source,
-                            negate: *mir_condition != condition,
-                            callee_section: None,
-                            callee_function,
-                            return_block,
-                            else_block,
-                        },
-                    );
-                }
-                mir::Terminator::CallIf { .. } => todo!("{terminator:?}"),
-                mir::Terminator::Jump {
-                    target_block: mir_target_block,
-                } => {
-                    let target_block = mir_block_to_block[*mir_target_block];
-                    lir.set_terminator(
-                        block,
-                        Terminator::Jp {
-                            block: target_block,
-                        },
-                    );
-                }
-                mir::Terminator::JumpIf {
-                    source: mir_source,
-                    condition: mir_condition,
-                    then_block: mir_then_block,
-                    else_block: mir_else_block,
-                } => {
-                    let (source, condition) = self.r1_to_flag(*mir_source, block, lir, &locals);
-                    let then_block = mir_block_to_block[*mir_then_block];
-                    let else_block = mir_block_to_block[*mir_else_block];
-                    lir.set_terminator(
-                        block,
-                        Terminator::JpIf {
-                            source,
-                            negate: *mir_condition != condition,
-                            then_block,
-                            else_block,
-                        },
-                    );
-                }
-                mir::Terminator::ReturnIf {
-                    source: mir_source,
-                    condition: mir_condition,
-                    else_block: mir_else_block,
-                } => {
-                    let (source, condition) = self.r1_to_flag(*mir_source, block, lir, &locals);
-                    let else_block = mir_block_to_block[*mir_else_block];
-                    lir.set_terminator(
-                        block,
-                        Terminator::RetIf {
-                            source,
-                            negate: *mir_condition != condition,
-                            else_block,
-                        },
-                    );
-                }
-            }
+            self.generate_from_terminator(
+                function,
+                &function.blocks[mir_block].terminator,
+                block,
+                lir,
+                &Ids {
+                    functions,
+                    blocks: &blocks,
+                },
+                &mut locals,
+            );
         }
     }
 
@@ -204,6 +131,7 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction
@@ -211,20 +139,122 @@ impl CodeGen {
             .map(|target| function.locals[target].ty)
         {
             Some(Ty::U1) => {
-                self.generate_from_u1_instr(function, instruction, block, lir, locals);
+                self.generate_from_u1_instr(function, instruction, block, lir, ids, locals);
             }
             Some(Ty::U2) => todo!("{instruction:?} {:?}", Ty::U2),
             Some(Ty::U4) => todo!("{instruction:?} {:?}", Ty::U4),
             Some(Ty::U8 | Ty::I8) => {
-                self.generate_from_scalar8_instr(function, instruction, block, lir, locals);
+                self.generate_from_scalar8_instr(function, instruction, block, lir, ids, locals);
             }
             Some(Ty::U16 | Ty::I16) => {
-                self.generate_from_scalar16_instr(function, instruction, block, lir, locals);
+                self.generate_from_scalar16_instr(function, instruction, block, lir, ids, locals);
             }
             Some(ty) if ty.is_struct() => todo!("{instruction:?} {:?}", ty),
             Some(ty) if ty.is_array() => todo!("{instruction:?} {:?}", ty),
             Some(ty) => unimplemented!("{instruction:?} {:?}", ty),
             None => todo!("{instruction:?}"),
+        }
+    }
+
+    fn generate_from_terminator(
+        &mut self,
+        _function: &mir::Function,
+        terminator: &mir::Terminator,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
+        locals: &mut Locals,
+    ) {
+        match terminator {
+            mir::Terminator::Return => {
+                lir.set_terminator(block, Terminator::Ret);
+            }
+            mir::Terminator::Call {
+                callee: mir::Callee::FnPtr(callee),
+                return_block: mir_return_block,
+            } => {
+                let callee_function = ids.functions[*callee];
+                let return_block = ids.blocks[*mir_return_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::Call {
+                        callee_section: None,
+                        callee_function,
+                        return_block,
+                    },
+                );
+            }
+            mir::Terminator::Call { .. } => todo!("{terminator:?}"),
+            mir::Terminator::CallIf {
+                source: mir_source,
+                condition: mir_condition,
+                callee: mir::Callee::FnPtr(callee),
+                return_block: mir_return_block,
+                else_block: mir_else_block,
+            } => {
+                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let callee_function = ids.functions[*callee];
+                let return_block = ids.blocks[*mir_return_block];
+                let else_block = ids.blocks[*mir_else_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::CallIf {
+                        source,
+                        negate: *mir_condition != condition,
+                        callee_section: None,
+                        callee_function,
+                        return_block,
+                        else_block,
+                    },
+                );
+            }
+            mir::Terminator::CallIf { .. } => todo!("{terminator:?}"),
+            mir::Terminator::Jump {
+                target_block: mir_target_block,
+            } => {
+                let target_block = ids.blocks[*mir_target_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::Jp {
+                        block: target_block,
+                    },
+                );
+            }
+            mir::Terminator::JumpIf {
+                source: mir_source,
+                condition: mir_condition,
+                then_block: mir_then_block,
+                else_block: mir_else_block,
+            } => {
+                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let then_block = ids.blocks[*mir_then_block];
+                let else_block = ids.blocks[*mir_else_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::JpIf {
+                        source,
+                        negate: *mir_condition != condition,
+                        then_block,
+                        else_block,
+                    },
+                );
+            }
+            mir::Terminator::ReturnIf {
+                source: mir_source,
+                condition: mir_condition,
+                else_block: mir_else_block,
+            } => {
+                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let else_block = ids.blocks[*mir_else_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::RetIf {
+                        source,
+                        negate: *mir_condition != condition,
+                        else_block,
+                    },
+                );
+            }
         }
     }
 
@@ -234,6 +264,7 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        _ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -435,6 +466,7 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        _ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -547,6 +579,7 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        _ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -788,6 +821,11 @@ impl CodeGen {
             ty => unimplemented!("{ty:?}"),
         }
     }
+}
+
+struct Ids<'a> {
+    functions: &'a SecondaryMap<mir::FunctionId, FunctionId>,
+    blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
 }
 
 #[derive(Default)]
