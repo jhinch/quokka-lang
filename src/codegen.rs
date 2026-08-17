@@ -6,6 +6,7 @@ use crate::lir::{
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
+use crate::num::u3;
 use crate::ty::{Ty, TyRegistry};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
@@ -606,7 +607,11 @@ impl CodeGen {
             R1::Flag(flag) => (flag, condition),
             R1::R8 { register, mask } => {
                 #[allow(clippy::cast_possible_truncation)]
-                let z = lir.insert_bit(block, mask.trailing_zeros() as u8, register);
+                let z = lir.insert_bit(
+                    block,
+                    u3::try_from(mask.trailing_zeros()).unwrap(),
+                    register,
+                );
                 (FlagId::from(z), !condition)
             }
         }

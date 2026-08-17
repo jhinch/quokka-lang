@@ -10,6 +10,7 @@
 //! produce the final assembly code.
 
 use crate::ast::Identifier;
+use crate::num::u3;
 use indexmap::IndexMap;
 use indexmap::map::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
@@ -309,13 +310,13 @@ pub enum Instr {
     /// `BIT u3,r8`
     Bit {
         z: ZeroFlagId,
-        bit: u8,
+        bit: u3,
         source: R8Id,
     },
     /// `BIT u3,[HL]`
     BitPtr {
         z: ZeroFlagId,
-        bit: u8,
+        bit: u3,
         source_pointer: R16Id,
     },
     /// `RES u3,r8`
@@ -1320,7 +1321,7 @@ impl CodeSectionBuilder {
 
     /// `BIT u3,r8`
     #[must_use]
-    pub fn insert_bit(&mut self, block: BlockId, bit: u8, source: R8Id) -> ZeroFlagId {
+    pub fn insert_bit(&mut self, block: BlockId, bit: u3, source: R8Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
         self.insert_instr(block, Instr::Bit { z, bit, source });
         z
@@ -1328,7 +1329,7 @@ impl CodeSectionBuilder {
 
     /// `BIT u3,[HL]`
     #[must_use]
-    pub fn insert_bit_ptr(&mut self, block: BlockId, bit: u8, source_pointer: R16Id) -> ZeroFlagId {
+    pub fn insert_bit_ptr(&mut self, block: BlockId, bit: u3, source_pointer: R16Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
         self.insert_instr(
             block,

@@ -1,5 +1,6 @@
 use crate::mir;
 use crate::mir::{Condition, GlobalId, Instr, LocalId, Operand, PlaceProjection, Terminator};
+use crate::num::{u2, u4};
 use crate::ty::{Ty, TyRegistry};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 use std::cmp::Ordering;
@@ -508,8 +509,8 @@ fn projected_ty(mut ty: Ty, projections: &[PlaceProjection], ty_registry: &TyReg
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Value {
     U1(bool),
-    U2(u8),
-    U4(u8),
+    U2(u2),
+    U4(u4),
     U8(u8),
     U16(u16),
     I8(i8),
@@ -530,8 +531,8 @@ impl Value {
     pub fn zeros(ty: Ty, ty_registry: &TyRegistry) -> Self {
         match ty {
             Ty::U1 => Value::U1(false),
-            Ty::U2 => Value::U2(0),
-            Ty::U4 => Value::U4(0),
+            Ty::U2 => Value::U2(u2::new(0)),
+            Ty::U4 => Value::U4(u4::new(0)),
             Ty::U8 => Value::U8(0),
             Ty::U16 => Value::U16(0),
             Ty::I8 => Value::I8(0),
@@ -587,8 +588,8 @@ impl Value {
         );
         match ty {
             Ty::U1 => Value::U1(bytes[0] != 0),
-            Ty::U2 => Value::U2(bytes[0]),
-            Ty::U4 => Value::U4(bytes[0]),
+            Ty::U2 => Value::U2(u2::try_from(bytes[0]).unwrap()),
+            Ty::U4 => Value::U4(u4::try_from(bytes[0]).unwrap()),
             Ty::U8 => Value::U8(bytes[0]),
             Ty::U16 => Value::U16(u16::from_le_bytes(*bytes.as_array::<2>().unwrap())),
             Ty::I8 => Value::I8(i8::from_le_bytes(*bytes.as_array::<1>().unwrap())),
@@ -613,7 +614,9 @@ impl Value {
     pub fn into_vec(self) -> Vec<u8> {
         match self {
             Value::U1(value) => (value as u8).to_le_bytes().to_vec(),
-            Value::U2(value) | Value::U4(value) | Value::U8(value) => value.to_le_bytes().to_vec(),
+            Value::U2(value) => value.to_le_bytes().to_vec(),
+            Value::U4(value) => value.to_le_bytes().to_vec(),
+            Value::U8(value) => value.to_le_bytes().to_vec(),
             Value::U16(value) => value.to_le_bytes().to_vec(),
             Value::I8(value) => value.to_le_bytes().to_vec(),
             Value::I16(value) => value.to_le_bytes().to_vec(),
@@ -634,8 +637,8 @@ impl Value {
     fn rotate_left_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
-            Value::U2(value) => Value::U2((value << 1 | value >> 1) & 0b11),
-            Value::U4(value) => Value::U4((value << 1 | value >> 3) & 0b1111),
+            Value::U2(value) => Value::U2(value << 1 | value >> 1),
+            Value::U4(value) => Value::U4(value << 1 | value >> 3),
             Value::U8(value) => Value::U8(value.rotate_left(1)),
             Value::U16(value) => Value::U16(value.rotate_left(1)),
             Value::I8(value) => Value::I8(value.rotate_left(1)),
@@ -647,8 +650,8 @@ impl Value {
     fn rotate_right_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
-            Value::U2(value) => Value::U2((value >> 1 | value << 1) & 0b11),
-            Value::U4(value) => Value::U4((value >> 1 | value << 3) & 0b1111),
+            Value::U2(value) => Value::U2(value >> 1 | value << 1),
+            Value::U4(value) => Value::U4(value >> 1 | value << 3),
             Value::U8(value) => Value::U8(value.rotate_right(1)),
             Value::U16(value) => Value::U16(value.rotate_right(1)),
             Value::I8(value) => Value::I8(value.rotate_right(1)),
@@ -660,8 +663,8 @@ impl Value {
     fn shift_left_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
-            Value::U2(value) => Value::U2((value << 1) & 0b11),
-            Value::U4(value) => Value::U4((value << 1) & 0b1111),
+            Value::U2(value) => Value::U2(value << 1),
+            Value::U4(value) => Value::U4(value << 1),
             Value::U8(value) => Value::U8(value << 1),
             Value::U16(value) => Value::U16(value << 1),
             Value::I8(value) => Value::I8(value << 1),
@@ -673,8 +676,8 @@ impl Value {
     fn shift_right_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
-            Value::U2(value) => Value::U2((value >> 1) & 0b11),
-            Value::U4(value) => Value::U4((value >> 1) & 0b1111),
+            Value::U2(value) => Value::U2(value >> 1),
+            Value::U4(value) => Value::U4(value >> 1),
             Value::U8(value) => Value::U8(value >> 1),
             Value::U16(value) => Value::U16(value >> 1),
             Value::I8(value) => Value::I8(value >> 1),
@@ -690,8 +693,8 @@ impl Not for Value {
     fn not(self) -> Self::Output {
         match self {
             Value::U1(value) => Value::U1(!value),
-            Value::U2(value) => Value::U2(!value & 0b11),
-            Value::U4(value) => Value::U4(!value & 0b1111),
+            Value::U2(value) => Value::U2(!value),
+            Value::U4(value) => Value::U4(!value),
             Value::U8(value) => Value::U8(!value),
             Value::U16(value) => Value::U16(!value),
             Value::I8(value) => Value::I8(!value),
@@ -779,8 +782,8 @@ impl AddAssign for Value {
         match (self, rhs) {
             #[allow(clippy::suspicious_op_assign_impl)]
             (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
-            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_add(rhs) % (0b11 + 1),
-            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_add(rhs) % (0b1111 + 1),
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_add(rhs),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_add(rhs),
             (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_add(rhs),
             (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_add(rhs),
             (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_add(rhs),
@@ -795,8 +798,8 @@ impl SubAssign for Value {
         match (self, rhs) {
             #[allow(clippy::suspicious_op_assign_impl)]
             (Value::U1(this), Value::U1(rhs)) => *this ^= rhs,
-            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_sub(rhs) % (0b11 + 1),
-            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_sub(rhs) % (0b1111 + 1),
+            (Value::U2(this), Value::U2(rhs)) => *this = this.wrapping_sub(rhs),
+            (Value::U4(this), Value::U4(rhs)) => *this = this.wrapping_sub(rhs),
             (Value::U8(this), Value::U8(rhs)) => *this = this.wrapping_sub(rhs),
             (Value::U16(this), Value::U16(rhs)) => *this = this.wrapping_sub(rhs),
             (Value::I8(this), Value::I8(rhs)) => *this = this.wrapping_sub(rhs),
