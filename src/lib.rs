@@ -6,6 +6,8 @@
 #![deny(clippy::return_self_not_must_use)]
 #![deny(clippy::cast_possible_truncation)]
 #![deny(clippy::manual_assert)]
+extern crate core;
+
 pub mod analyze;
 pub mod ast;
 pub mod attr;

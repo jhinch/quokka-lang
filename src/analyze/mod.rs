@@ -967,7 +967,6 @@ impl Analyzer {
                             target: new_target,
                             left: target,
                             projections: vec![PlaceProjection::Index(Operand::Literal(
-                                #[allow(clippy::cast_possible_truncation)]
                                 IntegerLiteral::from(index as u32),
                             ))],
                             right: Operand::Local(source),

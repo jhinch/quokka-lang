@@ -1,8 +1,9 @@
+use core::fmt;
 use std::ops::{
     Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct UInt<const BITS: u8> {
     data: u8,
@@ -50,6 +51,18 @@ impl<const BITS: u8> TryFrom<u32> for UInt<BITS> {
             #[allow(clippy::cast_possible_truncation)]
             Ok(UInt { data: data as u8 })
         }
+    }
+}
+
+impl<const BITS: u8> fmt::Debug for UInt<BITS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.data, f)
+    }
+}
+
+impl<const BITS: u8> fmt::Display for UInt<BITS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.data, f)
     }
 }
 

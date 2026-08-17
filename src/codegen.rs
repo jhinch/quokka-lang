@@ -1,8 +1,8 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
-    BlockId, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder, DataSectionData, FlagId, Ld8Source,
+    BlockId, CARRY_FLAG_BIT, CarryFlagId, CodeSectionBuilder, DataSectionData, FlagId, Ld8Source,
     Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind, RamSectionData, RomRegionKind,
-    SectionId, Terminator, ZERO_FLAG_MASK, ZeroFlagId,
+    SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK, ZeroFlagId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -235,10 +235,16 @@ impl CodeGen {
         match instruction {
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
-                let register = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
+                let r8 = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
                 locals.r1s.insert(
                     *target,
-                    (R1::R8 { register, mask: 1 }, mir::Condition::Zero),
+                    (
+                        R1::Clean {
+                            r8,
+                            bit: u3::new(ZERO_FLAG_BIT),
+                        },
+                        mir::Condition::Zero,
+                    ),
                 );
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
@@ -246,11 +252,11 @@ impl CodeGen {
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
             mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
-                let (source, mask, condition) = self.r1_to_operand(source, block, lir, locals);
-                let register = lir.insert_ld8(block, Ld8Source::Operand(source));
+                let (source, bit, condition) = self.r1_to_operand(source, block, lir, locals);
+                let r8 = lir.insert_ld8(block, Ld8Source::Operand(source));
                 locals
                     .r1s
-                    .insert(*target, (R1::R8 { register, mask }, condition));
+                    .insert(*target, (R1::Dirty { r8, bit }, condition));
             }
             mir::Instr::Read { .. } => todo!("{instruction:?}"),
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
@@ -261,17 +267,24 @@ impl CodeGen {
             mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
             mir::Instr::RotateLeft { target, source }
             | mir::Instr::RotateRight { target, source } => {
-                let (register, mask, condition) = self.r1_to_r8(source, block, lir, locals);
+                let (r8, bit, condition) = self.r1_to_r8(source, block, lir, locals);
                 locals
                     .r1s
-                    .insert(*target, (R1::R8 { register, mask }, condition));
+                    .insert(*target, (R1::Dirty { r8, bit }, condition));
             }
             mir::Instr::ShiftLeft { target, source: _ }
             | mir::Instr::ShiftRight { target, source: _ } => {
-                let register = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
+                let r8 =
+                    lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(ZERO_FLAG_MASK)));
                 locals.r1s.insert(
                     *target,
-                    (R1::R8 { register, mask: 1 }, mir::Condition::NotZero),
+                    (
+                        R1::Clean {
+                            r8,
+                            bit: u3::new(ZERO_FLAG_BIT),
+                        },
+                        mir::Condition::NotZero,
+                    ),
                 );
             }
             mir::Instr::Eq {
@@ -605,13 +618,8 @@ impl CodeGen {
         let (flag, condition) = locals.r1s[local];
         match flag {
             R1::Flag(flag) => (flag, condition),
-            R1::R8 { register, mask } => {
-                #[allow(clippy::cast_possible_truncation)]
-                let z = lir.insert_bit(
-                    block,
-                    u3::try_from(mask.trailing_zeros()).unwrap(),
-                    register,
-                );
+            R1::Dirty { r8, bit } | R1::Clean { r8, bit } => {
+                let z = lir.insert_bit(block, bit, r8);
                 (FlagId::from(z), !condition)
             }
         }
@@ -623,21 +631,19 @@ impl CodeGen {
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         locals: &Locals,
-    ) -> (R8Id, u8, mir::Condition) {
+    ) -> (R8Id, u3, mir::Condition) {
         let (right, condition) = locals.r1s[*right];
         match right {
             R1::Flag(FlagId::Zero(z_in)) => {
                 let right = lir.insert_ld_zero(block, z_in);
-                (right, ZERO_FLAG_MASK, condition)
+                (right, u3::new(ZERO_FLAG_BIT), condition)
             }
             R1::Flag(FlagId::Carry(c_in)) => {
                 let right = lir.insert_ld_carry(block, c_in);
-                (right, CARRY_FLAG_MASK, condition)
+                (right, u3::new(CARRY_FLAG_BIT), condition)
             }
-            R1::R8 {
-                register: right,
-                mask,
-            } => (right, mask, condition),
+            R1::Dirty { r8: right, bit } => (right, bit, condition),
+            R1::Clean { r8: right, bit } => (right, bit, condition),
         }
     }
 
@@ -647,15 +653,15 @@ impl CodeGen {
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         locals: &Locals,
-    ) -> (Operand8, u8, mir::Condition) {
+    ) -> (Operand8, u3, mir::Condition) {
         match right {
             mir::Operand::Local(right) => {
-                let (right, mask, condition) = self.r1_to_r8(right, block, lir, locals);
-                (Operand8::Direct(right), mask, condition)
+                let (right, bit, condition) = self.r1_to_r8(right, block, lir, locals);
+                (Operand8::Direct(right), bit, condition)
             }
             mir::Operand::Literal(right) => (
-                Operand8::Literal(if right.value != 0 { 1 } else { 0 }),
-                1,
+                Operand8::Literal(if right.value != 0 { ZERO_FLAG_MASK } else { 0 }),
+                u3::new(ZERO_FLAG_BIT),
                 mir::Condition::NotZero,
             ),
             mir::Operand::FnPtr(_) => {
@@ -675,7 +681,16 @@ struct Locals {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum R1 {
     Flag(FlagId),
-    R8 { register: R8Id, mask: u8 },
+    /// flag contained within `r8` at `bit` with all other bits being undefined.
+    Dirty {
+        r8: R8Id,
+        bit: u3,
+    },
+    /// flag contained within `r8` at `bit` with all other bits guaranteed to be `0`.
+    Clean {
+        r8: R8Id,
+        bit: u3,
+    },
 }
 
 impl From<FlagId> for R1 {
