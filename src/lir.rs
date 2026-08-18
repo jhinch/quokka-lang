@@ -17,7 +17,6 @@ use std::cmp::Ordering;
 use std::num::NonZeroU16;
 
 new_key_type! { pub struct SectionId; }
-new_key_type! { pub struct FunctionId; }
 new_key_type! { pub struct BlockId; }
 new_key_type! { pub struct ZeroFlagId; }
 new_key_type! { pub struct CarryFlagId; }
@@ -112,7 +111,7 @@ pub enum SectionData {
 pub struct CodeSectionData {
     pub region: Option<RomRegionKind>,
     pub address: Option<u16>,
-    pub functions: SlotMap<FunctionId, Function>,
+    pub functions: SparseSecondaryMap<BlockId, Identifier>,
     pub blocks: SlotMap<BlockId, Block>,
     pub zero_flags: SlotMap<ZeroFlagId, Register>,
     pub carry_flags: SlotMap<CarryFlagId, Register>,
@@ -195,7 +194,7 @@ pub enum Instr {
         source: R16Id,
     },
     /// `LD r16,n16`
-    Ld16 { target: R16Id, source: u16 },
+    Ld16 { target: R16Id, source: Ld16Source },
     /// `LD [HL],r8`
     /// `LD [r16],A`
     /// `LD [n16],A`
@@ -752,7 +751,7 @@ pub enum Terminator {
     /// `CALL n16`
     Call {
         callee_section: Option<SectionId>,
-        callee_function: FunctionId,
+        callee_block: BlockId,
         return_block: BlockId,
     },
     /// `CALL cc,n16`
@@ -760,12 +759,23 @@ pub enum Terminator {
         source: FlagId,
         negate: bool,
         callee_section: Option<SectionId>,
-        callee_function: FunctionId,
+        callee_block: BlockId,
         return_block: BlockId,
         else_block: BlockId,
     },
-    /// `HALT`
-    Halt { return_block: BlockId },
+    /// Call a local r16.
+    ///
+    /// This results in the following machine instructions
+    /// ```text
+    /// PUSH <return_block>
+    /// JP <r16>
+    /// ```
+    /// Utilizes:
+    /// `JP HL`
+    CallR16 {
+        callee: R16Id,
+        return_block: BlockId,
+    },
     /// `JP n16`
     Jp { block: BlockId },
     /// `JP cc,n16`
@@ -783,6 +793,8 @@ pub enum Terminator {
         negate: bool,
         else_block: BlockId,
     },
+    /// `HALT`
+    Halt { return_block: BlockId },
 }
 
 #[derive(Debug)]
@@ -791,6 +803,15 @@ pub enum Ld8Source {
     PtrLiteral(u16),
     HighPtr(R8Id),
     HighPtrLiteral(u8),
+}
+
+#[derive(Debug)]
+pub enum Ld16Source {
+    Literal(u16),
+    FnPtr {
+        section: Option<SectionId>,
+        block: BlockId,
+    },
 }
 
 #[derive(Debug)]
@@ -877,18 +898,14 @@ impl CodeSectionBuilder {
 
 impl CodeSectionBuilder {
     #[must_use]
-    pub fn new_function(&mut self, name: Identifier) -> FunctionId {
+    pub fn new_function(&mut self, name: Identifier) -> BlockId {
         let start_block = self.data.blocks.insert(Block {
             instructions: Vec::new(),
             terminator: Terminator::Ret,
             previous: Vec::new(),
         });
-        self.data.functions.insert(Function { name, start_block })
-    }
-
-    #[must_use]
-    pub fn function(&self, function_id: FunctionId) -> &Function {
-        &self.data.functions[function_id]
+        self.data.functions.insert(start_block, name);
+        start_block
     }
 
     #[must_use]
@@ -908,7 +925,7 @@ impl CodeSectionBuilder {
         match &terminator {
             Terminator::Ret => {}
             Terminator::Call { return_block, .. }
-            | Terminator::Halt { return_block, .. }
+            | Terminator::CallR16 { return_block, .. }
             | Terminator::Jp {
                 block: return_block,
                 ..
@@ -916,7 +933,8 @@ impl CodeSectionBuilder {
             | Terminator::RetIf {
                 else_block: return_block,
                 ..
-            } => {
+            }
+            | Terminator::Halt { return_block, .. } => {
                 self.data.blocks[*return_block].previous.push(block);
             }
             Terminator::CallIf {
@@ -1030,7 +1048,7 @@ impl CodeSectionBuilder {
 
     /// `LD r16,n16`
     #[must_use]
-    pub fn insert_ld16(&mut self, block: BlockId, source: u16) -> R16Id {
+    pub fn insert_ld16(&mut self, block: BlockId, source: Ld16Source) -> R16Id {
         let target = self.new_r16();
         self.insert_instr(block, Instr::Ld16 { target, source });
         target

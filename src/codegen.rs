@@ -1,7 +1,7 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
     BlockId, CARRY_FLAG_BIT, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder, DataSectionData,
-    FlagId, FunctionId, Ld8Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind,
+    FlagId, Ld8Source, Ld16Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind,
     RamSectionData, RomRegionKind, SIGN_MASK, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK,
     ZeroFlagId,
 };
@@ -31,17 +31,17 @@ impl CodeGen {
         }
         let code_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
-        let mut mir_function_to_function = SecondaryMap::new();
+        let mut functions = SecondaryMap::new();
         for (function_id, function) in &mir.functions {
             let block = code_section.new_function(function.name.clone());
-            mir_function_to_function.insert(function_id, block);
+            functions.insert(function_id, (None, block));
         }
         for (function_id, function) in &mir.functions {
             self.generate_from_function(
-                function_id,
                 function,
+                functions[function_id].1,
                 &global_to_section,
-                &mir_function_to_function,
+                &functions,
                 &mut code_section,
             );
         }
@@ -76,15 +76,14 @@ impl CodeGen {
 
     fn generate_from_function(
         &mut self,
-        mir_function_id: mir::FunctionId,
         function: &mir::Function,
+        start_block: BlockId,
         _global_to_section: &SecondaryMap<mir::GlobalId, SectionId>,
-        functions: &SecondaryMap<mir::FunctionId, FunctionId>,
+        functions: &SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
         lir: &mut CodeSectionBuilder,
     ) {
         let mut blocks = SecondaryMap::new();
         let mut locals = Locals::default();
-        let start_block = lir.function(functions[mir_function_id]).start_block;
         blocks.insert(function.start_block, start_block);
         for mir_block in function.traverse_blocks() {
             blocks.insert(
@@ -173,18 +172,31 @@ impl CodeGen {
                 callee: mir::Callee::FnPtr(callee),
                 return_block: mir_return_block,
             } => {
-                let callee_function = ids.functions[*callee];
+                let (callee_section, callee_block) = ids.functions[*callee];
                 let return_block = ids.blocks[*mir_return_block];
                 lir.set_terminator(
                     block,
                     Terminator::Call {
-                        callee_section: None,
-                        callee_function,
+                        callee_section,
+                        callee_block,
                         return_block,
                     },
                 );
             }
-            mir::Terminator::Call { .. } => todo!("{terminator:?}"),
+            mir::Terminator::Call {
+                callee: mir::Callee::Local(callee),
+                return_block: mir_return_block,
+            } => {
+                let callee = locals.r16s[*callee];
+                let return_block = ids.blocks[*mir_return_block];
+                lir.set_terminator(
+                    block,
+                    Terminator::CallR16 {
+                        callee,
+                        return_block,
+                    },
+                );
+            }
             mir::Terminator::CallIf {
                 source: mir_source,
                 condition: mir_condition,
@@ -193,7 +205,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
-                let callee_function = ids.functions[*callee];
+                let (callee_section, callee_block) = ids.functions[*callee];
                 let return_block = ids.blocks[*mir_return_block];
                 let else_block = ids.blocks[*mir_else_block];
                 lir.set_terminator(
@@ -201,14 +213,19 @@ impl CodeGen {
                     Terminator::CallIf {
                         source,
                         negate: *mir_condition != condition,
-                        callee_section: None,
-                        callee_function,
+                        callee_section,
+                        callee_block,
                         return_block,
                         else_block,
                     },
                 );
             }
-            mir::Terminator::CallIf { .. } => todo!("{terminator:?}"),
+            mir::Terminator::CallIf {
+                callee: mir::Callee::Local(_),
+                ..
+            } => unimplemented!(
+                "{terminator:?} as it should be rewritten within the optimization phase"
+            ),
             mir::Terminator::Jump {
                 target_block: mir_target_block,
             } => {
@@ -579,13 +596,13 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        _ids: &Ids<'_>,
+        ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
-                let r16 = lir.insert_ld16(block, 0);
+                let r16 = lir.insert_ld16(block, Ld16Source::Literal(0));
                 locals.r16s.insert(*target, r16);
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
@@ -593,7 +610,8 @@ impl CodeGen {
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
             mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
-                let (source_high, source_low) = self.r16_to_high_low(source, block, lir, locals);
+                let (source_high, source_low) =
+                    self.r16_to_high_low(source, block, lir, ids, locals);
                 let target_high =
                     lir.insert_ld8(block, Ld8Source::Operand(Operand8::Direct(source_high)));
                 let target_low =
@@ -605,7 +623,7 @@ impl CodeGen {
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let target_low = lir.insert_cpl(block, source_low);
                 let target_high = lir.insert_cpl(block, source_high);
                 let r16 = lir.insert_join(block, target_high, target_low);
@@ -613,7 +631,7 @@ impl CodeGen {
             }
             mir::Instr::Neg { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let (target_high, _z, _c) =
                     lir.insert_xor(block, source_high, Operand8::Literal(SIGN_MASK));
                 let r16 = lir.insert_join(block, target_high, source_low);
@@ -621,7 +639,7 @@ impl CodeGen {
             }
             mir::Instr::RotateLeft { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let (_r8, _z, c) = lir.insert_sla(block, source_high);
                 let (target_low, _z, c) = lir.insert_rl(block, source_low, c);
                 let (target_high, _z, _c) = lir.insert_rl(block, source_high, c);
@@ -630,7 +648,7 @@ impl CodeGen {
             }
             mir::Instr::RotateRight { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let (_r8, _z, c) = lir.insert_sra(block, source_low);
                 let (target_high, _z, c) = lir.insert_rr(block, source_high, c);
                 let (target_low, _z, _c) = lir.insert_rr(block, source_low, c);
@@ -639,7 +657,7 @@ impl CodeGen {
             }
             mir::Instr::ShiftLeft { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let (target_low, _z, c) = lir.insert_sla(block, source_low);
                 let (target_high, _z, _c) = lir.insert_rl(block, source_high, c);
                 let r16 = lir.insert_join(block, target_high, target_low);
@@ -647,7 +665,7 @@ impl CodeGen {
             }
             mir::Instr::ShiftRight { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
                 let (target_high, _z, c) = if function.locals[*target].ty.is_signed_int() {
                     lir.insert_sra(block, source_high)
                 } else {
@@ -671,8 +689,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
                 let (target_low, _z, _c) =
                     lir.insert_and(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -686,8 +704,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
                 let (target_low, _z, _c) =
                     lir.insert_or(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -701,8 +719,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
                 let (target_low, _z, _c) =
                     lir.insert_xor(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -716,7 +734,7 @@ impl CodeGen {
                 right,
             } => {
                 let left = locals.r16s[*left];
-                let right = self.r16_from_operand(right, block, lir, locals);
+                let right = self.r16_from_operand(right, block, lir, ids, locals);
                 let (r16, _c) = lir.insert_add16(block, left, right);
                 locals.r16s.insert(*target, r16);
             }
@@ -726,8 +744,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
                 let (target_high, _z, c) =
                     lir.insert_sub(block, left_high, Operand8::Direct(right_high));
                 let (target_low, _z, _c) =
@@ -754,6 +772,7 @@ impl CodeGen {
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
         locals: &Locals,
     ) -> R16Id {
         match right {
@@ -761,9 +780,12 @@ impl CodeGen {
             mir::Operand::Literal(right) =>
             {
                 #[allow(clippy::cast_possible_truncation)]
-                lir.insert_ld16(block, right.value as u16)
+                lir.insert_ld16(block, Ld16Source::Literal(right.value as u16))
             }
-            mir::Operand::FnPtr(_) => todo!("{right:?}"),
+            mir::Operand::FnPtr(function) => {
+                let (section, block) = ids.functions[*function];
+                lir.insert_ld16(block, Ld16Source::FnPtr { section, block })
+            }
         }
     }
 
@@ -772,9 +794,10 @@ impl CodeGen {
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
         locals: &Locals,
     ) -> (R8Id, R8Id) {
-        let right = self.r16_from_operand(right, block, lir, locals);
+        let right = self.r16_from_operand(right, block, lir, ids, locals);
         lir.insert_split(block, right)
     }
 
@@ -947,7 +970,7 @@ impl CodeGen {
 }
 
 struct Ids<'a> {
-    functions: &'a SecondaryMap<mir::FunctionId, FunctionId>,
+    functions: &'a SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
     blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
 }
 
