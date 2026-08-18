@@ -102,13 +102,13 @@ impl CodeGen {
             for instruction in &function.blocks[mir_block].instructions {
                 let ty = self.ty_from_instr(mir, function, instruction);
                 self.generate_from_instr(
-                    mir,
-                    function,
                     instruction,
                     ty,
                     block,
                     lir,
-                    &Ids {
+                    &InstrCtx {
+                        mir,
+                        function,
                         globals,
                         functions,
                         blocks: &blocks,
@@ -117,11 +117,12 @@ impl CodeGen {
                 );
             }
             self.generate_from_terminator(
-                function,
                 &function.blocks[mir_block].terminator,
                 block,
                 lir,
-                &Ids {
+                &InstrCtx {
+                    mir,
+                    function,
                     globals,
                     functions,
                     blocks: &blocks,
@@ -164,45 +165,26 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn generate_from_instr(
         &mut self,
-        mir: &mir::Mir,
-        function: &mir::Function,
         instruction: &mir::Instr,
         ty: Ty,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) {
         match ty {
             Ty::U1 => {
-                self.generate_from_u1_instr(mir, function, instruction, block, lir, ids, locals);
+                self.generate_from_u1_instr(instruction, block, lir, ctx, locals);
             }
             Ty::U2 => todo!("{instruction:?} {:?}", Ty::U2),
             Ty::U4 => todo!("{instruction:?} {:?}", Ty::U4),
             Ty::U8 | Ty::I8 => {
-                self.generate_from_scalar8_instr(
-                    mir,
-                    function,
-                    instruction,
-                    block,
-                    lir,
-                    ids,
-                    locals,
-                );
+                self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals);
             }
             Ty::U16 | Ty::I16 => {
-                self.generate_from_scalar16_instr(
-                    mir,
-                    function,
-                    instruction,
-                    block,
-                    lir,
-                    ids,
-                    locals,
-                );
+                self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals);
             }
             ty if ty.is_struct() || ty.is_array() => match instruction {
                 mir::Instr::Alloc { .. }
@@ -215,24 +197,8 @@ impl CodeGen {
                 | mir::Instr::Write { .. }
                 | mir::Instr::Eq { .. }
                 | mir::Instr::Ne { .. } => match ty.bit_size(&self.ty_registry) {
-                    8 => self.generate_from_scalar8_instr(
-                        mir,
-                        function,
-                        instruction,
-                        block,
-                        lir,
-                        ids,
-                        locals,
-                    ),
-                    16 => self.generate_from_scalar16_instr(
-                        mir,
-                        function,
-                        instruction,
-                        block,
-                        lir,
-                        ids,
-                        locals,
-                    ),
+                    8 => self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals),
+                    16 => self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals),
                     _ => unimplemented!(
                         "Valid MIR should never produce structs or arrays which are not 8 or 16-bit"
                     ),
@@ -247,11 +213,10 @@ impl CodeGen {
 
     fn generate_from_terminator(
         &mut self,
-        _function: &mir::Function,
         terminator: &mir::Terminator,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) {
         match terminator {
@@ -262,8 +227,8 @@ impl CodeGen {
                 callee: mir::Callee::FnPtr(callee),
                 return_block: mir_return_block,
             } => {
-                let (callee_section, callee_block) = ids.functions[*callee];
-                let return_block = ids.blocks[*mir_return_block];
+                let (callee_section, callee_block) = ctx.functions[*callee];
+                let return_block = ctx.blocks[*mir_return_block];
                 lir.set_terminator(
                     block,
                     Terminator::Call {
@@ -278,7 +243,7 @@ impl CodeGen {
                 return_block: mir_return_block,
             } => {
                 let callee = locals.r16s[*callee];
-                let return_block = ids.blocks[*mir_return_block];
+                let return_block = ctx.blocks[*mir_return_block];
                 lir.set_terminator(
                     block,
                     Terminator::CallR16 {
@@ -295,9 +260,9 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
-                let (callee_section, callee_block) = ids.functions[*callee];
-                let return_block = ids.blocks[*mir_return_block];
-                let else_block = ids.blocks[*mir_else_block];
+                let (callee_section, callee_block) = ctx.functions[*callee];
+                let return_block = ctx.blocks[*mir_return_block];
+                let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
                     Terminator::CallIf {
@@ -319,7 +284,7 @@ impl CodeGen {
             mir::Terminator::Jump {
                 target_block: mir_target_block,
             } => {
-                let target_block = ids.blocks[*mir_target_block];
+                let target_block = ctx.blocks[*mir_target_block];
                 lir.set_terminator(
                     block,
                     Terminator::Jp {
@@ -334,8 +299,8 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
-                let then_block = ids.blocks[*mir_then_block];
-                let else_block = ids.blocks[*mir_else_block];
+                let then_block = ctx.blocks[*mir_then_block];
+                let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
                     Terminator::JpIf {
@@ -352,7 +317,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
-                let else_block = ids.blocks[*mir_else_block];
+                let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
                     Terminator::RetIf {
@@ -365,15 +330,12 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn generate_from_u1_instr(
         &mut self,
-        mir: &mir::Mir,
-        function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -399,12 +361,11 @@ impl CodeGen {
                 projections,
             } => {
                 let (source, bit) = self.projected_global_to_addr(
-                    mir,
                     *source,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 let r8 = lir.insert_ld8(block, source);
@@ -418,12 +379,11 @@ impl CodeGen {
                 source,
             } => {
                 let (target, target_bit) = self.projected_global_to_addr(
-                    mir,
                     *target,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 let target = match target {
@@ -492,7 +452,7 @@ impl CodeGen {
                 right,
             } => {
                 let (z, condition) =
-                    self.eq_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                    self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
                 locals.r1s.insert(*target, (R1::from(z), condition));
             }
             mir::Instr::Ne {
@@ -501,7 +461,7 @@ impl CodeGen {
                 right,
             } => {
                 let (z, condition) =
-                    self.eq_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                    self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
                 locals.r1s.insert(*target, (R1::from(z), !condition));
             }
             mir::Instr::Lt {
@@ -510,7 +470,7 @@ impl CodeGen {
                 right,
             } => {
                 let (c, condition) =
-                    self.lt_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                    self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
                 locals.r1s.insert(*target, (R1::from(c), condition));
             }
             mir::Instr::Le { .. } => unimplemented!(
@@ -522,7 +482,7 @@ impl CodeGen {
                 right,
             } => {
                 let (c, condition) =
-                    self.lt_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                    self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
                 locals.r1s.insert(*target, (R1::from(c), !condition));
             }
             mir::Instr::Gt { .. } => unimplemented!(
@@ -615,15 +575,12 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn generate_from_scalar8_instr(
         &mut self,
-        mir: &mir::Mir,
-        function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -640,12 +597,11 @@ impl CodeGen {
                 projections,
             } => {
                 let (addr, bit_offset) = self.projected_global_to_addr(
-                    mir,
                     *source,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 assert_eq!(bit_offset, u3::new(0), "misaligned 8-bit ty");
@@ -658,12 +614,11 @@ impl CodeGen {
                 source,
             } => {
                 let (target, bit_offset) = self.projected_global_to_addr(
-                    mir,
                     *target,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 assert_eq!(bit_offset, u3::new(0), "misaligned 8-bit ty");
@@ -726,7 +681,7 @@ impl CodeGen {
                 locals.r8s.insert(*target, r8);
             }
             mir::Instr::ShiftRight { target, source } => {
-                let (r8, _z, _c) = if function.locals[*target].ty.is_signed_int() {
+                let (r8, _z, _c) = if ctx.function.locals[*target].ty.is_signed_int() {
                     lir.insert_sra(block, locals.r8s[*source])
                 } else {
                     lir.insert_srl(block, locals.r8s[*source])
@@ -789,15 +744,12 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn generate_from_scalar16_instr(
         &mut self,
-        mir: &mir::Mir,
-        function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -814,12 +766,11 @@ impl CodeGen {
                 projections,
             } => {
                 let (addr, bit_offset) = self.projected_global_to_addr(
-                    mir,
                     *source,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
@@ -857,12 +808,11 @@ impl CodeGen {
                 source,
             } => {
                 let (addr, bit_offset) = self.projected_global_to_addr(
-                    mir,
                     *target,
                     projections.as_slice(),
                     block,
                     lir,
-                    ids,
+                    ctx,
                     locals,
                 );
                 assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
@@ -876,7 +826,7 @@ impl CodeGen {
                 let source = match source {
                     mir::Operand::Local(source) => locals.r16s[*source],
                     mir::Operand::FnPtr(source) => {
-                        let (section, block) = ids.functions[*source];
+                        let (section, block) = ctx.functions[*source];
                         lir.insert_ld16(block, Ld16Source::FnAddr { section, block })
                     }
                     mir::Operand::Literal(source) =>
@@ -891,7 +841,7 @@ impl CodeGen {
             }
             mir::Instr::Copy { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(source, block, lir, ids, locals);
+                    self.r16_to_high_low(source, block, lir, ctx, locals);
                 let target_high =
                     lir.insert_ld8(block, Ld8Source::Operand(Operand8::Direct(source_high)));
                 let target_low =
@@ -903,7 +853,7 @@ impl CodeGen {
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
                 let target_low = lir.insert_cpl(block, source_low);
                 let target_high = lir.insert_cpl(block, source_high);
                 let r16 = lir.insert_join(block, target_high, target_low);
@@ -911,7 +861,7 @@ impl CodeGen {
             }
             mir::Instr::Neg { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
                 let (target_high, _z, _c) =
                     lir.insert_xor(block, source_high, Operand8::Literal(SIGN_MASK));
                 let r16 = lir.insert_join(block, target_high, source_low);
@@ -919,7 +869,7 @@ impl CodeGen {
             }
             mir::Instr::RotateLeft { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
                 let (_r8, _z, c) = lir.insert_sla(block, source_high);
                 let (target_low, _z, c) = lir.insert_rl(block, source_low, c);
                 let (target_high, _z, _c) = lir.insert_rl(block, source_high, c);
@@ -928,7 +878,7 @@ impl CodeGen {
             }
             mir::Instr::RotateRight { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
                 let (_r8, _z, c) = lir.insert_sra(block, source_low);
                 let (target_high, _z, c) = lir.insert_rr(block, source_high, c);
                 let (target_low, _z, _c) = lir.insert_rr(block, source_low, c);
@@ -937,7 +887,7 @@ impl CodeGen {
             }
             mir::Instr::ShiftLeft { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
                 let (target_low, _z, c) = lir.insert_sla(block, source_low);
                 let (target_high, _z, _c) = lir.insert_rl(block, source_high, c);
                 let r16 = lir.insert_join(block, target_high, target_low);
@@ -945,8 +895,8 @@ impl CodeGen {
             }
             mir::Instr::ShiftRight { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ids, locals);
-                let (target_high, _z, c) = if function.locals[*target].ty.is_signed_int() {
+                    self.r16_to_high_low(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (target_high, _z, c) = if ctx.function.locals[*target].ty.is_signed_int() {
                     lir.insert_sra(block, source_high)
                 } else {
                     lir.insert_srl(block, source_high)
@@ -969,8 +919,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (target_low, _z, _c) =
                     lir.insert_and(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -984,8 +934,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (target_low, _z, _c) =
                     lir.insert_or(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -999,8 +949,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (target_low, _z, _c) =
                     lir.insert_xor(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -1014,7 +964,7 @@ impl CodeGen {
                 right,
             } => {
                 let left = locals.r16s[*left];
-                let right = self.r16_from_operand(right, block, lir, ids, locals);
+                let right = self.r16_from_operand(right, block, lir, ctx, locals);
                 let (r16, _c) = lir.insert_add16(block, left, right);
                 locals.r16s.insert(*target, r16);
             }
@@ -1024,8 +974,8 @@ impl CodeGen {
                 right,
             } => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (target_high, _z, c) =
                     lir.insert_sub(block, left_high, Operand8::Direct(right_high));
                 let (target_low, _z, _c) =
@@ -1052,7 +1002,7 @@ impl CodeGen {
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &Locals,
     ) -> R16Id {
         match right {
@@ -1063,7 +1013,7 @@ impl CodeGen {
                 lir.insert_ld16(block, Ld16Source::Literal(right.value as u16))
             }
             mir::Operand::FnPtr(function) => {
-                let (section, block) = ids.functions[*function];
+                let (section, block) = ctx.functions[*function];
                 lir.insert_ld16(block, Ld16Source::FnAddr { section, block })
             }
         }
@@ -1074,10 +1024,10 @@ impl CodeGen {
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &Locals,
     ) -> (R8Id, R8Id) {
-        let right = self.r16_from_operand(right, block, lir, ids, locals);
+        let right = self.r16_from_operand(right, block, lir, ctx, locals);
         lir.insert_split(block, right)
     }
 
@@ -1197,30 +1147,28 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn eq_from_comparison_op(
         &mut self,
-        function: &mir::Function,
         left: mir::LocalId,
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) -> (ZeroFlagId, mir::Condition) {
-        match function.locals[left].ty {
+        match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
-                let (z, _c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                let (z, _c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
                 (z, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 8 => {
-                let (z, _c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                let (z, _c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
                 (z, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (target_low, _z, _c) =
                     lir.insert_xor(block, left_low, Operand8::Direct(right_low));
                 let (target_high, _z, _c) =
@@ -1232,30 +1180,28 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn lt_from_comparison_op(
         &mut self,
-        function: &mir::Function,
         left: mir::LocalId,
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) -> (CarryFlagId, mir::Condition) {
-        match function.locals[left].ty {
+        match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
-                let (_z, c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                let (_z, c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
                 (c, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 8 => {
-                let (_z, c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                let (_z, c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
                 (c, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
                 let (left_high, left_low) =
-                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ids, locals);
-                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ctx, locals);
                 let (_r16, _z, c) = lir.insert_sub(block, left_high, Operand8::Direct(right_high));
                 let (_r16, _z, c) = lir.insert_sbc(block, left_low, Operand8::Direct(right_low), c);
                 (c, mir::Condition::NotZero)
@@ -1266,14 +1212,14 @@ impl CodeGen {
 
     fn cp_from_r8(
         &mut self,
-        function: &mir::Function,
         left: mir::LocalId,
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) -> (ZeroFlagId, CarryFlagId) {
-        match function.locals[left].ty {
+        match ctx.function.locals[left].ty {
             Ty::U1 => {
                 let (mut left, left_bit, left_condition) =
                     self.r1_to_r8_clean(left, block, lir, locals);
@@ -1314,20 +1260,18 @@ impl CodeGen {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn projected_global_to_addr(
         &mut self,
-        mir: &mir::Mir,
         global: mir::GlobalId,
         projections: &[mir::PlaceProjection],
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        ids: &Ids<'_>,
+        ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) -> (Ld8Source, u3) {
         let mut bit_offset = 0;
         let mut r16 = None;
-        let mut ty = mir.globals[global].ty;
+        let mut ty = ctx.mir.globals[global].ty;
         for project in projections {
             match project {
                 mir::PlaceProjection::Field(field) => {
@@ -1354,7 +1298,7 @@ impl CodeGen {
                         None => lir.insert_ld16(
                             block,
                             Ld16Source::SectionAddr {
-                                section: ids.globals[global],
+                                section: ctx.globals[global],
                                 #[allow(clippy::cast_possible_truncation)]
                                 offset: byte_offset as u16,
                             },
@@ -1378,7 +1322,7 @@ impl CodeGen {
                 Ld8Source::Operand(Operand8::Ptr(r16))
             }
             None => Ld8Source::SectionAddrPtr {
-                section: ids.globals[global],
+                section: ctx.globals[global],
                 #[allow(clippy::cast_possible_truncation)]
                 offset: byte_offset as u16,
             },
@@ -1387,7 +1331,9 @@ impl CodeGen {
     }
 }
 
-struct Ids<'a> {
+struct InstrCtx<'a> {
+    mir: &'a mir::Mir,
+    function: &'a mir::Function,
     globals: &'a SecondaryMap<mir::GlobalId, SectionId>,
     functions: &'a SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
     blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
