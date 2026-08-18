@@ -1,23 +1,29 @@
 #!/bin/sh
 set -e
 
-readonly DIRTY_STAGED_FILES="$(comm -12 <(git diff --cached --name-only | sort) <(git diff --name-only | sort))"
+readonly TMP_STAGED_FILES="$(mktemp)"
+cleanup() {
+    rm -f "$TMP_STAGED_FILES"
+}
+trap cleanup EXIT
+
+git diff --cached --name-only | sort > "$TMP_STAGED_FILES"
+readonly DIRTY_STAGED_FILES="$(git diff --name-only | sort | comm -12 "$TMP_STAGED_FILES" -)"
 
 echo "[pre-commit] Running Rust checks"
 
-if [ -z "$DIRTY_STAGED_FILES" ]; then
-    echo "[pre-commmit] Safely fixing code first"
+set -x
 
-    set -x
+if [ -z "$DIRTY_STAGED_FILES" ]; then
+    echo "[pre-commit] Safely fixing code first"
+
     cargo fix --allow-dirty --workspace --locked
     cargo clippy --fix --allow-dirty --workspace --locked
     cargo fmt --all
-    set +x
 
     git diff --name-only --cached | xargs -r git add
 fi
 
-set -x
 cargo fmt --all --check
 cargo test --all --locked
 cargo clippy --all --locked
