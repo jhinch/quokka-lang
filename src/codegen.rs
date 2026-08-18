@@ -2,8 +2,8 @@ use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
     BlockId, CARRY_FLAG_BIT, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder, DataSectionData,
     FlagId, Ld8Source, Ld16Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind,
-    RamSectionData, RomRegionKind, SIGN_MASK, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK,
-    ZeroFlagId,
+    RamSectionData, RomRegionKind, SIGN_MASK, SectionId, StoreTarget, Terminator, ZERO_FLAG_BIT,
+    ZERO_FLAG_MASK, ZeroFlagId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -25,9 +25,9 @@ impl CodeGen {
     }
 
     fn generate_from_mir(&mut self, mir: &mir::Mir) {
-        let mut global_to_section = SecondaryMap::new();
+        let mut globals = SecondaryMap::new();
         for (global_id, global) in &mir.globals {
-            global_to_section.insert(global_id, self.generate_from_global(global));
+            globals.insert(global_id, self.generate_from_global(global));
         }
         let code_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
@@ -41,7 +41,7 @@ impl CodeGen {
                 mir,
                 function,
                 functions[function_id].1,
-                &global_to_section,
+                &globals,
                 &functions,
                 &mut code_section,
             );
@@ -80,7 +80,7 @@ impl CodeGen {
         mir: &mir::Mir,
         function: &mir::Function,
         start_block: BlockId,
-        _global_to_section: &SecondaryMap<mir::GlobalId, SectionId>,
+        globals: &SecondaryMap<mir::GlobalId, SectionId>,
         functions: &SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
         lir: &mut CodeSectionBuilder,
     ) {
@@ -102,12 +102,14 @@ impl CodeGen {
             for instruction in &function.blocks[mir_block].instructions {
                 let ty = self.ty_from_instr(mir, function, instruction);
                 self.generate_from_instr(
+                    mir,
                     function,
                     instruction,
                     ty,
                     block,
                     lir,
                     &Ids {
+                        globals,
                         functions,
                         blocks: &blocks,
                     },
@@ -120,6 +122,7 @@ impl CodeGen {
                 block,
                 lir,
                 &Ids {
+                    globals,
                     functions,
                     blocks: &blocks,
                 },
@@ -164,6 +167,7 @@ impl CodeGen {
     #[allow(clippy::too_many_arguments)]
     fn generate_from_instr(
         &mut self,
+        mir: &mir::Mir,
         function: &mir::Function,
         instruction: &mir::Instr,
         ty: Ty,
@@ -174,15 +178,31 @@ impl CodeGen {
     ) {
         match ty {
             Ty::U1 => {
-                self.generate_from_u1_instr(function, instruction, block, lir, ids, locals);
+                self.generate_from_u1_instr(mir, function, instruction, block, lir, ids, locals);
             }
             Ty::U2 => todo!("{instruction:?} {:?}", Ty::U2),
             Ty::U4 => todo!("{instruction:?} {:?}", Ty::U4),
             Ty::U8 | Ty::I8 => {
-                self.generate_from_scalar8_instr(function, instruction, block, lir, ids, locals);
+                self.generate_from_scalar8_instr(
+                    mir,
+                    function,
+                    instruction,
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
             }
             Ty::U16 | Ty::I16 => {
-                self.generate_from_scalar16_instr(function, instruction, block, lir, ids, locals);
+                self.generate_from_scalar16_instr(
+                    mir,
+                    function,
+                    instruction,
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
             }
             ty if ty.is_struct() || ty.is_array() => match instruction {
                 mir::Instr::Alloc { .. }
@@ -196,6 +216,7 @@ impl CodeGen {
                 | mir::Instr::Eq { .. }
                 | mir::Instr::Ne { .. } => match ty.bit_size(&self.ty_registry) {
                     8 => self.generate_from_scalar8_instr(
+                        mir,
                         function,
                         instruction,
                         block,
@@ -204,6 +225,7 @@ impl CodeGen {
                         locals,
                     ),
                     16 => self.generate_from_scalar16_instr(
+                        mir,
                         function,
                         instruction,
                         block,
@@ -343,8 +365,10 @@ impl CodeGen {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_from_u1_instr(
         &mut self,
+        mir: &mir::Mir,
         function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
@@ -369,8 +393,62 @@ impl CodeGen {
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
-            mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => todo!("{instruction:?}"),
+            mir::Instr::Load {
+                target,
+                source,
+                projections,
+            } => {
+                let (source, bit) = self.projected_global_to_addr(
+                    mir,
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                let r8 = lir.insert_ld8(block, source);
+                locals
+                    .r1s
+                    .insert(*target, (R1::Dirty { r8, bit }, mir::Condition::NotZero));
+            }
+            mir::Instr::Store {
+                target,
+                projections,
+                source,
+            } => {
+                let (target, target_bit) = self.projected_global_to_addr(
+                    mir,
+                    *target,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                let target = match target {
+                    Ld8Source::Operand(Operand8::Ptr(target)) => target,
+                    Ld8Source::SectionAddrPtr { section, offset } => {
+                        lir.insert_ld16(block, Ld16Source::SectionAddr { section, offset })
+                    }
+                    _ => unreachable!("projected_global_to_addr should not produce {target:?}"),
+                };
+                let (source, source_bit, _state, condition) =
+                    self.r1_to_operand(source, block, lir, locals);
+                match source {
+                    Operand8::Direct(_) => todo!("{instruction:?}"),
+                    Operand8::Literal(mut source) => {
+                        if condition == mir::Condition::Zero {
+                            source = !source;
+                        }
+                        let set = source & (1 << u8::from(source_bit)) != 0;
+                        if set {
+                            lir.insert_set_ptr(block, target_bit, target);
+                        }
+                    }
+                    source => unreachable!("r1_to_operand should not produce {source:?}"),
+                }
+            }
             mir::Instr::Copy { target, source } => {
                 let (source, bit, state, condition) =
                     self.r1_to_operand(source, block, lir, locals);
@@ -537,13 +615,15 @@ impl CodeGen {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_from_scalar8_instr(
         &mut self,
+        mir: &mir::Mir,
         function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        _ids: &Ids<'_>,
+        ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -554,8 +634,67 @@ impl CodeGen {
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
-            mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => todo!("{instruction:?}"),
+            mir::Instr::Load {
+                target,
+                source,
+                projections,
+            } => {
+                let (addr, bit_offset) = self.projected_global_to_addr(
+                    mir,
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                assert_eq!(bit_offset, u3::new(0), "misaligned 8-bit ty");
+                let r8 = lir.insert_ld8(block, addr);
+                locals.r8s.insert(*target, r8);
+            }
+            mir::Instr::Store {
+                target,
+                projections,
+                source,
+            } => {
+                let (target, bit_offset) = self.projected_global_to_addr(
+                    mir,
+                    *target,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                assert_eq!(bit_offset, u3::new(0), "misaligned 8-bit ty");
+                match (target, self.r8_to_operand(source, locals)) {
+                    (Ld8Source::Operand(Operand8::Ptr(target)), Operand8::Direct(source)) => {
+                        lir.insert_store(block, StoreTarget::Ptr(target), source);
+                    }
+                    (Ld8Source::Operand(Operand8::Ptr(target)), Operand8::Literal(source)) => {
+                        lir.insert_store_value(block, target, source);
+                    }
+                    (Ld8Source::SectionAddrPtr { section, offset }, Operand8::Direct(source)) => {
+                        lir.insert_store(
+                            block,
+                            StoreTarget::SectionAddrPtr { section, offset },
+                            source,
+                        );
+                    }
+                    (Ld8Source::SectionAddrPtr { section, offset }, Operand8::Literal(source)) => {
+                        let source =
+                            lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(source)));
+                        lir.insert_store(
+                            block,
+                            StoreTarget::SectionAddrPtr { section, offset },
+                            source,
+                        );
+                    }
+                    unexpected => unreachable!(
+                        "projected_global_to_addr and r8_to_operand should not produce {unexpected:?}"
+                    ),
+                }
+            }
             mir::Instr::Copy { target, source } => {
                 let r8 = lir.insert_ld8(
                     block,
@@ -650,8 +789,10 @@ impl CodeGen {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn generate_from_scalar16_instr(
         &mut self,
+        mir: &mir::Mir,
         function: &mir::Function,
         instruction: &mir::Instr,
         block: BlockId,
@@ -667,8 +808,87 @@ impl CodeGen {
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
-            mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => todo!("{instruction:?}"),
+            mir::Instr::Load {
+                target,
+                source,
+                projections,
+            } => {
+                let (addr, bit_offset) = self.projected_global_to_addr(
+                    mir,
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
+                let (high, low) = match &addr {
+                    Ld8Source::Operand(Operand8::Ptr(addr)) => {
+                        let (low, addr) = lir.insert_ld8_inc(block, *addr);
+                        let high = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Ptr(addr)));
+                        (high, low)
+                    }
+                    Ld8Source::SectionAddrPtr { section, offset } => {
+                        let low = lir.insert_ld8(
+                            block,
+                            Ld8Source::SectionAddrPtr {
+                                section: *section,
+                                offset: *offset,
+                            },
+                        );
+                        let high = lir.insert_ld8(
+                            block,
+                            Ld8Source::SectionAddrPtr {
+                                section: *section,
+                                offset: *offset + 1,
+                            },
+                        );
+                        (high, low)
+                    }
+                    _ => unreachable!("projected_global_to_addr should not produce {addr:?}"),
+                };
+                let r16 = lir.insert_join(block, high, low);
+                locals.r16s.insert(*target, r16);
+            }
+            mir::Instr::Store {
+                target,
+                projections,
+                source,
+            } => {
+                let (addr, bit_offset) = self.projected_global_to_addr(
+                    mir,
+                    *target,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ids,
+                    locals,
+                );
+                assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
+                let addr = match addr {
+                    Ld8Source::Operand(Operand8::Ptr(addr)) => addr,
+                    Ld8Source::SectionAddrPtr { section, offset } => {
+                        lir.insert_ld16(block, Ld16Source::SectionAddr { section, offset })
+                    }
+                    _ => unreachable!("projected_global_to_addr should not produce {addr:?}"),
+                };
+                let source = match source {
+                    mir::Operand::Local(source) => locals.r16s[*source],
+                    mir::Operand::FnPtr(source) => {
+                        let (section, block) = ids.functions[*source];
+                        lir.insert_ld16(block, Ld16Source::FnAddr { section, block })
+                    }
+                    mir::Operand::Literal(source) =>
+                    {
+                        #[allow(clippy::cast_possible_truncation)]
+                        lir.insert_ld16(block, Ld16Source::Literal(source.value as u16))
+                    }
+                };
+                let (high, low) = lir.insert_split(block, source);
+                let addr = lir.insert_store_inc(block, addr, low);
+                lir.insert_store(block, StoreTarget::Ptr(addr), high);
+            }
             mir::Instr::Copy { target, source } => {
                 let (source_high, source_low) =
                     self.r16_to_high_low(source, block, lir, ids, locals);
@@ -844,7 +1064,7 @@ impl CodeGen {
             }
             mir::Operand::FnPtr(function) => {
                 let (section, block) = ids.functions[*function];
-                lir.insert_ld16(block, Ld16Source::FnPtr { section, block })
+                lir.insert_ld16(block, Ld16Source::FnAddr { section, block })
             }
         }
     }
@@ -1093,9 +1313,82 @@ impl CodeGen {
             ty => unimplemented!("{ty:?}"),
         }
     }
+
+    #[allow(clippy::too_many_arguments)]
+    fn projected_global_to_addr(
+        &mut self,
+        mir: &mir::Mir,
+        global: mir::GlobalId,
+        projections: &[mir::PlaceProjection],
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
+        locals: &mut Locals,
+    ) -> (Ld8Source, u3) {
+        let mut bit_offset = 0;
+        let mut r16 = None;
+        let mut ty = mir.globals[global].ty;
+        for project in projections {
+            match project {
+                mir::PlaceProjection::Field(field) => {
+                    let field_data = &self.ty_registry.struct_ty_data(ty).fields[field];
+                    ty = field_data.ty;
+                    bit_offset += field_data.bit_offset;
+                }
+                mir::PlaceProjection::Index(mir::Operand::Literal(index)) => {
+                    ty = self.ty_registry.array_ty_data(ty).item_ty;
+                    bit_offset += ty.bit_size(&self.ty_registry) * index.value;
+                }
+                mir::PlaceProjection::Index(mir::Operand::Local(index)) => {
+                    let index = locals.r16s[*index];
+                    let byte_offset = bit_offset / 8;
+                    bit_offset %= 8;
+                    let addr = match r16 {
+                        Some(r16) => {
+                            #[allow(clippy::cast_possible_truncation)]
+                            let offset =
+                                lir.insert_ld16(block, Ld16Source::Literal(byte_offset as u16));
+                            let (r16, _c) = lir.insert_add16(block, r16, offset);
+                            r16
+                        }
+                        None => lir.insert_ld16(
+                            block,
+                            Ld16Source::SectionAddr {
+                                section: ids.globals[global],
+                                #[allow(clippy::cast_possible_truncation)]
+                                offset: byte_offset as u16,
+                            },
+                        ),
+                    };
+                    let (addr, _c) = lir.insert_add16(block, addr, index);
+                    r16 = Some(addr);
+                }
+                mir::PlaceProjection::Index(mir::Operand::FnPtr(_)) => {
+                    unimplemented!("fn ptr should not be possible to use for indexing an array")
+                }
+            }
+        }
+        let byte_offset = bit_offset / 8;
+        let bit_offset = u3::try_from(bit_offset % 8).expect("should never fail due to % 8");
+        let source = match r16 {
+            Some(r16) => {
+                #[allow(clippy::cast_possible_truncation)]
+                let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset as u16));
+                let (r16, _c) = lir.insert_add16(block, r16, offset);
+                Ld8Source::Operand(Operand8::Ptr(r16))
+            }
+            None => Ld8Source::SectionAddrPtr {
+                section: ids.globals[global],
+                #[allow(clippy::cast_possible_truncation)]
+                offset: byte_offset as u16,
+            },
+        };
+        (source, bit_offset)
+    }
 }
 
 struct Ids<'a> {
+    globals: &'a SecondaryMap<mir::GlobalId, SectionId>,
     functions: &'a SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
     blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
 }

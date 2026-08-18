@@ -202,7 +202,7 @@ pub enum Instr {
     /// `LDH [C],A`
     Store { target: StoreTarget, source: R8Id },
     /// `LD [HL],n8`
-    StoreValue { target: R16Id, source: u16 },
+    StoreValue { target: R16Id, source: u8 },
     /// `LD [HLI],A`
     StoreInc {
         revised: R16Id,
@@ -327,13 +327,13 @@ pub enum Instr {
         source_pointer: R16Id,
     },
     /// `RES u3,r8`
-    Res { target: R8Id, bit: u8, source: R8Id },
+    Res { target: R8Id, bit: u3, source: R8Id },
     /// `RES u3,[HL]`
-    ResPtr { bit: u8, pointer: R16Id },
+    ResPtr { bit: u3, pointer: R16Id },
     /// `SET u3,r8`
-    Set { target: R8Id, bit: u8, source: R8Id },
+    Set { target: R8Id, bit: u3, source: R8Id },
     /// `SET u3,[HL]`
-    SetPtr { bit: u8, pointer: R16Id },
+    SetPtr { bit: u3, pointer: R16Id },
     /// `RL r8`
     /// `RLA`
     Rl {
@@ -800,26 +800,32 @@ pub enum Terminator {
 #[derive(Debug)]
 pub enum Ld8Source {
     Operand(Operand8),
-    PtrLiteral(u16),
+    LiteralPtr(u16),
+    SectionAddrPtr { section: SectionId, offset: u16 },
     HighPtr(R8Id),
-    HighPtrLiteral(u8),
+    HighLiteralPtr(u8),
 }
 
 #[derive(Debug)]
 pub enum Ld16Source {
     Literal(u16),
-    FnPtr {
+    FnAddr {
         section: Option<SectionId>,
         block: BlockId,
+    },
+    SectionAddr {
+        section: SectionId,
+        offset: u16,
     },
 }
 
 #[derive(Debug)]
 pub enum StoreTarget {
     Ptr(R16Id),
-    PtrLiteral(u16),
+    LiteralPtr(u16),
+    SectionAddrPtr { section: SectionId, offset: u16 },
     HighPtr(R8Id),
-    HighPtrLiteral(u8),
+    HighLiteralPtr(u8),
 }
 
 #[derive(Debug)]
@@ -1064,7 +1070,7 @@ impl CodeSectionBuilder {
     }
 
     /// `LD [HL],n8`
-    pub fn insert_store_value(&mut self, block: BlockId, target: R16Id, source: u16) {
+    pub fn insert_store_value(&mut self, block: BlockId, target: R16Id, source: u8) {
         self.insert_instr(block, Instr::StoreValue { target, source });
     }
 
@@ -1367,7 +1373,7 @@ impl CodeSectionBuilder {
 
     /// `RES u3,r8`
     #[must_use]
-    pub fn insert_res(&mut self, block: BlockId, bit: u8, source: R8Id) -> R8Id {
+    pub fn insert_res(&mut self, block: BlockId, bit: u3, source: R8Id) -> R8Id {
         let target = self.new_r8();
         self.insert_instr(
             block,
@@ -1381,13 +1387,13 @@ impl CodeSectionBuilder {
     }
 
     /// `RES u3,[HL]`
-    pub fn insert_res_ptr(&mut self, block: BlockId, bit: u8, pointer: R16Id) {
+    pub fn insert_res_ptr(&mut self, block: BlockId, bit: u3, pointer: R16Id) {
         self.insert_instr(block, Instr::ResPtr { bit, pointer });
     }
 
     /// `SET u3,r8`
     #[must_use]
-    pub fn insert_set(&mut self, block: BlockId, bit: u8, source: R8Id) -> R8Id {
+    pub fn insert_set(&mut self, block: BlockId, bit: u3, source: R8Id) -> R8Id {
         let target = self.new_r8();
         self.insert_instr(
             block,
@@ -1401,7 +1407,7 @@ impl CodeSectionBuilder {
     }
 
     /// `SET u3,[HL]`
-    pub fn insert_set_ptr(&mut self, block: BlockId, bit: u8, pointer: R16Id) {
+    pub fn insert_set_ptr(&mut self, block: BlockId, bit: u3, pointer: R16Id) {
         self.insert_instr(block, Instr::SetPtr { bit, pointer });
     }
 
