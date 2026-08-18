@@ -38,6 +38,7 @@ impl CodeGen {
         }
         for (function_id, function) in &mir.functions {
             self.generate_from_function(
+                mir,
                 function,
                 functions[function_id].1,
                 &global_to_section,
@@ -76,6 +77,7 @@ impl CodeGen {
 
     fn generate_from_function(
         &mut self,
+        mir: &mir::Mir,
         function: &mir::Function,
         start_block: BlockId,
         _global_to_section: &SecondaryMap<mir::GlobalId, SectionId>,
@@ -98,9 +100,11 @@ impl CodeGen {
         for mir_block in function.traverse_blocks() {
             let block = blocks[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
+                let ty = self.ty_from_instr(mir, function, instruction);
                 self.generate_from_instr(
                     function,
                     instruction,
+                    ty,
                     block,
                     lir,
                     &Ids {
@@ -124,34 +128,98 @@ impl CodeGen {
         }
     }
 
+    fn ty_from_instr(
+        &mut self,
+        mir: &mir::Mir,
+        function: &mir::Function,
+        instruction: &mir::Instr,
+    ) -> Ty {
+        match (instruction.target_local(), instruction) {
+            (Some(target), _) => function.locals[target].ty,
+            (
+                None,
+                mir::Instr::Store {
+                    target,
+                    projections,
+                    ..
+                },
+            ) => {
+                let mut ty = mir.globals[*target].ty;
+                for projection in projections {
+                    ty = match projection {
+                        mir::PlaceProjection::Field(field) => {
+                            self.ty_registry.struct_ty_data(ty).fields[field].ty
+                        }
+                        mir::PlaceProjection::Index(_) => {
+                            self.ty_registry.array_ty_data(ty).item_ty
+                        }
+                    }
+                }
+                ty
+            }
+            (None, _) => unreachable!("{instruction:?}"),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn generate_from_instr(
         &mut self,
         function: &mir::Function,
         instruction: &mir::Instr,
+        ty: Ty,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
-        match instruction
-            .target_local()
-            .map(|target| function.locals[target].ty)
-        {
-            Some(Ty::U1) => {
+        match ty {
+            Ty::U1 => {
                 self.generate_from_u1_instr(function, instruction, block, lir, ids, locals);
             }
-            Some(Ty::U2) => todo!("{instruction:?} {:?}", Ty::U2),
-            Some(Ty::U4) => todo!("{instruction:?} {:?}", Ty::U4),
-            Some(Ty::U8 | Ty::I8) => {
+            Ty::U2 => todo!("{instruction:?} {:?}", Ty::U2),
+            Ty::U4 => todo!("{instruction:?} {:?}", Ty::U4),
+            Ty::U8 | Ty::I8 => {
                 self.generate_from_scalar8_instr(function, instruction, block, lir, ids, locals);
             }
-            Some(Ty::U16 | Ty::I16) => {
+            Ty::U16 | Ty::I16 => {
                 self.generate_from_scalar16_instr(function, instruction, block, lir, ids, locals);
             }
-            Some(ty) if ty.is_struct() => todo!("{instruction:?} {:?}", ty),
-            Some(ty) if ty.is_array() => todo!("{instruction:?} {:?}", ty),
-            Some(ty) => unimplemented!("{instruction:?} {:?}", ty),
-            None => todo!("{instruction:?}"),
+            ty if ty.is_struct() || ty.is_array() => match instruction {
+                mir::Instr::Alloc { .. }
+                | mir::Instr::ReturnValue { .. }
+                | mir::Instr::Phi { .. }
+                | mir::Instr::Load { .. }
+                | mir::Instr::Store { .. }
+                | mir::Instr::Copy { .. }
+                | mir::Instr::Read { .. }
+                | mir::Instr::Write { .. }
+                | mir::Instr::Eq { .. }
+                | mir::Instr::Ne { .. } => match ty.bit_size(&self.ty_registry) {
+                    8 => self.generate_from_scalar8_instr(
+                        function,
+                        instruction,
+                        block,
+                        lir,
+                        ids,
+                        locals,
+                    ),
+                    16 => self.generate_from_scalar16_instr(
+                        function,
+                        instruction,
+                        block,
+                        lir,
+                        ids,
+                        locals,
+                    ),
+                    _ => unimplemented!(
+                        "Valid MIR should never produce structs or arrays which are not 8 or 16-bit"
+                    ),
+                },
+                _ => unimplemented!(
+                    "Only alloc, equality, reads and writes are supported on arrays and structs"
+                ),
+            },
+            ty => unimplemented!("{ty:?}"),
         }
     }
 
@@ -302,7 +370,7 @@ impl CodeGen {
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
+            mir::Instr::Store { .. } => todo!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
                 let (source, bit, state, condition) =
                     self.r1_to_operand(source, block, lir, locals);
@@ -487,7 +555,7 @@ impl CodeGen {
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
+            mir::Instr::Store { .. } => todo!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
                 let r8 = lir.insert_ld8(
                     block,
@@ -600,7 +668,7 @@ impl CodeGen {
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
-            mir::Instr::Store { .. } => unreachable!("{instruction:?}"),
+            mir::Instr::Store { .. } => todo!("{instruction:?}"),
             mir::Instr::Copy { target, source } => {
                 let (source_high, source_low) =
                     self.r16_to_high_low(source, block, lir, ids, locals);

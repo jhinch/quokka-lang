@@ -6,9 +6,9 @@ use crate::analyze::error::{
 };
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    ArithmeticOp, ArrayExpr, AssignOp, BreakSmt, Call, ComparisonOp, ConstDecl, Expr, If,
-    IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt, SpannedIdentifier, StructExpr,
-    UnaryOp, UnaryOpKind, YieldSmt,
+    ArithmeticOp, ArrayExpr, AssignOp, BreakSmt, Call, ComparisonOp, ComparisonOpKind, ConstDecl,
+    Expr, If, IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt, SpannedIdentifier,
+    StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
 };
 use crate::mir::{FunctionBuilder, LocalId};
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -304,6 +304,12 @@ impl TypeSolver {
         left_ty: InferredTy,
         right_ty: InferredTy,
     ) -> InferredTy {
+        if !matches!(op.kind, ComparisonOpKind::Eq | ComparisonOpKind::Ne) {
+            self.constraints.push_back(InferenceConstraint::IsInt {
+                ty: left_ty.clone(),
+                span: op.left.span,
+            });
+        }
         self.constraints.push_back(InferenceConstraint::Equal {
             ty1: left_ty,
             ty1_span: op.left.span,
