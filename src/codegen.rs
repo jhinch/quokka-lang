@@ -493,26 +493,26 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (left, left_mask, left_condition) =
+                let (mut left, left_bit, mut left_condition) =
                     self.r1_to_r8_clean(*left, block, lir, locals);
-                let (right, right_mask, right_condition) =
+                let (right, _right_bit, right_condition) =
                     self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition == right_condition {
-                    if left_condition == mir::Condition::NotZero {
-                        let (_r8, z, _c) = lir.insert_and(block, left, right);
-                        locals
-                            .r1s
-                            .insert(*target, (R1::from(z), mir::Condition::NotZero));
-                    } else {
-                        let (_r8, z, _c) = lir.insert_or(block, left, right);
-                        locals
-                            .r1s
-                            .insert(*target, (R1::from(z), mir::Condition::Zero));
-                    }
+                if left_condition != right_condition {
+                    let (new_left, _z, _c) =
+                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
+                    left = new_left;
+                    left_condition = !left_condition;
+                }
+                if left_condition == mir::Condition::NotZero {
+                    let (_r8, z, _c) = lir.insert_and(block, left, right);
+                    locals
+                        .r1s
+                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
                 } else {
-                    todo!(
-                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                    );
+                    let (_r8, z, _c) = lir.insert_or(block, left, right);
+                    locals
+                        .r1s
+                        .insert(*target, (R1::from(z), mir::Condition::Zero));
                 }
             }
             mir::Instr::BitOr {
@@ -520,26 +520,26 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (left, left_mask, left_condition) =
+                let (mut left, left_bit, mut left_condition) =
                     self.r1_to_r8_clean(*left, block, lir, locals);
-                let (right, right_mask, right_condition) =
+                let (right, _right_bit, right_condition) =
                     self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition == right_condition {
-                    if left_condition == mir::Condition::NotZero {
-                        let (_r8, z, _c) = lir.insert_or(block, left, right);
-                        locals
-                            .r1s
-                            .insert(*target, (R1::from(z), mir::Condition::NotZero));
-                    } else {
-                        let (_r8, z, _c) = lir.insert_and(block, left, right);
-                        locals
-                            .r1s
-                            .insert(*target, (R1::from(z), mir::Condition::Zero));
-                    }
+                if left_condition != right_condition {
+                    let (new_left, _z, _c) =
+                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
+                    left = new_left;
+                    left_condition = !left_condition;
+                }
+                if left_condition == mir::Condition::NotZero {
+                    let (_r8, z, _c) = lir.insert_or(block, left, right);
+                    locals
+                        .r1s
+                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
                 } else {
-                    todo!(
-                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                    );
+                    let (_r8, z, _c) = lir.insert_and(block, left, right);
+                    locals
+                        .r1s
+                        .insert(*target, (R1::from(z), mir::Condition::Zero));
                 }
             }
             mir::Instr::BitXor {
@@ -557,20 +557,29 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (left, left_mask, left_condition) =
+                let (mut left, left_bit, left_condition) =
                     self.r1_to_r8_clean(*left, block, lir, locals);
-                let (right, right_mask, right_condition) =
+                let (mut right, right_bit, right_condition) =
                     self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition == right_condition {
-                    let (_r8, z, _c) = lir.insert_xor(block, left, right);
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
-                } else {
-                    todo!(
-                        "{instruction:?}, left_mask={left_mask}, right_mask={right_mask}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                    );
+                if left_bit != right_bit {
+                    if let Operand8::Literal(value) = &right {
+                        right =
+                            Operand8::Literal((value >> u8::from(right_bit)) << u8::from(left_bit));
+                    } else {
+                        todo!(
+                            "{instruction:?}, left_bit={left_bit}, right_bit={right_bit}, left_condition={left_condition:?}, right_condition={right_condition:?}"
+                        );
+                    }
                 }
+                if left_condition != right_condition {
+                    let (new_left, _z, _c) =
+                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
+                    left = new_left;
+                }
+                let (_r8, z, _c) = lir.insert_xor(block, left, right);
+                locals
+                    .r1s
+                    .insert(*target, (R1::from(z), mir::Condition::NotZero));
             }
         }
     }
