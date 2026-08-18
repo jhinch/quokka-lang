@@ -28,6 +28,8 @@ pub const ZERO_FLAG_BIT: u8 = 7;
 pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
 pub const CARRY_FLAG_BIT: u8 = 4;
 pub const CARRY_FLAG_MASK: u8 = 1 << CARRY_FLAG_BIT;
+pub const SIGN_BIT: u8 = 7;
+pub const SIGN_MASK: u8 = 1 << SIGN_BIT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
 pub enum FlagId {
@@ -1561,6 +1563,7 @@ impl CodeSectionBuilder {
         (z, c)
     }
 
+    /// Shift right arithmetically (signed)
     /// `SRA r8`
     #[must_use]
     pub fn insert_sra(&mut self, block: BlockId, source: R8Id) -> (R8Id, ZeroFlagId, CarryFlagId) {
@@ -1579,6 +1582,7 @@ impl CodeSectionBuilder {
         (target, z, c)
     }
 
+    /// Shift right arithmetically (signed)
     /// `SRA [HL]`
     #[must_use]
     pub fn insert_sra_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
@@ -1588,6 +1592,7 @@ impl CodeSectionBuilder {
         (z, c)
     }
 
+    /// Shift right logically (unsigned)
     /// `SRL r8`
     #[must_use]
     pub fn insert_srl(&mut self, block: BlockId, source: R8Id) -> (R8Id, ZeroFlagId, CarryFlagId) {
@@ -1606,6 +1611,7 @@ impl CodeSectionBuilder {
         (target, z, c)
     }
 
+    /// Shift right logically (unsigned)
     /// `SRL [HL]`
     #[must_use]
     pub fn insert_srl_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
