@@ -281,7 +281,7 @@ impl CodeGen {
         instruction: &mir::Instr,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
-        _ids: &Ids<'_>,
+        ids: &Ids<'_>,
         locals: &mut Locals,
     ) {
         match instruction {
@@ -345,33 +345,27 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (z, _c) =
-                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from(z), mir::Condition::Zero));
+                let (z, condition) =
+                    self.eq_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                locals.r1s.insert(*target, (R1::from(z), condition));
             }
             mir::Instr::Ne {
                 target,
                 left,
                 right,
             } => {
-                let (z, _c) =
-                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from(z), mir::Condition::NotZero));
+                let (z, condition) =
+                    self.eq_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                locals.r1s.insert(*target, (R1::from(z), !condition));
             }
             mir::Instr::Lt {
                 target,
                 left,
                 right,
             } => {
-                let (_z, c) =
-                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from(c), mir::Condition::NotZero));
+                let (c, condition) =
+                    self.lt_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                locals.r1s.insert(*target, (R1::from(c), condition));
             }
             mir::Instr::Le { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
@@ -381,11 +375,9 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (_z, c) =
-                    self.cp_from_comparison_op(function, *left, right, block, lir, locals);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from(c), mir::Condition::Zero));
+                let (c, condition) =
+                    self.lt_from_comparison_op(function, *left, right, block, lir, ids, locals);
+                locals.r1s.insert(*target, (R1::from(c), !condition));
             }
             mir::Instr::Gt { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
@@ -917,7 +909,74 @@ impl CodeGen {
         }
     }
 
-    fn cp_from_comparison_op(
+    #[allow(clippy::too_many_arguments)]
+    fn eq_from_comparison_op(
+        &mut self,
+        function: &mir::Function,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
+        locals: &mut Locals,
+    ) -> (ZeroFlagId, mir::Condition) {
+        match function.locals[left].ty {
+            Ty::U1 | Ty::U2 | Ty::U4 => {
+                let (z, _c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                (z, mir::Condition::NotZero)
+            }
+            ty if ty.bit_size(&self.ty_registry) == 8 => {
+                let (z, _c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                (z, mir::Condition::NotZero)
+            }
+            ty if ty.bit_size(&self.ty_registry) == 16 => {
+                let (left_high, left_low) =
+                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                let (target_low, _z, _c) =
+                    lir.insert_xor(block, left_low, Operand8::Direct(right_low));
+                let (target_high, _z, _c) =
+                    lir.insert_xor(block, left_high, Operand8::Direct(right_high));
+                let (_r8, z, _c) = lir.insert_or(block, target_high, Operand8::Direct(target_low));
+                (z, mir::Condition::NotZero)
+            }
+            ty => unimplemented!("{ty:?}"),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn lt_from_comparison_op(
+        &mut self,
+        function: &mir::Function,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ids: &Ids<'_>,
+        locals: &mut Locals,
+    ) -> (CarryFlagId, mir::Condition) {
+        match function.locals[left].ty {
+            Ty::U1 | Ty::U2 | Ty::U4 => {
+                let (_z, c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                (c, mir::Condition::NotZero)
+            }
+            ty if ty.bit_size(&self.ty_registry) == 8 => {
+                let (_z, c) = self.cp_from_r8(function, left, right, block, lir, locals);
+                (c, mir::Condition::NotZero)
+            }
+            ty if ty.bit_size(&self.ty_registry) == 16 => {
+                let (left_high, left_low) =
+                    self.r16_to_high_low(&mir::Operand::Local(left), block, lir, ids, locals);
+                let (right_high, right_low) = self.r16_to_high_low(right, block, lir, ids, locals);
+                let (_r16, _z, c) = lir.insert_sub(block, left_high, Operand8::Direct(right_high));
+                let (_r16, _z, c) = lir.insert_sbc(block, left_low, Operand8::Direct(right_low), c);
+                (c, mir::Condition::NotZero)
+            }
+            ty => unimplemented!("{ty:?}"),
+        }
+    }
+
+    fn cp_from_r8(
         &mut self,
         function: &mir::Function,
         left: mir::LocalId,
@@ -963,7 +1022,6 @@ impl CodeGen {
             ty if ty.bit_size(&self.ty_registry) == 8 => {
                 lir.insert_cp(block, locals.r8s[left], self.r8_to_operand(right, locals))
             }
-            ty if ty.bit_size(&self.ty_registry) == 16 => todo!("{left:?} {right:?} u16"),
             ty => unimplemented!("{ty:?}"),
         }
     }
