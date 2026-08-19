@@ -53,15 +53,18 @@ impl CodeGen {
     fn generate_from_global(&mut self, global: &mir::Global) -> SectionId {
         match &global.attrs {
             mir::GlobalAttributes::Rom(attrs) => self.lir.insert_data_section(DataSectionData {
+                name: global.name.data.clone(),
                 region: match attrs.section {
                     RomSectionKind::Auto => None,
                     RomSectionKind::RomX => Some(RomRegionKind::RomX(None)),
                     RomSectionKind::Rom0 => Some(RomRegionKind::Rom0),
                 },
-                address: None,
+                addr: None,
                 data: global.value.clone(),
             }),
             mir::GlobalAttributes::Ram(attrs) => self.lir.insert_ram_section(RamSectionData {
+                name: global.name.data.clone(),
+                size: global.ty.bit_size(&self.ty_registry),
                 region: match attrs.section {
                     RamSectionKind::Auto => RamRegionKind::default(),
                     RamSectionKind::WRam0 => RamRegionKind::WRam0,
@@ -71,7 +74,7 @@ impl CodeGen {
                     RamSectionKind::SRam => RamRegionKind::SRam,
                     RamSectionKind::Oam => RamRegionKind::Oam,
                 },
-                address: 0,
+                addr: 0,
             }),
         }
     }

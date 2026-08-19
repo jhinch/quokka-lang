@@ -10,11 +10,12 @@
 //! produce the final assembly code.
 
 use crate::ast::Identifier;
-use crate::num::u3;
+use crate::num::{BitCount, u3};
 use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
 use std::cmp::Ordering;
+use std::fmt;
 use std::num::NonZeroU16;
 
 new_key_type! { pub struct SectionId; }
@@ -23,6 +24,47 @@ new_key_type! { pub struct ZeroFlagId; }
 new_key_type! { pub struct CarryFlagId; }
 new_key_type! { pub struct R8Id; }
 new_key_type! { pub struct R16Id; }
+
+impl SectionId {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match &lir.sections[*self].data {
+            SectionData::Code(_) => Err(fmt::Error),
+            SectionData::Data(data) => write!(f, "{}", data.name),
+            SectionData::Ram(data) => write!(f, "{}", data.name),
+        })
+    }
+}
+
+impl fmt::Display for BlockId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
+
+impl fmt::Display for ZeroFlagId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "z{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
+
+impl fmt::Display for CarryFlagId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "c{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
+
+impl fmt::Display for R8Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "%{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
+
+impl fmt::Display for R16Id {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "%%{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+    }
+}
 
 pub const ZERO_FLAG_BIT: u8 = 7;
 pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
@@ -36,26 +78,38 @@ pub struct Lir {
     pub sections: SlotMap<SectionId, Section>,
 }
 
+impl fmt::Display for Lir {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (section_id, section) in &self.sections {
+            writeln!(f, "{}", section.display(self, section_id))?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct Section {
     pub data: SectionData,
 }
 
 impl Section {
-    pub fn region(&self) -> Option<RegionKind> {
+    #[must_use]
+    pub fn region(&self) -> RegionKind {
         match &self.data {
             SectionData::Code(CodeSectionData { region, .. })
-            | SectionData::Data(DataSectionData { region, .. }) => region.map(RegionKind::Rom),
-            SectionData::Ram(RamSectionData { region, .. }) => Some(RegionKind::Ram(*region)),
+            | SectionData::Data(DataSectionData { region, .. }) => {
+                RegionKind::Rom(region.unwrap_or_default())
+            }
+            SectionData::Ram(RamSectionData { region, .. }) => RegionKind::Ram(*region),
         }
     }
 
     #[must_use]
-    pub fn address(&self) -> Option<u16> {
+    pub fn addr(&self) -> Option<u16> {
         match &self.data {
-            SectionData::Code(CodeSectionData { address, .. })
-            | SectionData::Data(DataSectionData { address, .. }) => *address,
-            SectionData::Ram(RamSectionData { address, .. }) => Some(*address),
+            SectionData::Code(CodeSectionData { addr, .. })
+            | SectionData::Data(DataSectionData { addr, .. }) => *addr,
+            SectionData::Ram(RamSectionData { addr, .. }) => Some(*addr),
         }
     }
 
@@ -79,6 +133,53 @@ impl Section {
     }
 }
 
+impl Section {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            write!(f, "START_SECTION {:?}", self.region())?;
+            if let Some(addr) = self.addr() {
+                write!(f, "[{addr}]")?;
+            }
+            if let Some(bank) = self.bank() {
+                write!(f, "BANK[{bank}]")?;
+            }
+            writeln!(f)?;
+            match &self.data {
+                SectionData::Code(data) => {
+                    for (block_id, block) in &data.blocks {
+                        if let Some(name) = data.functions.get(block_id) {
+                            writeln!(f, "{name}::")?;
+                        }
+                        writeln!(f, "{block_id}:")?;
+                        writeln!(f, "{}", block.display(lir, section))?;
+                    }
+                }
+                SectionData::Data(data) => {
+                    writeln!(f, "{}::", data.name)?;
+                    for chunk in data.data.chunks(32) {
+                        match chunk {
+                            [] => {}
+                            [byte, tail @ ..] => {
+                                write!(f, "data ${byte:02x}")?;
+                                for byte in tail {
+                                    write!(f, ", ${byte:02x}")?;
+                                }
+                                writeln!(f)?;
+                            }
+                        }
+                    }
+                }
+                SectionData::Ram(data) => {
+                    writeln!(f, "{}::", data.name)?;
+                    writeln!(f, "alloc {} x bit", data.size)?;
+                }
+            }
+            writeln!(f, "END_SECTION")
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum RegionKind {
     Rom(RomRegionKind),
@@ -95,7 +196,7 @@ pub enum SectionData {
 #[derive(Debug, Default)]
 pub struct CodeSectionData {
     pub region: Option<RomRegionKind>,
-    pub address: Option<u16>,
+    pub addr: Option<u16>,
     pub functions: SparseSecondaryMap<BlockId, Identifier>,
     pub blocks: SlotMap<BlockId, Block>,
     pub zero_flags: SlotMap<ZeroFlagId, Register>,
@@ -104,23 +205,27 @@ pub struct CodeSectionData {
     pub r16_registers: SlotMap<R16Id, Register>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum RomRegionKind {
+    #[default]
     Rom0,
     RomX(Option<NonZeroU16>),
 }
 
 #[derive(Debug)]
 pub struct DataSectionData {
+    pub name: Identifier,
     pub region: Option<RomRegionKind>,
-    pub address: Option<u16>,
+    pub addr: Option<u16>,
     pub data: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct RamSectionData {
+    pub name: Identifier,
     pub region: RamRegionKind,
-    pub address: u16,
+    pub addr: u16,
+    pub size: BitCount,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -147,6 +252,19 @@ pub struct Block {
     pub instructions: Vec<Instr>,
     pub terminator: Terminator,
     previous: Vec<BlockId>,
+}
+
+impl Block {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            for instruction in &self.instructions {
+                writeln!(f, "  {}", instruction.display(lir, section))?;
+            }
+            writeln!(f, "  {}", self.terminator.display(lir, section))?;
+            Ok(())
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -237,7 +355,7 @@ pub enum Instr {
         source: R8Id,
     },
     /// `DEC [HL]`
-    DecPtr { z: ZeroFlagId, pointer: R16Id },
+    DecPtr { z: ZeroFlagId, addr: R16Id },
     /// `INC r8`
     Inc {
         target: R8Id,
@@ -245,7 +363,7 @@ pub enum Instr {
         source: R8Id,
     },
     /// `INC [HL]`
-    IncPtr { z: ZeroFlagId, pointer: R16Id },
+    IncPtr { z: ZeroFlagId, addr: R16Id },
     /// `SBC A,r8`
     /// `SBC A,[HL]`
     /// `SBC A,n8`
@@ -306,19 +424,15 @@ pub enum Instr {
         source: R8Id,
     },
     /// `BIT u3,[HL]`
-    BitPtr {
-        z: ZeroFlagId,
-        bit: u3,
-        source_pointer: R16Id,
-    },
+    BitPtr { z: ZeroFlagId, bit: u3, addr: R16Id },
     /// `RES u3,r8`
     Res { target: R8Id, bit: u3, source: R8Id },
     /// `RES u3,[HL]`
-    ResPtr { bit: u3, pointer: R16Id },
+    ResPtr { bit: u3, addr: R16Id },
     /// `SET u3,r8`
     Set { target: R8Id, bit: u3, source: R8Id },
     /// `SET u3,[HL]`
-    SetPtr { bit: u3, pointer: R16Id },
+    SetPtr { bit: u3, addr: R16Id },
     /// `RL r8`
     /// `RLA`
     Rl {
@@ -332,7 +446,7 @@ pub enum Instr {
     RlPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
         c_in: CarryFlagId,
     },
     /// `RLC r8`
@@ -347,7 +461,7 @@ pub enum Instr {
     RlcPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `RR r8`
     /// `RRA`
@@ -362,7 +476,7 @@ pub enum Instr {
     RrPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
         c_in: CarryFlagId,
     },
     /// `RRC r8`
@@ -377,7 +491,7 @@ pub enum Instr {
     RrcPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `SLA r8`
     Sla {
@@ -390,7 +504,7 @@ pub enum Instr {
     SlaPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `SRA r8`
     Sra {
@@ -403,7 +517,7 @@ pub enum Instr {
     SraPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `SRL r8`
     Srl {
@@ -416,7 +530,7 @@ pub enum Instr {
     SrlPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `SWAP r8`
     Swap {
@@ -429,7 +543,7 @@ pub enum Instr {
     SwapPtr {
         z: ZeroFlagId,
         c: CarryFlagId,
-        pointer: R16Id,
+        addr: R16Id,
     },
     /// `CCF`
     Ccf { c: CarryFlagId, c_in: CarryFlagId },
@@ -731,6 +845,319 @@ impl Instr {
     }
 }
 
+impl Instr {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Instr::Nop => write!(f, "NOP"),
+            Instr::Ld8 { target, source } => write!(f, "LD {target}, {}", source.display(lir)),
+            Instr::Ld8Inc {
+                target,
+                revised,
+                source,
+            } => {
+                write!(f, "LD {target}, [I(out={revised};in={source})++]")
+            }
+            Instr::Ld8Dec {
+                target,
+                revised,
+                source,
+            } => {
+                write!(f, "LD {target}, [(out={revised};in={source})--]")
+            }
+            Instr::Ld16 { target, source } => {
+                write!(f, "LD {target}, {}", source.display(lir, section))
+            }
+            Instr::Store { target, source } => match target {
+                StoreTarget::Ptr(addr) => write!(f, "LD [{addr}], {source}"),
+                StoreTarget::LiteralPtr(addr) => write!(f, "LD [${addr:04x}], {source}"),
+                StoreTarget::SectionAddrPtr { section, offset } => {
+                    if *offset == 0 {
+                        write!(f, "LD [{}], {source}", section.display(lir))
+                    } else {
+                        write!(f, "LD [{}+${offset:04x}], {source}", section.display(lir))
+                    }
+                }
+                StoreTarget::HighPtr(addr) => write!(f, "LD [$ff00+{addr}], {source}"),
+                StoreTarget::HighLiteralPtr(addr) => write!(f, "LD [$ff00+${addr:02x}], {source}"),
+            },
+            Instr::StoreValue { target, source } => write!(f, "LD [{target}], {source}"),
+            Instr::StoreInc {
+                revised,
+                left,
+                right,
+            } => write!(f, "LD [(out={revised};in={left})++], {right}"),
+            Instr::StoreDec {
+                revised,
+                left,
+                right,
+            } => write!(f, "LD [(out={revised};in={left})--], {right}"),
+            Instr::Adc {
+                target,
+                z,
+                c,
+                left,
+                right,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "ADC (out={target};in={left}), {right}; z(out={z}), c(out={c};in={c_in})"
+                )
+            }
+            Instr::Add {
+                target,
+                z,
+                c,
+                left,
+                right,
+            } => {
+                write!(
+                    f,
+                    "ADD (out={target};in={left}), {right}; z(out={z}), c(out={c})"
+                )
+            }
+            Instr::Cp { z, c, left, right } => {
+                write!(f, "CP (in={left}), {right}; z(out={z}), c(out={c})")
+            }
+            Instr::Dec { target, z, source } => {
+                write!(f, "DEC (out={target};in={source}); z(out={z})")
+            }
+            Instr::DecPtr { z, addr } => {
+                write!(f, "DEC [{addr}]; z(out={z})")
+            }
+            Instr::Inc { target, z, source } => {
+                write!(f, "INC (out={target};in={source}); z(out={z})")
+            }
+            Instr::IncPtr { z, addr } => {
+                write!(f, "INC [{addr}]; z(out={z})")
+            }
+            Instr::Sbc {
+                target,
+                z,
+                c,
+                left,
+                right,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "SBC (out={target};in={left}), {right}; z(out={z}), c(out={c};in={c_in})"
+                )
+            }
+            Instr::Sub {
+                target,
+                z,
+                c,
+                left,
+                right,
+            } => {
+                write!(
+                    f,
+                    "SUB (out={target};in={left}), {right}; z(out={z}), c(out={c})"
+                )
+            }
+            Instr::And {
+                target,
+                z,
+                c,
+                left,
+                right,
+            } => {
+                write!(
+                    f,
+                    "AND (out={target};in={left}), {right}; z(out={z}), c(out={c})"
+                )
+            }
+            Instr::Cpl { target, source } => {
+                write!(f, "CPL (out={target};in={source})")
+            }
+            Instr::Or {
+                target,
+                z,
+                c,
+                left,
+                right,
+            } => {
+                write!(
+                    f,
+                    "OR (out={target};in={left}), {right}; z(out={z}), c(out={c})"
+                )
+            }
+            Instr::Xor {
+                target,
+                z,
+                c,
+                left,
+                right,
+            } => {
+                write!(
+                    f,
+                    "XOR (out={target};in={left}), {right}; z(out={z}), c(out={c})"
+                )
+            }
+            Instr::Bit { z, bit, source } => {
+                write!(f, "BIT {bit}, {source}; z(out={z})")
+            }
+            Instr::BitPtr { z, bit, addr } => {
+                write!(f, "BIT {bit}, [{addr}]; z(out={z})")
+            }
+            Instr::Res {
+                target,
+                bit,
+                source,
+            } => {
+                write!(f, "RES {bit}, (out={target};in={source})")
+            }
+            Instr::ResPtr { bit, addr } => {
+                write!(f, "RES {bit}, [{addr}]")
+            }
+            Instr::Set {
+                target,
+                bit,
+                source,
+            } => {
+                write!(f, "SET {bit}, (out={target};in={source})")
+            }
+            Instr::SetPtr { bit, addr } => {
+                write!(f, "SET {bit}, [{addr}]")
+            }
+            Instr::Rl {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "RL (out={target};in={source}); z(out={z}), c(out={c};in={c_in})"
+                )
+            }
+            Instr::RlPtr { z, c, addr, c_in } => {
+                write!(f, "RL [{addr}]; z(out={z}), c(out={c};in={c_in})")
+            }
+            Instr::Rlc {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "RLC (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::RlcPtr { z, c, addr } => {
+                write!(f, "RLC [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Rr {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "RR (out={target};in={source}); z(out={z}), c(out={c};in={c_in})"
+                )
+            }
+            Instr::RrPtr { z, c, addr, c_in } => {
+                write!(f, "RR [{addr}]; z(out={z}), c(out={c};in={c_in})")
+            }
+            Instr::Rrc {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "RRC (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::RrcPtr { z, c, addr } => {
+                write!(f, "RRC [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Sla {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "SLA (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::SlaPtr { z, c, addr } => {
+                write!(f, "SLA [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Sra {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "SRA (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::SraPtr { z, c, addr } => {
+                write!(f, "SRA [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Srl {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "SRL (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::SrlPtr { z, c, addr } => {
+                write!(f, "SRL [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Swap {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(f, "SWAP (out={target};in={source}); z(out={z}), c(out={c})")
+            }
+            Instr::SwapPtr { z, c, addr } => {
+                write!(f, "SRL [{addr}]; z(out={z}), c(out={c})")
+            }
+            Instr::Ccf { c, c_in } => {
+                write!(f, "CCF ; c(out={c};in={c_in})")
+            }
+            Instr::Scf { c } => {
+                write!(f, "SCF ; c(out={c})")
+            }
+            Instr::Add16 {
+                target,
+                c,
+                left,
+                right,
+            } => {
+                write!(f, "ADD (out={target};in={left}), {right}; c(out={c})")
+            }
+            Instr::Dec16 { target, source } => {
+                write!(f, "DEC (out={target};in={source})")
+            }
+            Instr::Inc16 { target, source } => {
+                write!(f, "INC (out={target};in={source})")
+            }
+            Instr::Join {
+                target,
+                high_in,
+                low_in,
+            } => {
+                write!(f, "(out={target};high_in={high_in};low_in={low_in})")
+            }
+            Instr::Split { high, low, source } => {
+                write!(f, "(high_out={high};low_out={low};in={source})")
+            }
+            Instr::LdZero { target, z_in } => {
+                write!(f, "(out={target};z_in={z_in})")
+            }
+            Instr::LdCarry { target, c_in } => {
+                write!(f, "(out={target};c_in={c_in})")
+            }
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum Terminator {
     /// `CALL n16`
@@ -782,6 +1209,95 @@ pub enum Terminator {
     Halt { return_block: BlockId },
 }
 
+impl Terminator {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Terminator::Call {
+                callee_section,
+                callee_block,
+                return_block,
+            } => {
+                let section = callee_section.as_ref().copied().unwrap_or(section);
+                let name = match &lir.sections[section].data {
+                    SectionData::Code(data) => &data.functions[*callee_block],
+                    _ => unimplemented!("expected code section"),
+                };
+                write!(f, "CALL {name}; return={return_block}")
+            }
+            Terminator::CallIf {
+                source,
+                negate,
+                callee_section,
+                callee_block,
+                return_block,
+                else_block,
+            } => {
+                write!(f, "CALL ")?;
+                if *negate {
+                    write!(f, "n")?;
+                }
+                match source {
+                    FlagId::Zero(z) => write!(f, "z(in={z})"),
+                    FlagId::Carry(c) => write!(f, "z(in={c})"),
+                }?;
+                let section = callee_section.as_ref().copied().unwrap_or(section);
+                let name = match &lir.sections[section].data {
+                    SectionData::Code(data) => &data.functions[*callee_block],
+                    _ => unimplemented!("expected code section"),
+                };
+                write!(f, ", {name}; return={return_block}, else={else_block}")
+            }
+            Terminator::CallR16 {
+                callee,
+                return_block,
+            } => {
+                write!(f, "CALL {callee}; return={return_block}")
+            }
+            Terminator::Jp { block } => {
+                write!(f, "JP {block}")
+            }
+            Terminator::JpIf {
+                source,
+                negate,
+                then_block,
+                else_block,
+            } => {
+                write!(f, "JP ")?;
+                if *negate {
+                    write!(f, "n")?;
+                }
+                match source {
+                    FlagId::Zero(z) => write!(f, "z(in={z})"),
+                    FlagId::Carry(c) => write!(f, "z(in={c})"),
+                }?;
+                write!(f, ", {then_block}; else={else_block}")
+            }
+            Terminator::Ret => {
+                write!(f, "RET")
+            }
+            Terminator::RetIf {
+                source,
+                negate,
+                else_block,
+            } => {
+                write!(f, "RET ")?;
+                if *negate {
+                    write!(f, "n")?;
+                }
+                match source {
+                    FlagId::Zero(z) => write!(f, "z(in={z})"),
+                    FlagId::Carry(c) => write!(f, "z(in={c})"),
+                }?;
+                write!(f, "; else={else_block}")
+            }
+            Terminator::Halt { return_block } => {
+                write!(f, "HALT; return={return_block}")
+            }
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
 pub enum FlagId {
     Zero(ZeroFlagId),
@@ -807,6 +1323,21 @@ pub enum Ld8Source {
     HighLiteralPtr(u8),
 }
 
+impl Ld8Source {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Ld8Source::Operand(operand) => write!(f, "{operand}"),
+            Ld8Source::LiteralPtr(addr) => write!(f, "[${addr:04x}]"),
+            Ld8Source::SectionAddrPtr { section, offset } => {
+                write!(f, "[{}+${offset:04x}]", section.display(lir))
+            }
+            Ld8Source::HighPtr(addr) => write!(f, "[$ff00 + {addr}]"),
+            Ld8Source::HighLiteralPtr(addr) => write!(f, "[$ff00 + {addr}]"),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum Ld16Source {
     Literal(u16),
@@ -818,6 +1349,29 @@ pub enum Ld16Source {
         section: SectionId,
         offset: u16,
     },
+}
+
+impl Ld16Source {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            Ld16Source::Literal(value) => write!(f, "${value:04x}"),
+            Ld16Source::FnAddr {
+                section: section_id,
+                block,
+            } => {
+                let section = section_id.as_ref().copied().unwrap_or(section);
+                let name = match &lir.sections[section].data {
+                    SectionData::Code(data) => &data.functions[*block],
+                    _ => unimplemented!("expected code section"),
+                };
+                write!(f, "{name}")
+            }
+            Ld16Source::SectionAddr { section, offset } => {
+                write!(f, "{}+${offset:04x}", section.display(lir))
+            }
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -834,6 +1388,16 @@ pub enum Operand8 {
     Ptr(R16Id),
     Direct(R8Id),
     Literal(u8),
+}
+
+impl fmt::Display for Operand8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Operand8::Ptr(addr) => write!(f, "[{addr}]"),
+            Operand8::Direct(reg) => write!(f, "{reg}"),
+            Operand8::Literal(value) => write!(f, "${value:02x}"),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -1307,9 +1871,9 @@ impl CodeSectionBuilder {
 
     /// `DEC [HL]`
     #[must_use]
-    pub fn insert_dec_ptr(&mut self, block: BlockId, pointer: R16Id) -> ZeroFlagId {
+    pub fn insert_dec_ptr(&mut self, block: BlockId, addr: R16Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
-        self.insert_instr(block, Instr::DecPtr { z, pointer });
+        self.insert_instr(block, Instr::DecPtr { z, addr });
         z
     }
 
@@ -1324,9 +1888,9 @@ impl CodeSectionBuilder {
 
     /// `INC [HL]`
     #[must_use]
-    pub fn insert_inc_ptr(&mut self, block: BlockId, pointer: R16Id) -> ZeroFlagId {
+    pub fn insert_inc_ptr(&mut self, block: BlockId, addr: R16Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
-        self.insert_instr(block, Instr::IncPtr { z, pointer });
+        self.insert_instr(block, Instr::IncPtr { z, addr });
         z
     }
 
@@ -1480,16 +2044,9 @@ impl CodeSectionBuilder {
 
     /// `BIT u3,[HL]`
     #[must_use]
-    pub fn insert_bit_ptr(&mut self, block: BlockId, bit: u3, source_pointer: R16Id) -> ZeroFlagId {
+    pub fn insert_bit_ptr(&mut self, block: BlockId, bit: u3, addr: R16Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
-        self.insert_instr(
-            block,
-            Instr::BitPtr {
-                z,
-                bit,
-                source_pointer,
-            },
-        );
+        self.insert_instr(block, Instr::BitPtr { z, bit, addr });
         z
     }
 
@@ -1509,8 +2066,8 @@ impl CodeSectionBuilder {
     }
 
     /// `RES u3,[HL]`
-    pub fn insert_res_ptr(&mut self, block: BlockId, bit: u3, pointer: R16Id) {
-        self.insert_instr(block, Instr::ResPtr { bit, pointer });
+    pub fn insert_res_ptr(&mut self, block: BlockId, bit: u3, addr: R16Id) {
+        self.insert_instr(block, Instr::ResPtr { bit, addr });
     }
 
     /// `SET u3,r8`
@@ -1529,8 +2086,8 @@ impl CodeSectionBuilder {
     }
 
     /// `SET u3,[HL]`
-    pub fn insert_set_ptr(&mut self, block: BlockId, bit: u3, pointer: R16Id) {
-        self.insert_instr(block, Instr::SetPtr { bit, pointer });
+    pub fn insert_set_ptr(&mut self, block: BlockId, bit: u3, addr: R16Id) {
+        self.insert_instr(block, Instr::SetPtr { bit, addr });
     }
 
     /// `RL r8`
@@ -1563,20 +2120,12 @@ impl CodeSectionBuilder {
     pub fn insert_rl_ptr(
         &mut self,
         block: BlockId,
-        pointer: R16Id,
+        addr: R16Id,
         c_in: CarryFlagId,
     ) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(
-            block,
-            Instr::RlPtr {
-                z,
-                c,
-                pointer,
-                c_in,
-            },
-        );
+        self.insert_instr(block, Instr::RlPtr { z, c, addr, c_in });
         (z, c)
     }
 
@@ -1601,10 +2150,10 @@ impl CodeSectionBuilder {
 
     /// `RLC [HL]`
     #[must_use]
-    pub fn insert_rlc_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_rlc_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::RlcPtr { z, c, pointer });
+        self.insert_instr(block, Instr::RlcPtr { z, c, addr });
         (z, c)
     }
     /// `RR r8`
@@ -1637,20 +2186,12 @@ impl CodeSectionBuilder {
     pub fn insert_rr_ptr(
         &mut self,
         block: BlockId,
-        pointer: R16Id,
+        addr: R16Id,
         c_in: CarryFlagId,
     ) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(
-            block,
-            Instr::RrPtr {
-                z,
-                c,
-                pointer,
-                c_in,
-            },
-        );
+        self.insert_instr(block, Instr::RrPtr { z, c, addr, c_in });
         (z, c)
     }
 
@@ -1675,10 +2216,10 @@ impl CodeSectionBuilder {
 
     /// `RRC [HL]`
     #[must_use]
-    pub fn insert_rrc_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_rrc_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::RrcPtr { z, c, pointer });
+        self.insert_instr(block, Instr::RrcPtr { z, c, addr });
         (z, c)
     }
 
@@ -1702,10 +2243,10 @@ impl CodeSectionBuilder {
 
     /// `SLA [HL]`
     #[must_use]
-    pub fn insert_sla_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_sla_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::SlaPtr { z, c, pointer });
+        self.insert_instr(block, Instr::SlaPtr { z, c, addr });
         (z, c)
     }
 
@@ -1731,10 +2272,10 @@ impl CodeSectionBuilder {
     /// Shift right arithmetically (signed)
     /// `SRA [HL]`
     #[must_use]
-    pub fn insert_sra_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_sra_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::SraPtr { z, c, pointer });
+        self.insert_instr(block, Instr::SraPtr { z, c, addr });
         (z, c)
     }
 
@@ -1760,10 +2301,10 @@ impl CodeSectionBuilder {
     /// Shift right logically (unsigned)
     /// `SRL [HL]`
     #[must_use]
-    pub fn insert_srl_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_srl_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::SrlPtr { z, c, pointer });
+        self.insert_instr(block, Instr::SrlPtr { z, c, addr });
         (z, c)
     }
 
@@ -1787,10 +2328,10 @@ impl CodeSectionBuilder {
 
     /// `SWAP [HL]`
     #[must_use]
-    pub fn insert_swap_ptr(&mut self, block: BlockId, pointer: R16Id) -> (ZeroFlagId, CarryFlagId) {
+    pub fn insert_swap_ptr(&mut self, block: BlockId, addr: R16Id) -> (ZeroFlagId, CarryFlagId) {
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
-        self.insert_instr(block, Instr::SwapPtr { z, c, pointer });
+        self.insert_instr(block, Instr::SwapPtr { z, c, addr });
         (z, c)
     }
 
