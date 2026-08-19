@@ -446,7 +446,19 @@ impl CodeGen {
                     ),
                 );
             }
-            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
+            mir::Instr::ReturnValue { target } => {
+                let r8 = lir.insert_ld_return_8(block);
+                locals.r1s.insert(
+                    *target,
+                    (
+                        R1::Dirty {
+                            r8,
+                            bit: u3::new(ZERO_FLAG_BIT),
+                        },
+                        mir::Condition::NotZero,
+                    ),
+                );
+            }
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load {
                 target,
@@ -709,7 +721,10 @@ impl CodeGen {
                 let r8 = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
                 locals.r8s.insert(*target, r8);
             }
-            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
+            mir::Instr::ReturnValue { target } => {
+                let r8 = lir.insert_ld_return_8(block);
+                locals.r8s.insert(*target, r8);
+            }
             mir::Instr::Phi { target, sources: _ } => {
                 locals.r8s.insert(*target, locals.phi_r8s[*target].0);
             }
@@ -940,7 +955,10 @@ impl CodeGen {
                 let r16 = lir.insert_ld16(block, Ld16Source::Literal(0));
                 locals.r16s.insert(*target, r16);
             }
-            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
+            mir::Instr::ReturnValue { target } => {
+                let r16 = lir.insert_ld_return_16(block);
+                locals.r16s.insert(*target, r16);
+            }
             mir::Instr::Phi { target, sources: _ } => {
                 locals.r16s.insert(*target, locals.phi_r16s[*target].0);
             }

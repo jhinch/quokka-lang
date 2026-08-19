@@ -38,31 +38,31 @@ impl SectionId {
 
 impl fmt::Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+        write!(f, ".bb{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
     }
 }
 
 impl fmt::Display for ZeroFlagId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "z{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+        write!(f, "z#{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
     }
 }
 
 impl fmt::Display for CarryFlagId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "c{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+        write!(f, "c#{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
     }
 }
 
 impl fmt::Display for R8Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "%{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+        write!(f, "r8#{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
     }
 }
 
 impl fmt::Display for R16Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "%%{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
+        write!(f, "r16#{}", slotmap::Key::data(self).as_ffi() & 0xffff_ffff)
     }
 }
 
@@ -148,7 +148,7 @@ impl Section {
                         if let Some(name) = data.functions.get(block_id) {
                             writeln!(f, "{name}::")?;
                         }
-                        writeln!(f, ".{block_id}:")?;
+                        writeln!(f, "{block_id}:")?;
                         writeln!(f, "{}", block.display(lir, section))?;
                     }
                 }
@@ -624,6 +624,22 @@ pub enum Instr {
     /// Carry flag is guaranteed set in bit [`CARRY_FLAG_BIT`].
     /// All other bits have undefined behavior.
     LdCarry { target: R8Id, c_in: CarryFlagId },
+    /// Virtual instruction to capture the return value of a function call with an 8-bit return
+    /// type.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
+    ///
+    /// Calling convention is to set the return value of the `A` register
+    LdReturn8 { target: R8Id },
+    /// Virtual instruction to capture the return value of a function call with an 16-bit return
+    /// type.
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to force constraints on the register allocation.
+    ///
+    /// Calling convention is to set the return value of the `HL` register
+    LdReturn16 { target: R16Id },
 }
 
 impl Instr {
@@ -660,7 +676,8 @@ impl Instr {
                 | Instr::Srl { target, .. }
                 | Instr::Swap { target, .. }
                 | Instr::LdZero { target, .. }
-                | Instr::LdCarry { target, .. } => match next {
+                | Instr::LdCarry { target, .. }
+                | Instr::LdReturn8 { target, .. } => match next {
                     0 => Some(*target),
                     _ => None,
                 },
@@ -690,7 +707,8 @@ impl Instr {
                 | Instr::Add16 { .. }
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
-                | Instr::Join { .. } => None,
+                | Instr::Join { .. }
+                | Instr::LdReturn16 { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -703,7 +721,8 @@ impl Instr {
             Instr::Add16 { target, .. }
             | Instr::Dec16 { target, .. }
             | Instr::Inc16 { target, .. }
-            | Instr::Join { target, .. } => Some(*target),
+            | Instr::Join { target, .. }
+            | Instr::LdReturn16 { target, .. } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Inc { .. }
@@ -752,7 +771,8 @@ impl Instr {
             | Instr::Scf { .. }
             | Instr::Split { .. }
             | Instr::LdZero { .. }
-            | Instr::LdCarry { .. } => None,
+            | Instr::LdCarry { .. }
+            | Instr::LdReturn8 { .. } => None,
         }
     }
 
@@ -811,7 +831,9 @@ impl Instr {
             | Instr::Join { .. }
             | Instr::Split { .. }
             | Instr::LdZero { .. }
-            | Instr::LdCarry { .. } => None,
+            | Instr::LdCarry { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 
@@ -870,7 +892,9 @@ impl Instr {
             | Instr::Join { .. }
             | Instr::Split { .. }
             | Instr::LdZero { .. }
-            | Instr::LdCarry { .. } => None,
+            | Instr::LdCarry { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 }
@@ -1183,6 +1207,12 @@ impl Instr {
             }
             Instr::LdCarry { target, c_in } => {
                 write!(f, "(out={target};c_in={c_in})")
+            }
+            Instr::LdReturn8 { target } => {
+                write!(f, "A(out={target})")
+            }
+            Instr::LdReturn16 { target } => {
+                write!(f, "HL(out={target})")
             }
         })
     }
@@ -2452,6 +2482,20 @@ impl CodeSectionBuilder {
     pub fn insert_ld_carry(&mut self, block: BlockId, c_in: CarryFlagId) -> R8Id {
         let target = self.new_r8();
         self.insert_instr(block, Instr::LdCarry { target, c_in });
+        target
+    }
+
+    #[must_use]
+    pub fn insert_ld_return_8(&mut self, block: BlockId) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(block, Instr::LdReturn8 { target });
+        target
+    }
+
+    #[must_use]
+    pub fn insert_ld_return_16(&mut self, block: BlockId) -> R16Id {
+        let target = self.new_r16();
+        self.insert_instr(block, Instr::LdReturn16 { target });
         target
     }
 }
