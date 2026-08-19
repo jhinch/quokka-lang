@@ -497,8 +497,26 @@ impl CodeGen {
                     .r1s
                     .insert(*target, (R1::from((r8, bit, state)), condition));
             }
-            mir::Instr::Read { .. } => todo!("{instruction:?}"),
-            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Read {
+                target,
+                source,
+                projections,
+            } => {
+                let (r8, bit) = self.projected_local_to_r8(
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                locals
+                    .r1s
+                    .insert(*target, (R1::Dirty { r8, bit }, mir::Condition::NotZero));
+            }
+            mir::Instr::Write { .. } => {
+                unimplemented!("{instruction:?} should not be produced for 1-bit target")
+            }
             mir::Instr::Not { target, source } => {
                 let (flag, condition) = locals.r1s[*source];
                 locals.r1s.insert(*target, (flag, !condition));
@@ -748,8 +766,68 @@ impl CodeGen {
                 );
                 locals.r8s.insert(*target, r8);
             }
-            mir::Instr::Read { .. } => todo!("{instruction:?}"),
-            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Read {
+                target,
+                source,
+                projections,
+            } => {
+                let (r8, u3) = self.projected_local_to_r8(
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                assert_eq!(u3, u3::new(0), "misaligned 8-bit ty");
+                locals.r8s.insert(*target, r8);
+            }
+            mir::Instr::Write {
+                target,
+                left,
+                projections,
+                right,
+            } => {
+                let (left_r8, u3) = self.projected_local_to_r8(
+                    *left,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                let r8 = match ctx.function.locals[*left].ty {
+                    Ty::U1 => {
+                        let (mut right, right_bit, mut state, condition) =
+                            self.r1_to_operand(right, block, lir, locals);
+                        if u3 != right_bit {
+                            todo!("{instruction:?}");
+                        }
+                        if condition == mir::Condition::Zero {
+                            let new_right = lir.insert_ld8(block, Ld8Source::Operand(right));
+                            let new_right = lir.insert_cpl(block, new_right);
+                            right = Operand8::Direct(new_right);
+                            state = R1State::Dirty;
+                        }
+                        if state == R1State::Dirty {
+                            let mask = lir.insert_ld8(
+                                block,
+                                Ld8Source::Operand(Operand8::Literal(1 << u8::from(right_bit))),
+                            );
+                            let (new_right, _z, _c) = lir.insert_and(block, mask, right);
+                            right = Operand8::Direct(new_right);
+                        }
+                        let r8 = lir.insert_res(block, u3, left_r8);
+                        let (r8, _z, _c) = lir.insert_or(block, r8, right);
+                        r8
+                    }
+                    ty if ty.bit_size(&self.ty_registry) == 8 => {
+                        lir.insert_ld8(block, Ld8Source::Operand(self.r8_to_operand(right, locals)))
+                    }
+                    ty => todo!("{instruction:?} {ty:?}"),
+                };
+                locals.r8s.insert(*target, r8);
+            }
             mir::Instr::Not { target, source } => {
                 let r8 = lir.insert_cpl(block, locals.r8s[*source]);
                 locals.r8s.insert(*target, r8);
@@ -942,7 +1020,9 @@ impl CodeGen {
                 let r16 = lir.insert_join(block, target_high, target_low);
                 locals.r16s.insert(*target, r16);
             }
-            mir::Instr::Read { .. } => todo!("{instruction:?}"),
+            mir::Instr::Read { .. } => {
+                unimplemented!("{instruction:?} should not be produced for 16-bit target")
+            }
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (source_high, source_low) =
@@ -1416,6 +1496,52 @@ impl CodeGen {
             },
         };
         (source, bit_offset)
+    }
+
+    fn projected_local_to_r8(
+        &mut self,
+        local: mir::LocalId,
+        projections: &[mir::PlaceProjection],
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx<'_>,
+        locals: &Locals,
+    ) -> (R8Id, u3) {
+        let mut bit_offset = BitCount::new(0);
+        let local_ty = ctx.function.locals[local].ty;
+        let mut ty = local_ty;
+        for projection in projections {
+            match projection {
+                mir::PlaceProjection::Field(field) => {
+                    let field_data = &self.ty_registry.struct_ty_data(ty).fields[field];
+                    ty = field_data.ty;
+                    bit_offset += field_data.bit_offset;
+                }
+                mir::PlaceProjection::Index(mir::Operand::Literal(index)) => {
+                    ty = self.ty_registry.array_ty_data(ty).item_ty;
+                    bit_offset += ty.bit_size(&self.ty_registry).padded() * index.value;
+                }
+                mir::PlaceProjection::Index(mir::Operand::Local(_)) => {
+                    todo!("cannot lower {projection:?} on local")
+                }
+                mir::PlaceProjection::Index(mir::Operand::FnPtr(_)) => {
+                    unimplemented!("fn ptr should not be possible to use for indexing an array")
+                }
+            }
+        }
+        let r8 = if ty.bit_size(&self.ty_registry).into_u32() <= 8 {
+            assert_eq!(bit_offset.bytes(), 0);
+            locals.r8s[local]
+        } else {
+            let r16 = locals.r16s[local];
+            let (high, low) = lir.insert_split(block, r16);
+            match bit_offset.bytes() {
+                0 => low,
+                1 => high,
+                _ => unimplemented!("cannot support bit_offset {bit_offset} > 16-bit"),
+            }
+        };
+        (r8, bit_offset.bits())
     }
 }
 
