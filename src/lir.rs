@@ -11,6 +11,7 @@
 
 use crate::ast::Identifier;
 use crate::num::u3;
+use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
 use std::cmp::Ordering;
@@ -891,11 +892,22 @@ impl LirBuilder {
 pub struct CodeSectionBuilder {
     data: CodeSectionData,
     terminated_blocks: SecondaryMap<BlockId, ()>,
+    outstanding_phi_r8s: SparseSecondaryMap<R8Id, SparseSecondaryMap<BlockId, ()>>,
+    outstanding_phi_r16s: SparseSecondaryMap<R16Id, SparseSecondaryMap<BlockId, ()>>,
+    phi_r16s_high_low: SparseSecondaryMap<R16Id, (R8Id, R8Id)>,
 }
 
 impl CodeSectionBuilder {
     #[must_use]
     pub fn build(self) -> Section {
+        assert!(
+            self.outstanding_phi_r8s.is_empty(),
+            "uncompleted phi r8 registers"
+        );
+        assert!(
+            self.outstanding_phi_r16s.is_empty(),
+            "uncompleted phi r16 registers"
+        );
         Section {
             data: SectionData::Code(self.data),
         }
@@ -1004,6 +1016,116 @@ impl CodeSectionBuilder {
             self.data.carry_flags[flag].defined.insert(block, index);
         }
         self.data.blocks[block].instructions.push(instr);
+    }
+
+    #[must_use]
+    pub fn reserve_phi_r8(&mut self) -> R8Id {
+        let r8 = self.new_r8();
+        self.outstanding_phi_r8s
+            .insert(r8, SparseSecondaryMap::new());
+        r8
+    }
+
+    pub fn insert_phi_r8_ld(&mut self, block: BlockId, target: R8Id, source: R8Id) {
+        match self.outstanding_phi_r8s.entry(target).unwrap() {
+            Entry::Occupied(mut entry) => match entry.get_mut().entry(block).unwrap() {
+                Entry::Occupied(_) => {
+                    panic!("block {block:?} already inserted load for phi register {target:?}")
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(());
+                }
+            },
+            Entry::Vacant(_) => panic!("{target:?} not a phi register"),
+        }
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target,
+                source: Ld8Source::Operand(Operand8::Direct(source)),
+            },
+        );
+    }
+
+    pub fn complete_phi_r8(&mut self, target: R8Id, blocks: &[BlockId]) {
+        let actual = self
+            .outstanding_phi_r8s
+            .remove(target)
+            .unwrap_or_else(|| panic!("{target:?} already completed"));
+        let expected = blocks
+            .iter()
+            .copied()
+            .map(|block| (block, ()))
+            .collect::<SparseSecondaryMap<_, _>>();
+        assert_eq!(
+            actual, expected,
+            "missing phi loads for phi register {target:?}"
+        );
+    }
+
+    #[must_use]
+    pub fn reserve_phi_r16(&mut self) -> R16Id {
+        let r16 = self.new_r16();
+        self.outstanding_phi_r16s
+            .insert(r16, SparseSecondaryMap::new());
+        let low = self.new_r8();
+        let high = self.new_r8();
+        self.phi_r16s_high_low.insert(r16, (high, low));
+        r16
+    }
+
+    pub fn insert_phi_r16_ld(&mut self, block: BlockId, target: R16Id, source: R16Id) {
+        match self.outstanding_phi_r16s.entry(target).unwrap() {
+            Entry::Occupied(mut entry) => match entry.get_mut().entry(block).unwrap() {
+                Entry::Occupied(_) => {
+                    panic!("block {block:?} already inserted load for phi register {target:?}")
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(());
+                }
+            },
+            Entry::Vacant(_) => panic!("{target:?} not a phi register"),
+        }
+        let (source_high, source_low) = self.insert_split(block, source);
+        let (target_high, target_low) = self.phi_r16s_high_low[target];
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: target_low,
+                source: Ld8Source::Operand(Operand8::Direct(source_low)),
+            },
+        );
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: target_high,
+                source: Ld8Source::Operand(Operand8::Direct(source_high)),
+            },
+        );
+        self.insert_instr(
+            block,
+            Instr::Join {
+                target,
+                high_in: target_high,
+                low_in: target_low,
+            },
+        );
+    }
+
+    pub fn complete_phi_r16(&mut self, target: R16Id, blocks: &[BlockId]) {
+        let actual = self
+            .outstanding_phi_r16s
+            .remove(target)
+            .unwrap_or_else(|| panic!("{target:?} already completed"));
+        let expected = blocks
+            .iter()
+            .copied()
+            .map(|block| (block, ()))
+            .collect::<SparseSecondaryMap<_, _>>();
+        assert_eq!(
+            actual, expected,
+            "missing phi loads for phi register {target:?}"
+        );
     }
 
     /// `LD r8,r8`

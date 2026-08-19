@@ -9,6 +9,7 @@ use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::{BitCount, u3};
 use crate::ty::{Ty, TyRegistry};
+use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
 pub struct CodeGen {
@@ -98,6 +99,69 @@ impl CodeGen {
             );
         }
         for mir_block in function.traverse_blocks() {
+            for instruction in &function.blocks[mir_block].instructions {
+                if let mir::Instr::Phi { target, sources } = instruction {
+                    match function.locals[*target]
+                        .ty
+                        .bit_size(&self.ty_registry)
+                        .padded()
+                        .into_u32()
+                    {
+                        8 => {
+                            let r8 = lir.reserve_phi_r8();
+                            locals.phi_r8s.insert(*target, (r8, Vec::new()));
+                            for (mir_block, local) in sources {
+                                let block = blocks[mir_block];
+                                match locals
+                                    .phi_source_r8s
+                                    .entry(block)
+                                    .unwrap()
+                                    .or_default()
+                                    .entry(*local)
+                                    .unwrap()
+                                {
+                                    Entry::Occupied(_) => panic!(
+                                        "block {mir_block:?} already has phi r8 registered for {local:?}"
+                                    ),
+                                    Entry::Vacant(entry) => {
+                                        entry.insert(r8);
+                                    }
+                                }
+                                locals.phi_r8s[*target].1.push(block);
+                            }
+                        }
+                        16 => {
+                            let r16 = lir.reserve_phi_r16();
+                            locals.phi_r16s.insert(*target, (r16, Vec::new()));
+                            for (mir_block, local) in sources {
+                                let block = blocks[mir_block];
+                                match locals
+                                    .phi_source_r16s
+                                    .entry(block)
+                                    .unwrap()
+                                    .or_default()
+                                    .entry(*local)
+                                    .unwrap()
+                                {
+                                    Entry::Occupied(_) => panic!(
+                                        "block {mir_block:?} already has phi r16 registered for {local:?}"
+                                    ),
+                                    Entry::Vacant(entry) => {
+                                        entry.insert(r16);
+                                    }
+                                }
+                                locals.phi_r16s[*target].1.push(block);
+                            }
+                        }
+                        _ => unimplemented!(
+                            "{} cannot fit in a 8-bit or 16-bit register",
+                            function.locals[*target].ty.display(&self.ty_registry)
+                        ),
+                    }
+                }
+            }
+        }
+        for mir_block in function.traverse_blocks() {
             let block = blocks[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
                 let ty = self.ty_from_instr(mir, function, instruction);
@@ -116,6 +180,16 @@ impl CodeGen {
                     &mut locals,
                 );
             }
+            if let Some(phis) = locals.phi_source_r8s.get(block) {
+                for (local, &r8) in phis {
+                    lir.insert_phi_r8_ld(block, r8, locals.r8s[local]);
+                }
+            }
+            if let Some(phis) = locals.phi_source_r16s.get(block) {
+                for (local, &r16) in phis {
+                    lir.insert_phi_r16_ld(block, r16, locals.r16s[local]);
+                }
+            }
             self.generate_from_terminator(
                 &function.blocks[mir_block].terminator,
                 block,
@@ -129,6 +203,12 @@ impl CodeGen {
                 },
                 &mut locals,
             );
+        }
+        for (r8, blocks) in locals.phi_r8s.values() {
+            lir.complete_phi_r8(*r8, blocks.as_slice());
+        }
+        for (r16, blocks) in locals.phi_r16s.values() {
+            lir.complete_phi_r16(*r16, blocks.as_slice());
         }
     }
 
@@ -599,7 +679,9 @@ impl CodeGen {
                 locals.r8s.insert(*target, r8);
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
-            mir::Instr::Phi { .. } => todo!("{instruction:?}"),
+            mir::Instr::Phi { target, sources: _ } => {
+                locals.r8s.insert(*target, locals.phi_r8s[*target].0);
+            }
             mir::Instr::Load {
                 target,
                 source,
@@ -768,7 +850,9 @@ impl CodeGen {
                 locals.r16s.insert(*target, r16);
             }
             mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
-            mir::Instr::Phi { .. } => todo!("{instruction:?}"),
+            mir::Instr::Phi { target, sources: _ } => {
+                locals.r16s.insert(*target, locals.phi_r16s[*target].0);
+            }
             mir::Instr::Load {
                 target,
                 source,
@@ -1348,6 +1432,10 @@ struct Locals {
     r1s: SparseSecondaryMap<mir::LocalId, (R1, mir::Condition)>,
     r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
     r16s: SparseSecondaryMap<mir::LocalId, R16Id>,
+    phi_source_r8s: SparseSecondaryMap<BlockId, SparseSecondaryMap<mir::LocalId, R8Id>>,
+    phi_source_r16s: SparseSecondaryMap<BlockId, SparseSecondaryMap<mir::LocalId, R16Id>>,
+    phi_r8s: SparseSecondaryMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
+    phi_r16s: SparseSecondaryMap<mir::LocalId, (R16Id, Vec<BlockId>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
