@@ -18,7 +18,7 @@ impl Execute for BuildCommand {
         let file_contents =
             std::fs::read_to_string(&self.filename).map_err(|e| miette::miette!(e))?;
 
-        self.compile(&file_contents).map_err(|report| {
+        self.build(&file_contents).map_err(|report| {
             report.with_source_code(miette::NamedSource::new(&self.filename, file_contents))
         })?;
         Ok(())
@@ -26,7 +26,7 @@ impl Execute for BuildCommand {
 }
 
 impl BuildCommand {
-    fn compile(&self, file_contents: &str) -> miette::Result<()> {
+    fn build(&self, file_contents: &str) -> miette::Result<()> {
         let mut parser = Parser::from(file_contents);
         parser.enable_features(self.preview_features.iter().cloned().collect());
 

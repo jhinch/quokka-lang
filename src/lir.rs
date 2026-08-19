@@ -137,12 +137,9 @@ impl Section {
     #[must_use]
     pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| {
-            write!(f, "START_SECTION {:?}", self.region())?;
+            write!(f, "START_SECTION {}", self.region())?;
             if let Some(addr) = self.addr() {
                 write!(f, "[{addr}]")?;
-            }
-            if let Some(bank) = self.bank() {
-                write!(f, "BANK[{bank}]")?;
             }
             writeln!(f)?;
             match &self.data {
@@ -151,7 +148,7 @@ impl Section {
                         if let Some(name) = data.functions.get(block_id) {
                             writeln!(f, "{name}::")?;
                         }
-                        writeln!(f, "{block_id}:")?;
+                        writeln!(f, ".{block_id}:")?;
                         writeln!(f, "{}", block.display(lir, section))?;
                     }
                 }
@@ -186,6 +183,15 @@ pub enum RegionKind {
     Ram(RamRegionKind),
 }
 
+impl fmt::Display for RegionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegionKind::Rom(kind) => write!(f, "{kind}"),
+            RegionKind::Ram(kind) => write!(f, "{kind}"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum SectionData {
     Code(CodeSectionData),
@@ -210,6 +216,16 @@ pub enum RomRegionKind {
     #[default]
     Rom0,
     RomX(Option<NonZeroU16>),
+}
+
+impl fmt::Display for RomRegionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RomRegionKind::Rom0 => write!(f, "ROM0"),
+            RomRegionKind::RomX(Some(bank)) => write!(f, "ROM{bank}"),
+            RomRegionKind::RomX(None) => write!(f, "ROMX"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -237,6 +253,20 @@ pub enum RamRegionKind {
     WRamX(Option<NonZeroU16>),
     SRam,
     Oam,
+}
+
+impl fmt::Display for RamRegionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RamRegionKind::WRam0 => write!(f, "WRAM0"),
+            RamRegionKind::WRamX(Some(bank)) => write!(f, "WRAM{bank}"),
+            RamRegionKind::WRamX(None) => write!(f, "WRAMX"),
+            RamRegionKind::VRam => write!(f, "VRAM"),
+            RamRegionKind::HRam => write!(f, "HRAM"),
+            RamRegionKind::SRam => write!(f, "SRAM"),
+            RamRegionKind::Oam => write!(f, "OAM"),
+        }
+    }
 }
 
 /// LIR function

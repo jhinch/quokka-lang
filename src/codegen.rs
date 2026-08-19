@@ -18,6 +18,16 @@ pub struct CodeGen {
     lir: LirBuilder,
 }
 
+impl From<TyRegistry> for CodeGen {
+    fn from(ty_registry: TyRegistry) -> Self {
+        CodeGen {
+            ty_registry,
+            result_builder: MultiResultBuilder::default(),
+            lir: LirBuilder::default(),
+        }
+    }
+}
+
 impl CodeGen {
     pub fn generate(mut self, mir: &mir::Mir) -> Result<Lir, MultiError> {
         self.generate_from_mir(mir);
