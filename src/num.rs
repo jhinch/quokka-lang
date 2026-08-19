@@ -341,7 +341,7 @@ impl Mul<u32> for BitCount {
 
     fn mul(self, rhs: u32) -> Self::Output {
         let data = self.into_u32() * rhs;
-        debug_assert_ne!(data & !Self::MAX.into_u32(), 0, "overflow");
+        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
         BitCount {
             data: data & BitCount::MAX.data,
         }
@@ -357,5 +357,263 @@ impl AddAssign for BitCount {
 impl SubAssign for BitCount {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn max_and_bits_are_correct_per_width() {
+        assert_eq!(u2::MAX.data, 0b11);
+        assert_eq!(u2::BITS, 2);
+        assert_eq!(u3::MAX.data, 0b111);
+        assert_eq!(u3::BITS, 3);
+        assert_eq!(u4::MAX.data, 0b1111);
+        assert_eq!(u4::BITS, 4);
+    }
+
+    #[test]
+    fn new_accepts_in_range_values() {
+        assert_eq!(u2::new(0).data, 0);
+        assert_eq!(u2::new(3).data, 3);
+        assert_eq!(u3::new(7).data, 7);
+        assert_eq!(u4::new(15).data, 15);
+    }
+
+    #[test]
+    #[should_panic]
+    fn new_panics_when_out_of_range() {
+        let _ = u2::new(4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn new_panics_at_max_plus_one_for_u4() {
+        let _ = u4::new(16);
+    }
+
+    #[test]
+    fn try_from_u8_accepts_in_range_and_rejects_out_of_range() {
+        assert_eq!(u2::try_from(0u8).unwrap().data, 0);
+        assert_eq!(u2::try_from(3u8).unwrap().data, 3);
+        assert!(u2::try_from(4u8).is_err());
+        assert!(u3::try_from(8u8).is_err());
+        assert_eq!(u4::try_from(15u8).unwrap().data, 15);
+        assert!(u4::try_from(16u8).is_err());
+        assert!(u4::try_from(u8::MAX).is_err());
+    }
+
+    #[test]
+    fn try_from_u32_accepts_in_range_and_rejects_out_of_range() {
+        assert_eq!(u2::try_from(0u32).unwrap().data, 0);
+        assert_eq!(u2::try_from(3u32).unwrap().data, 3);
+        assert!(u2::try_from(4u32).is_err());
+        assert!(u4::try_from(16u32).is_err());
+        assert!(u4::try_from(u32::MAX).is_err());
+    }
+
+    #[test]
+    fn into_u8_and_u32_round_trip_the_stored_value() {
+        let value = u4::new(9);
+        assert_eq!(u8::from(value), 9u8);
+        assert_eq!(u32::from(value), 9u32);
+    }
+
+    #[test]
+    fn debug_and_display_show_the_underlying_value() {
+        let value = u3::new(5);
+        assert_eq!(format!("{value:?}"), "5");
+        assert_eq!(format!("{value}"), "5");
+    }
+
+    #[test]
+    fn wrapping_add_wraps_at_bit_width() {
+        assert_eq!(u2::new(3).wrapping_add(u2::new(1)), u2::new(0));
+        assert_eq!(u2::new(3).wrapping_add(u2::new(2)), u2::new(1));
+        assert_eq!(u4::new(15).wrapping_add(u4::new(1)), u4::new(0));
+        assert_eq!(u4::new(1).wrapping_add(u4::new(2)), u4::new(3));
+    }
+
+    #[test]
+    fn wrapping_sub_wraps_at_bit_width() {
+        assert_eq!(u2::new(0).wrapping_sub(u2::new(1)), u2::new(3));
+        assert_eq!(u4::new(0).wrapping_sub(u4::new(1)), u4::new(15));
+        assert_eq!(u4::new(5).wrapping_sub(u4::new(2)), u4::new(3));
+    }
+
+    #[test]
+    fn to_le_bytes_returns_a_single_byte() {
+        assert_eq!(u4::new(9).to_le_bytes(), [9]);
+    }
+
+    #[test]
+    fn not_complements_within_bit_width_only() {
+        assert_eq!(!u2::new(0), u2::new(3));
+        assert_eq!(!u2::new(1), u2::new(2));
+        assert_eq!(!u4::new(0), u4::new(15));
+        assert_eq!(!u4::new(0b1010), u4::new(0b0101));
+    }
+
+    #[test]
+    fn bitand_bitor_bitxor_operate_bitwise() {
+        let a = u4::new(0b1100);
+        let b = u4::new(0b1010);
+        assert_eq!(a & b, u4::new(0b1000));
+        assert_eq!(a | b, u4::new(0b1110));
+        assert_eq!(a ^ b, u4::new(0b0110));
+    }
+
+    #[test]
+    fn shl_and_shr_mask_to_bit_width() {
+        assert_eq!(u4::new(0b0011) << 1, u4::new(0b0110));
+        assert_eq!(u4::new(0b1000) << 1, u4::new(0b0000));
+        assert_eq!(u4::new(0b0110) >> 1, u4::new(0b0011));
+        assert_eq!(u4::new(0b0001) >> 1, u4::new(0b0000));
+    }
+
+    #[test]
+    fn bit_assign_ops_mutate_in_place() {
+        let mut value = u4::new(0b1100);
+        value &= u4::new(0b1010);
+        assert_eq!(value, u4::new(0b1000));
+
+        let mut value = u4::new(0b1100);
+        value |= u4::new(0b0011);
+        assert_eq!(value, u4::new(0b1111));
+
+        let mut value = u4::new(0b1100);
+        value ^= u4::new(0b1010);
+        assert_eq!(value, u4::new(0b0110));
+    }
+
+    #[test]
+    fn add_and_sub_behave_like_normal_arithmetic_within_range() {
+        assert_eq!(u4::new(3) + u4::new(4), u4::new(7));
+        assert_eq!(u4::new(7) - u4::new(4), u4::new(3));
+        assert_eq!(u2::new(1) + u2::new(2), u2::new(3));
+    }
+
+    #[test]
+    #[should_panic]
+    fn add_panics_on_overflow_in_debug() {
+        let _ = u4::new(15) + u4::new(1);
+    }
+
+    #[test]
+    fn ordering_compares_by_underlying_value() {
+        assert!(u4::new(1) < u4::new(2));
+        assert!(u4::new(2) <= u4::new(2));
+        assert!(u4::new(3) > u4::new(2));
+        assert_eq!(u4::new(2), u4::new(2));
+        assert_ne!(u4::new(1), u4::new(2));
+    }
+
+    #[test]
+    fn bit_count_max_and_bits_are_16_plus_3() {
+        assert_eq!(BitCount::BITS, u16::BITS + 3);
+        assert_eq!(BitCount::MAX.into_u32(), (1u32 << (u16::BITS + 3)) - 1);
+    }
+
+    #[test]
+    fn bit_count_new_accepts_in_range_values() {
+        assert_eq!(BitCount::new(0).into_u32(), 0);
+        assert_eq!(BitCount::new(100).into_u32(), 100);
+        assert_eq!(
+            BitCount::new(BitCount::MAX.into_u32()).into_u32(),
+            BitCount::MAX.into_u32()
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn bit_count_new_panics_when_out_of_range() {
+        let _ = BitCount::new(BitCount::MAX.into_u32() + 1);
+    }
+
+    #[test]
+    fn bit_count_from_u3_carries_the_value() {
+        let bc: BitCount = u3::new(5).into();
+        assert_eq!(bc.into_u32(), 5);
+    }
+
+    #[test]
+    fn bit_count_debug_and_display_show_underlying_value() {
+        let bc = BitCount::new(42);
+        assert_eq!(format!("{bc:?}"), "42");
+        assert_eq!(format!("{bc}"), "42");
+    }
+
+    #[test]
+    fn bit_count_bytes_returns_whole_bytes_rounded_down() {
+        assert_eq!(BitCount::new(0).bytes(), 0);
+        assert_eq!(BitCount::new(7).bytes(), 0);
+        assert_eq!(BitCount::new(8).bytes(), 1);
+        assert_eq!(BitCount::new(15).bytes(), 1);
+        assert_eq!(BitCount::new(16).bytes(), 2);
+    }
+
+    #[test]
+    fn bit_count_padding_returns_remainder_bits() {
+        assert_eq!(BitCount::new(0).padding(), u3::new(0));
+        assert_eq!(BitCount::new(7).padding(), u3::new(7));
+        assert_eq!(BitCount::new(8).padding(), u3::new(0));
+        assert_eq!(BitCount::new(13).padding(), u3::new(5));
+    }
+
+    #[test]
+    fn bit_count_padded_to_whole_byte_rounds_up() {
+        assert_eq!(BitCount::new(0).padded_to_whole_byte().into_u32(), 0);
+        assert_eq!(BitCount::new(1).padded_to_whole_byte().into_u32(), 8);
+        assert_eq!(BitCount::new(8).padded_to_whole_byte().into_u32(), 8);
+        assert_eq!(BitCount::new(9).padded_to_whole_byte().into_u32(), 16);
+    }
+
+    #[test]
+    fn bit_count_partial_eq_and_ord_against_u32() {
+        let bc = BitCount::new(10);
+        assert_eq!(bc, 10u32);
+        assert_ne!(bc, 11u32);
+        assert!(bc < 11u32);
+        assert!(bc > 9u32);
+        assert!(bc <= 10u32);
+        assert!(bc >= 10u32);
+    }
+
+    #[test]
+    fn bit_count_add_and_sub_with_bit_count_and_u32() {
+        assert_eq!((BitCount::new(3) + BitCount::new(4)).into_u32(), 7);
+        assert_eq!((BitCount::new(7) - BitCount::new(4)).into_u32(), 3);
+        assert_eq!((BitCount::new(3) + 4u32).into_u32(), 7);
+        assert_eq!((BitCount::new(7) - 4u32).into_u32(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn bit_count_add_panics_on_overflow_in_debug() {
+        let _ = BitCount::MAX + 1u32;
+    }
+
+    #[test]
+    fn bit_count_mul_by_nonzero_u16_scales_the_value() {
+        let rhs = NonZeroU16::new(3).unwrap();
+        assert_eq!((BitCount::new(5) * rhs).into_u32(), 15);
+        let one = NonZeroU16::new(1).unwrap();
+        assert_eq!((BitCount::new(5) * one).into_u32(), 5);
+    }
+
+    #[test]
+    fn bit_count_mul_by_u32_scales_the_value_without_overflow() {
+        assert_eq!((BitCount::new(5) * 3u32).into_u32(), 15);
+    }
+
+    #[test]
+    fn bit_count_add_assign_and_sub_assign_mutate_in_place() {
+        let mut bc = BitCount::new(3);
+        bc += BitCount::new(4);
+        assert_eq!(bc.into_u32(), 7);
+        bc -= BitCount::new(2);
+        assert_eq!(bc.into_u32(), 5);
     }
 }
