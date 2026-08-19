@@ -1,5 +1,6 @@
 use crate::ast::{Identifier, SpannedIdentifier};
 use crate::attr::FieldDeclAttributes;
+use crate::num::BitCount;
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
@@ -46,7 +47,7 @@ impl TyRegistry {
                     .insert_entry(StructTyData {
                         name,
                         fields: IndexMap::new(),
-                        bit_size: u32::MAX,
+                        bit_size: BitCount::MAX,
                     })
                     .index();
                 Ok(Ty::struct_ty(index))
@@ -68,12 +69,16 @@ impl TyRegistry {
         &mut self,
         ty: Ty,
         fields: IndexMap<Identifier, StructFieldTyData>,
-        bit_size: u32,
+        bit_size: BitCount,
     ) {
         assert!(ty.is_struct(), "{ty:?} not a struct");
         let data = &mut self.struct_types[ty.index()];
-        assert_eq!(data.bit_size, u32::MAX, "{ty:?} is already registered");
-        assert_ne!(bit_size, u32::MAX, "bit_size must be smaller than u32::MAX");
+        assert_eq!(data.bit_size, BitCount::MAX, "{ty:?} is already registered");
+        assert_ne!(
+            bit_size,
+            BitCount::MAX,
+            "bit_size must be smaller than BitCount::MAX"
+        );
         data.fields = fields;
         data.bit_size = bit_size;
     }
@@ -82,7 +87,7 @@ impl TyRegistry {
     pub fn struct_ty_data(&self, ty: Ty) -> &StructTyData {
         assert!(ty.is_struct(), "{ty:?} not a struct");
         let data = &self.struct_types[ty.index()];
-        assert_ne!(data.bit_size, u32::MAX, "{ty:?} not fully registered");
+        assert_ne!(data.bit_size, BitCount::MAX, "{ty:?} not fully registered");
         data
     }
 
@@ -192,20 +197,20 @@ impl Ty {
     }
 
     #[must_use]
-    pub fn bit_size(self, registry: &TyRegistry) -> u32 {
+    pub fn bit_size(self, registry: &TyRegistry) -> BitCount {
         match self {
-            Ty::U1 => 1,
-            Ty::U2 => 2,
-            Ty::U4 => 4,
-            Ty::U8 | Ty::I8 => 8,
-            Ty::U16 | Ty::I16 => 16,
+            Ty::U1 => BitCount::new(1),
+            Ty::U2 => BitCount::new(2),
+            Ty::U4 => BitCount::new(4),
+            Ty::U8 | Ty::I8 => BitCount::new(8),
+            Ty::U16 | Ty::I16 => BitCount::new(16),
             ty if ty.is_array() => {
                 let data = registry.array_ty_data(ty);
-                data.item_ty.bit_size(registry).next_multiple_of(8) * (data.count.get() as u32)
+                data.item_ty.bit_size(registry).padded_to_whole_byte() * data.count
             }
             ty if ty.is_struct() => registry.struct_ty_data(ty).bit_size,
-            ty if ty.is_fn_ptr() => 16,
-            _ => 0,
+            ty if ty.is_fn_ptr() => BitCount::new(16),
+            _ => BitCount::new(0),
         }
     }
 
@@ -246,7 +251,7 @@ impl fmt::Debug for Ty {
 pub struct StructTyData {
     pub name: SpannedIdentifier,
     pub fields: IndexMap<Identifier, StructFieldTyData>,
-    pub bit_size: u32,
+    pub bit_size: BitCount,
 }
 
 #[derive(Debug)]
@@ -254,7 +259,7 @@ pub struct StructFieldTyData {
     pub name: SpannedIdentifier,
     pub ty: Ty,
     pub ty_span: SourceSpan,
-    pub bit_offset: u32,
+    pub bit_offset: BitCount,
     pub attrs: FieldDeclAttributes,
 }
 
@@ -488,7 +493,7 @@ mod tests {
     fn bit_size_of_struct_uses_registered_bit_size() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Foo")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), 40);
+        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(40));
         assert_eq!(ty.bit_size(&registry), 40);
     }
 
@@ -583,11 +588,11 @@ mod tests {
                 name: ident("x"),
                 ty: Ty::U8,
                 ty_span: SourceSpan::new(SourceOffset::from(0), 0),
-                bit_offset: 0,
+                bit_offset: BitCount::new(0),
                 attrs: FieldDeclAttributes::default(),
             },
         );
-        registry.complete_struct_registration(ty, fields, 8);
+        registry.complete_struct_registration(ty, fields, BitCount::new(8));
         let data = registry.struct_ty_data(ty);
         assert_eq!(data.bit_size, 8);
         assert!(data.fields.contains_key(&Identifier::from("x")));
@@ -597,7 +602,7 @@ mod tests {
     #[should_panic(expected = "not a struct")]
     fn complete_struct_registration_panics_on_non_struct_ty() {
         let mut registry = TyRegistry::default();
-        registry.complete_struct_registration(Ty::U8, IndexMap::new(), 8);
+        registry.complete_struct_registration(Ty::U8, IndexMap::new(), BitCount::new(8));
     }
 
     #[test]
@@ -605,8 +610,8 @@ mod tests {
     fn complete_struct_registration_panics_when_already_completed() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Foo")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), 8);
-        registry.complete_struct_registration(ty, IndexMap::new(), 8);
+        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(8));
+        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(8));
     }
 
     #[test]
@@ -627,7 +632,7 @@ mod tests {
     fn display_of_struct_uses_name() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Point")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), 16);
+        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(16));
         assert_eq!(format!("{}", ty.display(&registry)), "Point");
     }
 

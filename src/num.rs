@@ -1,6 +1,9 @@
 use core::fmt;
+use std::cmp::Ordering;
+use std::num::NonZeroU16;
 use std::ops::{
-    Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not, Shl, Shr, Sub,
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl,
+    Shr, Sub, SubAssign,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -21,6 +24,7 @@ impl<const BITS: u8> UInt<BITS> {
     const MAX: Self = UInt {
         data: u8::MAX >> (8 - BITS),
     };
+    const BITS: u32 = Self::MAX.data.count_ones();
 
     #[must_use]
     pub const fn new(data: u8) -> Self {
@@ -57,6 +61,12 @@ impl<const BITS: u8> TryFrom<u32> for UInt<BITS> {
 impl<const BITS: u8> From<UInt<BITS>> for u8 {
     fn from(value: UInt<BITS>) -> Self {
         value.data
+    }
+}
+
+impl<const BITS: u8> From<UInt<BITS>> for u32 {
+    fn from(value: UInt<BITS>) -> Self {
+        u32::from(value.data)
     }
 }
 
@@ -176,7 +186,7 @@ impl<const BITS: u8> Add for UInt<BITS> {
 
     fn add(self, rhs: Self) -> Self::Output {
         let data = self.data + rhs.data;
-        debug_assert_ne!(data & !Self::MAX.data, 0, "overflow");
+        debug_assert_eq!(data & !Self::MAX.data, 0, "overflow");
         UInt {
             data: data & Self::MAX.data,
         }
@@ -191,5 +201,161 @@ impl<const BITS: u8> Sub for UInt<BITS> {
         UInt {
             data: data & Self::MAX.data,
         }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BitCount {
+    data: u32,
+}
+
+impl BitCount {
+    pub const BITS: u32 = u16::BITS + u3::BITS;
+    pub const MAX: BitCount = BitCount {
+        data: u32::MAX >> (u32::BITS - Self::BITS),
+    };
+
+    #[must_use]
+    pub const fn new(data: u32) -> Self {
+        assert!(data <= Self::MAX.into_u32());
+        BitCount { data }
+    }
+}
+
+impl From<u3> for BitCount {
+    fn from(data: u3) -> Self {
+        BitCount {
+            data: u32::from(data.data),
+        }
+    }
+}
+
+impl From<BitCount> for u32 {
+    fn from(value: BitCount) -> Self {
+        value.data
+    }
+}
+
+impl fmt::Debug for BitCount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.data, f)
+    }
+}
+
+impl fmt::Display for BitCount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.data, f)
+    }
+}
+
+impl BitCount {
+    #[must_use]
+    pub const fn into_u32(self) -> u32 {
+        self.data
+    }
+
+    #[must_use]
+    pub const fn bytes(self) -> u16 {
+        #[allow(clippy::cast_possible_truncation)]
+        let bytes = (self.data >> u3::BITS) as u16;
+        bytes
+    }
+
+    #[must_use]
+    pub const fn padding(self) -> u3 {
+        #[allow(clippy::cast_possible_truncation)]
+        u3::new(self.data as u8 & u3::MAX.data)
+    }
+
+    #[must_use]
+    pub const fn padded_to_whole_byte(self) -> BitCount {
+        BitCount::new(self.data.next_multiple_of(8))
+    }
+}
+
+impl PartialEq<u32> for BitCount {
+    fn eq(&self, other: &u32) -> bool {
+        PartialEq::eq(&self.data, other)
+    }
+}
+
+impl PartialOrd<u32> for BitCount {
+    fn partial_cmp(&self, other: &u32) -> Option<Ordering> {
+        Some(Ord::cmp(&self.data, other))
+    }
+}
+
+impl Add for BitCount {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self + rhs.into_u32()
+    }
+}
+
+impl Sub for BitCount {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self - rhs.into_u32()
+    }
+}
+
+impl Add<u32> for BitCount {
+    type Output = Self;
+
+    fn add(self, rhs: u32) -> Self::Output {
+        let data = self.into_u32() + rhs;
+        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
+        BitCount {
+            data: data & BitCount::MAX.data,
+        }
+    }
+}
+
+impl Sub<u32> for BitCount {
+    type Output = Self;
+
+    fn sub(self, rhs: u32) -> Self::Output {
+        let data = self.into_u32() - rhs;
+        BitCount {
+            data: data & BitCount::MAX.data,
+        }
+    }
+}
+
+impl Mul<NonZeroU16> for BitCount {
+    type Output = Self;
+
+    fn mul(self, rhs: NonZeroU16) -> Self::Output {
+        let data = self.into_u32() * u32::from(rhs.get());
+        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
+        BitCount {
+            data: data & BitCount::MAX.data,
+        }
+    }
+}
+
+impl Mul<u32> for BitCount {
+    type Output = Self;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        let data = self.into_u32() * rhs;
+        debug_assert_ne!(data & !Self::MAX.into_u32(), 0, "overflow");
+        BitCount {
+            data: data & BitCount::MAX.data,
+        }
+    }
+}
+
+impl AddAssign for BitCount {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl SubAssign for BitCount {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }

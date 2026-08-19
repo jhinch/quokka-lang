@@ -15,6 +15,7 @@ use crate::mir::{
     MirBuilder, Operand, PlaceProjection, Terminator, Variable,
 };
 use crate::multi::{MultiError, MultiResultBuilder};
+use crate::num::BitCount;
 use crate::source::span::span_between;
 use crate::ty::{StructFieldTyData, Ty, TyRegistry};
 use indexmap::map::Entry;
@@ -132,7 +133,7 @@ impl Analyzer {
         while let Some(ty) = unprocessed_types.last().copied() {
             processing_stack.push_front(ty);
             'outer: while let Some(ty) = processing_stack.pop_front() {
-                let mut bit_size = 0;
+                let mut bit_size = BitCount::new(0);
                 let mut fields = IndexMap::new();
                 for (field_name, (field_ty, field_span, field_ty_span, field_attrs)) in
                     &type_fields[&ty]
@@ -164,7 +165,8 @@ impl Analyzer {
                         recursive_types.insert(ty);
                         continue 'outer;
                     }
-                    let field_bit_size = field_ty.bit_size(&self.ty_registry).next_multiple_of(8);
+                    let field_bit_size =
+                        field_ty.bit_size(&self.ty_registry).padded_to_whole_byte();
                     fields.insert(
                         field_name.clone(),
                         StructFieldTyData {

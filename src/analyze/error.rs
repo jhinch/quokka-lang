@@ -1,5 +1,6 @@
 use crate::analyze::infer::InferredTyDisplay;
 use crate::ast::{Identifier, SpannedIdentifier};
+use crate::num::BitCount;
 use crate::ty::TyDisplay;
 use miette::SourceSpan;
 
@@ -316,7 +317,7 @@ impl From<SpannedIdentifier> for GlobalReferencedInConstDeclError {
 #[diagnostic()]
 pub struct TyTooLargeForLocalVariableError {
     pub ty: TyDisplay<'static>,
-    pub bit_size: u32,
+    pub bit_size: BitCount,
     #[label("too large")]
     pub span: SourceSpan,
 }

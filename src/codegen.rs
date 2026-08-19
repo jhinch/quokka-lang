@@ -7,7 +7,7 @@ use crate::lir::{
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
-use crate::num::u3;
+use crate::num::{BitCount, u3};
 use crate::ty::{Ty, TyRegistry};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
@@ -196,7 +196,7 @@ impl CodeGen {
                 | mir::Instr::Read { .. }
                 | mir::Instr::Write { .. }
                 | mir::Instr::Eq { .. }
-                | mir::Instr::Ne { .. } => match ty.bit_size(&self.ty_registry) {
+                | mir::Instr::Ne { .. } => match ty.bit_size(&self.ty_registry).into_u32() {
                     8 => self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals),
                     16 => self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals),
                     _ => unimplemented!(
@@ -1278,7 +1278,7 @@ impl CodeGen {
         ctx: &InstrCtx<'_>,
         locals: &mut Locals,
     ) -> (Ld8Source, u3) {
-        let mut bit_offset = 0;
+        let mut bit_offset = BitCount::new(0);
         let mut r16 = None;
         let mut ty = ctx.mir.globals[global].ty;
         for project in projections {
@@ -1294,13 +1294,11 @@ impl CodeGen {
                 }
                 mir::PlaceProjection::Index(mir::Operand::Local(index)) => {
                     let index = locals.r16s[*index];
-                    let byte_offset = bit_offset / 8;
-                    bit_offset %= 8;
+                    let byte_offset = bit_offset.bytes();
+                    bit_offset = BitCount::from(bit_offset.padding());
                     let addr = match r16 {
                         Some(r16) => {
-                            #[allow(clippy::cast_possible_truncation)]
-                            let offset =
-                                lir.insert_ld16(block, Ld16Source::Literal(byte_offset as u16));
+                            let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset));
                             let (r16, _c) = lir.insert_add16(block, r16, offset);
                             r16
                         }
@@ -1308,8 +1306,7 @@ impl CodeGen {
                             block,
                             Ld16Source::SectionAddr {
                                 section: ctx.globals[global],
-                                #[allow(clippy::cast_possible_truncation)]
-                                offset: byte_offset as u16,
+                                offset: byte_offset,
                             },
                         ),
                     };
@@ -1321,19 +1318,17 @@ impl CodeGen {
                 }
             }
         }
-        let byte_offset = bit_offset / 8;
-        let bit_offset = u3::try_from(bit_offset % 8).expect("should never fail due to % 8");
+        let byte_offset = bit_offset.bytes();
+        let bit_offset = bit_offset.padding();
         let source = match r16 {
             Some(r16) => {
-                #[allow(clippy::cast_possible_truncation)]
-                let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset as u16));
+                let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset));
                 let (r16, _c) = lir.insert_add16(block, r16, offset);
                 Ld8Source::Operand(Operand8::Ptr(r16))
             }
             None => Ld8Source::SectionAddrPtr {
                 section: ctx.globals[global],
-                #[allow(clippy::cast_possible_truncation)]
-                offset: byte_offset as u16,
+                offset: byte_offset,
             },
         };
         (source, bit_offset)
