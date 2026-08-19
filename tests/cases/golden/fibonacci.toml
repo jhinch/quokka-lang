@@ -854,3 +854,166 @@ main -> unit:
     n#11: u8 = add n#6, #10
     jump .bb2
 """
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source = """
+global FIBONACCI_N: u8;
+
+fn fibonacci() -> u8 {
+    let n = FIBONACCI_N;
+    if n == 0 then {
+        return 0;
+    }
+    n += 1;
+    let a = 0;
+    let b = 1;
+    let i = 2;
+    loop {
+        if i >= n then {
+            break;
+        }
+        let c = a + b;
+        a = b;
+        b = c;
+        i += 1;
+    }
+    return b;
+}
+
+global RESULTS: [u8; 10];
+
+fn main() {
+    let i = 0;
+    let n = 0;
+    loop {
+        if i == 10 then {
+            break;
+        }
+        FIBONACCI_N = n;
+        RESULTS[i] = fibonacci();
+        i += 1;
+        n += 1;
+    }
+}
+"""
+expected_lir = """
+START_SECTION WRAM0[0]
+FIBONACCI_N::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULTS::
+alloc 80 x bit
+END_SECTION
+
+START_SECTION ROM0
+fibonacci::
+.bb1:
+  LD r8#4, [FIBONACCI_N+$0000]
+  LD r8#5, $00
+  CP (in=r8#4), r8#5; z(out=z#1), c(out=c#1)
+  JP z(in=z#1), .bb3; else=.bb4
+
+main::
+.bb2:
+  LD r16#2, $0000
+  (high_out=r8#22;low_out=r8#21;in=r16#2)
+  LD r8#23, r8#22
+  LD r8#24, r8#21
+  (out=r16#3;high_in=r8#23;low_in=r8#24)
+  LD r8#25, $00
+  LD r8#20, r8#25
+  (high_out=r8#27;low_out=r8#26;in=r16#3)
+  LD r8#18, r8#26
+  LD r8#19, r8#27
+  (out=r16#1;high_in=r8#19;low_in=r8#18)
+  JP .bb9
+
+.bb3:
+  LD r8#6, $00
+  LD r8#7, r8#6
+  RET
+
+.bb4:
+  LD r8#8, $01
+  ADD (out=r8#9;in=r8#4), r8#8; z(out=z#2), c(out=c#2)
+  LD r8#10, $00
+  LD r8#11, $01
+  LD r8#12, $02
+  LD r8#1, r8#12
+  LD r8#2, r8#10
+  LD r8#3, r8#11
+  JP .bb5
+
+.bb5:
+  LD r8#13, r8#9
+  CP (in=r8#1), r8#13; z(out=z#3), c(out=c#3)
+  JP nz(in=c#3), .bb6; else=.bb7
+
+.bb6:
+  JP .bb8
+
+.bb7:
+  ADD (out=r8#14;in=r8#2), r8#3; z(out=z#4), c(out=c#4)
+  LD r8#15, $01
+  ADD (out=r8#16;in=r8#1), r8#15; z(out=z#5), c(out=c#5)
+  LD r8#1, r8#16
+  LD r8#2, r8#3
+  LD r8#3, r8#14
+  JP .bb5
+
+.bb8:
+  LD r8#17, r8#3
+  RET
+
+.bb9:
+  LD r16#4, $000a
+  (high_out=r8#29;low_out=r8#28;in=r16#4)
+  LD r8#30, r8#29
+  LD r8#31, r8#28
+  (out=r16#5;high_in=r8#30;low_in=r8#31)
+  (high_out=r8#33;low_out=r8#32;in=r16#1)
+  (high_out=r8#35;low_out=r8#34;in=r16#5)
+  XOR (out=r8#36;in=r8#32), r8#34; z(out=z#6), c(out=c#6)
+  XOR (out=r8#37;in=r8#33), r8#35; z(out=z#7), c(out=c#7)
+  OR (out=r8#38;in=r8#37), r8#36; z(out=z#8), c(out=c#8)
+  JP z(in=z#8), .bb10; else=.bb11
+
+.bb10:
+  JP .bb12
+
+.bb11:
+  LD [FIBONACCI_N], r8#20
+  CALL fibonacci; return=.bb13
+
+.bb12:
+  RET
+
+.bb13:
+  A(out=r8#39)
+  LD r16#6, RESULTS+$0000
+  ADD (out=r16#7;in=r16#6), r16#1; c(out=c#9)
+  LD r16#8, $0000
+  ADD (out=r16#9;in=r16#7), r16#8; c(out=c#10)
+  LD [r16#9], r8#39
+  LD r16#10, $0001
+  (high_out=r8#41;low_out=r8#40;in=r16#10)
+  LD r8#42, r8#41
+  LD r8#43, r8#40
+  (out=r16#11;high_in=r8#42;low_in=r8#43)
+  ADD (out=r16#12;in=r16#1), r16#11; c(out=c#11)
+  LD r8#44, $01
+  ADD (out=r8#45;in=r8#20), r8#44; z(out=z#9), c(out=c#12)
+  LD r8#20, r8#45
+  (high_out=r8#47;low_out=r8#46;in=r16#12)
+  LD r8#18, r8#46
+  LD r8#19, r8#47
+  (out=r16#1;high_in=r8#19;low_in=r8#18)
+  JP .bb9
+
+END_SECTION
+"""

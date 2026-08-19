@@ -9,7 +9,8 @@ use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::{BitCount, u3};
 use crate::ty::{Ty, TyRegistry};
-use slotmap::sparse_secondary::Entry;
+use indexmap::IndexMap;
+use indexmap::map::Entry;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
 pub struct CodeGen {
@@ -131,7 +132,6 @@ impl CodeGen {
                                     .unwrap()
                                     .or_default()
                                     .entry(*local)
-                                    .unwrap()
                                 {
                                     Entry::Occupied(_) => panic!(
                                         "block {mir_block:?} already has phi r8 registered for {local:?}"
@@ -140,7 +140,7 @@ impl CodeGen {
                                         entry.insert(r8);
                                     }
                                 }
-                                locals.phi_r8s[*target].1.push(block);
+                                locals.phi_r8s[target].1.push(block);
                             }
                         }
                         16 => {
@@ -154,7 +154,6 @@ impl CodeGen {
                                     .unwrap()
                                     .or_default()
                                     .entry(*local)
-                                    .unwrap()
                                 {
                                     Entry::Occupied(_) => panic!(
                                         "block {mir_block:?} already has phi r16 registered for {local:?}"
@@ -163,7 +162,7 @@ impl CodeGen {
                                         entry.insert(r16);
                                     }
                                 }
-                                locals.phi_r16s[*target].1.push(block);
+                                locals.phi_r16s[target].1.push(block);
                             }
                         }
                         _ => unimplemented!(
@@ -195,12 +194,12 @@ impl CodeGen {
             }
             if let Some(phis) = locals.phi_source_r8s.get(block) {
                 for (local, &r8) in phis {
-                    lir.insert_phi_r8_ld(block, r8, locals.r8s[local]);
+                    lir.insert_phi_r8_ld(block, r8, locals.r8s[*local]);
                 }
             }
             if let Some(phis) = locals.phi_source_r16s.get(block) {
                 for (local, &r16) in phis {
-                    lir.insert_phi_r16_ld(block, r16, locals.r16s[local]);
+                    lir.insert_phi_r16_ld(block, r16, locals.r16s[*local]);
                 }
             }
             self.generate_from_terminator(
@@ -726,7 +725,7 @@ impl CodeGen {
                 locals.r8s.insert(*target, r8);
             }
             mir::Instr::Phi { target, sources: _ } => {
-                locals.r8s.insert(*target, locals.phi_r8s[*target].0);
+                locals.r8s.insert(*target, locals.phi_r8s[target].0);
             }
             mir::Instr::Load {
                 target,
@@ -960,7 +959,7 @@ impl CodeGen {
                 locals.r16s.insert(*target, r16);
             }
             mir::Instr::Phi { target, sources: _ } => {
-                locals.r16s.insert(*target, locals.phi_r16s[*target].0);
+                locals.r16s.insert(*target, locals.phi_r16s[target].0);
             }
             mir::Instr::Load {
                 target,
@@ -1589,10 +1588,10 @@ struct Locals {
     r1s: SparseSecondaryMap<mir::LocalId, (R1, mir::Condition)>,
     r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
     r16s: SparseSecondaryMap<mir::LocalId, R16Id>,
-    phi_source_r8s: SparseSecondaryMap<BlockId, SparseSecondaryMap<mir::LocalId, R8Id>>,
-    phi_source_r16s: SparseSecondaryMap<BlockId, SparseSecondaryMap<mir::LocalId, R16Id>>,
-    phi_r8s: SparseSecondaryMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
-    phi_r16s: SparseSecondaryMap<mir::LocalId, (R16Id, Vec<BlockId>)>,
+    phi_source_r8s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R8Id>>,
+    phi_source_r16s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R16Id>>,
+    phi_r8s: IndexMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
+    phi_r16s: IndexMap<mir::LocalId, (R16Id, Vec<BlockId>)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

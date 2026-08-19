@@ -1,6 +1,7 @@
 use libtest_mimic::{Arguments, Trial};
 use miette::LabeledSpan;
 use quokka_lang::analyze::Analyzer;
+use quokka_lang::codegen::CodeGen;
 use quokka_lang::multi::{MultiError, MultiResult};
 use std::collections::HashMap;
 use std::fmt;
@@ -43,6 +44,8 @@ struct TestCase {
     #[serde(default)]
     expected_mir: String,
     #[serde(default)]
+    expected_lir: String,
+    #[serde(default)]
     expected_errors: Vec<String>,
     #[serde(skip)]
     updates_tx: Option<mpsc::Sender<PendingUpdate>>,
@@ -57,6 +60,7 @@ enum TestCaseKind {
     Lexer,
     Parser,
     Analyzer,
+    Codegen,
 }
 
 /// Deserialized representation of the kind entrypoint for a parser test
@@ -88,6 +92,7 @@ enum PendingUpdateData {
     UpdateTokens(String),
     UpdateAst(String),
     UpdateMir(String),
+    UpdateLir(String),
 }
 
 fn main() {
@@ -132,6 +137,7 @@ fn main() {
                             TestCaseKind::Lexer => test_lexer(case),
                             TestCaseKind::Parser => test_parser(case),
                             TestCaseKind::Analyzer => test_analyzer(case),
+                            TestCaseKind::Codegen => test_codegen(case),
                         };
                         Ok(())
                     },
@@ -282,6 +288,16 @@ fn save_suites(
                             );
                         }
                     }
+                    PendingUpdateData::UpdateLir(lir) => {
+                        if lir.is_empty() {
+                            case.remove("expected_lir");
+                        } else {
+                            case.insert(
+                                "expected_lir",
+                                toml_edit::value(format!("{}\n", lir.trim())),
+                            );
+                        }
+                    }
                 }
             }
             case.fmt();
@@ -304,7 +320,8 @@ fn update_expected_errors(
         && case.expected_errors.is_empty()
         && !(case.expected_tokens.trim().is_empty()
             && case.expected_ast.trim().is_empty()
-            && case.expected_mir.trim().is_empty());
+            && case.expected_mir.trim().is_empty()
+            && case.expected_lir.trim().is_empty());
     if (is_removal || is_addition) && !case.force_regenerate_expectations {
         return;
     }
@@ -423,6 +440,41 @@ fn delete_expected_mir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
     case.expected_mir = String::new();
 }
 
+fn update_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, actual: &str) {
+    let is_removal = {
+        let expected = &case.expected_lir;
+        if actual.trim() == expected.trim() {
+            return;
+        }
+        !expected.is_empty() && actual.trim().is_empty()
+    };
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateLir(actual.to_string()),
+    })
+    .unwrap();
+    case.expected_lir = actual.to_string();
+}
+
+fn delete_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
+    if case.expected_lir.is_empty() {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::UpdateLir(String::new()),
+    })
+    .unwrap();
+    case.expected_lir = String::new();
+}
+
 fn test_lexer(mut case: TestCase) {
     let lexer = quokka_lang::lex::Lexer::from(&*case.source);
     let mut actual_tokens = String::new();
@@ -449,6 +501,7 @@ fn test_lexer(mut case: TestCase) {
         update_expected_tokens(&tx, &mut case, &actual_tokens);
         delete_expected_ast(&tx, &mut case);
         delete_expected_mir(&tx, &mut case);
+        delete_expected_lir(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -477,6 +530,7 @@ fn test_parser(mut case: TestCase) {
         update_expected_ast(&tx, &mut case, &actual_ast);
         delete_expected_tokens(&tx, &mut case);
         delete_expected_mir(&tx, &mut case);
+        delete_expected_lir(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -507,6 +561,7 @@ fn test_analyzer(mut case: TestCase) {
         update_expected_mir(&tx, &mut case, &actual_mir);
         delete_expected_tokens(&tx, &mut case);
         delete_expected_ast(&tx, &mut case);
+        delete_expected_lir(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -516,6 +571,40 @@ fn test_analyzer(mut case: TestCase) {
         actual_mir.trim(),
         case.expected_mir.trim(),
         "actual_mir == expected_mir"
+    );
+}
+
+fn test_codegen(mut case: TestCase) {
+    let mut parser = quokka_lang::parse::Parser::from(&*case.source);
+    for feature in case.preview_features.iter().copied() {
+        parser.enable_feature(feature);
+    }
+    let root = parser
+        .parse()
+        .into_result()
+        .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
+    let (mir, ty_registry) = Analyzer::default()
+        .analyze(&root)
+        .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
+    let (actual_lir, actual_errors) = match CodeGen::from(ty_registry).generate(&mir) {
+        Ok(lir) => (format!("{}", lir), Vec::new()),
+        Err(errors) => (String::new(), prepare_multi_error(errors)),
+    };
+    if let Some(tx) = case.updates_tx.clone() {
+        update_expected_errors(&tx, &mut case, &actual_errors);
+        update_expected_lir(&tx, &mut case, &actual_lir);
+        delete_expected_tokens(&tx, &mut case);
+        delete_expected_ast(&tx, &mut case);
+        delete_expected_mir(&tx, &mut case);
+    }
+    assert_eq!(
+        actual_errors, case.expected_errors,
+        "actual_errors == expected_errors"
+    );
+    assert_eq!(
+        actual_lir.trim(),
+        case.expected_lir.trim(),
+        "actual_lir == expected_lir"
     );
 }
 

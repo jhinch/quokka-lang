@@ -49,3 +49,18 @@ main -> unit:
   .bb1:
     return
 """
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+source = """
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+"""
