@@ -1194,7 +1194,7 @@ impl FunctionBuilder {
                     !matches!(instruction, Instr::Undefined { .. }),
                     "undefined instruction found in block {block_id} not permitted"
                 );
-                if cfg!(debug_assertions) {
+                if cfg!(debug_assertions) && !matches!(instruction, Instr::Phi { .. }) {
                     for source in instruction.source_locals() {
                         assert!(
                             !unvisited_local_ids.contains_key(source),
@@ -1370,13 +1370,9 @@ impl FunctionBuilder {
             .entry(block)
             .or_default()
             .push(local);
-        if let Some(name) = self.variable_names.get(&var) {
-            if let Some(previous) = self.function.locals[local].name.as_ref() {
-                debug_assert!(
-                    previous == name,
-                    "cannot name {local:?} {name:?}, already named {previous:?}"
-                );
-            }
+        if let Some(name) = self.variable_names.get(&var)
+            && self.function.locals[local].name.is_none()
+        {
             self.function.locals[local].name = Some(name.clone());
         }
     }

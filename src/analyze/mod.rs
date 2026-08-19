@@ -755,7 +755,7 @@ impl Analyzer {
                 );
                 mir.seal_block(then_block);
                 mir.seal_block(else_block);
-                let (then_block, true_block_outcome) = self.analyze_expr_unit(
+                let (then_block, true_block_ty) = self.analyze_expr_unit(
                     &if_expr.true_block,
                     then_block,
                     mir,
@@ -763,33 +763,23 @@ impl Analyzer {
                     scopes,
                 );
 
-                mir.set_terminator(
-                    then_block,
-                    Terminator::Jump {
-                        target_block: end_block,
-                    },
-                );
-                let false_block_outcome = match if_expr.false_block.as_ref() {
+                self.jump_if_not_divergent(then_block, true_block_ty, end_block, mir);
+                let false_block_ty = match if_expr.false_block.as_ref() {
                     None => StatementTy::Unit,
                     Some(false_block) => {
-                        let (else_block, false_block_outcome) = self.analyze_expr_unit(
+                        let (else_block, false_block_ty) = self.analyze_expr_unit(
                             false_block,
                             else_block,
                             mir,
                             type_solver,
                             scopes,
                         );
-                        mir.set_terminator(
-                            else_block,
-                            Terminator::Jump {
-                                target_block: end_block,
-                            },
-                        );
-                        false_block_outcome
+                        self.jump_if_not_divergent(else_block, false_block_ty, end_block, mir);
+                        false_block_ty
                     }
                 };
                 mir.seal_block(end_block);
-                let outcome = match (true_block_outcome, false_block_outcome) {
+                let outcome = match (true_block_ty, false_block_ty) {
                     (StatementTy::Never, StatementTy::Never) => StatementTy::Never,
                     _ => StatementTy::Unit,
                 };
@@ -809,23 +799,9 @@ impl Analyzer {
                     },
                 );
                 scopes.enter_loop_scope(expr.span, None, start_block, end_block);
-                let (block, block_kind) =
+                let (block, block_ty) =
                     self.analyze_block(&loop_expr.body, start_block, mir, type_solver, scopes);
-                match block_kind {
-                    StatementTy::Never => {
-                        // if the block has type never,
-                        // it never completes an iteration successfully,
-                        // so no jump is required
-                    }
-                    StatementTy::Unit => {
-                        mir.set_terminator(
-                            block,
-                            Terminator::Jump {
-                                target_block: start_block,
-                            },
-                        );
-                    }
-                }
+                self.jump_if_not_divergent(block, block_ty, start_block, mir);
                 mir.seal_block(start_block);
                 mir.seal_block(end_block);
                 let loop_scope = scopes.loop_scope().unwrap();
@@ -845,6 +821,26 @@ impl Analyzer {
                     StatementTy::Unit
                 };
                 (block, outcome)
+            }
+        }
+    }
+
+    fn jump_if_not_divergent(
+        &self,
+        block: BlockId,
+        block_ty: StatementTy,
+        target_block: BlockId,
+        mir: &mut FunctionBuilder,
+    ) {
+        match block_ty {
+            StatementTy::Never => {
+                // if the block has a `never` type it means that a previous
+                // basic block already has diverged and the current basic block
+                // we are on is dangling dead code. Don't add a terminator to this
+                // dangling basic block or it will mess with phi resolution
+            }
+            StatementTy::Unit => {
+                mir.set_terminator(block, Terminator::Jump { target_block });
             }
         }
     }
@@ -1338,11 +1334,11 @@ impl Analyzer {
                 let (then_block, true_block_ty, then_source) =
                     self.analyze_expr(&if_expr.true_block, then_block, mir, type_solver, scopes);
                 mir.write_variable(variable, then_block, then_source);
-                mir.set_terminator(
+                self.jump_if_not_divergent(
                     then_block,
-                    Terminator::Jump {
-                        target_block: end_block,
-                    },
+                    StatementTy::from(&true_block_ty),
+                    end_block,
+                    mir,
                 );
                 let false_block_ty = match if_expr.false_block.as_ref() {
                     None => {
@@ -1355,15 +1351,15 @@ impl Analyzer {
                         let (else_block, false_block_ty, source) =
                             self.analyze_expr(false_block, else_block, mir, type_solver, scopes);
                         mir.write_variable(variable, else_block, source);
+                        self.jump_if_not_divergent(
+                            else_block,
+                            StatementTy::from(&false_block_ty),
+                            end_block,
+                            mir,
+                        );
                         Some(false_block_ty)
                     }
                 };
-                mir.set_terminator(
-                    else_block,
-                    Terminator::Jump {
-                        target_block: end_block,
-                    },
-                );
                 mir.seal_block(end_block);
                 let ty =
                     type_solver.check_if_expr(if_expr, expr.span, true_block_ty, false_block_ty);
@@ -1394,23 +1390,9 @@ impl Analyzer {
                     start_block,
                     end_block,
                 );
-                let (block, block_kind) =
+                let (block, block_ty) =
                     self.analyze_block(&loop_expr.body, start_block, mir, type_solver, scopes);
-                match block_kind {
-                    StatementTy::Never => {
-                        // if the block has type never,
-                        // it never completes an iteration successfully,
-                        // so no jump is required
-                    }
-                    StatementTy::Unit => {
-                        mir.set_terminator(
-                            block,
-                            Terminator::Jump {
-                                target_block: start_block,
-                            },
-                        );
-                    }
-                }
+                self.jump_if_not_divergent(block, block_ty, start_block, mir);
                 mir.seal_block(start_block);
                 mir.seal_block(end_block);
                 let loop_scope = scopes.loop_scope().unwrap();
@@ -1826,8 +1808,18 @@ struct LoopScope {
     end_block: BlockId,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 enum StatementTy {
     Never,
     Unit,
+}
+
+impl From<&InferredTy> for StatementTy {
+    fn from(value: &InferredTy) -> Self {
+        if value == &InferredTy::Concrete(Ty::NEVER) {
+            StatementTy::Never
+        } else {
+            StatementTy::Unit
+        }
+    }
 }
