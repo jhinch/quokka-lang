@@ -31,22 +31,6 @@ pub const CARRY_FLAG_MASK: u8 = 1 << CARRY_FLAG_BIT;
 pub const SIGN_BIT: u8 = 7;
 pub const SIGN_MASK: u8 = 1 << SIGN_BIT;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
-pub enum FlagId {
-    Zero(ZeroFlagId),
-    Carry(CarryFlagId),
-}
-
-impl PartialOrd for FlagId {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (FlagId::Carry(this), FlagId::Carry(other)) => Some(Ord::cmp(this, other)),
-            (FlagId::Zero(this), FlagId::Zero(other)) => Some(Ord::cmp(this, other)),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct Lir {
     pub sections: SlotMap<SectionId, Section>,
@@ -796,6 +780,22 @@ pub enum Terminator {
     },
     /// `HALT`
     Halt { return_block: BlockId },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From)]
+pub enum FlagId {
+    Zero(ZeroFlagId),
+    Carry(CarryFlagId),
+}
+
+impl PartialOrd for FlagId {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (FlagId::Carry(this), FlagId::Carry(other)) => Some(Ord::cmp(this, other)),
+            (FlagId::Zero(this), FlagId::Zero(other)) => Some(Ord::cmp(this, other)),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug)]
