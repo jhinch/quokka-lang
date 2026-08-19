@@ -1295,7 +1295,7 @@ impl CodeGen {
                 mir::PlaceProjection::Index(mir::Operand::Local(index)) => {
                     let index = locals.r16s[*index];
                     let byte_offset = bit_offset.bytes();
-                    bit_offset = BitCount::from(bit_offset.padding());
+                    bit_offset = BitCount::from(bit_offset.bits());
                     let addr = match r16 {
                         Some(r16) => {
                             let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset));
@@ -1319,7 +1319,7 @@ impl CodeGen {
             }
         }
         let byte_offset = bit_offset.bytes();
-        let bit_offset = bit_offset.padding();
+        let bit_offset = bit_offset.bits();
         let source = match r16 {
             Some(r16) => {
                 let offset = lir.insert_ld16(block, Ld16Source::Literal(byte_offset));

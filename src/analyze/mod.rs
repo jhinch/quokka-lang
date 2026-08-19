@@ -165,8 +165,7 @@ impl Analyzer {
                         recursive_types.insert(ty);
                         continue 'outer;
                     }
-                    let field_bit_size =
-                        field_ty.bit_size(&self.ty_registry).padded_to_whole_byte();
+                    let field_bit_size = field_ty.bit_size(&self.ty_registry).padded();
                     fields.insert(
                         field_name.clone(),
                         StructFieldTyData {

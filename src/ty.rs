@@ -206,7 +206,7 @@ impl Ty {
             Ty::U16 | Ty::I16 => BitCount::new(16),
             ty if ty.is_array() => {
                 let data = registry.array_ty_data(ty);
-                data.item_ty.bit_size(registry).padded_to_whole_byte() * data.count
+                data.item_ty.bit_size(registry).padded() * data.count
             }
             ty if ty.is_struct() => registry.struct_ty_data(ty).bit_size,
             ty if ty.is_fn_ptr() => BitCount::new(16),

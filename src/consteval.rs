@@ -411,13 +411,7 @@ fn read_projections(
                 Value::Struct { ty, bytes, .. } => {
                     let field = &ty_registry.struct_ty_data(ty).fields[field];
                     let offset = usize::from(field.bit_offset.bytes());
-                    let width = usize::from(
-                        field
-                            .ty
-                            .bit_size(ty_registry)
-                            .padded_to_whole_byte()
-                            .bytes(),
-                    );
+                    let width = usize::from(field.ty.bit_size(ty_registry).padded_bytes());
                     Value::from_bytes(field.ty, ty_registry, &bytes[offset..(offset + width)])
                 }
                 value => unimplemented!("cannot lookup field {field} on value {value:?}"),
@@ -430,8 +424,7 @@ fn read_projections(
                         Value::U16(index) => index as usize,
                         index => unimplemented!("cannot array index on with index {index:?}"),
                     };
-                    let item_byte_width =
-                        usize::from(item_ty.bit_size(ty_registry).padded_to_whole_byte().bytes());
+                    let item_byte_width = usize::from(item_ty.bit_size(ty_registry).padded_bytes());
                     let offset = index * item_byte_width;
                     Value::from_bytes(
                         item_ty,
@@ -466,13 +459,7 @@ fn write_projections(
             Value::Struct { ty, mut bytes, .. } => {
                 let field = &ty_registry.struct_ty_data(ty).fields[field];
                 let offset = usize::from(field.bit_offset.bytes());
-                let width = usize::from(
-                    field
-                        .ty
-                        .bit_size(ty_registry)
-                        .padded_to_whole_byte()
-                        .bytes(),
-                );
+                let width = usize::from(field.ty.bit_size(ty_registry).padded_bytes());
                 let child =
                     Value::from_bytes(field.ty, ty_registry, &bytes[offset..(offset + width)]);
                 let child_bytes =
@@ -491,8 +478,7 @@ fn write_projections(
                     Value::U16(index) => index as usize,
                     index => unimplemented!("cannot array index on with index {index:?}"),
                 };
-                let item_byte_width =
-                    usize::from(item_ty.bit_size(ty_registry).padded_to_whole_byte().bytes());
+                let item_byte_width = usize::from(item_ty.bit_size(ty_registry).padded_bytes());
                 let offset = index * item_byte_width;
                 let child = Value::from_bytes(
                     item_ty,
@@ -556,10 +542,7 @@ impl Value {
                 Value::Array {
                     item_ty: array_ty_data.item_ty,
                     count: array_ty_data.count,
-                    bytes: vec![
-                        0;
-                        usize::from(ty.bit_size(ty_registry).padded_to_whole_byte().bytes())
-                    ],
+                    bytes: vec![0; usize::from(ty.bit_size(ty_registry).padded_bytes())],
                 }
             }
             ty if ty.is_struct() => {
@@ -567,7 +550,7 @@ impl Value {
                 Value::Struct {
                     ty,
                     bit_width,
-                    bytes: vec![0; usize::from(bit_width.padded_to_whole_byte().bytes())],
+                    bytes: vec![0; usize::from(bit_width.padded_bytes())],
                 }
             }
             ty => unimplemented!("unsupported type {}", ty.display(ty_registry)),
@@ -586,8 +569,7 @@ impl Value {
                 .check_init(*local, function, ty_registry)
                 .clone(),
             Operand::Literal(int) => {
-                let byte_width =
-                    usize::from(ty.bit_size(ty_registry).padded_to_whole_byte().bytes());
+                let byte_width = usize::from(ty.bit_size(ty_registry).padded_bytes());
                 Value::from_bytes(ty, ty_registry, &int.value.to_le_bytes()[..byte_width])
             }
             operand => unimplemented!("unsupported operand {operand:?}"),
@@ -596,7 +578,7 @@ impl Value {
 
     pub fn from_bytes(ty: Ty, ty_registry: &TyRegistry, bytes: &[u8]) -> Self {
         let bit_width = ty.bit_size(ty_registry);
-        let byte_width = bit_width.padded_to_whole_byte().bytes();
+        let byte_width = bit_width.padded_bytes();
         assert_eq!(
             bytes.len(),
             byte_width as usize,

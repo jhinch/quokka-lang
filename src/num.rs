@@ -262,13 +262,20 @@ impl BitCount {
     }
 
     #[must_use]
-    pub const fn padding(self) -> u3 {
+    pub const fn bits(self) -> u3 {
         #[allow(clippy::cast_possible_truncation)]
         u3::new(self.data as u8 & u3::MAX.data)
     }
 
     #[must_use]
-    pub const fn padded_to_whole_byte(self) -> BitCount {
+    pub const fn padded_bytes(self) -> u16 {
+        #[allow(clippy::cast_possible_truncation)]
+        let bytes = self.data.div_ceil(8) as u16;
+        bytes
+    }
+
+    #[must_use]
+    pub const fn padded(self) -> BitCount {
         BitCount::new(self.data.next_multiple_of(8))
     }
 }
@@ -556,18 +563,37 @@ mod tests {
 
     #[test]
     fn bit_count_padding_returns_remainder_bits() {
-        assert_eq!(BitCount::new(0).padding(), u3::new(0));
-        assert_eq!(BitCount::new(7).padding(), u3::new(7));
-        assert_eq!(BitCount::new(8).padding(), u3::new(0));
-        assert_eq!(BitCount::new(13).padding(), u3::new(5));
+        assert_eq!(BitCount::new(0).bits(), u3::new(0));
+        assert_eq!(BitCount::new(7).bits(), u3::new(7));
+        assert_eq!(BitCount::new(8).bits(), u3::new(0));
+        assert_eq!(BitCount::new(13).bits(), u3::new(5));
+    }
+
+    #[test]
+    fn bit_count_padded_bytes_rounds_up_to_whole_bytes() {
+        assert_eq!(BitCount::new(0).padded_bytes(), 0);
+        assert_eq!(BitCount::new(1).padded_bytes(), 1);
+        assert_eq!(BitCount::new(7).padded_bytes(), 1);
+        assert_eq!(BitCount::new(8).padded_bytes(), 1);
+        assert_eq!(BitCount::new(9).padded_bytes(), 2);
+        assert_eq!(BitCount::new(16).padded_bytes(), 2);
+        assert_eq!(BitCount::new(17).padded_bytes(), 3);
+    }
+
+    #[test]
+    fn bit_count_padded_bytes_matches_padded_bit_count_in_bytes() {
+        for bits in [0, 1, 7, 8, 9, 15, 16, 17, 100] {
+            let bc = BitCount::new(bits);
+            assert_eq!(bc.padded_bytes(), bc.padded().bytes());
+        }
     }
 
     #[test]
     fn bit_count_padded_to_whole_byte_rounds_up() {
-        assert_eq!(BitCount::new(0).padded_to_whole_byte().into_u32(), 0);
-        assert_eq!(BitCount::new(1).padded_to_whole_byte().into_u32(), 8);
-        assert_eq!(BitCount::new(8).padded_to_whole_byte().into_u32(), 8);
-        assert_eq!(BitCount::new(9).padded_to_whole_byte().into_u32(), 16);
+        assert_eq!(BitCount::new(0).padded().into_u32(), 0);
+        assert_eq!(BitCount::new(1).padded().into_u32(), 8);
+        assert_eq!(BitCount::new(8).padded().into_u32(), 8);
+        assert_eq!(BitCount::new(9).padded().into_u32(), 16);
     }
 
     #[test]
