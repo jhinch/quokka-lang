@@ -1,0 +1,602 @@
+[[case]]
+name = "lex"
+kind = "lexer"
+source.file = "gcd.q"
+expected_tokens = """
+Global:global
+Ident:A
+Colon::
+Ident:u16
+Semicolon:;
+Global:global
+Ident:B
+Colon::
+Ident:u16
+Semicolon:;
+Fn:fn
+Ident:gcd
+LeftParen:(
+RightParen:)
+MinusGreaterThan:->
+Ident:u16
+LeftBrace:{
+Let:let
+Ident:a
+Equal:=
+Ident:A
+Semicolon:;
+Let:let
+Ident:b
+Equal:=
+Ident:B
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:b
+EqualEqual:==
+Number:0
+Then:then
+LeftBrace:{
+Return:return
+Ident:a
+Semicolon:;
+RightBrace:}
+If:if
+Ident:b
+LessThan:<
+Ident:a
+Then:then
+LeftBrace:{
+Ident:a
+MinusEqual:-=
+Ident:b
+Semicolon:;
+RightBrace:}
+Else:else
+LeftBrace:{
+Ident:b
+MinusEqual:-=
+Ident:a
+Semicolon:;
+RightBrace:}
+RightBrace:}
+RightBrace:}
+Global:global
+Ident:RESULT
+Colon::
+Ident:u16
+Semicolon:;
+Fn:fn
+Ident:main
+LeftParen:(
+RightParen:)
+LeftBrace:{
+Ident:A
+Equal:=
+Number:1071
+Semicolon:;
+Ident:B
+Equal:=
+Number:462
+Semicolon:;
+Ident:RESULT
+Equal:=
+Ident:gcd
+LeftParen:(
+RightParen:)
+Semicolon:;
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "parse"
+kind = "parser"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "gcd.q"
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("A", (7, 1)),
+        ty: TyRef(
+          span: (10, 3),
+          data: Simple(("u16", (10, 3))),
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("B", (22, 1)),
+        ty: TyRef(
+          span: (25, 3),
+          data: Simple(("u16", (25, 3))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("gcd", (34, 3)),
+          ty: Some(TyRef(
+            span: (43, 3),
+            data: Simple(("u16", (43, 3))),
+          )),
+        ),
+        body: Block(
+          span: (47, 198),
+          statements: [
+            Statement(
+              span: (53, 10),
+              data: Let(LetSmt(
+                name: ("a", (57, 1)),
+                value: Expr(
+                  span: (61, 1),
+                  data: Place(Place(
+                    name: ("A", (61, 1)),
+                    span: (61, 1),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (68, 10),
+              data: Let(LetSmt(
+                name: ("b", (72, 1)),
+                value: Expr(
+                  span: (76, 1),
+                  data: Place(Place(
+                    name: ("B", (76, 1)),
+                    span: (76, 1),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (83, 160),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (83, 160),
+                  data: Loop(Loop(
+                    body: Block(
+                      span: (88, 155),
+                      statements: [
+                        Statement(
+                          span: (98, 48),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (98, 48),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (101, 6),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Eq,
+                                    left: Expr(
+                                      span: (101, 1),
+                                      data: Place(Place(
+                                        name: ("b", (101, 1)),
+                                        span: (101, 1),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (106, 1),
+                                      data: Integer(IntegerLiteral(
+                                        value: 0,
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (113, 33),
+                                  data: Block(Block(
+                                    span: (113, 33),
+                                    statements: [
+                                      Statement(
+                                        span: (127, 9),
+                                        data: Return(ReturnSmt(
+                                          value: Some(Expr(
+                                            span: (134, 1),
+                                            data: Place(Place(
+                                              name: ("a", (134, 1)),
+                                              span: (134, 1),
+                                            )),
+                                          )),
+                                        )),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: None,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (155, 82),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (155, 82),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (158, 5),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Lt,
+                                    left: Expr(
+                                      span: (158, 1),
+                                      data: Place(Place(
+                                        name: ("b", (158, 1)),
+                                        span: (158, 1),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (162, 1),
+                                      data: Place(Place(
+                                        name: ("a", (162, 1)),
+                                        span: (162, 1),
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (169, 31),
+                                  data: Block(Block(
+                                    span: (169, 31),
+                                    statements: [
+                                      Statement(
+                                        span: (183, 7),
+                                        data: Expr(ExprSmt(
+                                          value: Expr(
+                                            span: (183, 6),
+                                            data: Assign(AssignOp(
+                                              kind: SubAssign,
+                                              left: Place(
+                                                name: ("a", (183, 1)),
+                                                span: (183, 1),
+                                              ),
+                                              right: Expr(
+                                                span: (188, 1),
+                                                data: Place(Place(
+                                                  name: ("b", (188, 1)),
+                                                  span: (188, 1),
+                                                )),
+                                              ),
+                                            )),
+                                          ),
+                                        )),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: Some(Expr(
+                                  span: (206, 31),
+                                  data: Block(Block(
+                                    span: (206, 31),
+                                    statements: [
+                                      Statement(
+                                        span: (220, 7),
+                                        data: Expr(ExprSmt(
+                                          value: Expr(
+                                            span: (220, 6),
+                                            data: Assign(AssignOp(
+                                              kind: SubAssign,
+                                              left: Place(
+                                                name: ("b", (220, 1)),
+                                                span: (220, 1),
+                                              ),
+                                              right: Expr(
+                                                span: (225, 1),
+                                                data: Place(Place(
+                                                  name: ("a", (225, 1)),
+                                                  span: (225, 1),
+                                                )),
+                                              ),
+                                            )),
+                                          ),
+                                        )),
+                                      ),
+                                    ],
+                                  )),
+                                )),
+                              )),
+                            ),
+                          )),
+                        ),
+                      ],
+                    ),
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("RESULT", (254, 6)),
+        ty: TyRef(
+          span: (262, 3),
+          data: Simple(("u16", (262, 3))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", (271, 4)),
+        ),
+        body: Block(
+          span: (278, 50),
+          statements: [
+            Statement(
+              span: (284, 9),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (284, 8),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("A", (284, 1)),
+                      span: (284, 1),
+                    ),
+                    right: Expr(
+                      span: (288, 4),
+                      data: Integer(IntegerLiteral(
+                        value: 1071,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (298, 8),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (298, 7),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("B", (298, 1)),
+                      span: (298, 1),
+                    ),
+                    right: Expr(
+                      span: (302, 3),
+                      data: Integer(IntegerLiteral(
+                        value: 462,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (311, 15),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (311, 14),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("RESULT", (311, 6)),
+                      span: (311, 6),
+                    ),
+                    right: Expr(
+                      span: (320, 5),
+                      data: Call(Call(
+                        callee: Place(
+                          name: ("gcd", (320, 3)),
+                          span: (320, 3),
+                        ),
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "analyze"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "gcd.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: u16
+@GlobalDeclAttributes { section: Auto }
+global B: u16
+@GlobalDeclAttributes { section: Auto }
+global RESULT: u16
+
+gcd -> u16:
+  .bb1:
+    a#2: u16 = load A
+    b#3: u16 = load B
+    jump .bb2
+  .bb2:
+    b#4: u16 = phi b#3 <- .bb1, b#11 <- .bb10
+    #5: u16 = copy 0
+    #6: u1 = eq b#4, #5
+    a#7: u16 = phi a#2 <- .bb1, a#12 <- .bb10
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    #RET: u16 = copy a#7
+    return
+  .bb5:
+    #8: u1 = lt b#4, a#7
+    jumpif #8 != 0, .bb8, .bb9
+  .bb8:
+    a#9: u16 = sub a#7, b#4
+    jump .bb10
+  .bb9:
+    b#10: u16 = sub b#4, a#7
+    jump .bb10
+  .bb10:
+    b#11: u16 = phi b#4 <- .bb8, b#10 <- .bb9
+    a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 1071
+    store A = #1
+    #2: u16 = copy 462
+    store B = #2
+    call gcd, .bb2
+  .bb2:
+    #3: u16 = returnvalue
+    store RESULT = #3
+    return
+"""
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "gcd.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+B::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+gcd::
+.bb1:
+  LD r8#9, [A+$0000]
+  LD r8#10, [A+$0001]
+  (out=r16#5;high_in=r8#10;low_in=r8#9)
+  LD r8#11, [B+$0000]
+  LD r8#12, [B+$0001]
+  (out=r16#6;high_in=r8#12;low_in=r8#11)
+  (high_out=r8#14;low_out=r8#13;in=r16#6)
+  LD r8#1, r8#13
+  LD r8#2, r8#14
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  (high_out=r8#16;low_out=r8#15;in=r16#5)
+  LD r8#3, r8#15
+  LD r8#4, r8#16
+  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  JP .bb3
+
+main::
+.bb2:
+  LD r16#12, $042f
+  (high_out=r8#63;low_out=r8#62;in=r16#12)
+  LD r8#64, r8#63
+  LD r8#65, r8#62
+  (out=r16#13;high_in=r8#64;low_in=r8#65)
+  LD r16#14, A+$0000
+  (high_out=r8#67;low_out=r8#66;in=r16#13)
+  LD [(out=r16#15;in=r16#14)++], r8#66
+  LD [r16#15], r8#67
+  LD r16#16, $01ce
+  (high_out=r8#69;low_out=r8#68;in=r16#16)
+  LD r8#70, r8#69
+  LD r8#71, r8#68
+  (out=r16#17;high_in=r8#70;low_in=r8#71)
+  LD r16#18, B+$0000
+  (high_out=r8#73;low_out=r8#72;in=r16#17)
+  LD [(out=r16#19;in=r16#18)++], r8#72
+  LD [r16#19], r8#73
+  CALL gcd; return=.bb9
+
+.bb3:
+  LD r16#7, $0000
+  (high_out=r8#18;low_out=r8#17;in=r16#7)
+  LD r8#19, r8#18
+  LD r8#20, r8#17
+  (out=r16#8;high_in=r8#19;low_in=r8#20)
+  (high_out=r8#22;low_out=r8#21;in=r16#1)
+  (high_out=r8#24;low_out=r8#23;in=r16#8)
+  XOR (out=r8#25;in=r8#21), r8#23; z(out=z#1), c(out=c#1)
+  XOR (out=r8#26;in=r8#22), r8#24; z(out=z#2), c(out=c#2)
+  OR (out=r8#27;in=r8#26), r8#25; z(out=z#3), c(out=c#3)
+  JP z(in=z#3), .bb4; else=.bb5
+
+.bb4:
+  (high_out=r8#29;low_out=r8#28;in=r16#2)
+  LD r8#30, r8#29
+  LD r8#31, r8#28
+  (out=r16#9;high_in=r8#30;low_in=r8#31)
+  RET
+
+.bb5:
+  (high_out=r8#33;low_out=r8#32;in=r16#1)
+  (high_out=r8#35;low_out=r8#34;in=r16#2)
+  SUB (out=r8#36;in=r8#33), r8#35; z(out=z#4), c(out=c#4)
+  SBC (out=r8#37;in=r8#32), r8#34; z(out=z#5), c(out=c#5;in=c#4)
+  JP z(in=c#5), .bb6; else=.bb7
+
+.bb6:
+  (high_out=r8#39;low_out=r8#38;in=r16#2)
+  (high_out=r8#41;low_out=r8#40;in=r16#1)
+  SUB (out=r8#42;in=r8#39), r8#41; z(out=z#6), c(out=c#6)
+  SBC (out=r8#43;in=r8#38), r8#40; z(out=z#7), c(out=c#7;in=c#6)
+  (out=r16#10;high_in=r8#42;low_in=r8#43)
+  (high_out=r8#45;low_out=r8#44;in=r16#1)
+  LD r8#5, r8#44
+  LD r8#6, r8#45
+  (out=r16#3;high_in=r8#6;low_in=r8#5)
+  (high_out=r8#47;low_out=r8#46;in=r16#10)
+  LD r8#7, r8#46
+  LD r8#8, r8#47
+  (out=r16#4;high_in=r8#8;low_in=r8#7)
+  JP .bb8
+
+.bb7:
+  (high_out=r8#49;low_out=r8#48;in=r16#1)
+  (high_out=r8#51;low_out=r8#50;in=r16#2)
+  SUB (out=r8#52;in=r8#49), r8#51; z(out=z#8), c(out=c#8)
+  SBC (out=r8#53;in=r8#48), r8#50; z(out=z#9), c(out=c#9;in=c#8)
+  (out=r16#11;high_in=r8#52;low_in=r8#53)
+  (high_out=r8#55;low_out=r8#54;in=r16#11)
+  LD r8#5, r8#54
+  LD r8#6, r8#55
+  (out=r16#3;high_in=r8#6;low_in=r8#5)
+  (high_out=r8#57;low_out=r8#56;in=r16#2)
+  LD r8#7, r8#56
+  LD r8#8, r8#57
+  (out=r16#4;high_in=r8#8;low_in=r8#7)
+  JP .bb8
+
+.bb8:
+  (high_out=r8#59;low_out=r8#58;in=r16#3)
+  LD r8#1, r8#58
+  LD r8#2, r8#59
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  (high_out=r8#61;low_out=r8#60;in=r16#4)
+  LD r8#3, r8#60
+  LD r8#4, r8#61
+  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  JP .bb3
+
+.bb9:
+  HL(out=r16#20)
+  LD r16#21, RESULT+$0000
+  (high_out=r8#75;low_out=r8#74;in=r16#20)
+  LD [(out=r16#22;in=r16#21)++], r8#74
+  LD [r16#22], r8#75
+  RET
+
+END_SECTION
+"""

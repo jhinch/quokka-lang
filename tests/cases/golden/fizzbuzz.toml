@@ -1,0 +1,1077 @@
+[[case]]
+name = "lex"
+kind = "lexer"
+source.file = "fizzbuzz.q"
+expected_tokens = """
+Global:global
+Ident:MOD_x
+Colon::
+Ident:u8
+Semicolon:;
+Global:global
+Ident:MOD_y
+Colon::
+Ident:u8
+Semicolon:;
+Fn:fn
+Ident:x_mod_y
+LeftParen:(
+RightParen:)
+MinusGreaterThan:->
+Ident:u8
+LeftBrace:{
+Let:let
+Ident:result
+Equal:=
+Ident:MOD_x
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:result
+LessThan:<
+Ident:MOD_y
+Then:then
+LeftBrace:{
+Break:break
+Semicolon:;
+RightBrace:}
+Ident:result
+MinusEqual:-=
+Ident:MOD_y
+Semicolon:;
+RightBrace:}
+Return:return
+Ident:result
+Semicolon:;
+RightBrace:}
+Global:global
+Ident:N
+Colon::
+Ident:u8
+Semicolon:;
+Fn:fn
+Ident:fizzbuzz
+LeftParen:(
+RightParen:)
+MinusGreaterThan:->
+Ident:u8
+LeftBrace:{
+Ident:MOD_x
+Equal:=
+Ident:N
+Semicolon:;
+Ident:MOD_y
+Equal:=
+Number:3
+Semicolon:;
+Let:let
+Ident:mod3
+Equal:=
+Ident:x_mod_y
+LeftParen:(
+RightParen:)
+Semicolon:;
+Ident:MOD_y
+Equal:=
+Number:5
+Semicolon:;
+Let:let
+Ident:mod5
+Equal:=
+Ident:x_mod_y
+LeftParen:(
+RightParen:)
+Semicolon:;
+If:if
+Ident:mod3
+EqualEqual:==
+Number:0
+Then:then
+LeftBrace:{
+If:if
+Ident:mod5
+EqualEqual:==
+Number:0
+Then:then
+LeftBrace:{
+Return:return
+Number:3
+Semicolon:;
+RightBrace:}
+Return:return
+Number:1
+Semicolon:;
+RightBrace:}
+If:if
+Ident:mod5
+EqualEqual:==
+Number:0
+Then:then
+LeftBrace:{
+Return:return
+Number:2
+Semicolon:;
+RightBrace:}
+Return:return
+Number:0
+Semicolon:;
+RightBrace:}
+Global:global
+Ident:RESULTS
+Colon::
+LeftBracket:[
+Ident:u8
+Semicolon:;
+Number:15
+RightBracket:]
+Semicolon:;
+Fn:fn
+Ident:main
+LeftParen:(
+RightParen:)
+LeftBrace:{
+Let:let
+Ident:i
+Equal:=
+Number:0
+Semicolon:;
+Let:let
+Ident:n
+Equal:=
+Number:1
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:i
+EqualEqual:==
+Number:15
+Then:then
+LeftBrace:{
+Break:break
+Semicolon:;
+RightBrace:}
+Ident:N
+Equal:=
+Ident:n
+Semicolon:;
+Ident:RESULTS
+LeftBracket:[
+Ident:i
+RightBracket:]
+Equal:=
+Ident:fizzbuzz
+LeftParen:(
+RightParen:)
+Semicolon:;
+Ident:i
+PlusEqual:+=
+Number:1
+Semicolon:;
+Ident:n
+PlusEqual:+=
+Number:1
+Semicolon:;
+RightBrace:}
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "parse"
+kind = "parser"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "fizzbuzz.q"
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("MOD_x", (7, 5)),
+        ty: TyRef(
+          span: (14, 2),
+          data: Simple(("u8", (14, 2))),
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("MOD_y", (25, 5)),
+        ty: TyRef(
+          span: (32, 2),
+          data: Simple(("u8", (32, 2))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("x_mod_y", (40, 7)),
+          ty: Some(TyRef(
+            span: (53, 2),
+            data: Simple(("u8", (53, 2))),
+          )),
+        ),
+        body: Block(
+          span: (56, 150),
+          statements: [
+            Statement(
+              span: (62, 19),
+              data: Let(LetSmt(
+                name: ("result", (66, 6)),
+                value: Expr(
+                  span: (75, 5),
+                  data: Place(Place(
+                    name: ("MOD_x", (75, 5)),
+                    span: (75, 5),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (86, 99),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (86, 99),
+                  data: Loop(Loop(
+                    body: Block(
+                      span: (91, 94),
+                      statements: [
+                        Statement(
+                          span: (101, 53),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (101, 53),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (104, 14),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Lt,
+                                    left: Expr(
+                                      span: (104, 6),
+                                      data: Place(Place(
+                                        name: ("result", (104, 6)),
+                                        span: (104, 6),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (113, 5),
+                                      data: Place(Place(
+                                        name: ("MOD_y", (113, 5)),
+                                        span: (113, 5),
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (124, 30),
+                                  data: Block(Block(
+                                    span: (124, 30),
+                                    statements: [
+                                      Statement(
+                                        span: (138, 6),
+                                        data: Break(BreakSmt()),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: None,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (163, 16),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (163, 15),
+                              data: Assign(AssignOp(
+                                kind: SubAssign,
+                                left: Place(
+                                  name: ("result", (163, 6)),
+                                  span: (163, 6),
+                                ),
+                                right: Expr(
+                                  span: (173, 5),
+                                  data: Place(Place(
+                                    name: ("MOD_y", (173, 5)),
+                                    span: (173, 5),
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                      ],
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (190, 14),
+              data: Return(ReturnSmt(
+                value: Some(Expr(
+                  span: (197, 6),
+                  data: Place(Place(
+                    name: ("result", (197, 6)),
+                    span: (197, 6),
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("N", (215, 1)),
+        ty: TyRef(
+          span: (218, 2),
+          data: Simple(("u8", (218, 2))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("fizzbuzz", (226, 8)),
+          ty: Some(TyRef(
+            span: (240, 2),
+            data: Simple(("u8", (240, 2))),
+          )),
+        ),
+        body: Block(
+          span: (243, 270),
+          statements: [
+            Statement(
+              span: (249, 10),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (249, 9),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("MOD_x", (249, 5)),
+                      span: (249, 5),
+                    ),
+                    right: Expr(
+                      span: (257, 1),
+                      data: Place(Place(
+                        name: ("N", (257, 1)),
+                        span: (257, 1),
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (264, 10),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (264, 9),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("MOD_y", (264, 5)),
+                      span: (264, 5),
+                    ),
+                    right: Expr(
+                      span: (272, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 3,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (279, 21),
+              data: Let(LetSmt(
+                name: ("mod3", (283, 4)),
+                value: Expr(
+                  span: (290, 9),
+                  data: Call(Call(
+                    callee: Place(
+                      name: ("x_mod_y", (290, 7)),
+                      span: (290, 7),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (305, 10),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (305, 9),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("MOD_y", (305, 5)),
+                      span: (305, 5),
+                    ),
+                    right: Expr(
+                      span: (313, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 5,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (320, 21),
+              data: Let(LetSmt(
+                name: ("mod5", (324, 4)),
+                value: Expr(
+                  span: (331, 9),
+                  data: Call(Call(
+                    callee: Place(
+                      name: ("x_mod_y", (331, 7)),
+                      span: (331, 7),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (346, 103),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (346, 103),
+                  data: If(If(
+                    condition: Expr(
+                      span: (349, 9),
+                      data: Comparison(ComparisonOp(
+                        kind: Eq,
+                        left: Expr(
+                          span: (349, 4),
+                          data: Place(Place(
+                            name: ("mod3", (349, 4)),
+                            span: (349, 4),
+                          )),
+                        ),
+                        right: Expr(
+                          span: (357, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 0,
+                          )),
+                        ),
+                      )),
+                    ),
+                    true_block: Expr(
+                      span: (364, 85),
+                      data: Block(Block(
+                        span: (364, 85),
+                        statements: [
+                          Statement(
+                            span: (374, 51),
+                            data: Expr(ExprSmt(
+                              value: Expr(
+                                span: (374, 51),
+                                data: If(If(
+                                  condition: Expr(
+                                    span: (377, 9),
+                                    data: Comparison(ComparisonOp(
+                                      kind: Eq,
+                                      left: Expr(
+                                        span: (377, 4),
+                                        data: Place(Place(
+                                          name: ("mod5", (377, 4)),
+                                          span: (377, 4),
+                                        )),
+                                      ),
+                                      right: Expr(
+                                        span: (385, 1),
+                                        data: Integer(IntegerLiteral(
+                                          value: 0,
+                                        )),
+                                      ),
+                                    )),
+                                  ),
+                                  true_block: Expr(
+                                    span: (392, 33),
+                                    data: Block(Block(
+                                      span: (392, 33),
+                                      statements: [
+                                        Statement(
+                                          span: (406, 9),
+                                          data: Return(ReturnSmt(
+                                            value: Some(Expr(
+                                              span: (413, 1),
+                                              data: Integer(IntegerLiteral(
+                                                value: 3,
+                                              )),
+                                            )),
+                                          )),
+                                        ),
+                                      ],
+                                    )),
+                                  ),
+                                  false_block: None,
+                                )),
+                              ),
+                            )),
+                          ),
+                          Statement(
+                            span: (434, 9),
+                            data: Return(ReturnSmt(
+                              value: Some(Expr(
+                                span: (441, 1),
+                                data: Integer(IntegerLiteral(
+                                  value: 1,
+                                )),
+                              )),
+                            )),
+                          ),
+                        ],
+                      )),
+                    ),
+                    false_block: None,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (454, 43),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (454, 43),
+                  data: If(If(
+                    condition: Expr(
+                      span: (457, 9),
+                      data: Comparison(ComparisonOp(
+                        kind: Eq,
+                        left: Expr(
+                          span: (457, 4),
+                          data: Place(Place(
+                            name: ("mod5", (457, 4)),
+                            span: (457, 4),
+                          )),
+                        ),
+                        right: Expr(
+                          span: (465, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 0,
+                          )),
+                        ),
+                      )),
+                    ),
+                    true_block: Expr(
+                      span: (472, 25),
+                      data: Block(Block(
+                        span: (472, 25),
+                        statements: [
+                          Statement(
+                            span: (482, 9),
+                            data: Return(ReturnSmt(
+                              value: Some(Expr(
+                                span: (489, 1),
+                                data: Integer(IntegerLiteral(
+                                  value: 2,
+                                )),
+                              )),
+                            )),
+                          ),
+                        ],
+                      )),
+                    ),
+                    false_block: None,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (502, 9),
+              data: Return(ReturnSmt(
+                value: Some(Expr(
+                  span: (509, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("RESULTS", (522, 7)),
+        ty: TyRef(
+          span: (531, 8),
+          data: Array(TyRef(
+            span: (532, 2),
+            data: Simple(("u8", (532, 2))),
+          ), 15),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", (545, 4)),
+        ),
+        body: Block(
+          span: (552, 185),
+          statements: [
+            Statement(
+              span: (558, 10),
+              data: Let(LetSmt(
+                name: ("i", (562, 1)),
+                value: Expr(
+                  span: (566, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (573, 10),
+              data: Let(LetSmt(
+                name: ("n", (577, 1)),
+                value: Expr(
+                  span: (581, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 1,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (588, 147),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (588, 147),
+                  data: Loop(Loop(
+                    body: Block(
+                      span: (593, 142),
+                      statements: [
+                        Statement(
+                          span: (603, 46),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (603, 46),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (606, 7),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Eq,
+                                    left: Expr(
+                                      span: (606, 1),
+                                      data: Place(Place(
+                                        name: ("i", (606, 1)),
+                                        span: (606, 1),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (611, 2),
+                                      data: Integer(IntegerLiteral(
+                                        value: 15,
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (619, 30),
+                                  data: Block(Block(
+                                    span: (619, 30),
+                                    statements: [
+                                      Statement(
+                                        span: (633, 6),
+                                        data: Break(BreakSmt()),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: None,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (658, 6),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (658, 5),
+                              data: Assign(AssignOp(
+                                kind: Assign,
+                                left: Place(
+                                  name: ("N", (658, 1)),
+                                  span: (658, 1),
+                                ),
+                                right: Expr(
+                                  span: (662, 1),
+                                  data: Place(Place(
+                                    name: ("n", (662, 1)),
+                                    span: (662, 1),
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (673, 24),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (673, 23),
+                              data: Assign(AssignOp(
+                                kind: Assign,
+                                left: Place(
+                                  name: ("RESULTS", (673, 7)),
+                                  span: (673, 10),
+                                  projections: [
+                                    Index(Expr(
+                                      span: (681, 1),
+                                      data: Place(Place(
+                                        name: ("i", (681, 1)),
+                                        span: (681, 1),
+                                      )),
+                                    )),
+                                  ],
+                                ),
+                                right: Expr(
+                                  span: (686, 10),
+                                  data: Call(Call(
+                                    callee: Place(
+                                      name: ("fizzbuzz", (686, 8)),
+                                      span: (686, 8),
+                                    ),
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (706, 7),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (706, 6),
+                              data: Assign(AssignOp(
+                                kind: AddAssign,
+                                left: Place(
+                                  name: ("i", (706, 1)),
+                                  span: (706, 1),
+                                ),
+                                right: Expr(
+                                  span: (711, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 1,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (722, 7),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (722, 6),
+                              data: Assign(AssignOp(
+                                kind: AddAssign,
+                                left: Place(
+                                  name: ("n", (722, 1)),
+                                  span: (722, 1),
+                                ),
+                                right: Expr(
+                                  span: (727, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 1,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                      ],
+                    ),
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "analyze"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "fizzbuzz.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global MOD_x: u8
+@GlobalDeclAttributes { section: Auto }
+global MOD_y: u8
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+@GlobalDeclAttributes { section: Auto }
+global RESULTS: [u8; 15]
+
+x_mod_y -> u8:
+  .bb1:
+    result#2: u8 = load MOD_x
+    jump .bb2
+  .bb2:
+    result#3: u8 = phi result#2 <- .bb1, result#7 <- .bb5
+    #4: u8 = load MOD_y
+    #5: u1 = lt result#3, #4
+    jumpif #5 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #6: u8 = load MOD_y
+    result#7: u8 = sub result#3, #6
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy result#3
+    return
+
+fizzbuzz -> u8:
+  .bb1:
+    #2: u8 = load N
+    store MOD_x = #2
+    #3: u8 = copy 3
+    store MOD_y = #3
+    call x_mod_y, .bb2
+  .bb2:
+    mod3#4: u8 = returnvalue
+    #5: u8 = copy 5
+    store MOD_y = #5
+    call x_mod_y, .bb3
+  .bb3:
+    mod5#6: u8 = returnvalue
+    #7: u8 = copy 0
+    #8: u1 = eq mod3#4, #7
+    jumpif #8 != 0, .bb4, .bb5
+  .bb4:
+    #9: u8 = copy 0
+    #10: u1 = eq mod5#6, #9
+    jumpif #10 != 0, .bb6, .bb7
+  .bb5:
+    #13: u8 = copy 0
+    #14: u1 = eq mod5#6, #13
+    jumpif #14 != 0, .bb12, .bb13
+  .bb6:
+    #11: u8 = copy 3
+    #RET: u8 = copy #11
+    return
+  .bb7:
+    #12: u8 = copy 1
+    #RET: u8 = copy #12
+    return
+  .bb12:
+    #15: u8 = copy 2
+    #RET: u8 = copy #15
+    return
+  .bb13:
+    #16: u8 = copy 0
+    #RET: u8 = copy #16
+    return
+
+main -> unit:
+  .bb1:
+    i#1: u16 = copy 0
+    n#2: u8 = copy 1
+    jump .bb2
+  .bb2:
+    i#3: u16 = phi i#1 <- .bb1, i#9 <- .bb8
+    #4: u16 = copy 15
+    #5: u1 = eq i#3, #4
+    n#6: u8 = phi n#2 <- .bb1, n#11 <- .bb8
+    jumpif #5 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    store N = n#6
+    call fizzbuzz, .bb8
+  .bb3:
+    return
+  .bb8:
+    #7: u8 = returnvalue
+    store RESULTS[i#3] = #7
+    #8: u16 = copy 1
+    i#9: u16 = add i#3, #8
+    #10: u8 = copy 1
+    n#11: u8 = add n#6, #10
+    jump .bb2
+"""
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "fizzbuzz.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+MOD_x::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+MOD_y::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+N::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULTS::
+alloc 120 x bit
+END_SECTION
+
+START_SECTION ROM0
+x_mod_y::
+.bb1:
+  LD r8#2, [MOD_x+$0000]
+  LD r8#1, r8#2
+  JP .bb4
+
+fizzbuzz::
+.bb2:
+  LD r8#7, [N+$0000]
+  LD [MOD_x], r8#7
+  LD r8#8, $03
+  LD [MOD_y], r8#8
+  CALL x_mod_y; return=.bb8
+
+main::
+.bb3:
+  LD r16#2, $0000
+  (high_out=r8#27;low_out=r8#26;in=r16#2)
+  LD r8#28, r8#27
+  LD r8#29, r8#26
+  (out=r16#3;high_in=r8#28;low_in=r8#29)
+  LD r8#30, $01
+  LD r8#25, r8#30
+  (high_out=r8#32;low_out=r8#31;in=r16#3)
+  LD r8#23, r8#31
+  LD r8#24, r8#32
+  (out=r16#1;high_in=r8#24;low_in=r8#23)
+  JP .bb16
+
+.bb4:
+  LD r8#3, [MOD_y+$0000]
+  CP (in=r8#1), r8#3; z(out=z#1), c(out=c#1)
+  JP z(in=c#1), .bb5; else=.bb6
+
+.bb5:
+  JP .bb7
+
+.bb6:
+  LD r8#4, [MOD_y+$0000]
+  SUB (out=r8#5;in=r8#1), r8#4; z(out=z#2), c(out=c#2)
+  LD r8#1, r8#5
+  JP .bb4
+
+.bb7:
+  LD r8#6, r8#1
+  RET
+
+.bb8:
+  A(out=r8#9)
+  LD r8#10, $05
+  LD [MOD_y], r8#10
+  CALL x_mod_y; return=.bb9
+
+.bb9:
+  A(out=r8#11)
+  LD r8#12, $00
+  CP (in=r8#9), r8#12; z(out=z#3), c(out=c#3)
+  JP z(in=z#3), .bb10; else=.bb11
+
+.bb10:
+  LD r8#13, $00
+  CP (in=r8#11), r8#13; z(out=z#4), c(out=c#4)
+  JP z(in=z#4), .bb12; else=.bb13
+
+.bb11:
+  LD r8#14, $00
+  CP (in=r8#11), r8#14; z(out=z#5), c(out=c#5)
+  JP z(in=z#5), .bb14; else=.bb15
+
+.bb12:
+  LD r8#15, $03
+  LD r8#16, r8#15
+  RET
+
+.bb13:
+  LD r8#17, $01
+  LD r8#18, r8#17
+  RET
+
+.bb14:
+  LD r8#19, $02
+  LD r8#20, r8#19
+  RET
+
+.bb15:
+  LD r8#21, $00
+  LD r8#22, r8#21
+  RET
+
+.bb16:
+  LD r16#4, $000f
+  (high_out=r8#34;low_out=r8#33;in=r16#4)
+  LD r8#35, r8#34
+  LD r8#36, r8#33
+  (out=r16#5;high_in=r8#35;low_in=r8#36)
+  (high_out=r8#38;low_out=r8#37;in=r16#1)
+  (high_out=r8#40;low_out=r8#39;in=r16#5)
+  XOR (out=r8#41;in=r8#37), r8#39; z(out=z#6), c(out=c#6)
+  XOR (out=r8#42;in=r8#38), r8#40; z(out=z#7), c(out=c#7)
+  OR (out=r8#43;in=r8#42), r8#41; z(out=z#8), c(out=c#8)
+  JP z(in=z#8), .bb17; else=.bb18
+
+.bb17:
+  JP .bb19
+
+.bb18:
+  LD [N], r8#25
+  CALL fizzbuzz; return=.bb20
+
+.bb19:
+  RET
+
+.bb20:
+  A(out=r8#44)
+  LD r16#6, RESULTS+$0000
+  ADD (out=r16#7;in=r16#6), r16#1; c(out=c#9)
+  LD r16#8, $0000
+  ADD (out=r16#9;in=r16#7), r16#8; c(out=c#10)
+  LD [r16#9], r8#44
+  LD r16#10, $0001
+  (high_out=r8#46;low_out=r8#45;in=r16#10)
+  LD r8#47, r8#46
+  LD r8#48, r8#45
+  (out=r16#11;high_in=r8#47;low_in=r8#48)
+  ADD (out=r16#12;in=r16#1), r16#11; c(out=c#11)
+  LD r8#49, $01
+  ADD (out=r8#50;in=r8#25), r8#49; z(out=z#9), c(out=c#12)
+  LD r8#25, r8#50
+  (high_out=r8#52;low_out=r8#51;in=r16#12)
+  LD r8#23, r8#51
+  LD r8#24, r8#52
+  (out=r16#1;high_in=r8#24;low_in=r8#23)
+  JP .bb16
+
+END_SECTION
+"""

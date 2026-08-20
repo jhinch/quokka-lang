@@ -1,0 +1,697 @@
+[[case]]
+name = "lex"
+kind = "lexer"
+source.file = "collatz.q"
+expected_tokens = """
+Global:global
+Ident:N
+Colon::
+Ident:u16
+Semicolon:;
+Fn:fn
+Ident:collatz_steps
+LeftParen:(
+RightParen:)
+MinusGreaterThan:->
+Ident:u16
+LeftBrace:{
+Let:let
+Ident:n
+Equal:=
+Ident:N
+Semicolon:;
+Let:let
+Ident:steps
+Equal:=
+Number:0
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:n
+EqualEqual:==
+Number:1
+Then:then
+LeftBrace:{
+Break:break
+Semicolon:;
+RightBrace:}
+Let:let
+Ident:is_even
+Equal:=
+LeftParen:(
+Ident:n
+Ampersand:&
+Number:1
+RightParen:)
+EqualEqual:==
+Number:0
+Semicolon:;
+If:if
+Ident:is_even
+Then:then
+LeftBrace:{
+Ident:n
+Equal:=
+Ident:n
+GreaterThanGreaterThan:>>
+Semicolon:;
+RightBrace:}
+Else:else
+LeftBrace:{
+Ident:n
+Equal:=
+Ident:n
+Plus:+
+Ident:n
+Plus:+
+Ident:n
+Plus:+
+Number:1
+Semicolon:;
+RightBrace:}
+Ident:steps
+PlusEqual:+=
+Number:1
+Semicolon:;
+RightBrace:}
+Return:return
+Ident:steps
+Semicolon:;
+RightBrace:}
+Global:global
+Ident:RESULT
+Colon::
+Ident:u16
+Semicolon:;
+Fn:fn
+Ident:main
+LeftParen:(
+RightParen:)
+LeftBrace:{
+Ident:N
+Equal:=
+Number:27
+Semicolon:;
+Ident:RESULT
+Equal:=
+Ident:collatz_steps
+LeftParen:(
+RightParen:)
+Semicolon:;
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "parse"
+kind = "parser"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "collatz.q"
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("N", (7, 1)),
+        ty: TyRef(
+          span: (10, 3),
+          data: Simple(("u16", (10, 3))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("collatz_steps", (19, 13)),
+          ty: Some(TyRef(
+            span: (38, 3),
+            data: Simple(("u16", (38, 3))),
+          )),
+        ),
+        body: Block(
+          span: (42, 288),
+          statements: [
+            Statement(
+              span: (48, 10),
+              data: Let(LetSmt(
+                name: ("n", (52, 1)),
+                value: Expr(
+                  span: (56, 1),
+                  data: Place(Place(
+                    name: ("N", (56, 1)),
+                    span: (56, 1),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (63, 14),
+              data: Let(LetSmt(
+                name: ("steps", (67, 5)),
+                value: Expr(
+                  span: (75, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (82, 228),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (82, 228),
+                  data: Loop(Loop(
+                    body: Block(
+                      span: (87, 223),
+                      statements: [
+                        Statement(
+                          span: (97, 45),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (97, 45),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (100, 6),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Eq,
+                                    left: Expr(
+                                      span: (100, 1),
+                                      data: Place(Place(
+                                        name: ("n", (100, 1)),
+                                        span: (100, 1),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (105, 1),
+                                      data: Integer(IntegerLiteral(
+                                        value: 1,
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (112, 30),
+                                  data: Block(Block(
+                                    span: (112, 30),
+                                    statements: [
+                                      Statement(
+                                        span: (126, 6),
+                                        data: Break(BreakSmt()),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: None,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (151, 27),
+                          data: Let(LetSmt(
+                            name: ("is_even", (155, 7)),
+                            value: Expr(
+                              span: (165, 12),
+                              data: Comparison(ComparisonOp(
+                                kind: Eq,
+                                left: Expr(
+                                  span: (165, 7),
+                                  data: Paren(Expr(
+                                    span: (166, 5),
+                                    data: Arithmetic(ArithmeticOp(
+                                      kind: BitAnd,
+                                      left: Expr(
+                                        span: (166, 1),
+                                        data: Place(Place(
+                                          name: ("n", (166, 1)),
+                                          span: (166, 1),
+                                        )),
+                                      ),
+                                      right: Expr(
+                                        span: (170, 1),
+                                        data: Integer(IntegerLiteral(
+                                          value: 1,
+                                        )),
+                                      ),
+                                    )),
+                                  )),
+                                ),
+                                right: Expr(
+                                  span: (176, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 0,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (187, 97),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (187, 97),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (190, 7),
+                                  data: Place(Place(
+                                    name: ("is_even", (190, 7)),
+                                    span: (190, 7),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (203, 33),
+                                  data: Block(Block(
+                                    span: (203, 33),
+                                    statements: [
+                                      Statement(
+                                        span: (217, 9),
+                                        data: Expr(ExprSmt(
+                                          value: Expr(
+                                            span: (217, 8),
+                                            data: Assign(AssignOp(
+                                              kind: Assign,
+                                              left: Place(
+                                                name: ("n", (217, 1)),
+                                                span: (217, 1),
+                                              ),
+                                              right: Expr(
+                                                span: (221, 4),
+                                                data: Unary(UnaryOp(
+                                                  kind: ShiftRight,
+                                                  expr: Expr(
+                                                    span: (221, 1),
+                                                    data: Place(Place(
+                                                      name: ("n", (221, 1)),
+                                                      span: (221, 1),
+                                                    )),
+                                                  ),
+                                                )),
+                                              ),
+                                            )),
+                                          ),
+                                        )),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: Some(Expr(
+                                  span: (242, 42),
+                                  data: Block(Block(
+                                    span: (242, 42),
+                                    statements: [
+                                      Statement(
+                                        span: (256, 18),
+                                        data: Expr(ExprSmt(
+                                          value: Expr(
+                                            span: (256, 17),
+                                            data: Assign(AssignOp(
+                                              kind: Assign,
+                                              left: Place(
+                                                name: ("n", (256, 1)),
+                                                span: (256, 1),
+                                              ),
+                                              right: Expr(
+                                                span: (260, 13),
+                                                data: Arithmetic(ArithmeticOp(
+                                                  kind: Add,
+                                                  left: Expr(
+                                                    span: (260, 9),
+                                                    data: Arithmetic(ArithmeticOp(
+                                                      kind: Add,
+                                                      left: Expr(
+                                                        span: (260, 5),
+                                                        data: Arithmetic(ArithmeticOp(
+                                                          kind: Add,
+                                                          left: Expr(
+                                                            span: (260, 1),
+                                                            data: Place(Place(
+                                                              name: ("n", (260, 1)),
+                                                              span: (260, 1),
+                                                            )),
+                                                          ),
+                                                          right: Expr(
+                                                            span: (264, 1),
+                                                            data: Place(Place(
+                                                              name: ("n", (264, 1)),
+                                                              span: (264, 1),
+                                                            )),
+                                                          ),
+                                                        )),
+                                                      ),
+                                                      right: Expr(
+                                                        span: (268, 1),
+                                                        data: Place(Place(
+                                                          name: ("n", (268, 1)),
+                                                          span: (268, 1),
+                                                        )),
+                                                      ),
+                                                    )),
+                                                  ),
+                                                  right: Expr(
+                                                    span: (272, 1),
+                                                    data: Integer(IntegerLiteral(
+                                                      value: 1,
+                                                    )),
+                                                  ),
+                                                )),
+                                              ),
+                                            )),
+                                          ),
+                                        )),
+                                      ),
+                                    ],
+                                  )),
+                                )),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (293, 11),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (293, 10),
+                              data: Assign(AssignOp(
+                                kind: AddAssign,
+                                left: Place(
+                                  name: ("steps", (293, 5)),
+                                  span: (293, 5),
+                                ),
+                                right: Expr(
+                                  span: (302, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 1,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                      ],
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (315, 13),
+              data: Return(ReturnSmt(
+                value: Some(Expr(
+                  span: (322, 5),
+                  data: Place(Place(
+                    name: ("steps", (322, 5)),
+                    span: (322, 5),
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("RESULT", (339, 6)),
+        ty: TyRef(
+          span: (347, 3),
+          data: Simple(("u16", (347, 3))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", (356, 4)),
+        ),
+        body: Block(
+          span: (363, 45),
+          statements: [
+            Statement(
+              span: (369, 7),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (369, 6),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("N", (369, 1)),
+                      span: (369, 1),
+                    ),
+                    right: Expr(
+                      span: (373, 2),
+                      data: Integer(IntegerLiteral(
+                        value: 27,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (381, 25),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (381, 24),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("RESULT", (381, 6)),
+                      span: (381, 6),
+                    ),
+                    right: Expr(
+                      span: (390, 15),
+                      data: Call(Call(
+                        callee: Place(
+                          name: ("collatz_steps", (390, 13)),
+                          span: (390, 13),
+                        ),
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "analyze"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "collatz.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u16
+@GlobalDeclAttributes { section: Auto }
+global RESULT: u16
+
+collatz_steps -> u16:
+  .bb1:
+    n#2: u16 = load N
+    steps#3: u16 = copy 0
+    jump .bb2
+  .bb2:
+    n#4: u16 = phi n#2 <- .bb1, n#20 <- .bb10
+    #5: u16 = copy 1
+    #6: u1 = eq n#4, #5
+    steps#18: u16 = phi steps#3 <- .bb1, steps#19 <- .bb10
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u16 = copy 1
+    #8: u16 = bitand n#4, #7
+    #9: u16 = copy 0
+    is_even#10: u1 = eq #8, #9
+    jumpif is_even#10 != 0, .bb8, .bb9
+  .bb3:
+    #RET: u16 = copy steps#18
+    return
+  .bb8:
+    n#11: u16 = shiftright n#4
+    jump .bb10
+  .bb9:
+    #12: u16 = add n#4, n#4
+    #13: u16 = add #12, n#4
+    #14: u16 = copy 1
+    n#15: u16 = add #13, #14
+    jump .bb10
+  .bb10:
+    #16: u16 = copy 1
+    steps#17: u16 = copy steps#18
+    steps#19: u16 = add steps#18, #16
+    n#20: u16 = phi n#11 <- .bb8, n#15 <- .bb9
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 27
+    store N = #1
+    call collatz_steps, .bb2
+  .bb2:
+    #2: u16 = returnvalue
+    store RESULT = #2
+    return
+"""
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else"]
+source.file = "collatz.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+N::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+collatz_steps::
+.bb1:
+  LD r8#7, [N+$0000]
+  LD r8#8, [N+$0001]
+  (out=r16#4;high_in=r8#8;low_in=r8#7)
+  LD r16#5, $0000
+  (high_out=r8#10;low_out=r8#9;in=r16#5)
+  LD r8#11, r8#10
+  LD r8#12, r8#9
+  (out=r16#6;high_in=r8#11;low_in=r8#12)
+  (high_out=r8#14;low_out=r8#13;in=r16#4)
+  LD r8#1, r8#13
+  LD r8#2, r8#14
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  (high_out=r8#16;low_out=r8#15;in=r16#6)
+  LD r8#3, r8#15
+  LD r8#4, r8#16
+  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  JP .bb3
+
+main::
+.bb2:
+  LD r16#25, $001b
+  (high_out=r8#78;low_out=r8#77;in=r16#25)
+  LD r8#79, r8#78
+  LD r8#80, r8#77
+  (out=r16#26;high_in=r8#79;low_in=r8#80)
+  LD r16#27, N+$0000
+  (high_out=r8#82;low_out=r8#81;in=r16#26)
+  LD [(out=r16#28;in=r16#27)++], r8#81
+  LD [r16#28], r8#82
+  CALL collatz_steps; return=.bb10
+
+.bb3:
+  LD r16#7, $0001
+  (high_out=r8#18;low_out=r8#17;in=r16#7)
+  LD r8#19, r8#18
+  LD r8#20, r8#17
+  (out=r16#8;high_in=r8#19;low_in=r8#20)
+  (high_out=r8#22;low_out=r8#21;in=r16#1)
+  (high_out=r8#24;low_out=r8#23;in=r16#8)
+  XOR (out=r8#25;in=r8#21), r8#23; z(out=z#1), c(out=c#1)
+  XOR (out=r8#26;in=r8#22), r8#24; z(out=z#2), c(out=c#2)
+  OR (out=r8#27;in=r8#26), r8#25; z(out=z#3), c(out=c#3)
+  JP z(in=z#3), .bb4; else=.bb5
+
+.bb4:
+  JP .bb6
+
+.bb5:
+  LD r16#9, $0001
+  (high_out=r8#29;low_out=r8#28;in=r16#9)
+  LD r8#30, r8#29
+  LD r8#31, r8#28
+  (out=r16#10;high_in=r8#30;low_in=r8#31)
+  (high_out=r8#33;low_out=r8#32;in=r16#1)
+  (high_out=r8#35;low_out=r8#34;in=r16#10)
+  AND (out=r8#36;in=r8#32), r8#34; z(out=z#4), c(out=c#4)
+  AND (out=r8#37;in=r8#33), r8#35; z(out=z#5), c(out=c#5)
+  (out=r16#11;high_in=r8#37;low_in=r8#36)
+  LD r16#12, $0000
+  (high_out=r8#39;low_out=r8#38;in=r16#12)
+  LD r8#40, r8#39
+  LD r8#41, r8#38
+  (out=r16#13;high_in=r8#40;low_in=r8#41)
+  (high_out=r8#43;low_out=r8#42;in=r16#11)
+  (high_out=r8#45;low_out=r8#44;in=r16#13)
+  XOR (out=r8#46;in=r8#42), r8#44; z(out=z#6), c(out=c#6)
+  XOR (out=r8#47;in=r8#43), r8#45; z(out=z#7), c(out=c#7)
+  OR (out=r8#48;in=r8#47), r8#46; z(out=z#8), c(out=c#8)
+  JP z(in=z#8), .bb7; else=.bb8
+
+.bb6:
+  (high_out=r8#50;low_out=r8#49;in=r16#2)
+  LD r8#51, r8#50
+  LD r8#52, r8#49
+  (out=r16#14;high_in=r8#51;low_in=r8#52)
+  RET
+
+.bb7:
+  (high_out=r8#54;low_out=r8#53;in=r16#1)
+  SRL (out=r8#55;in=r8#54); z(out=z#9), c(out=c#9)
+  RR (out=r8#56;in=r8#53); z(out=z#10), c(out=c#10;in=c#9)
+  (out=r16#15;high_in=r8#55;low_in=r8#56)
+  (high_out=r8#58;low_out=r8#57;in=r16#15)
+  LD r8#5, r8#57
+  LD r8#6, r8#58
+  (out=r16#3;high_in=r8#6;low_in=r8#5)
+  JP .bb9
+
+.bb8:
+  ADD (out=r16#16;in=r16#1), r16#1; c(out=c#11)
+  ADD (out=r16#17;in=r16#16), r16#1; c(out=c#12)
+  LD r16#18, $0001
+  (high_out=r8#60;low_out=r8#59;in=r16#18)
+  LD r8#61, r8#60
+  LD r8#62, r8#59
+  (out=r16#19;high_in=r8#61;low_in=r8#62)
+  ADD (out=r16#20;in=r16#17), r16#19; c(out=c#13)
+  (high_out=r8#64;low_out=r8#63;in=r16#20)
+  LD r8#5, r8#63
+  LD r8#6, r8#64
+  (out=r16#3;high_in=r8#6;low_in=r8#5)
+  JP .bb9
+
+.bb9:
+  LD r16#21, $0001
+  (high_out=r8#66;low_out=r8#65;in=r16#21)
+  LD r8#67, r8#66
+  LD r8#68, r8#65
+  (out=r16#22;high_in=r8#67;low_in=r8#68)
+  (high_out=r8#70;low_out=r8#69;in=r16#2)
+  LD r8#71, r8#70
+  LD r8#72, r8#69
+  (out=r16#23;high_in=r8#71;low_in=r8#72)
+  ADD (out=r16#24;in=r16#2), r16#22; c(out=c#14)
+  (high_out=r8#74;low_out=r8#73;in=r16#3)
+  LD r8#1, r8#73
+  LD r8#2, r8#74
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  (high_out=r8#76;low_out=r8#75;in=r16#24)
+  LD r8#3, r8#75
+  LD r8#4, r8#76
+  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  JP .bb3
+
+.bb10:
+  HL(out=r16#29)
+  LD r16#30, RESULT+$0000
+  (high_out=r8#84;low_out=r8#83;in=r16#29)
+  LD [(out=r16#31;in=r16#30)++], r8#83
+  LD [r16#31], r8#84
+  RET
+
+END_SECTION
+"""

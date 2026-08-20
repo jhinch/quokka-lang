@@ -1,0 +1,1379 @@
+[[case]]
+name = "lex"
+kind = "lexer"
+source.file = "bubble_sort.q"
+expected_tokens = """
+Global:global
+Ident:DATA
+Colon::
+LeftBracket:[
+Ident:u8
+Semicolon:;
+Number:8
+RightBracket:]
+Semicolon:;
+Fn:fn
+Ident:bubble_sort
+LeftParen:(
+RightParen:)
+MinusGreaterThan:->
+Ident:u8
+LeftBrace:{
+Let:let
+Ident:swaps
+Equal:=
+Number:0
+Semicolon:;
+Let:let
+Ident:i
+Equal:=
+Number:0
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:i
+GreaterThanEqual:>=
+Number:8
+Then:then
+LeftBrace:{
+Break:break
+Semicolon:;
+RightBrace:}
+Let:let
+Ident:limit
+Equal:=
+Number:8
+Minus:-
+Ident:i
+Minus:-
+Number:1
+Semicolon:;
+Let:let
+Ident:j
+Equal:=
+Number:0
+Semicolon:;
+Loop:loop
+LeftBrace:{
+If:if
+Ident:j
+GreaterThanEqual:>=
+Ident:limit
+Then:then
+LeftBrace:{
+Break:break
+Semicolon:;
+RightBrace:}
+If:if
+Ident:DATA
+LeftBracket:[
+Ident:j
+Plus:+
+Number:1
+RightBracket:]
+LessThan:<
+Ident:DATA
+LeftBracket:[
+Ident:j
+RightBracket:]
+Then:then
+LeftBrace:{
+Let:let
+Ident:tmp
+Equal:=
+Ident:DATA
+LeftBracket:[
+Ident:j
+RightBracket:]
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Ident:j
+RightBracket:]
+Equal:=
+Ident:DATA
+LeftBracket:[
+Ident:j
+Plus:+
+Number:1
+RightBracket:]
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Ident:j
+Plus:+
+Number:1
+RightBracket:]
+Equal:=
+Ident:tmp
+Semicolon:;
+Ident:swaps
+PlusEqual:+=
+Number:1
+Semicolon:;
+RightBrace:}
+Ident:j
+PlusEqual:+=
+Number:1
+Semicolon:;
+RightBrace:}
+Ident:i
+PlusEqual:+=
+Number:1
+Semicolon:;
+RightBrace:}
+Return:return
+Ident:swaps
+Semicolon:;
+RightBrace:}
+Global:global
+Ident:SWAP_COUNT
+Colon::
+Ident:u8
+Semicolon:;
+Fn:fn
+Ident:main
+LeftParen:(
+RightParen:)
+LeftBrace:{
+Ident:DATA
+LeftBracket:[
+Number:0
+RightBracket:]
+Equal:=
+Number:5
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:1
+RightBracket:]
+Equal:=
+Number:3
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:2
+RightBracket:]
+Equal:=
+Number:8
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:3
+RightBracket:]
+Equal:=
+Number:1
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:4
+RightBracket:]
+Equal:=
+Number:9
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:5
+RightBracket:]
+Equal:=
+Number:2
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:6
+RightBracket:]
+Equal:=
+Number:7
+Semicolon:;
+Ident:DATA
+LeftBracket:[
+Number:7
+RightBracket:]
+Equal:=
+Number:4
+Semicolon:;
+Ident:SWAP_COUNT
+Equal:=
+Ident:bubble_sort
+LeftParen:(
+RightParen:)
+Semicolon:;
+RightBrace:}
+Eof:
+"""
+
+[[case]]
+name = "parse"
+kind = "parser"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "bubble_sort.q"
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("DATA", (7, 4)),
+        ty: TyRef(
+          span: (13, 7),
+          data: Array(TyRef(
+            span: (14, 2),
+            data: Simple(("u8", (14, 2))),
+          ), 8),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("bubble_sort", (26, 11)),
+          ty: Some(TyRef(
+            span: (43, 2),
+            data: Simple(("u8", (43, 2))),
+          )),
+        ),
+        body: Block(
+          span: (46, 502),
+          statements: [
+            Statement(
+              span: (52, 14),
+              data: Let(LetSmt(
+                name: ("swaps", (56, 5)),
+                value: Expr(
+                  span: (64, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (71, 10),
+              data: Let(LetSmt(
+                name: ("i", (75, 1)),
+                value: Expr(
+                  span: (79, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (86, 442),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (86, 442),
+                  data: Loop(Loop(
+                    body: Block(
+                      span: (91, 437),
+                      statements: [
+                        Statement(
+                          span: (101, 45),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (101, 45),
+                              data: If(If(
+                                condition: Expr(
+                                  span: (104, 6),
+                                  data: Comparison(ComparisonOp(
+                                    kind: Ge,
+                                    left: Expr(
+                                      span: (104, 1),
+                                      data: Place(Place(
+                                        name: ("i", (104, 1)),
+                                        span: (104, 1),
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (109, 1),
+                                      data: Integer(IntegerLiteral(
+                                        value: 8,
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                true_block: Expr(
+                                  span: (116, 30),
+                                  data: Block(Block(
+                                    span: (116, 30),
+                                    statements: [
+                                      Statement(
+                                        span: (130, 6),
+                                        data: Break(BreakSmt()),
+                                      ),
+                                    ],
+                                  )),
+                                ),
+                                false_block: None,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (155, 22),
+                          data: Let(LetSmt(
+                            name: ("limit", (159, 5)),
+                            value: Expr(
+                              span: (167, 9),
+                              data: Arithmetic(ArithmeticOp(
+                                kind: Sub,
+                                left: Expr(
+                                  span: (167, 5),
+                                  data: Arithmetic(ArithmeticOp(
+                                    kind: Sub,
+                                    left: Expr(
+                                      span: (167, 1),
+                                      data: Integer(IntegerLiteral(
+                                        value: 8,
+                                      )),
+                                    ),
+                                    right: Expr(
+                                      span: (171, 1),
+                                      data: Place(Place(
+                                        name: ("i", (171, 1)),
+                                        span: (171, 1),
+                                      )),
+                                    ),
+                                  )),
+                                ),
+                                right: Expr(
+                                  span: (175, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 1,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (186, 10),
+                          data: Let(LetSmt(
+                            name: ("j", (190, 1)),
+                            value: Expr(
+                              span: (194, 1),
+                              data: Integer(IntegerLiteral(
+                                value: 0,
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (205, 301),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (205, 301),
+                              data: Loop(Loop(
+                                body: Block(
+                                  span: (210, 296),
+                                  statements: [
+                                    Statement(
+                                      span: (224, 57),
+                                      data: Expr(ExprSmt(
+                                        value: Expr(
+                                          span: (224, 57),
+                                          data: If(If(
+                                            condition: Expr(
+                                              span: (227, 10),
+                                              data: Comparison(ComparisonOp(
+                                                kind: Ge,
+                                                left: Expr(
+                                                  span: (227, 1),
+                                                  data: Place(Place(
+                                                    name: ("j", (227, 1)),
+                                                    span: (227, 1),
+                                                  )),
+                                                ),
+                                                right: Expr(
+                                                  span: (232, 5),
+                                                  data: Place(Place(
+                                                    name: ("limit", (232, 5)),
+                                                    span: (232, 5),
+                                                  )),
+                                                ),
+                                              )),
+                                            ),
+                                            true_block: Expr(
+                                              span: (243, 38),
+                                              data: Block(Block(
+                                                span: (243, 38),
+                                                statements: [
+                                                  Statement(
+                                                    span: (261, 6),
+                                                    data: Break(BreakSmt()),
+                                                  ),
+                                                ],
+                                              )),
+                                            ),
+                                            false_block: None,
+                                          )),
+                                        ),
+                                      )),
+                                    ),
+                                    Statement(
+                                      span: (294, 182),
+                                      data: Expr(ExprSmt(
+                                        value: Expr(
+                                          span: (294, 182),
+                                          data: If(If(
+                                            condition: Expr(
+                                              span: (297, 21),
+                                              data: Comparison(ComparisonOp(
+                                                kind: Lt,
+                                                left: Expr(
+                                                  span: (297, 11),
+                                                  data: Place(Place(
+                                                    name: ("DATA", (297, 4)),
+                                                    span: (297, 11),
+                                                    projections: [
+                                                      Index(Expr(
+                                                        span: (302, 5),
+                                                        data: Arithmetic(ArithmeticOp(
+                                                          kind: Add,
+                                                          left: Expr(
+                                                            span: (302, 1),
+                                                            data: Place(Place(
+                                                              name: ("j", (302, 1)),
+                                                              span: (302, 1),
+                                                            )),
+                                                          ),
+                                                          right: Expr(
+                                                            span: (306, 1),
+                                                            data: Integer(IntegerLiteral(
+                                                              value: 1,
+                                                            )),
+                                                          ),
+                                                        )),
+                                                      )),
+                                                    ],
+                                                  )),
+                                                ),
+                                                right: Expr(
+                                                  span: (311, 7),
+                                                  data: Place(Place(
+                                                    name: ("DATA", (311, 4)),
+                                                    span: (311, 7),
+                                                    projections: [
+                                                      Index(Expr(
+                                                        span: (316, 1),
+                                                        data: Place(Place(
+                                                          name: ("j", (316, 1)),
+                                                          span: (316, 1),
+                                                        )),
+                                                      )),
+                                                    ],
+                                                  )),
+                                                ),
+                                              )),
+                                            ),
+                                            true_block: Expr(
+                                              span: (324, 152),
+                                              data: Block(Block(
+                                                span: (324, 152),
+                                                statements: [
+                                                  Statement(
+                                                    span: (342, 18),
+                                                    data: Let(LetSmt(
+                                                      name: ("tmp", (346, 3)),
+                                                      value: Expr(
+                                                        span: (352, 7),
+                                                        data: Place(Place(
+                                                          name: ("DATA", (352, 4)),
+                                                          span: (352, 7),
+                                                          projections: [
+                                                            Index(Expr(
+                                                              span: (357, 1),
+                                                              data: Place(Place(
+                                                                name: ("j", (357, 1)),
+                                                                span: (357, 1),
+                                                              )),
+                                                            )),
+                                                          ],
+                                                        )),
+                                                      ),
+                                                    )),
+                                                  ),
+                                                  Statement(
+                                                    span: (377, 22),
+                                                    data: Expr(ExprSmt(
+                                                      value: Expr(
+                                                        span: (377, 21),
+                                                        data: Assign(AssignOp(
+                                                          kind: Assign,
+                                                          left: Place(
+                                                            name: ("DATA", (377, 4)),
+                                                            span: (377, 7),
+                                                            projections: [
+                                                              Index(Expr(
+                                                                span: (382, 1),
+                                                                data: Place(Place(
+                                                                  name: ("j", (382, 1)),
+                                                                  span: (382, 1),
+                                                                )),
+                                                              )),
+                                                            ],
+                                                          ),
+                                                          right: Expr(
+                                                            span: (387, 11),
+                                                            data: Place(Place(
+                                                              name: ("DATA", (387, 4)),
+                                                              span: (387, 11),
+                                                              projections: [
+                                                                Index(Expr(
+                                                                  span: (392, 5),
+                                                                  data: Arithmetic(ArithmeticOp(
+                                                                    kind: Add,
+                                                                    left: Expr(
+                                                                      span: (392, 1),
+                                                                      data: Place(Place(
+                                                                        name: ("j", (392, 1)),
+                                                                        span: (392, 1),
+                                                                      )),
+                                                                    ),
+                                                                    right: Expr(
+                                                                      span: (396, 1),
+                                                                      data: Integer(IntegerLiteral(
+                                                                        value: 1,
+                                                                      )),
+                                                                    ),
+                                                                  )),
+                                                                )),
+                                                              ],
+                                                            )),
+                                                          ),
+                                                        )),
+                                                      ),
+                                                    )),
+                                                  ),
+                                                  Statement(
+                                                    span: (416, 18),
+                                                    data: Expr(ExprSmt(
+                                                      value: Expr(
+                                                        span: (416, 17),
+                                                        data: Assign(AssignOp(
+                                                          kind: Assign,
+                                                          left: Place(
+                                                            name: ("DATA", (416, 4)),
+                                                            span: (416, 11),
+                                                            projections: [
+                                                              Index(Expr(
+                                                                span: (421, 5),
+                                                                data: Arithmetic(ArithmeticOp(
+                                                                  kind: Add,
+                                                                  left: Expr(
+                                                                    span: (421, 1),
+                                                                    data: Place(Place(
+                                                                      name: ("j", (421, 1)),
+                                                                      span: (421, 1),
+                                                                    )),
+                                                                  ),
+                                                                  right: Expr(
+                                                                    span: (425, 1),
+                                                                    data: Integer(IntegerLiteral(
+                                                                      value: 1,
+                                                                    )),
+                                                                  ),
+                                                                )),
+                                                              )),
+                                                            ],
+                                                          ),
+                                                          right: Expr(
+                                                            span: (430, 3),
+                                                            data: Place(Place(
+                                                              name: ("tmp", (430, 3)),
+                                                              span: (430, 3),
+                                                            )),
+                                                          ),
+                                                        )),
+                                                      ),
+                                                    )),
+                                                  ),
+                                                  Statement(
+                                                    span: (451, 11),
+                                                    data: Expr(ExprSmt(
+                                                      value: Expr(
+                                                        span: (451, 10),
+                                                        data: Assign(AssignOp(
+                                                          kind: AddAssign,
+                                                          left: Place(
+                                                            name: ("swaps", (451, 5)),
+                                                            span: (451, 5),
+                                                          ),
+                                                          right: Expr(
+                                                            span: (460, 1),
+                                                            data: Integer(IntegerLiteral(
+                                                              value: 1,
+                                                            )),
+                                                          ),
+                                                        )),
+                                                      ),
+                                                    )),
+                                                  ),
+                                                ],
+                                              )),
+                                            ),
+                                            false_block: None,
+                                          )),
+                                        ),
+                                      )),
+                                    ),
+                                    Statement(
+                                      span: (489, 7),
+                                      data: Expr(ExprSmt(
+                                        value: Expr(
+                                          span: (489, 6),
+                                          data: Assign(AssignOp(
+                                            kind: AddAssign,
+                                            left: Place(
+                                              name: ("j", (489, 1)),
+                                              span: (489, 1),
+                                            ),
+                                            right: Expr(
+                                              span: (494, 1),
+                                              data: Integer(IntegerLiteral(
+                                                value: 1,
+                                              )),
+                                            ),
+                                          )),
+                                        ),
+                                      )),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                        Statement(
+                          span: (515, 7),
+                          data: Expr(ExprSmt(
+                            value: Expr(
+                              span: (515, 6),
+                              data: Assign(AssignOp(
+                                kind: AddAssign,
+                                left: Place(
+                                  name: ("i", (515, 1)),
+                                  span: (515, 1),
+                                ),
+                                right: Expr(
+                                  span: (520, 1),
+                                  data: Integer(IntegerLiteral(
+                                    value: 1,
+                                  )),
+                                ),
+                              )),
+                            ),
+                          )),
+                        ),
+                      ],
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (533, 13),
+              data: Return(ReturnSmt(
+                value: Some(Expr(
+                  span: (540, 5),
+                  data: Place(Place(
+                    name: ("swaps", (540, 5)),
+                    span: (540, 5),
+                  )),
+                )),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("SWAP_COUNT", (557, 10)),
+        ty: TyRef(
+          span: (569, 2),
+          data: Simple(("u8", (569, 2))),
+        ),
+      )),
+    ),
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", (577, 4)),
+        ),
+        body: Block(
+          span: (584, 171),
+          statements: [
+            Statement(
+              span: (590, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (590, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (590, 4)),
+                      span: (590, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (595, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 0,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (600, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 5,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (607, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (607, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (607, 4)),
+                      span: (607, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (612, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 1,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (617, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 3,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (624, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (624, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (624, 4)),
+                      span: (624, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (629, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 2,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (634, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 8,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (641, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (641, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (641, 4)),
+                      span: (641, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (646, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 3,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (651, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 1,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (658, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (658, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (658, 4)),
+                      span: (658, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (663, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 4,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (668, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 9,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (675, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (675, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (675, 4)),
+                      span: (675, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (680, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 5,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (685, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 2,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (692, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (692, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (692, 4)),
+                      span: (692, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (697, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 6,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (702, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 7,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (709, 12),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (709, 11),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("DATA", (709, 4)),
+                      span: (709, 7),
+                      projections: [
+                        Index(Expr(
+                          span: (714, 1),
+                          data: Integer(IntegerLiteral(
+                            value: 7,
+                          )),
+                        )),
+                      ],
+                    ),
+                    right: Expr(
+                      span: (719, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 4,
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (726, 27),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (726, 26),
+                  data: Assign(AssignOp(
+                    kind: Assign,
+                    left: Place(
+                      name: ("SWAP_COUNT", (726, 10)),
+                      span: (726, 10),
+                    ),
+                    right: Expr(
+                      span: (739, 13),
+                      data: Call(Call(
+                        callee: Place(
+                          name: ("bubble_sort", (739, 11)),
+                          span: (739, 11),
+                        ),
+                      )),
+                    ),
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "analyze"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "bubble_sort.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global DATA: [u8; 8]
+@GlobalDeclAttributes { section: Auto }
+global SWAP_COUNT: u8
+
+bubble_sort -> u8:
+  .bb1:
+    swaps#2: u8 = copy 0
+    i#3: u16 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u16 = phi i#3 <- .bb1, i#38 <- .bb9
+    #5: u16 = copy 8
+    #6: u1 = ge i#4, #5
+    swaps#33: u8 = phi swaps#2 <- .bb1, swaps#27 <- .bb9
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u16 = copy 8
+    #8: u16 = sub #7, i#4
+    #9: u16 = copy 1
+    limit#10: u16 = sub #8, #9
+    j#11: u16 = copy 0
+    jump .bb8
+  .bb3:
+    #RET: u8 = copy swaps#33
+    return
+  .bb8:
+    j#12: u16 = phi j#11 <- .bb5, j#31 <- .bb15
+    limit#13: u16 = copy limit#10
+    #14: u1 = ge j#12, limit#13
+    swaps#27: u8 = phi swaps#33 <- .bb5, swaps#34 <- .bb15
+    i#36: u16 = copy i#4
+    jumpif #14 != 0, .bb10, .bb11
+  .bb10:
+    jump .bb9
+  .bb11:
+    #15: u16 = copy 1
+    #16: u16 = add j#12, #15
+    #17: u8 = load DATA[#16]
+    #18: u8 = load DATA[j#12]
+    #19: u1 = lt #17, #18
+    jumpif #19 != 0, .bb14, .bb15
+  .bb9:
+    #35: u16 = copy 1
+    i#38: u16 = add i#4, #35
+    jump .bb2
+  .bb14:
+    tmp#20: u8 = load DATA[j#12]
+    #21: u16 = copy 1
+    #22: u16 = add j#12, #21
+    #23: u8 = load DATA[#22]
+    store DATA[j#12] = #23
+    #24: u16 = copy 1
+    #25: u16 = add j#12, #24
+    store DATA[#25] = tmp#20
+    #26: u8 = copy 1
+    swaps#28: u8 = add swaps#27, #26
+    jump .bb15
+  .bb15:
+    #29: u16 = copy 1
+    j#30: u16 = copy j#12
+    j#31: u16 = add j#12, #29
+    limit#32: u16 = copy limit#13
+    swaps#34: u8 = phi swaps#27 <- .bb11, swaps#28 <- .bb14
+    i#37: u16 = copy i#36
+    jump .bb8
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 0
+    #2: u8 = copy 5
+    store DATA[#1] = #2
+    #3: u16 = copy 1
+    #4: u8 = copy 3
+    store DATA[#3] = #4
+    #5: u16 = copy 2
+    #6: u8 = copy 8
+    store DATA[#5] = #6
+    #7: u16 = copy 3
+    #8: u8 = copy 1
+    store DATA[#7] = #8
+    #9: u16 = copy 4
+    #10: u8 = copy 9
+    store DATA[#9] = #10
+    #11: u16 = copy 5
+    #12: u8 = copy 2
+    store DATA[#11] = #12
+    #13: u16 = copy 6
+    #14: u8 = copy 7
+    store DATA[#13] = #14
+    #15: u16 = copy 7
+    #16: u8 = copy 4
+    store DATA[#15] = #16
+    call bubble_sort, .bb2
+  .bb2:
+    #17: u8 = returnvalue
+    store SWAP_COUNT = #17
+    return
+"""
+
+[[case]]
+name = "codegen"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+source.file = "bubble_sort.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+DATA::
+alloc 64 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+SWAP_COUNT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+bubble_sort::
+.bb1:
+  LD r8#8, $00
+  LD r16#3, $0000
+  (high_out=r8#10;low_out=r8#9;in=r16#3)
+  LD r8#11, r8#10
+  LD r8#12, r8#9
+  (out=r16#4;high_in=r8#11;low_in=r8#12)
+  LD r8#3, r8#8
+  (high_out=r8#14;low_out=r8#13;in=r16#4)
+  LD r8#1, r8#13
+  LD r8#2, r8#14
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  JP .bb3
+
+main::
+.bb2:
+  LD r16#59, $0000
+  (high_out=r8#109;low_out=r8#108;in=r16#59)
+  LD r8#110, r8#109
+  LD r8#111, r8#108
+  (out=r16#60;high_in=r8#110;low_in=r8#111)
+  LD r8#112, $05
+  LD r16#61, DATA+$0000
+  ADD (out=r16#62;in=r16#61), r16#60; c(out=c#28)
+  LD r16#63, $0000
+  ADD (out=r16#64;in=r16#62), r16#63; c(out=c#29)
+  LD [r16#64], r8#112
+  LD r16#65, $0001
+  (high_out=r8#114;low_out=r8#113;in=r16#65)
+  LD r8#115, r8#114
+  LD r8#116, r8#113
+  (out=r16#66;high_in=r8#115;low_in=r8#116)
+  LD r8#117, $03
+  LD r16#67, DATA+$0000
+  ADD (out=r16#68;in=r16#67), r16#66; c(out=c#30)
+  LD r16#69, $0000
+  ADD (out=r16#70;in=r16#68), r16#69; c(out=c#31)
+  LD [r16#70], r8#117
+  LD r16#71, $0002
+  (high_out=r8#119;low_out=r8#118;in=r16#71)
+  LD r8#120, r8#119
+  LD r8#121, r8#118
+  (out=r16#72;high_in=r8#120;low_in=r8#121)
+  LD r8#122, $08
+  LD r16#73, DATA+$0000
+  ADD (out=r16#74;in=r16#73), r16#72; c(out=c#32)
+  LD r16#75, $0000
+  ADD (out=r16#76;in=r16#74), r16#75; c(out=c#33)
+  LD [r16#76], r8#122
+  LD r16#77, $0003
+  (high_out=r8#124;low_out=r8#123;in=r16#77)
+  LD r8#125, r8#124
+  LD r8#126, r8#123
+  (out=r16#78;high_in=r8#125;low_in=r8#126)
+  LD r8#127, $01
+  LD r16#79, DATA+$0000
+  ADD (out=r16#80;in=r16#79), r16#78; c(out=c#34)
+  LD r16#81, $0000
+  ADD (out=r16#82;in=r16#80), r16#81; c(out=c#35)
+  LD [r16#82], r8#127
+  LD r16#83, $0004
+  (high_out=r8#129;low_out=r8#128;in=r16#83)
+  LD r8#130, r8#129
+  LD r8#131, r8#128
+  (out=r16#84;high_in=r8#130;low_in=r8#131)
+  LD r8#132, $09
+  LD r16#85, DATA+$0000
+  ADD (out=r16#86;in=r16#85), r16#84; c(out=c#36)
+  LD r16#87, $0000
+  ADD (out=r16#88;in=r16#86), r16#87; c(out=c#37)
+  LD [r16#88], r8#132
+  LD r16#89, $0005
+  (high_out=r8#134;low_out=r8#133;in=r16#89)
+  LD r8#135, r8#134
+  LD r8#136, r8#133
+  (out=r16#90;high_in=r8#135;low_in=r8#136)
+  LD r8#137, $02
+  LD r16#91, DATA+$0000
+  ADD (out=r16#92;in=r16#91), r16#90; c(out=c#38)
+  LD r16#93, $0000
+  ADD (out=r16#94;in=r16#92), r16#93; c(out=c#39)
+  LD [r16#94], r8#137
+  LD r16#95, $0006
+  (high_out=r8#139;low_out=r8#138;in=r16#95)
+  LD r8#140, r8#139
+  LD r8#141, r8#138
+  (out=r16#96;high_in=r8#140;low_in=r8#141)
+  LD r8#142, $07
+  LD r16#97, DATA+$0000
+  ADD (out=r16#98;in=r16#97), r16#96; c(out=c#40)
+  LD r16#99, $0000
+  ADD (out=r16#100;in=r16#98), r16#99; c(out=c#41)
+  LD [r16#100], r8#142
+  LD r16#101, $0007
+  (high_out=r8#144;low_out=r8#143;in=r16#101)
+  LD r8#145, r8#144
+  LD r8#146, r8#143
+  (out=r16#102;high_in=r8#145;low_in=r8#146)
+  LD r8#147, $04
+  LD r16#103, DATA+$0000
+  ADD (out=r16#104;in=r16#103), r16#102; c(out=c#42)
+  LD r16#105, $0000
+  ADD (out=r16#106;in=r16#104), r16#105; c(out=c#43)
+  LD [r16#106], r8#147
+  CALL bubble_sort; return=.bb13
+
+.bb3:
+  LD r16#5, $0008
+  (high_out=r8#16;low_out=r8#15;in=r16#5)
+  LD r8#17, r8#16
+  LD r8#18, r8#15
+  (out=r16#6;high_in=r8#17;low_in=r8#18)
+  (high_out=r8#20;low_out=r8#19;in=r16#1)
+  (high_out=r8#22;low_out=r8#21;in=r16#6)
+  SUB (out=r8#23;in=r8#20), r8#22; z(out=z#1), c(out=c#1)
+  SBC (out=r8#24;in=r8#19), r8#21; z(out=z#2), c(out=c#2;in=c#1)
+  JP nz(in=c#2), .bb4; else=.bb5
+
+.bb4:
+  JP .bb6
+
+.bb5:
+  LD r16#7, $0008
+  (high_out=r8#26;low_out=r8#25;in=r16#7)
+  LD r8#27, r8#26
+  LD r8#28, r8#25
+  (out=r16#8;high_in=r8#27;low_in=r8#28)
+  (high_out=r8#30;low_out=r8#29;in=r16#8)
+  (high_out=r8#32;low_out=r8#31;in=r16#1)
+  SUB (out=r8#33;in=r8#30), r8#32; z(out=z#3), c(out=c#3)
+  SBC (out=r8#34;in=r8#29), r8#31; z(out=z#4), c(out=c#4;in=c#3)
+  (out=r16#9;high_in=r8#33;low_in=r8#34)
+  LD r16#10, $0001
+  (high_out=r8#36;low_out=r8#35;in=r16#10)
+  LD r8#37, r8#36
+  LD r8#38, r8#35
+  (out=r16#11;high_in=r8#37;low_in=r8#38)
+  (high_out=r8#40;low_out=r8#39;in=r16#9)
+  (high_out=r8#42;low_out=r8#41;in=r16#11)
+  SUB (out=r8#43;in=r8#40), r8#42; z(out=z#5), c(out=c#5)
+  SBC (out=r8#44;in=r8#39), r8#41; z(out=z#6), c(out=c#6;in=c#5)
+  (out=r16#12;high_in=r8#43;low_in=r8#44)
+  LD r16#13, $0000
+  (high_out=r8#46;low_out=r8#45;in=r16#13)
+  LD r8#47, r8#46
+  LD r8#48, r8#45
+  (out=r16#14;high_in=r8#47;low_in=r8#48)
+  LD r8#6, r8#3
+  (high_out=r8#50;low_out=r8#49;in=r16#14)
+  LD r8#4, r8#49
+  LD r8#5, r8#50
+  (out=r16#2;high_in=r8#5;low_in=r8#4)
+  JP .bb7
+
+.bb6:
+  LD r8#51, r8#3
+  RET
+
+.bb7:
+  (high_out=r8#53;low_out=r8#52;in=r16#12)
+  LD r8#54, r8#53
+  LD r8#55, r8#52
+  (out=r16#15;high_in=r8#54;low_in=r8#55)
+  (high_out=r8#57;low_out=r8#56;in=r16#2)
+  (high_out=r8#59;low_out=r8#58;in=r16#15)
+  SUB (out=r8#60;in=r8#57), r8#59; z(out=z#7), c(out=c#7)
+  SBC (out=r8#61;in=r8#56), r8#58; z(out=z#8), c(out=c#8;in=c#7)
+  (high_out=r8#63;low_out=r8#62;in=r16#1)
+  LD r8#64, r8#63
+  LD r8#65, r8#62
+  (out=r16#16;high_in=r8#64;low_in=r8#65)
+  JP nz(in=c#8), .bb8; else=.bb9
+
+.bb8:
+  JP .bb10
+
+.bb9:
+  LD r16#17, $0001
+  (high_out=r8#67;low_out=r8#66;in=r16#17)
+  LD r8#68, r8#67
+  LD r8#69, r8#66
+  (out=r16#18;high_in=r8#68;low_in=r8#69)
+  ADD (out=r16#19;in=r16#2), r16#18; c(out=c#9)
+  LD r16#20, DATA+$0000
+  ADD (out=r16#21;in=r16#20), r16#19; c(out=c#10)
+  LD r16#22, $0000
+  ADD (out=r16#23;in=r16#21), r16#22; c(out=c#11)
+  LD r8#70, [r16#23]
+  LD r16#24, DATA+$0000
+  ADD (out=r16#25;in=r16#24), r16#2; c(out=c#12)
+  LD r16#26, $0000
+  ADD (out=r16#27;in=r16#25), r16#26; c(out=c#13)
+  LD r8#71, [r16#27]
+  CP (in=r8#70), r8#71; z(out=z#9), c(out=c#14)
+  LD r8#7, r8#6
+  JP z(in=c#14), .bb11; else=.bb12
+
+.bb10:
+  LD r16#28, $0001
+  (high_out=r8#73;low_out=r8#72;in=r16#28)
+  LD r8#74, r8#73
+  LD r8#75, r8#72
+  (out=r16#29;high_in=r8#74;low_in=r8#75)
+  ADD (out=r16#30;in=r16#1), r16#29; c(out=c#15)
+  LD r8#3, r8#6
+  (high_out=r8#77;low_out=r8#76;in=r16#30)
+  LD r8#1, r8#76
+  LD r8#2, r8#77
+  (out=r16#1;high_in=r8#2;low_in=r8#1)
+  JP .bb3
+
+.bb11:
+  LD r16#31, DATA+$0000
+  ADD (out=r16#32;in=r16#31), r16#2; c(out=c#16)
+  LD r16#33, $0000
+  ADD (out=r16#34;in=r16#32), r16#33; c(out=c#17)
+  LD r8#78, [r16#34]
+  LD r16#35, $0001
+  (high_out=r8#80;low_out=r8#79;in=r16#35)
+  LD r8#81, r8#80
+  LD r8#82, r8#79
+  (out=r16#36;high_in=r8#81;low_in=r8#82)
+  ADD (out=r16#37;in=r16#2), r16#36; c(out=c#18)
+  LD r16#38, DATA+$0000
+  ADD (out=r16#39;in=r16#38), r16#37; c(out=c#19)
+  LD r16#40, $0000
+  ADD (out=r16#41;in=r16#39), r16#40; c(out=c#20)
+  LD r8#83, [r16#41]
+  LD r16#42, DATA+$0000
+  ADD (out=r16#43;in=r16#42), r16#2; c(out=c#21)
+  LD r16#44, $0000
+  ADD (out=r16#45;in=r16#43), r16#44; c(out=c#22)
+  LD [r16#45], r8#83
+  LD r16#46, $0001
+  (high_out=r8#85;low_out=r8#84;in=r16#46)
+  LD r8#86, r8#85
+  LD r8#87, r8#84
+  (out=r16#47;high_in=r8#86;low_in=r8#87)
+  ADD (out=r16#48;in=r16#2), r16#47; c(out=c#23)
+  LD r16#49, DATA+$0000
+  ADD (out=r16#50;in=r16#49), r16#48; c(out=c#24)
+  LD r16#51, $0000
+  ADD (out=r16#52;in=r16#50), r16#51; c(out=c#25)
+  LD [r16#52], r8#78
+  LD r8#88, $01
+  ADD (out=r8#89;in=r8#6), r8#88; z(out=z#10), c(out=c#26)
+  LD r8#7, r8#89
+  JP .bb12
+
+.bb12:
+  LD r16#53, $0001
+  (high_out=r8#91;low_out=r8#90;in=r16#53)
+  LD r8#92, r8#91
+  LD r8#93, r8#90
+  (out=r16#54;high_in=r8#92;low_in=r8#93)
+  (high_out=r8#95;low_out=r8#94;in=r16#2)
+  LD r8#96, r8#95
+  LD r8#97, r8#94
+  (out=r16#55;high_in=r8#96;low_in=r8#97)
+  ADD (out=r16#56;in=r16#2), r16#54; c(out=c#27)
+  (high_out=r8#99;low_out=r8#98;in=r16#15)
+  LD r8#100, r8#99
+  LD r8#101, r8#98
+  (out=r16#57;high_in=r8#100;low_in=r8#101)
+  (high_out=r8#103;low_out=r8#102;in=r16#16)
+  LD r8#104, r8#103
+  LD r8#105, r8#102
+  (out=r16#58;high_in=r8#104;low_in=r8#105)
+  LD r8#6, r8#7
+  (high_out=r8#107;low_out=r8#106;in=r16#56)
+  LD r8#4, r8#106
+  LD r8#5, r8#107
+  (out=r16#2;high_in=r8#5;low_in=r8#4)
+  JP .bb7
+
+.bb13:
+  A(out=r8#148)
+  LD [SWAP_COUNT], r8#148
+  RET
+
+END_SECTION
+"""
