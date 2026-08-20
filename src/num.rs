@@ -1,6 +1,6 @@
 use core::fmt;
 use std::cmp::Ordering;
-use std::num::NonZeroU16;
+use std::num::{IntErrorKind, NonZeroU16};
 use std::ops::{
     Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shl,
     Shr, Sub, SubAssign,
@@ -34,11 +34,11 @@ impl<const BITS: u8> UInt<BITS> {
 }
 
 impl<const BITS: u8> TryFrom<u8> for UInt<BITS> {
-    type Error = ();
+    type Error = TryFromIntError;
 
     fn try_from(data: u8) -> Result<Self, Self::Error> {
         if data > Self::MAX.data {
-            Err(())
+            Err(IntErrorKind::PosOverflow.into())
         } else {
             Ok(UInt { data })
         }
@@ -46,11 +46,11 @@ impl<const BITS: u8> TryFrom<u8> for UInt<BITS> {
 }
 
 impl<const BITS: u8> TryFrom<u32> for UInt<BITS> {
-    type Error = ();
+    type Error = TryFromIntError;
 
     fn try_from(data: u32) -> Result<Self, Self::Error> {
         if data > Self::MAX.data as u32 {
-            Err(())
+            Err(IntErrorKind::PosOverflow.into())
         } else {
             #[allow(clippy::cast_possible_truncation)]
             Ok(UInt { data: data as u8 })
@@ -313,7 +313,12 @@ impl Add<u32> for BitCount {
 
     fn add(self, rhs: u32) -> Self::Output {
         let data = self.into_u32() + rhs;
-        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
+        debug_assert_eq!(
+            data & !Self::MAX.into_u32(),
+            0,
+            "{:?}",
+            IntErrorKind::PosOverflow
+        );
         BitCount {
             data: data & BitCount::MAX.data,
         }
@@ -336,7 +341,12 @@ impl Mul<NonZeroU16> for BitCount {
 
     fn mul(self, rhs: NonZeroU16) -> Self::Output {
         let data = self.into_u32() * u32::from(rhs.get());
-        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
+        debug_assert_eq!(
+            data & !Self::MAX.into_u32(),
+            0,
+            "{:?}",
+            IntErrorKind::PosOverflow
+        );
         BitCount {
             data: data & BitCount::MAX.data,
         }
@@ -348,7 +358,12 @@ impl Mul<u32> for BitCount {
 
     fn mul(self, rhs: u32) -> Self::Output {
         let data = self.into_u32() * rhs;
-        debug_assert_eq!(data & !Self::MAX.into_u32(), 0, "overflow");
+        debug_assert_eq!(
+            data & !Self::MAX.into_u32(),
+            0,
+            "{:?}",
+            IntErrorKind::PosOverflow
+        );
         BitCount {
             data: data & BitCount::MAX.data,
         }
@@ -364,6 +379,16 @@ impl AddAssign for BitCount {
 impl SubAssign for BitCount {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("{0:?}")]
+pub struct TryFromIntError(IntErrorKind);
+
+impl From<IntErrorKind> for TryFromIntError {
+    fn from(value: IntErrorKind) -> Self {
+        TryFromIntError(value)
     }
 }
 
