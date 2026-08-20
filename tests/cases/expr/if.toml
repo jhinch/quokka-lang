@@ -497,3 +497,500 @@ Expr(
   )),
 )
 """
+
+[[case]]
+name = "true_branch_returns_no_else"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        return 0;
+    }
+    if n == 1 then {
+        x = 5;
+    } else {
+        x = 6;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    x#3: u8 = copy n#2
+    #4: u8 = copy 0
+    #5: u1 = eq n#2, #4
+    jumpif #5 != 0, .bb2, .bb3
+  .bb2:
+    #6: u8 = copy 0
+    #RET: u8 = copy #6
+    return
+  .bb3:
+    #7: u8 = copy 1
+    #8: u1 = eq n#2, #7
+    jumpif #8 != 0, .bb6, .bb7
+  .bb6:
+    x#9: u8 = copy 5
+    jump .bb8
+  .bb7:
+    x#10: u8 = copy 6
+    jump .bb8
+  .bb8:
+    x#11: u8 = phi x#9 <- .bb6, x#10 <- .bb7
+    #RET: u8 = copy x#11
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "true_branch_returns_with_else_fallthrough"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        return 0;
+    } else {
+        if n == 1 then {
+            x = n + 1;
+        } else {
+            x = n + 2;
+        }
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    x#3: u8 = copy n#2
+    #4: u8 = copy 0
+    #5: u1 = eq n#2, #4
+    jumpif #5 != 0, .bb2, .bb3
+  .bb2:
+    #6: u8 = copy 0
+    #RET: u8 = copy #6
+    return
+  .bb3:
+    #7: u8 = copy 1
+    #8: u1 = eq n#2, #7
+    jumpif #8 != 0, .bb7, .bb8
+  .bb7:
+    #9: u8 = copy 1
+    x#10: u8 = add n#2, #9
+    jump .bb9
+  .bb8:
+    #11: u8 = copy 2
+    x#12: u8 = add n#2, #11
+    jump .bb9
+  .bb9:
+    x#13: u8 = phi x#10 <- .bb7, x#12 <- .bb8
+    jump .bb4
+  .bb4:
+    #RET: u8 = copy x#13
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "both_branches_return"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    if n == 0 then {
+        let x = n;
+        if n == 1 then {
+            x = 2;
+        } else {
+            x = 3;
+        }
+        return x;
+    } else {
+        return 1;
+    }
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    x#5: u8 = copy n#2
+    #6: u8 = copy 1
+    #7: u1 = eq n#2, #6
+    jumpif #7 != 0, .bb5, .bb6
+  .bb3:
+    #11: u8 = copy 1
+    #RET: u8 = copy #11
+    return
+  .bb5:
+    x#8: u8 = copy 2
+    jump .bb7
+  .bb6:
+    x#9: u8 = copy 3
+    jump .bb7
+  .bb7:
+    x#10: u8 = phi x#8 <- .bb5, x#9 <- .bb6
+    #RET: u8 = copy x#10
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "value_producing_if_true_branch_returns"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = if n == 0 then {
+        return 0;
+    } else {
+        let y = 0;
+        if n == 1 then {
+            y = 2;
+        } else {
+            y = 3;
+        }
+        let z = y;
+        yield z;
+    };
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 0
+    #RET: u8 = copy #5
+    return
+  .bb3:
+    y#7: u8 = copy 0
+    #8: u8 = copy 1
+    #9: u1 = eq n#2, #8
+    jumpif #9 != 0, .bb7, .bb8
+  .bb7:
+    y#10: u8 = copy 2
+    jump .bb9
+  .bb8:
+    y#11: u8 = copy 3
+    jump .bb9
+  .bb9:
+    y#12: u8 = phi y#10 <- .bb7, y#11 <- .bb8
+    z#13: u8 = copy y#12
+    jump .bb4
+  .bb4:
+    x#14: u8 = copy z#13
+    #RET: u8 = copy x#14
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "value_producing_if_false_branch_returns"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = if n == 0 then {
+        let y = 0;
+        if n == 1 then {
+            y = 2;
+        } else {
+            y = 3;
+        }
+        let z = y;
+        yield z;
+    } else {
+        return 0;
+    };
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    y#5: u8 = copy 0
+    #6: u8 = copy 1
+    #7: u1 = eq n#2, #6
+    jumpif #7 != 0, .bb5, .bb6
+  .bb3:
+    #12: u8 = copy 0
+    #RET: u8 = copy #12
+    return
+  .bb5:
+    y#8: u8 = copy 2
+    jump .bb7
+  .bb6:
+    y#9: u8 = copy 3
+    jump .bb7
+  .bb7:
+    y#10: u8 = phi y#8 <- .bb5, y#9 <- .bb6
+    z#11: u8 = copy y#10
+    jump .bb4
+  .bb4:
+    x#14: u8 = copy z#11
+    #RET: u8 = copy x#14
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "nested_if_inner_diverges"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    if n == 0 then {
+        if n == 1 then {
+            return 0;
+        }
+        return 1;
+    }
+    let x = n;
+    if n == 2 then {
+        x = 7;
+    } else {
+        x = 8;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 1
+    #6: u1 = eq n#2, #5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb3:
+    x#9: u8 = copy n#2
+    #10: u8 = copy 2
+    #11: u1 = eq n#2, #10
+    jumpif #11 != 0, .bb10, .bb11
+  .bb4:
+    #7: u8 = copy 0
+    #RET: u8 = copy #7
+    return
+  .bb5:
+    #8: u8 = copy 1
+    #RET: u8 = copy #8
+    return
+  .bb10:
+    x#12: u8 = copy 7
+    jump .bb12
+  .bb11:
+    x#13: u8 = copy 8
+    jump .bb12
+  .bb12:
+    x#14: u8 = phi x#12 <- .bb10, x#13 <- .bb11
+    #RET: u8 = copy x#14
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "yield_of_phi_shares_local_with_never_sibling_wrong_type"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = if n == 0 then {
+        return 0;
+    } else {
+        let y = 0;
+        if n == 1 then {
+            y = 2;
+        } else {
+            y = 3;
+        }
+        yield y;
+    };
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 0
+    #RET: u8 = copy #5
+    return
+  .bb3:
+    y#7: u8 = copy 0
+    #8: u8 = copy 1
+    #9: u1 = eq n#2, #8
+    jumpif #9 != 0, .bb7, .bb8
+  .bb7:
+    y#10: u8 = copy 2
+    jump .bb9
+  .bb8:
+    y#11: u8 = copy 3
+    jump .bb9
+  .bb9:
+    y#12: <error> = phi y#10 <- .bb7, y#11 <- .bb8
+    jump .bb4
+  .bb4:
+    x#13: u8 = copy y#12
+    #RET: u8 = copy x#13
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "yield_of_nested_if_expr"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = if n == 0 then {
+        return 0;
+    } else {
+        yield if n == 1 then 2 else 3;
+    };
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 0
+    #RET: u8 = copy #5
+    return
+  .bb3:
+    #7: u8 = copy 1
+    #8: u1 = eq n#2, #7
+    jumpif #8 != 0, .bb7, .bb8
+  .bb7:
+    #9: u8 = copy 2
+    jump .bb9
+  .bb8:
+    #10: u8 = copy 3
+    jump .bb9
+  .bb9:
+    x#11: <error> = phi #9 <- .bb7, #10 <- .bb8
+    jump .bb4
+  .bb4:
+    #RET: u8 = copy x#11
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""

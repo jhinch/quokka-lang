@@ -231,3 +231,356 @@ Expr(
   )),
 )
 """
+
+[[case]]
+name = "loop_break_via_if_no_else"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        i += 1;
+    }
+    return i;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u8 = phi i#3 <- .bb1, i#8 <- .bb5
+    n#5: u8 = copy n#2
+    #6: u1 = eq i#4, n#5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u8 = copy 1
+    i#8: u8 = add i#4, #7
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy i#4
+    return
+"""
+
+[[case]]
+name = "loop_multiple_phi_vars_break_via_if"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        sum += i;
+        i += 1;
+    }
+    return sum;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    sum#4: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#5: u8 = phi i#3 <- .bb1, i#11 <- .bb5
+    n#6: u8 = copy n#2
+    #7: u1 = eq i#5, n#6
+    sum#8: u8 = phi sum#4 <- .bb1, sum#9 <- .bb5
+    jumpif #7 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    sum#9: u8 = add sum#8, i#5
+    #10: u8 = copy 1
+    i#11: u8 = add i#5, #10
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy sum#8
+    return
+"""
+
+[[case]]
+name = "loop_if_else_both_diverge"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    loop {
+        if i == n then {
+            break;
+        } else {
+            continue;
+        }
+    }
+    return i;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u8 = copy i#3
+    n#5: u8 = copy n#2
+    #6: u1 = eq i#4, n#5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy i#3
+    return
+"""
+
+[[case]]
+name = "loop_continue_via_if_no_else"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        i += 1;
+        if i == 5 then {
+            continue;
+        }
+        sum += i;
+    }
+    return sum;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    sum#4: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#5: u8 = phi i#3 <- .bb1, i#9 <- .bb8, i#9 <- .bb9
+    n#6: u8 = copy n#2
+    #7: u1 = eq i#5, n#6
+    sum#12: u8 = phi sum#4 <- .bb1, sum#12 <- .bb8, sum#13 <- .bb9
+    jumpif #7 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #8: u8 = copy 1
+    i#9: u8 = add i#5, #8
+    #10: u8 = copy 5
+    #11: u1 = eq i#9, #10
+    jumpif #11 != 0, .bb8, .bb9
+  .bb3:
+    #RET: u8 = copy sum#12
+    return
+  .bb8:
+    jump .bb2
+  .bb9:
+    sum#13: u8 = add sum#12, i#9
+    jump .bb2
+"""
+
+[[case]]
+name = "loop_return_via_if_no_else"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    loop {
+        if i == n then {
+            return i;
+        }
+        i += 1;
+    }
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u8 = phi i#3 <- .bb1, i#8 <- .bb5
+    n#5: u8 = copy n#2
+    #6: u1 = eq i#4, n#5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    #RET: u8 = copy i#4
+    return
+  .bb5:
+    #7: u8 = copy 1
+    i#8: u8 = add i#4, #7
+    jump .bb2
+"""
+
+[[case]]
+name = "loop_break_with_value_via_if"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let result = loop {
+        if i == n then {
+            break i;
+        }
+        i += 1;
+    };
+    return result;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u8 = phi i#3 <- .bb1, i#8 <- .bb5
+    n#5: u8 = copy n#2
+    #6: u1 = eq i#4, n#5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u8 = copy 1
+    i#8: u8 = add i#4, #7
+    jump .bb2
+  .bb3:
+    result#9: u8 = copy i#4
+    #RET: u8 = copy result#9
+    return
+"""
+
+[[case]]
+name = "nested_loop_inner_break_via_if"
+kind = "analyzer"
+preview_features = ["loop", "if-else"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let total = 0;
+    let i = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        let j = 0;
+        loop {
+            if j == n then {
+                break;
+            }
+            total += 1;
+            j += 1;
+        }
+        i += 1;
+    }
+    return total;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    total#3: u8 = copy 0
+    i#4: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#5: u8 = phi i#4 <- .bb1, i#20 <- .bb9
+    n#6: u8 = copy n#2
+    #7: u1 = eq i#5, n#6
+    total#17: u8 = phi total#3 <- .bb1, total#13 <- .bb9
+    jumpif #7 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    j#8: u8 = copy 0
+    jump .bb8
+  .bb3:
+    #RET: u8 = copy total#17
+    return
+  .bb8:
+    j#9: u8 = phi j#8 <- .bb5, j#16 <- .bb11
+    n#10: u8 = copy n#6
+    #11: u1 = eq j#9, n#10
+    total#13: u8 = phi total#17 <- .bb5, total#14 <- .bb11
+    i#19: u8 = copy i#5
+    jumpif #11 != 0, .bb10, .bb11
+  .bb10:
+    jump .bb9
+  .bb11:
+    #12: u8 = copy 1
+    total#14: u8 = add total#13, #12
+    #15: u8 = copy 1
+    j#16: u8 = add j#9, #15
+    jump .bb8
+  .bb9:
+    #18: u8 = copy 1
+    i#20: u8 = add i#5, #18
+    jump .bb2
+"""

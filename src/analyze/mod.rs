@@ -663,7 +663,7 @@ impl Analyzer {
                 (mir.new_block(), StatementTy::Never)
             }
             ast::StatementData::Yield(stmt) => {
-                match scopes.block_scope() {
+                let block = match scopes.block_scope() {
                     Some(block_scope) => {
                         let block_span = block_scope.span;
                         let yield_ty = block_scope.yield_ty.map(InferredTy::Variable);
@@ -687,13 +687,15 @@ impl Analyzer {
                             yield_ty,
                             yield_expr_ty,
                         );
+                        block
                     }
                     None => {
                         self.result_builder.add_error(YieldOutsideBlockError {
                             span: statement.span,
                         });
+                        block
                     }
-                }
+                };
                 // yield terminator is handled in the consumer code
                 (block, StatementTy::Never)
             }

@@ -1123,7 +1123,7 @@ impl MirBuilder {
 /// insertion and trivial phi elimination) as blocks are sealed.
 pub struct FunctionBuilder {
     function: Function,
-    variable_assignments: HashMap<Variable, HashMap<BlockId, Vec<LocalId>>>,
+    variable_assignments: IndexMap<Variable, IndexMap<BlockId, Vec<LocalId>>>,
     variable_names: HashMap<Variable, SpannedIdentifier>,
     terminated_blocks: SecondaryMap<BlockId, ()>,
     sealed_blocks: SecondaryMap<BlockId, ()>,
@@ -1140,7 +1140,7 @@ impl FunctionBuilder {
                 return_ty,
                 ..Default::default()
             },
-            variable_assignments: HashMap::new(),
+            variable_assignments: IndexMap::new(),
             variable_names: HashMap::new(),
             terminated_blocks: SecondaryMap::new(),
             sealed_blocks: SecondaryMap::new(),
