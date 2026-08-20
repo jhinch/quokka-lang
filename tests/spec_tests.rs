@@ -95,19 +95,14 @@ enum Source {
 }
 
 /// Deserialized representation of the kind entrypoint for a parser test
-#[derive(Clone, Copy, serde::Deserialize)]
+#[derive(Clone, Copy, Default, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 enum ParseEntrypointKind {
+    #[default]
     Root,
     Item,
     Statement,
     Expr,
-}
-
-impl Default for ParseEntrypointKind {
-    fn default() -> Self {
-        ParseEntrypointKind::Root
-    }
 }
 
 /// Pending update command when regenerating fixtures
