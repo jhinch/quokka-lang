@@ -17,7 +17,6 @@ main -> unit:
   .bb1:
     call helper, .bb2
   .bb2:
-    #1: unit = returnvalue
     return
 """
 

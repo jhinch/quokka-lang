@@ -928,7 +928,7 @@ f -> u8:
     y#11: u8 = copy 3
     jump .bb9
   .bb9:
-    y#12: <error> = phi y#10 <- .bb7, y#11 <- .bb8
+    y#12: u8 = phi y#10 <- .bb7, y#11 <- .bb8
     jump .bb4
   .bb4:
     x#13: u8 = copy y#12
@@ -984,7 +984,7 @@ f -> u8:
     #10: u8 = copy 3
     jump .bb9
   .bb9:
-    x#11: <error> = phi #9 <- .bb7, #10 <- .bb8
+    x#11: u8 = phi #9 <- .bb7, #10 <- .bb8
     jump .bb4
   .bb4:
     #RET: u8 = copy x#11

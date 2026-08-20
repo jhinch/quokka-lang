@@ -815,6 +815,11 @@ impl Analyzer {
                 scopes.exit_loop_scope();
                 (end_block, outcome)
             }
+            ast::ExprData::Call(call_expr) => {
+                let (return_block, _) =
+                    self.analyze_call(expr, block, mir, type_solver, scopes, call_expr);
+                (return_block, StatementTy::Unit)
+            }
             _ => {
                 let (block, expr_ty, _) = self.analyze_expr(expr, block, mir, type_solver, scopes);
                 let outcome = if expr_ty == InferredTy::Concrete(Ty::NEVER) {
@@ -1335,7 +1340,9 @@ impl Analyzer {
                 mir.seal_block(else_block);
                 let (then_block, true_block_ty, then_source) =
                     self.analyze_expr(&if_expr.true_block, then_block, mir, type_solver, scopes);
-                mir.write_variable(variable, then_block, then_source);
+                if true_block_ty != InferredTy::Concrete(Ty::NEVER) {
+                    mir.write_variable(variable, then_block, then_source);
+                }
                 self.jump_if_not_divergent(
                     then_block,
                     StatementTy::from(&true_block_ty),
@@ -1352,7 +1359,9 @@ impl Analyzer {
                     Some(false_block) => {
                         let (else_block, false_block_ty, source) =
                             self.analyze_expr(false_block, else_block, mir, type_solver, scopes);
-                        mir.write_variable(variable, else_block, source);
+                        if false_block_ty != InferredTy::Concrete(Ty::NEVER) {
+                            mir.write_variable(variable, else_block, source);
+                        }
                         self.jump_if_not_divergent(
                             else_block,
                             StatementTy::from(&false_block_ty),
@@ -1412,48 +1421,59 @@ impl Analyzer {
                 (end_block, expr_ty, target)
             }
             ast::ExprData::Call(call_expr) => {
-                if scopes.const_decl_scope().is_some() {
-                    self.result_builder
-                        .add_error(CallNotSupportInConstDeclError { span: expr.span });
-                    let target = mir.new_local(Ty::ERROR);
-                    mir.push_instr(block, Instr::Undefined { target });
-                    return (block, InferredTy::Concrete(Ty::ERROR), target);
-                }
-                let (block, callee_ty, callee) =
-                    self.analyze_place_expr(&call_expr.callee, block, mir, type_solver, scopes);
-
-                let return_ty = type_solver.check_call_expr(call_expr, expr.span, callee_ty);
-
-                let callee = match callee {
-                    Operand::Local(local) => Callee::Local(local),
-                    Operand::FnPtr(function) => Callee::FnPtr(function),
-                    callee => {
-                        let target = mir.new_local(Ty::U16);
-                        mir.push_instr(
-                            block,
-                            Instr::Copy {
-                                target,
-                                source: callee,
-                            },
-                        );
-                        Callee::Local(target)
-                    }
-                };
-                let return_block = mir.new_block();
-                mir.set_terminator(
-                    block,
-                    Terminator::Call {
-                        return_block,
-                        callee,
-                    },
-                );
-                mir.seal_block(return_block);
+                let (return_block, return_ty) =
+                    self.analyze_call(expr, block, mir, type_solver, scopes, call_expr);
                 let target = type_solver.new_registered_local(mir, &return_ty);
                 mir.push_instr(return_block, Instr::ReturnValue { target });
                 (return_block, return_ty, target)
             }
             ast::ExprData::Paren(expr) => self.analyze_expr(expr, block, mir, type_solver, scopes),
         }
+    }
+
+    fn analyze_call(
+        &mut self,
+        expr: &ast::Expr,
+        block: BlockId,
+        mir: &mut FunctionBuilder,
+        type_solver: &mut TypeSolver,
+        scopes: &mut Scopes,
+        call_expr: &ast::Call,
+    ) -> (BlockId, InferredTy) {
+        if scopes.const_decl_scope().is_some() {
+            self.result_builder
+                .add_error(CallNotSupportInConstDeclError { span: expr.span });
+        }
+        let (block, callee_ty, callee) =
+            self.analyze_place_expr(&call_expr.callee, block, mir, type_solver, scopes);
+
+        let return_ty = type_solver.check_call_expr(call_expr, expr.span, callee_ty);
+
+        let callee = match callee {
+            Operand::Local(local) => Callee::Local(local),
+            Operand::FnPtr(function) => Callee::FnPtr(function),
+            callee => {
+                let target = mir.new_local(Ty::U16);
+                mir.push_instr(
+                    block,
+                    Instr::Copy {
+                        target,
+                        source: callee,
+                    },
+                );
+                Callee::Local(target)
+            }
+        };
+        let return_block = mir.new_block();
+        mir.set_terminator(
+            block,
+            Terminator::Call {
+                return_block,
+                callee,
+            },
+        );
+        mir.seal_block(return_block);
+        (return_block, return_ty)
     }
 
     fn analyze_place_expr(
