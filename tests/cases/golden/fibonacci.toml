@@ -1,46 +1,7 @@
 [[case]]
 name = "lex"
 kind = "lexer"
-source = """
-global FIBONACCI_N: u8;
-
-fn fibonacci() -> u8 {
-    let n = FIBONACCI_N;
-    if n == 0 then {
-        return 0;
-    }
-    n += 1;
-    let a = 0;
-    let b = 1;
-    let i = 2;
-    loop {
-        if i >= n then {
-            break;
-        }
-        let c = a + b;
-        a = b;
-        b = c;
-        i += 1;
-    }
-    return b;
-}
-
-global RESULTS: [u8; 10];
-
-fn main() {
-    let i = 0;
-    let n = 0;
-    loop {
-        if i == 10 then {
-            break;
-        }
-        FIBONACCI_N = n;
-        RESULTS[i] = fibonacci();
-        i += 1;
-        n += 1;
-    }
-}
-"""
+source.file = "fibonacci.q"
 expected_tokens = """
 Global:global
 Ident:FIBONACCI_N
@@ -188,46 +149,7 @@ Eof:
 name = "parse"
 kind = "parser"
 preview_features = ["function-call", "loop", "if-else", "array"]
-source = """
-global FIBONACCI_N: u8;
-
-fn fibonacci() -> u8 {
-    let n = FIBONACCI_N;
-    if n == 0 then {
-        return 0;
-    }
-    n += 1;
-    let a = 0;
-    let b = 1;
-    let i = 2;
-    loop {
-        if i >= n then {
-            break;
-        }
-        let c = a + b;
-        a = b;
-        b = c;
-        i += 1;
-    }
-    return b;
-}
-
-global RESULTS: [u8; 10];
-
-fn main() {
-    let i = 0;
-    let n = 0;
-    loop {
-        if i == 10 then {
-            break;
-        }
-        FIBONACCI_N = n;
-        RESULTS[i] = fibonacci();
-        i += 1;
-        n += 1;
-    }
-}
-"""
+source.file = "fibonacci.q"
 expected_ast = """
 Root(
   items: [
@@ -746,46 +668,7 @@ Root(
 name = "analyze"
 kind = "analyzer"
 preview_features = ["function-call", "loop", "if-else", "array"]
-source = """
-global FIBONACCI_N: u8;
-
-fn fibonacci() -> u8 {
-    let n = FIBONACCI_N;
-    if n == 0 then {
-        return 0;
-    }
-    n += 1;
-    let a = 0;
-    let b = 1;
-    let i = 2;
-    loop {
-        if i >= n then {
-            break;
-        }
-        let c = a + b;
-        a = b;
-        b = c;
-        i += 1;
-    }
-    return b;
-}
-
-global RESULTS: [u8; 10];
-
-fn main() {
-    let i = 0;
-    let n = 0;
-    loop {
-        if i == 10 then {
-            break;
-        }
-        FIBONACCI_N = n;
-        RESULTS[i] = fibonacci();
-        i += 1;
-        n += 1;
-    }
-}
-"""
+source.file = "fibonacci.q"
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global FIBONACCI_N: u8
@@ -859,46 +742,7 @@ main -> unit:
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else", "array"]
-source = """
-global FIBONACCI_N: u8;
-
-fn fibonacci() -> u8 {
-    let n = FIBONACCI_N;
-    if n == 0 then {
-        return 0;
-    }
-    n += 1;
-    let a = 0;
-    let b = 1;
-    let i = 2;
-    loop {
-        if i >= n then {
-            break;
-        }
-        let c = a + b;
-        a = b;
-        b = c;
-        i += 1;
-    }
-    return b;
-}
-
-global RESULTS: [u8; 10];
-
-fn main() {
-    let i = 0;
-    let n = 0;
-    loop {
-        if i == 10 then {
-            break;
-        }
-        FIBONACCI_N = n;
-        RESULTS[i] = fibonacci();
-        i += 1;
-        n += 1;
-    }
-}
-"""
+source.file = "fibonacci.q"
 expected_lir = """
 START_SECTION WRAM0[0]
 FIBONACCI_N::

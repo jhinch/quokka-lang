@@ -16,16 +16,13 @@ The compilation goes through following phases:
 - Lexing (Lexical analysis)
 - Parsing (Syntactic analysis)
 - Analysis (Semantic analysis / type checking)
-- Lowering (lowering AST to MIR / conversion to static single assignment form)
-
-And then the following phases (to be implemented)
-
-- Optimization (dead code elimination, inlining, etc.)
+- Lowering (lowering AST to MIR / conversion to static single assignment form. Happens concurrently with analysis)
+- Optimization (dead code elimination, inlining, etc. Currently, not implemented)
 - Code gen (lowering MIR to LIR)
-- Phi elimination
-- Register allocation
-- Object file creation
-- Linking
+- Phi elimination (Happens concurrently with code gen)
+- Register allocation (Currently, not implemented)
+- Object file creation (Currently, not implemented)
+- Linking (Currently, not implemented)
 
 ## Spec Tests
 
@@ -55,7 +52,7 @@ kind = "lexer"
 preview_features = []
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
 source = """
 fn main() {
 }
@@ -63,13 +60,7 @@ fn main() {
 # either expected_tokens or expected_errors is required
 # expected_tokens the list of token kinds and token text in order
 expected_tokens = """
-Fn:fn
-Ident:main
-LeftParen:(
-RightParen:)
-LeftBrace:{
-RightBrace:}
-Eof:
+...
 """
 # expected_errors array or strings for each of the errors expected
 expected_errors = []
@@ -93,7 +84,7 @@ entrypoint = "root"
 preview_features = []
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
 source = """
 fn main() {
 }
@@ -101,20 +92,7 @@ fn main() {
 # either expected_ast or expected_errors is required
 # expected_ast a string for the RON representation of the AST
 expected_ast = """
-Root(
-  items: [
-    Item(
-      data: FnDecl(FnDecl(
-        signature: FnSig(
-          name: ("main", 3, 4),
-        ),
-        body: Block(
-          statements: [],
-        ),
-      )),
-    ),
-  ],
-)
+...
 """
 # expected_errors array or strings for each of the errors expected
 expected_errors = []
@@ -136,12 +114,47 @@ kind = "analyzer"
 preview_features = []
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
 source = """
 fn main() {
 }
 """
-# expected_errors (optional) array or strings for each of the errors expected
+# either expected_mir or expected_errors is required
+# expected_mir a string for the generated MIR
+expected_mir = """
+...
+"""
+# expected_errors array or strings for each of the errors expected
+expected_errors = []
+
+# More than one case can be defined per test suite file
+[[case]]
+# ...
+```
+
+#### Codegen test
+
+```toml
+[[case]]
+# name (required) of the test case
+name = "case_name"
+# kind (required) always "codegen" for analyzer test
+kind = "codegen"
+# preview_features (optional) which preview features to activate for this test. defaults to empty
+preview_features = []
+# ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
+ignored = "free form reason"
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
+source = """
+fn main() {
+}
+"""
+# either expected_lir or expected_errors is required
+# expected_lir a string for the generated LIR
+expected_lir = """
+...
+"""
+# expected_errors array or strings for each of the errors expected
 expected_errors = []
 
 # More than one case can be defined per test suite file

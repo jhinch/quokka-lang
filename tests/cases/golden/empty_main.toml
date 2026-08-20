@@ -1,9 +1,7 @@
 [[case]]
 name = "lex"
 kind = "lexer"
-source = """
-fn main() {}
-"""
+source.file = "empty_main.q"
 expected_tokens = """
 Fn:fn
 Ident:main
@@ -17,9 +15,7 @@ Eof:
 [[case]]
 name = "parse"
 kind = "parser"
-source = """
-fn main() {}
-"""
+source.file = "empty_main.q"
 expected_ast = """
 Root(
   items: [
@@ -41,9 +37,7 @@ Root(
 [[case]]
 name = "analyze"
 kind = "analyzer"
-source = """
-fn main() {}
-"""
+source.file = "empty_main.q"
 expected_mir = """
 main -> unit:
   .bb1:
@@ -53,9 +47,7 @@ main -> unit:
 [[case]]
 name = "codegen"
 kind = "codegen"
-source = """
-fn main() {}
-"""
+source.file = "empty_main.q"
 expected_lir = """
 START_SECTION ROM0
 main::

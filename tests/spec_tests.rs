@@ -6,7 +6,7 @@ use quokka_lang::multi::{MultiError, MultiResult};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
 /// Deserialized representation of a test suite TOML file
@@ -18,6 +18,14 @@ struct TestSuite {
     name: String,
     #[serde(rename = "case")]
     cases: Vec<TestCase>,
+}
+
+impl TestSuite {
+    fn resolve_sources(&mut self, dir: &Path) {
+        for case in self.cases.iter_mut() {
+            case.resolve_source(dir);
+        }
+    }
 }
 
 /// Deserialized representation of a test case within test suite
@@ -36,7 +44,7 @@ struct TestCase {
     preview_features: Vec<quokka_lang::feature::PreviewFeature>,
     #[serde(default)]
     ignored: Option<String>,
-    source: String,
+    source: Source,
     #[serde(default)]
     expected_tokens: String,
     #[serde(default)]
@@ -53,6 +61,21 @@ struct TestCase {
     force_regenerate_expectations: bool,
 }
 
+impl TestCase {
+    fn source(&self) -> &str {
+        match &self.source {
+            Source::Content(content) => content.as_str(),
+            Source::File { .. } => panic!("resolve_source has not been called"),
+        }
+    }
+
+    fn resolve_source(&mut self, dir: &Path) {
+        if let Source::File { file } = &self.source {
+            self.source = Source::Content(std::fs::read_to_string(dir.join(file)).unwrap());
+        }
+    }
+}
+
 /// Deserialized representation of the kind of case
 #[derive(Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -61,6 +84,14 @@ enum TestCaseKind {
     Parser,
     Analyzer,
     Codegen,
+}
+
+#[derive(Clone, serde::Deserialize)]
+#[serde(untagged)]
+#[serde(deny_unknown_fields)]
+enum Source {
+    Content(String),
+    File { file: String },
 }
 
 /// Deserialized representation of the kind entrypoint for a parser test
@@ -203,6 +234,7 @@ fn load_suites() -> Result<Vec<TestSuite>, Box<dyn std::error::Error + Send + Sy
                     .to_string_lossy();
                 let mut suite: TestSuite =
                     toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
+                suite.resolve_sources(suite_path.parent().unwrap());
                 suite.category = category.to_string();
                 suite.name = name.to_string();
                 for case in suite.cases.iter_mut() {
@@ -476,7 +508,7 @@ fn delete_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
 }
 
 fn test_lexer(mut case: TestCase) {
-    let lexer = quokka_lang::lex::Lexer::from(&*case.source);
+    let lexer = quokka_lang::lex::Lexer::from(case.source());
     let mut actual_tokens = String::new();
     let mut actual_errors = Vec::new();
     for token in lexer {
@@ -515,7 +547,7 @@ fn test_lexer(mut case: TestCase) {
 }
 
 fn test_parser(mut case: TestCase) {
-    let mut parser = quokka_lang::parse::Parser::from(&*case.source);
+    let mut parser = quokka_lang::parse::Parser::from(case.source());
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
     }
@@ -544,7 +576,7 @@ fn test_parser(mut case: TestCase) {
 }
 
 fn test_analyzer(mut case: TestCase) {
-    let mut parser = quokka_lang::parse::Parser::from(&*case.source);
+    let mut parser = quokka_lang::parse::Parser::from(case.source());
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
     }
@@ -575,7 +607,7 @@ fn test_analyzer(mut case: TestCase) {
 }
 
 fn test_codegen(mut case: TestCase) {
-    let mut parser = quokka_lang::parse::Parser::from(&*case.source);
+    let mut parser = quokka_lang::parse::Parser::from(case.source());
     for feature in case.preview_features.iter().copied() {
         parser.enable_feature(feature);
     }
