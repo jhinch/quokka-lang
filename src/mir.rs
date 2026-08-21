@@ -11,11 +11,11 @@
 
 use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
 use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
+use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
-use std::assert_matches;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::ops::Not;
 
@@ -417,16 +417,23 @@ pub struct Function {
     pub start_block: BlockId,
     /// The blocks that may terminate execution of the function (i.e. those ending in
     /// [`Terminator::Return`] or [`Terminator::ReturnIf`]).
-    pub end_blocks: Vec<BlockId>,
+    pub end_blocks: IndexSet<BlockId>,
 }
 
 impl Function {
     /// Iterates the function's blocks in breadth-first order starting from
     /// [`Function::start_block`], visiting each reachable block exactly once.
     pub fn traverse_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
+        std::iter::once(self.start_block).chain(
+            self.downstream_blocks(self.start_block)
+                .filter(|&block| self.start_block != block),
+        )
+    }
+
+    pub fn downstream_blocks(&self, previous: BlockId) -> impl Iterator<Item = BlockId> + '_ {
         let mut processed_blocks = SecondaryMap::new();
         let mut block_queue = VecDeque::new();
-        block_queue.push_back(self.start_block);
+        block_queue.extend(self.blocks[previous].next_blocks());
         std::iter::from_fn(move || {
             while let Some(block) = block_queue.pop_front() {
                 if processed_blocks.insert(block, ()).is_none() {
@@ -436,6 +443,201 @@ impl Function {
             }
             None
         })
+    }
+
+    pub fn upstream_blocks(&self, next: BlockId) -> impl Iterator<Item = BlockId> + '_ {
+        let mut processed_blocks = SecondaryMap::new();
+        let mut block_queue = VecDeque::new();
+        block_queue.extend(self.blocks[next].previous_blocks());
+        std::iter::from_fn(move || {
+            while let Some(block) = block_queue.pop_front() {
+                if processed_blocks.insert(block, ()).is_none() {
+                    block_queue.extend(self.blocks[block].previous_blocks());
+                    return Some(block);
+                }
+            }
+            None
+        })
+    }
+
+    pub fn remove_dangling(&mut self) {
+        let all_blocks = self.blocks.keys().collect::<IndexSet<_>>();
+        let reachable_blocks = self.traverse_blocks().collect::<IndexSet<_>>();
+        for block in all_blocks.difference(&reachable_blocks) {
+            self.blocks.remove(*block);
+        }
+        let all_locals = self.locals.keys().collect::<IndexSet<_>>();
+        let reachable_locals = reachable_blocks
+            .iter()
+            .copied()
+            .flat_map(|block_id| &self.blocks[block_id].instructions)
+            .flat_map(|instruction| instruction.target_local())
+            .collect::<IndexSet<_>>();
+        for local in all_locals.difference(&reachable_locals) {
+            self.locals.remove(*local);
+        }
+    }
+
+    pub fn check_integrity(&self) -> Result<(), MultiError> {
+        let mut result_builder = MultiResultBuilder::default();
+        // check blocks first
+        for (block_id, block) in &self.blocks {
+            if block.previous.is_empty() && self.start_block != block_id {
+                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                    "dangling block {block_id:?}"
+                )));
+            }
+            for previous_id in block.previous.iter().copied() {
+                match self.blocks.get(previous_id) {
+                    None => {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "block {block_id:?} has unknown previous {previous_id:?}"
+                        )));
+                    }
+                    Some(previous) => {
+                        if !previous
+                            .next_blocks()
+                            .any(|previous_next_block_id| previous_next_block_id == block_id)
+                        {
+                            result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                                "mismatch previous/next blocks {previous_id:?} and {block_id:?}"
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+        for block_id in self.end_blocks.iter().copied() {
+            if !self.blocks.contains_key(block_id) {
+                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                    "unknown end block {block_id:?}"
+                )));
+            }
+        }
+        result_builder.take().finish(()).into_result()?;
+        // then local definition and types
+        for (local_id, local) in &self.locals {
+            if matches!(local.ty, Ty::UNRESOLVED | Ty::ERROR | Ty::UNIT | Ty::NEVER) {
+                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                    "{local_id:?} has unsupported type {:?}",
+                    local.ty
+                )));
+            }
+            match local.defined {
+                None => {
+                    if self.return_local != Some(local_id) {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "dangling local {local_id:?}"
+                        )));
+                    }
+                }
+                Some((block_id, index)) => match self.blocks.get(block_id) {
+                    None => {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "local {local_id:?} defined in unknown block {block_id:?}"
+                        )));
+                    }
+                    Some(block) => match block.instructions.get(index) {
+                        None => {
+                            result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                                "local {local_id:?} instruction {index} in block {block_id:?}"
+                            )));
+                        }
+                        Some(instruction) => {
+                            if instruction.target_local() != Some(local_id) {
+                                result_builder.add_error(miette::MietteDiagnostic::new(format!("local {local_id:?} not defined in instruction {instruction:?} in block {block_id:?}")));
+                            }
+                        }
+                    },
+                },
+            }
+        }
+        result_builder.take().finish(()).into_result()?;
+        // check instruction integrity
+        let block_to_upstream_blocks = self
+            .blocks
+            .keys()
+            .map(|block_id| {
+                (
+                    block_id,
+                    self.upstream_blocks(block_id).collect::<HashSet<_>>(),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        for (block_id, block) in &self.blocks {
+            for (index, instruction) in block.instructions.iter().enumerate() {
+                match instruction {
+                    Instr::Undefined { .. } => {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "Undefined instruction in block {block_id:?} at index {index}"
+                        )));
+                    }
+                    Instr::ReturnValue { .. } => {
+                        if index != 0
+                            || block.previous.len() != 1
+                            || !matches!(self.blocks[block.previous.first().copied().unwrap()].terminator, Terminator::Call { return_block, .. } | Terminator::CallIf { return_block, .. } if return_block == block_id)
+                        {
+                            result_builder.add_error(miette::MietteDiagnostic::new(format!("ReturnValue instruction must be the next instruction after a call. Found {block_id:?} at index {index} with previous = {:?}", block.previous.iter().copied().map(|previous| &self.blocks[previous].terminator).collect::<Vec<_>>())));
+                        }
+                    }
+                    Instr::Phi { sources, .. } => {
+                        let source_block_ids = sources.keys().collect::<IndexSet<_>>();
+                        if block.previous != source_block_ids {
+                            result_builder.add_error(miette::MietteDiagnostic::new(format!("Phi instruction found in {block_id:?} at index {index} with is missing sources. Expected {:?}, actual {:?}", block.previous, source_block_ids)));
+                        }
+                        for (previous_block_id, source_id) in sources {
+                            match self.locals.get(*source_id).and_then(|source| source.defined) {
+                                None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
+                                Some((source_block_id, source_index)) => {
+                                    if previous_block_id != source_block_id && !block_to_upstream_blocks[&previous_block_id].contains(&source_block_id) {
+                                    result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses {source_id:?} before assigned. Source defined in block {source_block_id:?} at index {source_index}")));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    instruction => {
+                        for source_id in instruction.source_locals() {
+                            match self.locals.get(source_id).and_then(|source| source.defined) {
+                                None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
+                                Some((source_block_id, source_index)) => {
+                                    if block_id == source_block_id {
+                                        if source_index < index {
+                                            continue;
+                                        }
+                                    } else {
+                                        if block_to_upstream_blocks[&block_id].contains(&source_block_id) {
+                                            continue;
+                                        }
+                                    }
+                                    result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses {source_id:?} before assigned. Source defined in block {source_block_id:?} at index {source_index}")));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        result_builder.finish(()).into_result()
+    }
+
+    pub fn remove_dangling_locals(&mut self) {
+        for local in self.locals.keys().collect::<Vec<_>>() {
+            if self.return_local == Some(local) {
+                continue;
+            }
+            let dangling = match self.locals[local].defined {
+                None => true,
+                Some((defined_block, _)) => !self.blocks.contains_key(defined_block),
+            };
+            if dangling {
+                self.locals.remove(local);
+            }
+        }
+    }
+
+    pub fn check_local_integrity(&self) -> Result<(), MultiError> {
+        Ok(())
     }
 }
 
@@ -450,7 +652,7 @@ pub struct Block {
     /// The instruction that determines how control leaves this block.
     pub terminator: Terminator,
     /// The blocks known to jump or call into this block.
-    previous: Vec<BlockId>,
+    previous: IndexSet<BlockId>,
 }
 
 impl Block {
@@ -1155,79 +1357,17 @@ impl FunctionBuilder {
 
     #[must_use]
     pub fn build(mut self) -> Function {
-        let mut unvisited_block_ids = self
-            .function
-            .blocks
-            .keys()
-            .map(|id| (id, ()))
-            .collect::<SecondaryMap<_, _>>();
-        let mut unvisited_local_ids = self
-            .function
-            .locals
-            .keys()
-            .map(|id| (id, ()))
-            .collect::<SecondaryMap<_, _>>();
-
-        for block_id in self.function.traverse_blocks() {
-            let block = &self.function.blocks[block_id];
-            if cfg!(debug_assertions) {
+        self.function.remove_dangling();
+        if cfg!(debug_assertions) {
+            for block_id in self.function.blocks.keys() {
                 assert!(
                     self.sealed_blocks.contains_key(block_id),
                     "{block_id} must be sealed"
                 );
-                if block.previous.is_empty() {
-                    assert_eq!(self.function.start_block, block_id);
-                } else {
-                    for previous in block.previous_blocks() {
-                        assert!(
-                            self.function.blocks[previous]
-                                .next_blocks()
-                                .any(|next| next == block_id),
-                            "previous_blocks() must match next_blocks()"
-                        );
-                    }
-                }
             }
-            let mut instructions = block.instructions.iter().peekable();
-            while let Some(instruction) = instructions.next() {
-                assert!(
-                    !matches!(instruction, Instr::Undefined { .. }),
-                    "undefined instruction found in block {block_id} not permitted"
-                );
-                if cfg!(debug_assertions) && !matches!(instruction, Instr::Phi { .. }) {
-                    for source in instruction.source_locals() {
-                        assert!(
-                            !unvisited_local_ids.contains_key(source),
-                            "source {source:?} must be assigned before use"
-                        );
-                    }
-                }
-                if let Some(local) = instruction.target_local() {
-                    let existing = unvisited_local_ids.remove(local);
-                    if self.function.return_local == Some(local) {
-                        assert!(
-                            instructions.peek().is_none(),
-                            "return local must be final instruction"
-                        );
-                        assert_matches!(
-                            block.terminator,
-                            Terminator::Return,
-                            "return local assignment but proceed with a return"
-                        );
-                    } else {
-                        assert!(existing.is_some(), "{local:?} must be assigned only once");
-                    }
-                }
-            }
-            unvisited_block_ids.remove(block_id);
         }
-        // remove all dangling blocks and locals
-        for block in unvisited_block_ids.keys() {
-            self.function.blocks.remove(block);
-        }
-        for local in unvisited_local_ids.keys() {
-            self.function.locals.remove(local);
-        }
+        #[cfg(debug_assertions)]
+        self.function.check_integrity().unwrap();
         self.function
     }
 }
@@ -1327,21 +1467,21 @@ impl FunctionBuilder {
         );
         match &terminator {
             Terminator::Return => {
-                self.function.end_blocks.push(block);
+                self.function.end_blocks.insert(block);
             }
             Terminator::ReturnIf {
                 else_block: target_block,
                 ..
             } => {
-                self.function.blocks[*target_block].previous.push(block);
-                self.function.end_blocks.push(block);
+                self.function.blocks[*target_block].previous.insert(block);
+                self.function.end_blocks.insert(block);
             }
             Terminator::Call {
                 return_block: target_block,
                 ..
             }
             | Terminator::Jump { target_block, .. } => {
-                self.function.blocks[*target_block].previous.push(block);
+                self.function.blocks[*target_block].previous.insert(block);
             }
             Terminator::CallIf {
                 return_block: then_block,
@@ -1353,8 +1493,8 @@ impl FunctionBuilder {
                 else_block,
                 ..
             } => {
-                self.function.blocks[*then_block].previous.push(block);
-                self.function.blocks[*else_block].previous.push(block);
+                self.function.blocks[*then_block].previous.insert(block);
+                self.function.blocks[*else_block].previous.insert(block);
             }
         }
         self.function.blocks[block].terminator = terminator;
@@ -1411,12 +1551,12 @@ impl FunctionBuilder {
                 .insert(var, index);
             target
         } else {
-            let previous_blocks = self.function.blocks[block].previous.clone();
-            match previous_blocks.as_slice() {
-                [] => {
+            let mut previous_blocks = self.function.blocks[block].previous.iter();
+            match (previous_blocks.next(), previous_blocks.next()) {
+                (None, None) => {
                     panic!("attempted to read variable {var:?} from dangling block {block:?}")
                 }
-                [single] => self.read_variable(var, *single),
+                (Some(single), None) => self.read_variable(var, *single),
                 _ => {
                     let target = self.new_local(Ty::UNRESOLVED);
                     let index = self.push_instr(
@@ -1442,7 +1582,12 @@ impl FunctionBuilder {
         phi: LocalId,
         index: usize,
     ) -> LocalId {
-        let previous_blocks = self.function.blocks[block].previous.clone();
+        // need to create a clone as self.read_variable requires &mut self
+        let previous_blocks = self.function.blocks[block]
+            .previous
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
         for previous in previous_blocks {
             let value = self.read_variable(var, previous);
             match &mut self.function.blocks[block].instructions[index] {
@@ -1565,7 +1710,7 @@ mod tests {
             blocks,
             locals: SlotMap::with_key(),
             start_block: start,
-            end_blocks: vec![],
+            end_blocks: IndexSet::new(),
         }
     }
 
@@ -1588,7 +1733,7 @@ mod tests {
         let block = Block {
             instructions: vec![],
             terminator: Terminator::Return,
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![]);
     }
@@ -1601,7 +1746,7 @@ mod tests {
             terminator: Terminator::Jump {
                 target_block: ids[0],
             },
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
     }
@@ -1616,7 +1761,7 @@ mod tests {
                 callee: Callee::Local(local_ids[0]),
                 return_block: ids[0],
             },
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
         let _ = ids[1];
@@ -1633,7 +1778,7 @@ mod tests {
                 condition: Condition::Zero,
                 else_block: ids[0],
             },
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
     }
@@ -1650,7 +1795,7 @@ mod tests {
                 then_block: ids[0],
                 else_block: ids[1],
             },
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(
             block.next_blocks().collect::<Vec<_>>(),
@@ -1671,7 +1816,7 @@ mod tests {
                 return_block: ids[0],
                 else_block: ids[1],
             },
-            previous: vec![],
+            previous: IndexSet::new(),
         };
         assert_eq!(
             block.next_blocks().collect::<Vec<_>>(),
@@ -1685,7 +1830,7 @@ mod tests {
         let block = Block {
             instructions: vec![],
             terminator: Terminator::Return,
-            previous: vec![ids[0], ids[1]],
+            previous: [ids[0], ids[1]].into_iter().collect(),
         };
         assert_eq!(
             block.previous_blocks().collect::<Vec<_>>(),
@@ -1889,6 +2034,7 @@ mod tests {
         assert_eq!(fb.function.locals[ret_local].defined, None);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "defined multiple times")]
     fn push_instr_panics_when_local_assigned_twice() {
@@ -1929,7 +2075,10 @@ mod tests {
         let mut fb = new_builder();
         let b0 = fb.new_block();
         fb.set_terminator(b0, Terminator::Return);
-        assert_eq!(fb.function.end_blocks, vec![b0]);
+        assert_eq!(
+            fb.function.end_blocks.iter().copied().collect::<Vec<_>>(),
+            vec![b0]
+        );
     }
 
     #[test]
@@ -1958,6 +2107,7 @@ mod tests {
         );
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "already terminated")]
     fn set_terminator_twice_panics() {
@@ -2101,6 +2251,7 @@ mod tests {
         assert!(!function.locals.contains_key(dangling_local));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic(expected = "must be sealed")]
     fn build_panics_when_reachable_block_not_sealed() {
@@ -2110,8 +2261,9 @@ mod tests {
         let _ = fb.build();
     }
 
+    #[cfg(debug_assertions)]
     #[test]
-    #[should_panic(expected = "undefined instruction found")]
+    #[should_panic(expected = "Undefined instruction")]
     fn build_panics_on_leftover_undefined_instruction() {
         let mut fb = new_builder();
         let block = fb.new_block();

@@ -527,6 +527,7 @@ mod tests {
         assert_eq!(u2::new(1) + u2::new(2), u2::new(3));
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic]
     fn add_panics_on_overflow_in_debug() {
@@ -640,6 +641,7 @@ mod tests {
         assert_eq!((BitCount::new(7) - 4u32).into_u32(), 3);
     }
 
+    #[cfg(debug_assertions)]
     #[test]
     #[should_panic]
     fn bit_count_add_panics_on_overflow_in_debug() {
