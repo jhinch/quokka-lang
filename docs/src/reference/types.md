@@ -24,8 +24,8 @@ There are four main categories of types:
 
 - Numbers
   - `u1`
-  - `u2`
-  - `u4`
+  - `u2` (requires `narrow-int` preview feature enabled)
+  - `u4` (requires `narrow-int` preview feature enabled)
   - `u8`
   - `u16`
   - `i8`

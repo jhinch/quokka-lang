@@ -25,6 +25,9 @@ Structs will automatically align each field to a new byte with other bits as pad
 Additional padding can also be defined using fields with `_` as their name. Padding fields must be an unsigned int.
 Multiple padding fields can be defined.
 
+> [!WARNING]
+> This example uses `u2`, which requires the `narrow-int` preview feature enabled.
+
 ```quokka
 // 32-bit struct
 struct Padded {

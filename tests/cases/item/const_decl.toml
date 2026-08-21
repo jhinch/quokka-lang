@@ -1215,6 +1215,7 @@ main -> unit:
 [[case]]
 name = "add_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 1 + 1;
 fn main() {}
@@ -1231,6 +1232,7 @@ main -> unit:
 [[case]]
 name = "sub_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 3 - 1;
 fn main() {}
@@ -1247,6 +1249,7 @@ main -> unit:
 [[case]]
 name = "bitand_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 3 & 1;
 fn main() {}
@@ -1263,6 +1266,7 @@ main -> unit:
 [[case]]
 name = "bitor_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 2 | 1;
 fn main() {}
@@ -1279,6 +1283,7 @@ main -> unit:
 [[case]]
 name = "bitxor_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 3 ^ 1;
 fn main() {}
@@ -1295,6 +1300,7 @@ main -> unit:
 [[case]]
 name = "shift_left_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 1 <<;
 fn main() {}
@@ -1311,6 +1317,7 @@ main -> unit:
 [[case]]
 name = "shift_right_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 3 >>;
 fn main() {}
@@ -1327,6 +1334,7 @@ main -> unit:
 [[case]]
 name = "add_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 5 + 3;
 fn main() {}
@@ -1343,6 +1351,7 @@ main -> unit:
 [[case]]
 name = "sub_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 10 - 3;
 fn main() {}
@@ -1359,6 +1368,7 @@ main -> unit:
 [[case]]
 name = "bitand_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 12 & 10;
 fn main() {}
@@ -1375,6 +1385,7 @@ main -> unit:
 [[case]]
 name = "bitor_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 4 | 3;
 fn main() {}
@@ -1391,6 +1402,7 @@ main -> unit:
 [[case]]
 name = "bitxor_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 12 ^ 10;
 fn main() {}
@@ -1407,6 +1419,7 @@ main -> unit:
 [[case]]
 name = "shift_left_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 3 <<;
 fn main() {}
@@ -1423,6 +1436,7 @@ main -> unit:
 [[case]]
 name = "shift_right_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 12 >>;
 fn main() {}
@@ -1439,6 +1453,7 @@ main -> unit:
 [[case]]
 name = "add_wrapping_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 3 + 2;
 fn main() {}
@@ -1455,6 +1470,7 @@ main -> unit:
 [[case]]
 name = "sub_wrapping_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 0 - 1;
 fn main() {}
@@ -1471,6 +1487,7 @@ main -> unit:
 [[case]]
 name = "not_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = !1;
 fn main() {}
@@ -1487,6 +1504,7 @@ main -> unit:
 [[case]]
 name = "shift_left_wrapping_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 2 <<;
 fn main() {}
@@ -1503,6 +1521,7 @@ main -> unit:
 [[case]]
 name = "rotate_left_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 2 <%;
 fn main() {}
@@ -1519,6 +1538,7 @@ main -> unit:
 [[case]]
 name = "rotate_right_const_u2"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u2 = 1 >%;
 fn main() {}
@@ -1535,6 +1555,7 @@ main -> unit:
 [[case]]
 name = "add_wrapping_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 15 + 3;
 fn main() {}
@@ -1551,6 +1572,7 @@ main -> unit:
 [[case]]
 name = "sub_wrapping_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 0 - 1;
 fn main() {}
@@ -1567,6 +1589,7 @@ main -> unit:
 [[case]]
 name = "not_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = !5;
 fn main() {}
@@ -1583,6 +1606,7 @@ main -> unit:
 [[case]]
 name = "shift_left_wrapping_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 12 <<;
 fn main() {}
@@ -1599,6 +1623,7 @@ main -> unit:
 [[case]]
 name = "rotate_left_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 8 <%;
 fn main() {}
@@ -1615,6 +1640,7 @@ main -> unit:
 [[case]]
 name = "rotate_right_const_u4"
 kind = "analyzer"
+preview_features = ["narrow-int"]
 source = """
 const A: u4 = 1 >%;
 fn main() {}

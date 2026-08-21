@@ -579,7 +579,11 @@ fn test_analyzer(mut case: TestCase) {
         .parse()
         .into_result()
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let (actual_mir, actual_errors) = match Analyzer::default().analyze(&root) {
+    let mut analyzer = Analyzer::default();
+    for feature in case.preview_features.iter().copied() {
+        analyzer.enable_feature(feature);
+    }
+    let (actual_mir, actual_errors) = match analyzer.analyze(&root) {
         Ok((mir, ty_registry)) => (format!("{}", mir.display(&ty_registry)), Vec::new()),
         Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
@@ -610,7 +614,11 @@ fn test_codegen(mut case: TestCase) {
         .parse()
         .into_result()
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let (mir, ty_registry) = Analyzer::default()
+    let mut analyzer = Analyzer::default();
+    for feature in case.preview_features.iter().copied() {
+        analyzer.enable_feature(feature);
+    }
+    let (mir, ty_registry) = analyzer
         .analyze(&root)
         .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
     let (actual_lir, actual_errors) = match CodeGen::from(ty_registry).generate(&mir) {

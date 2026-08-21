@@ -23,6 +23,8 @@ pub enum PreviewFeature {
     CustomEntrypoint,
     /// enable no startup code augmentation of entrypoint
     NoStartupCode,
+    /// enable use of the sub-byte unsigned integer types (u2, u4)
+    NarrowInt,
 }
 
 impl fmt::Display for PreviewFeature {

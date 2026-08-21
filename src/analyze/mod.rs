@@ -10,6 +10,7 @@ use crate::attr::{
     StructDeclAttributes,
 };
 use crate::consteval;
+use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::mir::{
     BlockId, Callee, Condition, FunctionBuilder, FunctionId, GlobalId, Instr, LocalId, Mir,
     MirBuilder, Operand, PlaceProjection, Terminator, Variable,
@@ -34,9 +35,18 @@ pub struct Analyzer {
     ty_registry: TyRegistry,
     mir_builder: MirBuilder,
     result_builder: MultiResultBuilder,
+    features: PreviewFeatureSet,
 }
 
 impl Analyzer {
+    pub fn enable_feature(&mut self, feature: PreviewFeature) {
+        self.features.enable(feature);
+    }
+
+    pub fn enable_features(&mut self, features: PreviewFeatureSet) {
+        self.features.extend(features);
+    }
+
     #[instrument(skip(self, root))]
     pub fn analyze(mut self, root: &ast::Root) -> Result<(Mir, TyRegistry), MultiError> {
         self.register_types(root);
@@ -302,11 +312,21 @@ impl Analyzer {
 
     fn resolve_ty_ref(&mut self, ty_ref: &ast::TyRef) -> Ty {
         match &ty_ref.data {
-            TyRefData::Simple(name) => self.ty_registry.resolve(&name.data).unwrap_or_else(|| {
-                self.result_builder
-                    .add_error(TypeNotFoundError::from(name.clone()));
-                Ty::ERROR
-            }),
+            TyRefData::Simple(name) => {
+                let ty = self.ty_registry.resolve(&name.data).unwrap_or_else(|| {
+                    self.result_builder
+                        .add_error(TypeNotFoundError::from(name.clone()));
+                    Ty::ERROR
+                });
+                if matches!(ty, Ty::U2 | Ty::U4) {
+                    self.features.check_enabled(
+                        PreviewFeature::NarrowInt,
+                        name.span,
+                        &mut self.result_builder,
+                    );
+                }
+                ty
+            }
             TyRefData::Array(item_ty_ref, count) => {
                 let item_ty = self.resolve_ty_ref(item_ty_ref);
                 self.ty_registry.register_array(item_ty, *count)
