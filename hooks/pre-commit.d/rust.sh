@@ -25,6 +25,6 @@ if [ -z "$DIRTY_STAGED_FILES" ]; then
 fi
 
 cargo fmt --all --check
-cargo test --all --locked
-cargo clippy --all --locked
-cargo doc --all --locked --no-deps
+cargo test --workspace --locked
+cargo clippy --workspace --locked
+cargo doc --workspace --locked --no-deps

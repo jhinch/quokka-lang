@@ -17,12 +17,14 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Build
-      run: cargo build --all --locked --verbose
+      run: cargo build --workspace --locked --verbose
     - name: Test
-      run: cargo test --all --locked --verbose
+      run: cargo test --workspace --locked --verbose
     - name: Clippy
-      run: cargo clippy --all --locked --verbose
+      run: cargo clippy --workspace --locked --verbose
     - name: Check format
       run: cargo fmt --all --check -- --verbose
     - name: Check rustdoc
-      run:  cargo doc --all --locked --no-deps --verbose
+      run:  cargo doc --workspace --locked --no-deps --verbose
+    - name: Test (Release)
+      run: cargo test --workspace --locked --release --verbose
