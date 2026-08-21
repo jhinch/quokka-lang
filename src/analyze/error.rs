@@ -282,14 +282,6 @@ pub struct TypeUnresolvedError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("if expression are not support in constant declarations")]
-#[diagnostic()]
-pub struct IfNotSupportInConstDeclError {
-    #[label("not permitted")]
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("function calls are not support in constant declarations")]
 #[diagnostic()]
 pub struct CallNotSupportInConstDeclError {

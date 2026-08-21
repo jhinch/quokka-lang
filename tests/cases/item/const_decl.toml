@@ -274,9 +274,31 @@ source = """
 const A: u8 = if 1 then 2 else 3;
 fn main() {}
 """
-expected_errors = [
-    "if expression are not support in constant declarations @ [14:32]",
-]
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "if_else_false_in_const"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = if 0 then 2 else 3;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [3]
+
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "if_unit_in_const"
@@ -292,9 +314,76 @@ const A: u8 = {
 };
 fn main() {}
 """
-expected_errors = [
-    "if expression are not support in constant declarations @ [39:71]",
-]
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "if_else_unit_assigns_local_in_const"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = {
+    let a: u8 = 1;
+    if 0 then {
+        a = 2;
+    } else {
+        a = 3;
+    }
+    yield a;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [3]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "nested_if_in_const"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = if 1 then if 0 then 10 else 20 else 30;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [20]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "if_else_const_dependency"
+kind = "analyzer"
+preview_features = ["if-else"]
+source = """
+const A: u8 = 5;
+const B: u8 = if 1 then A else 0;
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [5]
+@ConstDeclAttributes { section: Auto }
+const B: u8 = [5]
+
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "loop_in_const"

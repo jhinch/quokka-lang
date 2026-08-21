@@ -761,10 +761,6 @@ impl Analyzer {
                 (block, ty)
             }
             ast::ExprData::If(if_expr) => {
-                if scopes.const_decl_scope().is_some() {
-                    self.result_builder
-                        .add_error(IfNotSupportInConstDeclError { span: expr.span });
-                }
                 let (block, cond_ty, source) =
                     self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
                 type_solver.check_if_expr_condition(if_expr, cond_ty);
@@ -1342,13 +1338,6 @@ impl Analyzer {
                 (block, expr_ty, target)
             }
             ast::ExprData::If(if_expr) => {
-                if scopes.const_decl_scope().is_some() {
-                    self.result_builder
-                        .add_error(IfNotSupportInConstDeclError { span: expr.span });
-                    let target = mir.new_local(Ty::ERROR);
-                    mir.push_instr(block, Instr::Undefined { target });
-                    return (block, InferredTy::Concrete(Ty::ERROR), target);
-                }
                 let (block, cond_ty, source) =
                     self.analyze_expr(&if_expr.condition, block, mir, type_solver, scopes);
                 type_solver.check_if_expr_condition(if_expr, cond_ty);
