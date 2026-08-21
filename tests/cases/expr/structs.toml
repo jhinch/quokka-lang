@@ -446,7 +446,7 @@ source = """
 _ { a: 1 }
 """
 expected_errors = [
-    '"_" is a reserved word @ [0:1]',
+    "Unnamed identifier not permitted here @ [0:1]",
 ]
 expected_ast = """
 Expr(

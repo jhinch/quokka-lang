@@ -101,6 +101,7 @@ impl HighlighterState for QuokkaHighlighterState {
                     | lex::TokenKind::PipeEqual
                     | lex::TokenKind::CarrotEqual
                     | lex::TokenKind::Ident
+                    | lex::TokenKind::Underscore
                     | lex::TokenKind::Eof => {}
                 },
                 Err(_) => break,

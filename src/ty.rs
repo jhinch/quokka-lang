@@ -91,6 +91,12 @@ impl TyRegistry {
         data
     }
 
+    fn struct_ty_name(&self, ty: Ty) -> &Identifier {
+        assert!(ty.is_struct(), "{ty:?} not a struct");
+        let data = &self.struct_types[ty.index()];
+        &data.name.data
+    }
+
     #[must_use]
     pub fn array_ty_data(&self, ty: Ty) -> &ArrayTyData {
         assert!(ty.is_array(), "{ty:?} not an array");
@@ -305,8 +311,8 @@ impl fmt::Display for TyDisplay<'_> {
                     write!(f, "[{}; {}]", data.item_ty.display(registry), data.count)
                 }
                 ty if ty.is_struct() => {
-                    let data = registry.struct_ty_data(ty);
-                    write!(f, "{}", data.name.data)
+                    let name = registry.struct_ty_name(ty);
+                    write!(f, "{name}")
                 }
                 ty if ty.is_fn_ptr() => {
                     let data = registry.fn_ptr_ty_data(ty);

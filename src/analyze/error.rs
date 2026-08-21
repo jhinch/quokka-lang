@@ -209,6 +209,17 @@ pub struct FieldRedefinedError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("padding field type `{ty}` not an unsigned int")]
+#[diagnostic()]
+pub struct UnnamedFieldNotUnsignedIntError {
+    #[label("this padding field")]
+    pub span: SourceSpan,
+    pub ty: TyDisplay<'static>,
+    #[help]
+    pub expected: Option<String>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("field `{field}` is not defined on `{ty}`")]
 #[diagnostic()]
 pub struct FieldNotDefinedError {

@@ -38,7 +38,7 @@ source = """
 _
 """
 expected_tokens = """
-Ident:_
+Underscore:_
 Eof:
 """
 

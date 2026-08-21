@@ -126,6 +126,60 @@ Root(
 """
 
 [[case]]
+name = "padding_field"
+kind = "analyzer"
+source = """
+struct Name {
+    one: u8,
+    _: u8,
+    two: u8,
+}
+"""
+
+[[case]]
+name = "multiple_padding_fields"
+kind = "analyzer"
+source = """
+struct Name {
+    one: u8,
+    _: u8,
+    _: u8,
+    two: u8,
+}
+"""
+
+[[case]]
+name = "signed_int_padding_fields"
+kind = "analyzer"
+source = """
+struct Name {
+    one: u8,
+    _: i8,
+    two: u8,
+}
+"""
+expected_errors = [
+    "padding field type `i8` not an unsigned int @ [31:36]",
+]
+
+[[case]]
+name = "struct_padding_fields"
+kind = "analyzer"
+source = """
+struct Foo {
+    one: u8,
+}
+struct Bar {
+    one: u8,
+    _: Foo,
+    two: u8,
+}
+"""
+expected_errors = [
+    "padding field type `Foo` not an unsigned int @ [58:64]",
+]
+
+[[case]]
 name = "struct_with_attribute"
 kind = "parser"
 source = """

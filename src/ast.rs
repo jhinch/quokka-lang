@@ -153,6 +153,15 @@ pub struct Identifier {
 
 impl Identifier {
     #[must_use]
+    pub fn unnamed() -> Self {
+        Identifier {
+            value: Symbol::from_static("_"),
+        }
+    }
+}
+
+impl Identifier {
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self.value.as_str()
     }

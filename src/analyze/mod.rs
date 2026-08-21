@@ -18,10 +18,10 @@ use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::BitCount;
 use crate::source::span::span_between;
 use crate::ty::{StructFieldTyData, Ty, TyRegistry};
-use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use miette::SourceSpan;
 use slotmap::SparseSecondaryMap;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet, VecDeque};
 use tracing::instrument;
 
@@ -97,7 +97,8 @@ impl Analyzer {
         let type_fields = registered_types
             .iter()
             .filter_map(|(ty, decl)| {
-                let mut fields = IndexMap::with_capacity(decl.fields.len());
+                let mut fields = Vec::with_capacity(decl.fields.len());
+                let mut field_name_to_index = HashMap::with_capacity(decl.fields.len());
                 let mut failed = false;
                 for field in &decl.fields {
                     let ty = self.resolve_ty_ref(&field.ty);
@@ -106,21 +107,24 @@ impl Analyzer {
                             self.result_builder.add_error(e);
                             FieldDeclAttributes::default()
                         });
-                    match fields.entry(field.name.data.clone()) {
-                        Entry::Vacant(entry) => {
-                            entry.insert((ty, field.name.span, field.ty.span, field_attrs));
-                        }
-                        Entry::Occupied(entry) => {
-                            let defined = decl.fields[entry.index()].name.span;
-                            self.result_builder.add_error(FieldRedefinedError {
-                                ty: decl.name.data.clone(),
-                                name: field.name.data.clone(),
-                                defined,
-                                redefined: field.name.span,
-                            });
-                            failed = true;
+                    if field.name.data != Identifier::unnamed() {
+                        match field_name_to_index.entry(field.name.data.clone()) {
+                            Entry::Vacant(entry) => {
+                                entry.insert(fields.len());
+                            }
+                            Entry::Occupied(entry) => {
+                                let defined = decl.fields[*entry.get()].name.span;
+                                self.result_builder.add_error(FieldRedefinedError {
+                                    ty: decl.name.data.clone(),
+                                    name: field.name.data.clone(),
+                                    defined,
+                                    redefined: field.name.span,
+                                });
+                                failed = true;
+                            }
                         }
                     }
+                    fields.push((&field.name, ty, field.ty.span, field_attrs));
                 }
                 if failed { None } else { Some((*ty, fields)) }
             })
@@ -135,9 +139,7 @@ impl Analyzer {
             'outer: while let Some(ty) = processing_stack.pop_front() {
                 let mut bit_size = BitCount::new(0);
                 let mut fields = IndexMap::new();
-                for (field_name, (field_ty, field_span, field_ty_span, field_attrs)) in
-                    &type_fields[&ty]
-                {
+                for (field_name, field_ty, field_ty_span, field_attrs) in &type_fields[&ty] {
                     let mut array_item_ty = *field_ty;
                     while array_item_ty.is_array() {
                         array_item_ty = self.ty_registry.array_ty_data(array_item_ty).item_ty;
@@ -166,16 +168,43 @@ impl Analyzer {
                         continue 'outer;
                     }
                     let field_bit_size = field_ty.bit_size(&self.ty_registry).padded();
-                    fields.insert(
-                        field_name.clone(),
-                        StructFieldTyData {
-                            name: SpannedIdentifier::new(field_name.clone(), *field_span),
-                            ty: *field_ty,
-                            ty_span: *field_ty_span,
-                            bit_offset: bit_size,
-                            attrs: field_attrs.clone(),
-                        },
-                    );
+                    if field_name.data == Identifier::unnamed() {
+                        if *field_ty != Ty::ERROR && !field_ty.is_unsigned_int() {
+                            let mut expected = Vec::new();
+                            let mut field_bit_size = field_bit_size.into_u32();
+                            while field_bit_size > 0 {
+                                let expected_field_size = match field_bit_size {
+                                    1 => 1,
+                                    2..=3 => 2,
+                                    4..=7 => 4,
+                                    _ => 8,
+                                };
+                                expected.push(format!("_: u{expected_field_size}"));
+                                field_bit_size -= expected_field_size;
+                            }
+                            self.result_builder
+                                .add_error(UnnamedFieldNotUnsignedIntError {
+                                    span: span_between(field_name.span, *field_ty_span),
+                                    ty: field_ty.display(&self.ty_registry).into_detached(),
+                                    expected: if expected.is_empty() {
+                                        None
+                                    } else {
+                                        Some(format!("expected `{}`", expected.join(", ")))
+                                    },
+                                });
+                        }
+                    } else {
+                        fields.insert(
+                            field_name.data.clone(),
+                            StructFieldTyData {
+                                name: (*field_name).clone(),
+                                ty: *field_ty,
+                                ty_span: *field_ty_span,
+                                bit_offset: bit_size,
+                                attrs: field_attrs.clone(),
+                            },
+                        );
+                    }
                     bit_size += field_bit_size;
                 }
                 self.ty_registry

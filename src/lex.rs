@@ -71,7 +71,7 @@ impl Token<'_> {
 
     pub fn check_unused_reserved(&self) -> Result<(), Error> {
         match self.text {
-            "_" | "as" | "while" | "do" | "match" | "case" | "enum" | "false" | "true" | "for"
+            "as" | "while" | "do" | "match" | "case" | "enum" | "false" | "true" | "for"
             | "switch" | "in" | "void" | "to" | "mod" | "root" => {
                 Err(Error::from(ReservedWordError {
                     span: self.span(),
@@ -127,6 +127,7 @@ pub enum TokenKind {
     Number,
     // identifiers
     Ident,
+    Underscore,
     // keywords
     Fn,
     Let,
@@ -201,6 +202,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Global => "global",
             TokenKind::Const => "const",
             TokenKind::Asm => "asm",
+            TokenKind::Underscore => "_",
             TokenKind::Eof => "<EOF>",
         })
     }
@@ -516,6 +518,7 @@ impl<'de> Lexer<'de> {
                         "global" => self.token(TokenKind::Global, offset, len),
                         "const" => self.token(TokenKind::Const, offset, len),
                         "asm" => self.token(TokenKind::Asm, offset, len),
+                        "_" => self.token(TokenKind::Underscore, offset, len),
                         _ => self.token(TokenKind::Ident, offset, len),
                     }
                 }

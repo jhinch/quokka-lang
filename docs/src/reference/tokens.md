@@ -32,10 +32,9 @@ AsmKeyword          =   "ADC" | "ADD" | "AND" | "BIT" | "CALL"
                     |   "HL" | "SP" | "Z" | "NZ" | "C"
                     |   "NC"
                     ;
-UnusedReserved      =    "_" | "as" | "while" | "do" | "match"
-                    |   "case" | "enum" | "false" | "true" | "for"
-                    |   "switch" | "in" | "void" | "to" | "mod"
-                    |   "root"
+UnusedReserved      =   "as" | "while" | "do" | "match" | "case"
+                    |   "enum" | "false" | "true" | "for" | "switch"
+                    | "in" | "void" | "to" | "mod" | "root"
                     ;
 ```
 

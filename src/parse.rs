@@ -33,6 +33,9 @@ pub enum Error {
     #[error(transparent)]
     #[diagnostic(transparent)]
     AssignOnValue(#[from] AssignOnValueError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    UnnamedIdentifier(#[from] UnnamedIdentifierError),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -104,6 +107,14 @@ pub struct AssignOnValueError {
     pub value_span: SourceSpan,
     #[label("this assignment")]
     pub op_span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
+#[error("Unnamed identifier not permitted here")]
+#[diagnostic()]
+pub struct UnnamedIdentifierError {
+    #[label("this unnamed identifier")]
+    pub span: SourceSpan,
 }
 
 pub struct Parser<'de> {
@@ -258,7 +269,9 @@ impl Parser<'_> {
     fn parse_attribute_value(&mut self) -> Result<AttributeValue, Error> {
         let token = self.peek_token()?;
         Ok(match token.kind() {
-            TokenKind::Ident => AttributeValue::from(self.parse_identifier()?),
+            TokenKind::Ident | TokenKind::Underscore => {
+                AttributeValue::from(self.parse_identifier()?)
+            }
             TokenKind::Number => {
                 let token = self.consume_token()?;
                 let data = AttributeValueData::from(IntegerLiteral::from(token.try_parse_u32()?));
@@ -314,11 +327,26 @@ impl Parser<'_> {
     }
 
     fn parse_identifier(&mut self) -> Result<SpannedIdentifier, Error> {
-        let token = self.expect(TokenKind::Ident)?;
-        if let Err(error) = token.check_unused_reserved() {
-            self.result_builder.add_error(error);
+        let identifier = self.parse_identifier_or_unnamed()?;
+        if identifier.data == Identifier::unnamed() {
+            self.result_builder.add_error(UnnamedIdentifierError {
+                span: identifier.span,
+            });
         }
-        Ok(SpannedIdentifier::new(token.text(), token.span()))
+        Ok(identifier)
+    }
+
+    fn parse_identifier_or_unnamed(&mut self) -> Result<SpannedIdentifier, Error> {
+        if self.peek_token()?.kind() == TokenKind::Underscore {
+            let token = self.consume_token()?;
+            Ok(SpannedIdentifier::new(Identifier::unnamed(), token.span()))
+        } else {
+            let token = self.expect(TokenKind::Ident)?;
+            if let Err(error) = token.check_unused_reserved() {
+                self.result_builder.add_error(error);
+            }
+            Ok(SpannedIdentifier::new(token.text(), token.span()))
+        }
     }
 
     fn parse_fn_decl(&mut self) -> Result<FnDecl, Error> {
@@ -385,7 +413,7 @@ impl Parser<'_> {
 
     fn parse_field_decl(&mut self) -> Result<FieldDecl, Error> {
         let attributes = self.parse_attributes()?;
-        let name = self.parse_identifier()?;
+        let name = self.parse_identifier_or_unnamed()?;
         self.expect(TokenKind::Colon)?;
         let ty = self.parse_ty_ref()?;
 
@@ -538,20 +566,17 @@ impl Parser<'_> {
     }
 
     fn parse_expr_above(&mut self, min_bp: u8) -> Result<Expr, Error> {
-        let lhs_token = self.consume_token()?;
+        let lhs_token = self.peek_token()?;
         let lhs_start_span = lhs_token.span();
         let mut lhs = {
             let data = match lhs_token.kind() {
                 // atoms
                 TokenKind::Number => {
+                    let lhs_token = self.consume_token()?;
                     ExprData::from(IntegerLiteral::from(lhs_token.try_parse_u32()?))
                 }
-                TokenKind::Ident => {
-                    let span = lhs_token.span();
-                    if let Err(error) = lhs_token.check_unused_reserved() {
-                        self.result_builder.add_error(error);
-                    }
-                    let name = SpannedIdentifier::new(lhs_token.text(), span);
+                TokenKind::Ident | TokenKind::Underscore => {
+                    let name = self.parse_identifier()?;
                     if self.peek_token()?.kind() == TokenKind::LeftBrace {
                         self.expect(TokenKind::LeftBrace)?;
                         let mut fields = Vec::new();
@@ -568,13 +593,14 @@ impl Parser<'_> {
                         ExprData::from(StructExpr { name, fields })
                     } else {
                         ExprData::from(Place {
+                            span: name.span,
                             name,
-                            span,
                             projections: Vec::new(),
                         })
                     }
                 }
                 TokenKind::LeftBracket => {
+                    self.chomp()?;
                     let first = self.parse_expr_above(0)?;
                     if self.peek_token()?.kind() == TokenKind::Semicolon {
                         self.expect(TokenKind::Semicolon)?;
@@ -600,11 +626,13 @@ impl Parser<'_> {
                 }
                 // group
                 TokenKind::LeftParen => {
+                    self.chomp()?;
                     let expr = self.parse_expr_above(0)?;
                     self.expect(TokenKind::RightParen)?;
                     ExprData::from(Box::new(expr))
                 }
                 TokenKind::If => {
+                    let lhs_token = self.consume_token()?;
                     let condition = Box::new(self.parse_expr()?);
                     self.expect(TokenKind::Then)?;
                     let true_block = Box::new(self.parse_expr_or_block()?);
@@ -628,6 +656,7 @@ impl Parser<'_> {
                     })
                 }
                 TokenKind::Loop => {
+                    let lhs_token = self.consume_token()?;
                     let body = self.parse_body()?;
                     self.features.check_enabled(
                         PreviewFeature::Loop,
@@ -637,12 +666,14 @@ impl Parser<'_> {
                     ExprData::from(Loop { body })
                 }
                 TokenKind::Asm => {
+                    let lhs_token = self.consume_token()?;
                     self.features
                         .require_enabled(PreviewFeature::InlineAsm, lhs_token.span())?;
                     todo!("parse inline-asm");
                 }
                 // unary prefix expression
                 kind @ (TokenKind::Bang | TokenKind::Minus) => {
+                    self.chomp()?;
                     let kind = match kind {
                         TokenKind::Bang => UnaryOpKind::Not,
                         TokenKind::Minus => UnaryOpKind::Neg,
