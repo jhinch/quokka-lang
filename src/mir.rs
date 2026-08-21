@@ -14,6 +14,7 @@ use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::{IndexMap, IndexSet};
+use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
@@ -503,33 +504,38 @@ impl Function {
                     local.ty
                 )));
             }
-            match local.defined {
-                None => {
-                    if self.return_local != Some(local_id) {
-                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
-                            "dangling local {local_id:?}"
-                        )));
-                    }
+            if local.defined.is_empty() {
+                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                    "dangling local {local_id:?}"
+                )));
+            } else {
+                if local.defined.len() > 1 && Some(local_id) != self.return_local {
+                    result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                        " local {local_id:?} assigned multiple times {:?}",
+                        local.defined
+                    )));
                 }
-                Some((block_id, index)) => match self.blocks.get(block_id) {
-                    None => {
-                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
-                            "local {local_id:?} defined in unknown block {block_id:?}"
-                        )));
-                    }
-                    Some(block) => match block.instructions.get(index) {
+                for (block_id, &index) in &local.defined {
+                    match self.blocks.get(block_id) {
                         None => {
                             result_builder.add_error(miette::MietteDiagnostic::new(format!(
-                                "local {local_id:?} instruction {index} in block {block_id:?}"
+                                "local {local_id:?} defined in unknown block {block_id:?}"
                             )));
                         }
-                        Some(instruction) => {
-                            if instruction.target_local() != Some(local_id) {
-                                result_builder.add_error(miette::MietteDiagnostic::new(format!("local {local_id:?} not defined in instruction {instruction:?} in block {block_id:?}")));
+                        Some(block) => match block.instructions.get(index) {
+                            None => {
+                                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                                    "local {local_id:?} instruction {index} in block {block_id:?}"
+                                )));
                             }
-                        }
-                    },
-                },
+                            Some(instruction) => {
+                                if instruction.target_local() != Some(local_id) {
+                                    result_builder.add_error(miette::MietteDiagnostic::new(format!("local {local_id:?} not defined in instruction {instruction:?} in block {block_id:?}")));
+                                }
+                            }
+                        },
+                    }
+                }
             }
         }
         result_builder.take().finish(()).into_result()?;
@@ -566,9 +572,9 @@ impl Function {
                             result_builder.add_error(miette::MietteDiagnostic::new(format!("Phi instruction found in {block_id:?} at index {index} with is missing sources. Expected {:?}, actual {:?}", block.previous, source_block_ids)));
                         }
                         for (previous_block_id, source_id) in sources {
-                            match self.locals.get(*source_id).and_then(|source| source.defined) {
+                            match self.locals.get(*source_id).and_then(|source| source.defined.iter().next()) {
                                 None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
-                                Some((source_block_id, source_index)) => {
+                                Some((source_block_id, &source_index)) => {
                                     if previous_block_id != source_block_id && !block_to_upstream_blocks[&previous_block_id].contains(&source_block_id) {
                                     result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses {source_id:?} before assigned. Source defined in block {source_block_id:?} at index {source_index}")));
                                     }
@@ -578,9 +584,9 @@ impl Function {
                     }
                     instruction => {
                         for source_id in instruction.source_locals() {
-                            match self.locals.get(source_id).and_then(|source| source.defined) {
+                            match self.locals.get(source_id).and_then(|source| source.defined.iter().next()) {
                                 None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
-                                Some((source_block_id, source_index)) => {
+                                Some((source_block_id, &source_index)) => {
                                     if block_id == source_block_id {
                                         if source_index < index {
                                             continue;
@@ -606,10 +612,10 @@ impl Function {
             if self.return_local == Some(local) {
                 continue;
             }
-            let dangling = match self.locals[local].defined {
-                None => true,
-                Some((defined_block, _)) => !self.blocks.contains_key(defined_block),
-            };
+            let dangling = self.locals[local]
+                .defined
+                .keys()
+                .all(|defined_block| !self.blocks.contains_key(defined_block));
             if dangling {
                 self.locals.remove(local);
             }
@@ -763,7 +769,9 @@ pub struct Local {
     /// by [`FunctionBuilder::build`], since they are conceptually assigned once per exit path.
     pub is_return: bool,
     /// The block and instruction index that defines this local, if it has been defined yet.
-    pub defined: Option<(BlockId, usize)>,
+    /// Only return locals should have more than one definition. All other locals will have
+    /// one entry, or be empty for a dangling local.
+    pub defined: SparseSecondaryMap<BlockId, usize>,
     /// The source-level variable name this local corresponds to, if any.
     pub name: Option<SpannedIdentifier>,
 }
@@ -1365,7 +1373,7 @@ impl FunctionBuilder {
         self.function.locals.insert(Local {
             ty,
             is_return: false,
-            defined: None,
+            defined: SparseSecondaryMap::new(),
             name: None,
         })
     }
@@ -1401,7 +1409,7 @@ impl FunctionBuilder {
             let local = self.function.locals.insert(Local {
                 ty,
                 is_return: true,
-                defined: None,
+                defined: SparseSecondaryMap::new(),
                 name: None,
             });
             self.function.return_local = Some(local);
@@ -1414,14 +1422,28 @@ impl FunctionBuilder {
         let instructions = &mut self.function.blocks[block].instructions;
         let index = instructions.len();
         instructions.push(instr);
-        if let Some(target) = target
-            && !self.function.locals[target].is_return
-        {
-            let previous = self.function.locals[target].defined.replace((block, index));
-            debug_assert!(
-                previous.is_none(),
-                "local {target:?} defined multiple times. {previous:?}, Some(({block:?}, {index:?}))"
+        if let Some(target) = target {
+            assert!(
+                self.function.locals[target].defined.is_empty()
+                    || self.function.return_local == Some(target),
+                "local {target:?} defined previously {:?}",
+                self.function.locals[target].defined
             );
+            match self.function.locals[target]
+                .defined
+                .entry(block)
+                .expect("block already valid above")
+            {
+                Entry::Occupied(entry) => {
+                    panic!(
+                        "local {target:?} already defined in block {block:?} at index {}. Cannot refine to index {index}",
+                        entry.get()
+                    )
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(index);
+                }
+            }
         }
         index
     }
@@ -1605,7 +1627,8 @@ impl FunctionBuilder {
     }
 
     fn resolve(&self, mut local: LocalId) -> LocalId {
-        while let Some((block, index)) = self.function.locals[local].defined {
+        while self.function.locals[local].defined.len() == 1 {
+            let (block, &index) = self.function.locals[local].defined.iter().next().unwrap();
             if let Instr::Copy {
                 source: Operand::Local(source),
                 ..
@@ -1659,7 +1682,7 @@ mod tests {
                 locals.insert(Local {
                     ty: Ty::U8,
                     is_return: false,
-                    defined: None,
+                    defined: SparseSecondaryMap::new(),
                     name: None,
                 })
             })
@@ -1988,21 +2011,72 @@ mod tests {
             },
         );
         assert_eq!(index, 0);
-        assert_eq!(fb.function.locals[local].defined, Some((block, 0)));
+        assert_eq!(fb.function.locals[local].defined.get(block), Some(&0));
     }
 
     #[test]
-    fn push_instr_does_not_record_definition_for_return_local() {
+    fn push_instr_does_records_definition_for_return_local() {
         let mut fb = new_builder();
         let block = fb.new_block();
         let ret_local = fb.create_return_local(Ty::U8);
-        fb.push_instr(block, Instr::ReturnValue { target: ret_local });
-        assert_eq!(fb.function.locals[ret_local].defined, None);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: ret_local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        assert_eq!(fb.function.locals[ret_local].defined.get(block), Some(&0));
     }
 
-    #[cfg(debug_assertions)]
     #[test]
-    #[should_panic(expected = "defined multiple times")]
+    fn push_instr_does_records_definition_for_return_local_when_divergent_blocks() {
+        let mut fb = new_builder();
+        let block1 = fb.new_block();
+        let block2 = fb.new_block();
+        let ret_local = fb.create_return_local(Ty::U8);
+        fb.push_instr(
+            block1,
+            Instr::Copy {
+                target: ret_local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        fb.push_instr(
+            block2,
+            Instr::Copy {
+                target: ret_local,
+                source: Operand::Literal(IntegerLiteral { value: 2 }),
+            },
+        );
+        assert_eq!(fb.function.locals[ret_local].defined.get(block1), Some(&0));
+        assert_eq!(fb.function.locals[ret_local].defined.get(block2), Some(&0));
+    }
+
+    #[test]
+    #[should_panic(expected = "already defined in block")]
+    fn panics_when_return_local_assigned_twice_in_same_block() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let ret_local = fb.create_return_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: ret_local,
+                source: Operand::Literal(IntegerLiteral { value: 1 }),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: ret_local,
+                source: Operand::Literal(IntegerLiteral { value: 2 }),
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "defined previously")]
     fn push_instr_panics_when_local_assigned_twice() {
         let mut fb = new_builder();
         let block = fb.new_block();
@@ -2312,7 +2386,7 @@ mod tests {
         let id = locals.insert(Local {
             ty: Ty::U8,
             is_return: false,
-            defined: None,
+            defined: SparseSecondaryMap::new(),
             name: Some(ident("x")),
         });
         let text = format!("{}", locals[id].display(id));
@@ -2326,7 +2400,7 @@ mod tests {
         let id = locals.insert(Local {
             ty: Ty::U8,
             is_return: true,
-            defined: None,
+            defined: SparseSecondaryMap::new(),
             name: None,
         });
         assert_eq!(format!("{}", locals[id].display(id)), "#RET");
@@ -2338,7 +2412,7 @@ mod tests {
         let id = locals.insert(Local {
             ty: Ty::U8,
             is_return: true,
-            defined: None,
+            defined: SparseSecondaryMap::new(),
             name: None,
         });
         let registry = TyRegistry::default();
