@@ -30,15 +30,13 @@ pub fn evaluate(
                 }
                 Instr::Alloc { target } => {
                     let source = Value::zeros(function.locals[*target].ty, ty_registry);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Phi { target, sources } => {
                     let source = sources
                         [previous_block.expect("phi cannot be resolved when no previous block")];
-                    let source = local_slots[source]
-                        .check_init(source, function, ty_registry)
-                        .clone();
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    let source = local_slots[source].check_init(source, function).clone();
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Load {
                     target,
@@ -49,19 +47,17 @@ pub fn evaluate(
                     let source = Value::from_bytes(global_ty, ty_registry, source);
                     let source =
                         read_projections(source, projections, &local_slots, function, ty_registry);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Read {
                     target,
                     source,
                     projections,
                 } => {
-                    let source = local_slots[*source]
-                        .check_init(*source, function, ty_registry)
-                        .clone();
+                    let source = local_slots[*source].check_init(*source, function).clone();
                     let source =
                         read_projections(source, projections, &local_slots, function, ty_registry);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Write {
                     target,
@@ -69,9 +65,7 @@ pub fn evaluate(
                     projections,
                     right,
                 } => {
-                    let left_value = local_slots[*left]
-                        .check_init(*left, function, ty_registry)
-                        .clone();
+                    let left_value = local_slots[*left].check_init(*left, function).clone();
                     let right_ty =
                         projected_ty(function.locals[*left].ty, projections, ty_registry);
                     let right =
@@ -86,7 +80,7 @@ pub fn evaluate(
                     );
                     let source =
                         Value::from_bytes(function.locals[*target].ty, ty_registry, &new_bytes);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Copy { target, source } => {
                     let source = Value::from_operand(
@@ -96,7 +90,7 @@ pub fn evaluate(
                         ty_registry,
                         source,
                     );
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Not { target, source } => {
                     let mut source = Value::from_operand(
@@ -107,7 +101,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = !source;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Neg { target, source } => {
                     let mut source = Value::from_operand(
@@ -118,7 +112,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = -source;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::RotateLeft { target, source } => {
                     let mut source = Value::from_operand(
@@ -129,7 +123,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.rotate_left_one();
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::RotateRight { target, source } => {
                     let mut source = Value::from_operand(
@@ -140,7 +134,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.rotate_right_one();
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::ShiftLeft { target, source } => {
                     let mut source = Value::from_operand(
@@ -151,7 +145,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.shift_left_one();
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::ShiftRight { target, source } => {
                     let mut source = Value::from_operand(
@@ -162,14 +156,14 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.shift_right_one();
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Eq {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -178,14 +172,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left == &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Ne {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -194,14 +188,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left != &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Lt {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -210,14 +204,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left < &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Le {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -226,14 +220,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left <= &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Ge {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -242,14 +236,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left >= &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Gt {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -258,14 +252,14 @@ pub fn evaluate(
                         right,
                     );
                     let source = Value::U1(left > &right);
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::BitAnd {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -275,14 +269,14 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source &= right;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::BitOr {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -292,14 +286,14 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source |= right;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::BitXor {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -309,14 +303,14 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source ^= right;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Add {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -326,14 +320,14 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source += right;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
                 Instr::Sub {
                     target,
                     left,
                     right,
                 } => {
-                    let left = local_slots[*left].check_init(*left, function, ty_registry);
+                    let left = local_slots[*left].check_init(*left, function);
                     let right = Value::from_operand(
                         &local_slots,
                         function,
@@ -343,7 +337,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source -= right;
-                    local_slots[*target].init(*target, function, ty_registry, source);
+                    local_slots[*target].init(*target, function, source);
                 }
             }
         }
@@ -361,7 +355,7 @@ pub fn evaluate(
                 else_block,
             } => {
                 if local_slots[*source]
-                    .check_init(*source, function, ty_registry)
+                    .check_init(*source, function)
                     .as_bool(*condition)
                 {
                     *then_block
@@ -375,7 +369,7 @@ pub fn evaluate(
                 else_block,
             } => {
                 if local_slots[*source]
-                    .check_init(*source, function, ty_registry)
+                    .check_init(*source, function)
                     .as_bool(*condition)
                 {
                     break;
@@ -565,9 +559,7 @@ impl Value {
         operand: &Operand,
     ) -> Self {
         match operand {
-            Operand::Local(local) => slots[*local]
-                .check_init(*local, function, ty_registry)
-                .clone(),
+            Operand::Local(local) => slots[*local].check_init(*local, function).clone(),
             Operand::Literal(int) => {
                 let byte_width = usize::from(ty.bit_size(ty_registry).padded_bytes());
                 Value::from_bytes(ty, ty_registry, &int.value.to_le_bytes()[..byte_width])
@@ -810,39 +802,21 @@ impl SubAssign for Value {
 }
 
 trait Slot {
-    fn check_init(&self, id: LocalId, function: &mir::Function, ty_registry: &TyRegistry)
-    -> &Value;
-    fn init(
-        &mut self,
-        id: LocalId,
-        function: &mir::Function,
-        ty_registry: &TyRegistry,
-        value: Value,
-    );
+    fn check_init(&self, id: LocalId, function: &mir::Function) -> &Value;
+    fn init(&mut self, id: LocalId, function: &mir::Function, value: Value);
 }
 
 impl Slot for Option<Value> {
-    fn check_init(
-        &self,
-        id: LocalId,
-        function: &mir::Function,
-        ty_registry: &TyRegistry,
-    ) -> &Value {
+    fn check_init(&self, id: LocalId, function: &mir::Function) -> &Value {
         self.as_ref()
-            .unwrap_or_else(|| panic!("{:#} not initialized", id.display(function, ty_registry)))
+            .unwrap_or_else(|| panic!("{} not initialized", id.display(function)))
     }
 
-    fn init(
-        &mut self,
-        id: LocalId,
-        function: &mir::Function,
-        ty_registry: &TyRegistry,
-        value: Value,
-    ) {
+    fn init(&mut self, id: LocalId, function: &mir::Function, value: Value) {
         assert!(
             self.is_none(),
-            "{:#} already initialized",
-            id.display(function, ty_registry)
+            "{} already initialized",
+            id.display(function)
         );
         *self = Some(value);
     }
