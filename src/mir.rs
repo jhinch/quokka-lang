@@ -106,6 +106,7 @@ impl Mir {
                             write!(f, "{} = ", target.display_with_ty(function, ty_registry))?;
                         }
                         match instruction {
+                            Instr::Nop => write!(f, "nop"),
                             Instr::Undefined { target: _ } => write!(f, "undefined"),
                             Instr::Alloc { target: _ } => write!(f, "alloc"),
                             Instr::ReturnValue { target: _ } => write!(f, "returnvalue"),
@@ -607,25 +608,6 @@ impl Function {
         }
         result_builder.finish(()).into_result()
     }
-
-    pub fn remove_dangling_locals(&mut self) {
-        for local in self.locals.keys().collect::<Vec<_>>() {
-            if self.return_local == Some(local) {
-                continue;
-            }
-            let dangling = self.locals[local]
-                .defined
-                .keys()
-                .all(|defined_block| !self.blocks.contains_key(defined_block));
-            if dangling {
-                self.locals.remove(local);
-            }
-        }
-    }
-
-    pub fn check_local_integrity(&self) -> Result<(), MultiError> {
-        Ok(())
-    }
 }
 
 /// MIR Basic block
@@ -810,6 +792,8 @@ impl Local {
 /// [`Instr::Store`] which writes to a [`Global`] instead.
 #[derive(Debug, Clone)]
 pub enum Instr {
+    /// no-op instruction. Useful for optimization phase to avoid modifying indices.
+    Nop,
     // assignment
     /// Placeholder instruction which can be used to recover generating MIR due to an error.
     /// However, it is expected that build() is never called for MIR with blocks containing
@@ -969,7 +953,7 @@ impl Instr {
             | Instr::ShiftRight { target, .. }
             | Instr::Add { target, .. }
             | Instr::Sub { target, .. } => Some(*target),
-            Instr::Store { .. } => None,
+            Instr::Nop | Instr::Store { .. } => None,
         }
     }
 
@@ -980,7 +964,10 @@ impl Instr {
         let mut projections_offset = 0;
         std::iter::from_fn(move || {
             let value = match self {
-                Instr::Undefined { .. } | Instr::Alloc { .. } | Instr::ReturnValue { .. } => None,
+                Instr::Nop
+                | Instr::Undefined { .. }
+                | Instr::Alloc { .. }
+                | Instr::ReturnValue { .. } => None,
                 Instr::Copy { source, .. } => match (next, source) {
                     (0, Operand::Local(local)) => Some(local),
                     _ => None,
@@ -1104,6 +1091,18 @@ pub enum Terminator {
         condition: Condition,
         else_block: BlockId,
     },
+}
+
+impl Terminator {
+    pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {
+        match self {
+            Terminator::Return | Terminator::Call { .. } | Terminator::Jump { .. } => None,
+            Terminator::CallIf { source, .. }
+            | Terminator::JumpIf { source, .. }
+            | Terminator::ReturnIf { source, .. } => Some(*source),
+        }
+        .into_iter()
+    }
 }
 
 /// The target of a [`Terminator::Call`] or [`Terminator::CallIf`].

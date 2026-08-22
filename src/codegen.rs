@@ -431,6 +431,7 @@ impl CodeGen {
         locals: &mut Locals,
     ) {
         match instruction {
+            mir::Instr::Nop => {}
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
                 let r8 = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
@@ -715,6 +716,7 @@ impl CodeGen {
         locals: &mut Locals,
     ) {
         match instruction {
+            mir::Instr::Nop => {}
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
                 let r8 = lir.insert_ld8(block, Ld8Source::Operand(Operand8::Literal(0)));
@@ -949,6 +951,7 @@ impl CodeGen {
         locals: &mut Locals,
     ) {
         match instruction {
+            mir::Instr::Nop => {}
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
                 let r16 = lir.insert_ld16(block, Ld16Source::Literal(0));

@@ -1,6 +1,7 @@
 use crate::cli::Execute;
 use quokka_lang::analyze::Analyzer;
 use quokka_lang::feature::PreviewFeature;
+use quokka_lang::optimize::Optimizer;
 use quokka_lang::parse::Parser;
 use tracing::instrument;
 
@@ -33,7 +34,10 @@ impl BuildCommand {
         let ast = parser.parse().into_result().map_err(miette::Report::new)?;
         let mut analyzer = Analyzer::default();
         analyzer.enable_features(self.preview_features.iter().cloned().collect());
-        let (mir, ty_registry) = analyzer.analyze(&ast).map_err(miette::Report::new)?;
+        let (mut mir, ty_registry) = analyzer.analyze(&ast).map_err(miette::Report::new)?;
+        let mut optimizer = Optimizer::default();
+        optimizer.enable_features(self.preview_features.iter().cloned().collect());
+        optimizer.optimize(&ty_registry, &mut mir)?;
         println!("{}", mir.display(&ty_registry));
         Ok(())
     }

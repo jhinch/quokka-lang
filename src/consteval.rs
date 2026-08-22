@@ -25,6 +25,7 @@ pub fn evaluate(
     loop {
         for instruction in function.blocks[block].instructions.iter() {
             match instruction {
+                Instr::Nop => {}
                 Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Store { .. } => {
                     unimplemented!("Unsupported instruction {instruction:?}")
                 }

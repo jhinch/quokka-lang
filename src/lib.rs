@@ -19,6 +19,7 @@ pub mod lir;
 pub mod mir;
 pub mod multi;
 pub mod num;
+pub mod optimize;
 pub mod parse;
 pub mod source;
 pub mod symbol;
