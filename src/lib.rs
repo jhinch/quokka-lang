@@ -21,6 +21,7 @@ pub mod multi;
 pub mod num;
 pub mod optimize;
 pub mod parse;
+pub mod pipeline;
 pub mod source;
 pub mod symbol;
 pub mod ty;

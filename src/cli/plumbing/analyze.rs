@@ -1,7 +1,6 @@
 use crate::cli::Execute;
-use quokka_lang::analyze::Analyzer;
 use quokka_lang::feature::PreviewFeature;
-use quokka_lang::parse::Parser;
+use quokka_lang::pipeline::PipelineConfig;
 use tracing::instrument;
 
 #[derive(clap::Args)]
@@ -27,14 +26,12 @@ impl Execute for AnalyzeCommand {
 
 impl AnalyzeCommand {
     fn analyze(&self, file_contents: &str) -> miette::Result<()> {
-        let mut parser = Parser::from(file_contents);
-        parser.enable_features(self.preview_features.iter().cloned().collect());
-
-        let ast = parser.parse().into_result().map_err(miette::Report::new)?;
-        let mut analyzer = Analyzer::default();
-        analyzer.enable_features(self.preview_features.iter().cloned().collect());
-        let (mir, ty_registry) = analyzer.analyze(&ast).map_err(miette::Report::new)?;
-        println!("{}", mir.display(&ty_registry));
+        let output = PipelineConfig::default()
+            .with_features(self.preview_features.iter().cloned().collect())
+            .start()
+            .parse(file_contents)?
+            .analyze()?;
+        println!("{}", output.mir().display(output.ty_registry()));
         Ok(())
     }
 }

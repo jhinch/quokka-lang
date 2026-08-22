@@ -571,20 +571,17 @@ fn test_parser(mut case: TestCase) {
 }
 
 fn test_analyzer(mut case: TestCase) {
-    let mut parser = quokka_lang::parse::Parser::from(case.source());
-    for feature in case.preview_features.iter().copied() {
-        parser.enable_feature(feature);
-    }
-    let root = parser
-        .parse()
-        .into_result()
+    let pipeline = quokka_lang::pipeline::PipelineConfig::default()
+        .with_features(case.preview_features.iter().copied().collect())
+        .start();
+    let root = pipeline
+        .parse(case.source())
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let mut analyzer = Analyzer::default();
-    for feature in case.preview_features.iter().copied() {
-        analyzer.enable_feature(feature);
-    }
-    let (actual_mir, actual_errors) = match analyzer.analyze(&root) {
-        Ok((mir, ty_registry)) => (format!("{}", mir.display(&ty_registry)), Vec::new()),
+    let (actual_mir, actual_errors) = match root.analyze() {
+        Ok(output) => (
+            format!("{}", output.mir().display(output.ty_registry())),
+            Vec::new(),
+        ),
         Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
     if let Some(tx) = case.updates_tx.clone() {
@@ -606,23 +603,16 @@ fn test_analyzer(mut case: TestCase) {
 }
 
 fn test_codegen(mut case: TestCase) {
-    let mut parser = quokka_lang::parse::Parser::from(case.source());
-    for feature in case.preview_features.iter().copied() {
-        parser.enable_feature(feature);
-    }
-    let root = parser
-        .parse()
-        .into_result()
-        .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let mut analyzer = Analyzer::default();
-    for feature in case.preview_features.iter().copied() {
-        analyzer.enable_feature(feature);
-    }
-    let (mir, ty_registry) = analyzer
-        .analyze(&root)
+    let pipeline = quokka_lang::pipeline::PipelineConfig::default()
+        .with_features(case.preview_features.iter().copied().collect())
+        .start();
+    let root = pipeline
+        .parse(case.source())
+        .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"))
+        .analyze()
         .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
-    let (actual_lir, actual_errors) = match CodeGen::from(ty_registry).generate(&mir) {
-        Ok(lir) => (format!("{}", lir), Vec::new()),
+    let (actual_lir, actual_errors) = match root.codegen() {
+        Ok(output) => (format!("{}", output.lir()), Vec::new()),
         Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
     if let Some(tx) = case.updates_tx.clone() {

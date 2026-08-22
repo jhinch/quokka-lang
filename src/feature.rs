@@ -50,7 +50,7 @@ pub struct PreviewFeatureError {
     pub feature: PreviewFeature,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PreviewFeatureSet {
     features: Vec<PreviewFeature>,
 }
