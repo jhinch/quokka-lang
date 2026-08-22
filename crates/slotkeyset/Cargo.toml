@@ -1,0 +1,8 @@
+[package]
+name = "quokka-lang-slotkeyset"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+indexmap.workspace = true
+slotmap.workspace = true

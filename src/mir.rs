@@ -14,6 +14,7 @@ use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::{IndexMap, IndexSet};
+use quokka_lang_slotkeyset::SlotKeySet;
 use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -1301,8 +1302,8 @@ pub struct FunctionBuilder {
     function: Function,
     variable_assignments: IndexMap<Variable, IndexMap<BlockId, Vec<LocalId>>>,
     variable_names: HashMap<Variable, SpannedIdentifier>,
-    terminated_blocks: SecondaryMap<BlockId, ()>,
-    sealed_blocks: SecondaryMap<BlockId, ()>,
+    terminated_blocks: SlotKeySet<BlockId>,
+    sealed_blocks: SlotKeySet<BlockId>,
     incomplete_phis: HashMap<BlockId, IndexMap<Variable, usize>>,
     next_var: u32,
 }
@@ -1318,8 +1319,8 @@ impl FunctionBuilder {
             },
             variable_assignments: IndexMap::new(),
             variable_names: HashMap::new(),
-            terminated_blocks: SecondaryMap::new(),
-            sealed_blocks: SecondaryMap::new(),
+            terminated_blocks: SlotKeySet::new(),
+            sealed_blocks: SlotKeySet::new(),
             incomplete_phis: HashMap::new(),
             next_var: 0,
         }
@@ -1335,7 +1336,7 @@ impl FunctionBuilder {
         if cfg!(debug_assertions) {
             for block_id in self.function.blocks.keys() {
                 assert!(
-                    self.sealed_blocks.contains_key(block_id),
+                    self.sealed_blocks.contains(block_id),
                     "{block_id} must be sealed"
                 );
             }
@@ -1450,7 +1451,7 @@ impl FunctionBuilder {
 
     pub fn set_terminator(&mut self, block: BlockId, terminator: Terminator) {
         debug_assert!(
-            !self.terminated_blocks.contains_key(block),
+            !self.terminated_blocks.contains(block),
             "block {block:?} is already terminated"
         );
         match &terminator {
@@ -1486,7 +1487,7 @@ impl FunctionBuilder {
             }
         }
         self.function.blocks[block].terminator = terminator;
-        self.terminated_blocks.insert(block, ());
+        self.terminated_blocks.insert(block);
     }
 
     /// Record the `local` as the current value for `var` in `block` (as per `writeVariable`
@@ -1524,7 +1525,7 @@ impl FunctionBuilder {
     /// defined in the Braun et al.'s algorithm) by traversing previous blocks, inserting
     /// phi nodes when necessary.
     fn read_variable_recursive(&mut self, var: Variable, block: BlockId) -> LocalId {
-        let value = if !self.sealed_blocks.contains_key(block) {
+        let value = if !self.sealed_blocks.contains(block) {
             let target = self.new_local(Ty::UNRESOLVED);
             let index = self.push_instr(
                 block,
@@ -1651,7 +1652,7 @@ impl FunctionBuilder {
                 self.add_phi_sources(var, block, phi, index);
             }
         }
-        self.sealed_blocks.insert(block, ());
+        self.sealed_blocks.insert(block);
     }
 }
 

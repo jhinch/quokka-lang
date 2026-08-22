@@ -460,8 +460,9 @@ dependencies = [
  "libtest-mimic",
  "miette",
  "owo-colors",
+ "quokka-lang-obj",
+ "quokka-lang-slotkeyset",
  "ron",
- "scoped-tls",
  "serde",
  "slotmap",
  "thiserror",
@@ -474,6 +475,14 @@ dependencies = [
 [[package]]
 name = "quokka-lang-obj"
 version = "0.1.0"
+
+[[package]]
+name = "quokka-lang-slotkeyset"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "slotmap",
+]
 
 [[package]]
 name = "quote"
@@ -534,12 +543,6 @@ dependencies = [
  "linux-raw-sys",
  "windows-sys",
 ]
-
-[[package]]
-name = "scoped-tls"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
 
 [[package]]
 name = "scopeguard"

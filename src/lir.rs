@@ -11,6 +11,7 @@
 
 use crate::ast::Identifier;
 use crate::num::{BitCount, u3};
+use quokka_lang_slotkeyset::{SlotKeySet, SparseSlotKeySet};
 use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
@@ -1515,9 +1516,9 @@ impl LirBuilder {
 #[derive(Debug, Default)]
 pub struct CodeSectionBuilder {
     data: CodeSectionData,
-    terminated_blocks: SecondaryMap<BlockId, ()>,
-    outstanding_phi_r8s: SparseSecondaryMap<R8Id, SparseSecondaryMap<BlockId, ()>>,
-    outstanding_phi_r16s: SparseSecondaryMap<R16Id, SparseSecondaryMap<BlockId, ()>>,
+    terminated_blocks: SlotKeySet<BlockId>,
+    outstanding_phi_r8s: SparseSecondaryMap<R8Id, SparseSlotKeySet<BlockId>>,
+    outstanding_phi_r16s: SparseSecondaryMap<R16Id, SparseSlotKeySet<BlockId>>,
     phi_r16s_high_low: SparseSecondaryMap<R16Id, (R8Id, R8Id)>,
 }
 
@@ -1561,7 +1562,7 @@ impl CodeSectionBuilder {
 
     pub fn set_terminator(&mut self, block: BlockId, terminator: Terminator) {
         debug_assert!(
-            !self.terminated_blocks.contains_key(block),
+            !self.terminated_blocks.contains(block),
             "block {block:?} is already terminated"
         );
         match &terminator {
@@ -1594,7 +1595,7 @@ impl CodeSectionBuilder {
             }
         }
         self.data.blocks[block].terminator = terminator;
-        self.terminated_blocks.insert(block, ());
+        self.terminated_blocks.insert(block);
     }
 
     fn new_r8(&mut self) -> R8Id {
@@ -1645,21 +1646,16 @@ impl CodeSectionBuilder {
     #[must_use]
     pub fn reserve_phi_r8(&mut self) -> R8Id {
         let r8 = self.new_r8();
-        self.outstanding_phi_r8s
-            .insert(r8, SparseSecondaryMap::new());
+        self.outstanding_phi_r8s.insert(r8, SparseSlotKeySet::new());
         r8
     }
 
     pub fn insert_phi_r8_ld(&mut self, block: BlockId, target: R8Id, source: R8Id) {
         match self.outstanding_phi_r8s.entry(target).unwrap() {
-            Entry::Occupied(mut entry) => match entry.get_mut().entry(block).unwrap() {
-                Entry::Occupied(_) => {
-                    panic!("block {block:?} already inserted load for phi register {target:?}")
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(());
-                }
-            },
+            Entry::Occupied(mut entry) => assert!(
+                entry.get_mut().insert(block),
+                "block {block:?} already inserted load for phi register {target:?}"
+            ),
             Entry::Vacant(_) => panic!("{target:?} not a phi register"),
         }
         self.insert_instr(
@@ -1676,11 +1672,7 @@ impl CodeSectionBuilder {
             .outstanding_phi_r8s
             .remove(target)
             .unwrap_or_else(|| panic!("{target:?} already completed"));
-        let expected = blocks
-            .iter()
-            .copied()
-            .map(|block| (block, ()))
-            .collect::<SparseSecondaryMap<_, _>>();
+        let expected = blocks.iter().copied().collect::<SparseSlotKeySet<_>>();
         assert_eq!(
             actual, expected,
             "missing phi loads for phi register {target:?}"
@@ -1691,7 +1683,7 @@ impl CodeSectionBuilder {
     pub fn reserve_phi_r16(&mut self) -> R16Id {
         let r16 = self.new_r16();
         self.outstanding_phi_r16s
-            .insert(r16, SparseSecondaryMap::new());
+            .insert(r16, SparseSlotKeySet::new());
         let low = self.new_r8();
         let high = self.new_r8();
         self.phi_r16s_high_low.insert(r16, (high, low));
@@ -1700,14 +1692,10 @@ impl CodeSectionBuilder {
 
     pub fn insert_phi_r16_ld(&mut self, block: BlockId, target: R16Id, source: R16Id) {
         match self.outstanding_phi_r16s.entry(target).unwrap() {
-            Entry::Occupied(mut entry) => match entry.get_mut().entry(block).unwrap() {
-                Entry::Occupied(_) => {
-                    panic!("block {block:?} already inserted load for phi register {target:?}")
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(());
-                }
-            },
+            Entry::Occupied(mut entry) => assert!(
+                entry.get_mut().insert(block),
+                "block {block:?} already inserted load for phi register {target:?}"
+            ),
             Entry::Vacant(_) => panic!("{target:?} not a phi register"),
         }
         let (source_high, source_low) = self.insert_split(block, source);
@@ -1741,11 +1729,7 @@ impl CodeSectionBuilder {
             .outstanding_phi_r16s
             .remove(target)
             .unwrap_or_else(|| panic!("{target:?} already completed"));
-        let expected = blocks
-            .iter()
-            .copied()
-            .map(|block| (block, ()))
-            .collect::<SparseSecondaryMap<_, _>>();
+        let expected = blocks.iter().copied().collect::<SparseSlotKeySet<_>>();
         assert_eq!(
             actual, expected,
             "missing phi loads for phi register {target:?}"
