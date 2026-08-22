@@ -577,7 +577,7 @@ fn test_analyzer(mut case: TestCase) {
     let root = pipeline
         .parse(case.source())
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let (actual_mir, actual_errors) = match root.analyze() {
+    let (actual_mir, actual_errors) = match root.analyze().and_then(|output| output.optimize()) {
         Ok(output) => (
             format!("{}", output.mir().display(output.ty_registry())),
             Vec::new(),

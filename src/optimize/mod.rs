@@ -6,6 +6,7 @@ use std::ops::{BitOr, BitOrAssign};
 use tracing::instrument;
 
 pub mod adce;
+pub mod graph;
 pub mod sccp;
 
 pub struct Optimizer {
