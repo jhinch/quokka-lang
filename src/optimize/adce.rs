@@ -25,7 +25,7 @@ impl Optimize for Adce {
 }
 
 impl Adce {
-    #[instrument(skip(self, function), fields(function = %function.name))]
+    #[instrument(skip(self, function), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
     fn optimize_function(&self, function: &mut Function) -> Outcome {
         let graph = Graph::from(&*function).reverse();
         let (reverse_dominance_frontier, immediate_post_dominators) =
@@ -178,6 +178,9 @@ impl Adce {
                         immediate_post_dominators,
                         &marked.required_blocks,
                     ) {
+                        tracing::debug!(
+                            "Updated jumpif in {block_id:?} from then_block={then_block:?}, else_block={else_block:?} to target_block={target_block:?}"
+                        );
                         outcome = Outcome::Modified;
                         Terminator::Jump { target_block }
                     } else {
@@ -207,6 +210,7 @@ impl Adce {
                     let existing = std::mem::replace(instrument, Instr::Nop);
                     if !matches!(existing, Instr::Nop) {
                         outcome = Outcome::Modified;
+                        tracing::debug!("Dropping dead {existing:?} from block {block_id:?}");
                     }
                     if let Some(target) = existing.target_local() {
                         function.locals.remove(target);
