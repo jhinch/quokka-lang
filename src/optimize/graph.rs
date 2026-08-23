@@ -2,8 +2,10 @@ use crate::mir::{BlockId, Function, Terminator};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
 use std::collections::VecDeque;
+use std::fmt;
+use tracing::instrument;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Node {
     Block(BlockId),
     Exit,
@@ -12,6 +14,15 @@ pub enum Node {
 impl From<BlockId> for Node {
     fn from(block: BlockId) -> Self {
         Node::Block(block)
+    }
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Node::Block(block) => write!(f, "{block}"),
+            Node::Exit => write!(f, "<exit>"),
+        }
     }
 }
 
@@ -27,11 +38,42 @@ impl From<BlockId> for Node {
 ///    implementation
 pub struct Graph {
     source: Node,
+    sink: Node,
     // use IndexMap and IndexSet here not because the order is relevant to the graph
     // but in order to create repeatability via a stable order
     forward_edges: IndexMap<Node, IndexSet<Node>>,
     backward_edges: IndexMap<Node, IndexSet<Node>>,
-    sink: Node,
+}
+
+impl fmt::Debug for Graph {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        struct DebugEdgesMap<'a>(&'a IndexMap<Node, IndexSet<Node>>);
+        impl fmt::Debug for DebugEdgesMap<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let mut debug_map = f.debug_map();
+                for (node, edges) in self.0 {
+                    debug_map.entry(node, &DebugEdgesSet(edges));
+                }
+                debug_map.finish()
+            }
+        }
+        struct DebugEdgesSet<'a>(&'a IndexSet<Node>);
+        impl fmt::Debug for DebugEdgesSet<'_> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let mut debug_set = f.debug_set();
+                for node in self.0 {
+                    debug_set.entry(node);
+                }
+                debug_set.finish()
+            }
+        }
+        f.debug_struct("Graph")
+            .field("source", &self.source)
+            .field("sink", &self.sink)
+            .field("forward_edges", &DebugEdgesMap(&self.forward_edges))
+            .field("backward_edges", &DebugEdgesMap(&self.backward_edges))
+            .finish()
+    }
 }
 
 impl Graph {
@@ -70,6 +112,7 @@ impl Graph {
             postorder.reverse();
             postorder
         };
+        tracing::trace!("Calculated reverse postorder as {reverse_postorder:?}");
 
         let mut immediate_dominators = IndexMap::new();
         immediate_dominators.insert(self.source, self.source);
@@ -86,6 +129,9 @@ impl Graph {
                     .copied()
                     .filter(|n| immediate_dominators.contains_key(n))
                 {
+                    tracing::trace!(
+                        "Consider immediate_dominator for {node:?}. candidate={candidate:?}, existing={new_immediate_dominator:?}"
+                    );
                     new_immediate_dominator = Some(match new_immediate_dominator {
                         None => candidate,
                         Some(existing) => {
@@ -93,12 +139,22 @@ impl Graph {
                             // using the reverse postorder and immediate_dominators
                             let mut finger1 = candidate;
                             let mut finger2 = existing;
+                            // u16 so that it panics in debug mode if reach u16::MAX
+                            let mut count: u16 = 0;
                             while finger1 != finger2 {
-                                while reverse_postorder[&finger1] < reverse_postorder[&finger2] {
+                                while reverse_postorder[&finger1] > reverse_postorder[&finger2] {
                                     finger1 = immediate_dominators[&finger1];
+                                    tracing::trace!(
+                                        "Consider immediate_dominator for {node:?}. finger1={finger1:?}, finger2={finger2:?}"
+                                    );
+                                    count += 1;
                                 }
-                                while reverse_postorder[&finger2] < reverse_postorder[&finger1] {
+                                while reverse_postorder[&finger2] > reverse_postorder[&finger1] {
                                     finger2 = immediate_dominators[&finger2];
+                                    tracing::trace!(
+                                        "Consider immediate_dominator for {node:?}. finger1={finger1:?}, finger2={finger2:?}"
+                                    );
+                                    count += 1;
                                 }
                             }
                             finger1
@@ -163,6 +219,7 @@ impl Graph {
     /// from ("A Simple, Fast Dominance Algorithm", 2001).
     ///  Figure 5: The Dominance-Frontier Algorithm
     #[must_use]
+    #[instrument(skip(self))]
     pub fn calculate_dominance_frontier(
         &self,
     ) -> (IndexMap<Node, IndexSet<Node>>, IndexMap<Node, Node>) {
@@ -194,7 +251,7 @@ impl From<&Function> for Graph {
         let mut forward_edges = function
             .traverse_blocks()
             .map(|block| {
-                let mut forward = function.blocks[block]
+                let mut edges = function.blocks[block]
                     .next_blocks()
                     .map(Node::from)
                     .collect::<IndexSet<_>>();
@@ -202,17 +259,17 @@ impl From<&Function> for Graph {
                     function.blocks[block].terminator,
                     Terminator::Return | Terminator::ReturnIf { .. }
                 ) {
-                    forward.insert(sink);
+                    edges.insert(sink);
                 }
                 // ensure that each node has a backward edges entry
                 backward_edges.entry(Node::from(block)).or_default();
-                for &node in &forward {
+                for &node in &edges {
                     backward_edges
                         .entry(node)
                         .or_default()
                         .insert(Node::from(block));
                 }
-                (Node::from(block), forward)
+                (Node::from(block), edges)
             })
             .collect::<IndexMap<_, _>>();
         forward_edges.entry(sink).or_default();
@@ -225,12 +282,14 @@ impl From<&Function> for Graph {
                 backward_edges.entry(sink).or_default().insert(node);
             }
         }
-        Graph {
+        let graph = Graph {
             source,
             forward_edges,
             backward_edges,
             sink,
-        }
+        };
+        tracing::trace!("Graph for {} calculated {graph:?}", function.name);
+        graph
     }
 }
 

@@ -1,7 +1,5 @@
 use libtest_mimic::{Arguments, Trial};
 use miette::LabeledSpan;
-use quokka_lang::analyze::Analyzer;
-use quokka_lang::codegen::CodeGen;
 use quokka_lang::multi::{MultiError, MultiResult};
 use std::collections::HashMap;
 use std::fmt;

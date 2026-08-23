@@ -18,18 +18,23 @@ impl Optimize for Adce {
     fn optimize(&self, mir: &mut Mir, _ty_registry: &TyRegistry) -> Outcome {
         let mut outcome = Outcome::Unmodified;
         for function in mir.functions.values_mut() {
-            let graph = Graph::from(&*function).reverse();
-            let (reverse_dominance_frontier, immediate_post_dominators) =
-                graph.calculate_dominance_frontier();
-            let marked = self.mark_pass(function, &reverse_dominance_frontier);
-            outcome |= self.sweep_pass(function, marked, &immediate_post_dominators);
+            outcome |= self.optimize_function(function);
         }
         outcome
     }
 }
 
 impl Adce {
-    #[instrument(skip(self, function, reverse_dominance_frontier), fields(function = %function.name))]
+    #[instrument(skip(self, function), fields(function = %function.name))]
+    fn optimize_function(&self, function: &mut Function) -> Outcome {
+        let graph = Graph::from(&*function).reverse();
+        let (reverse_dominance_frontier, immediate_post_dominators) =
+            graph.calculate_dominance_frontier();
+        let marked = self.mark_pass(function, &reverse_dominance_frontier);
+        self.sweep_pass(function, marked, &immediate_post_dominators)
+    }
+
+    #[instrument(skip(self, function, reverse_dominance_frontier))]
     fn mark_pass(
         &self,
         function: &Function,
