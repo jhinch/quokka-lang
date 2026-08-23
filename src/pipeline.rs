@@ -136,6 +136,7 @@ impl AnalyzerOutput {
 }
 
 pub struct CodegenOutput {
+    #[allow(dead_code)]
     config: PipelineConfig,
     lir: Lir,
 }

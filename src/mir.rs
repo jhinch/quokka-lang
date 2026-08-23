@@ -14,7 +14,7 @@ use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::{IndexMap, IndexSet};
-use quokka_lang_slotkeyset::SlotKeySet;
+use quokka_lang_slotkeyset::{SlotKeySet, SparseSlotKeySet, StableSparseSlotKeySet};
 use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -444,15 +444,22 @@ impl Function {
     }
 
     pub fn remove_dangling(&mut self) {
-        let all_blocks = self.blocks.keys().collect::<IndexSet<_>>();
-        let reachable_blocks = self.traverse_blocks().collect::<IndexSet<_>>();
-        for block in all_blocks.difference(&reachable_blocks) {
-            self.blocks.remove(*block);
+        let all_blocks = self.blocks.keys().collect::<SlotKeySet<_>>();
+        let reachable_blocks = self.traverse_blocks().collect::<SlotKeySet<_>>();
+        for block_id in all_blocks.difference(&reachable_blocks) {
+            let block = self.blocks.remove(block_id);
+            // ensure previous updated
+            if let Some(block) = block {
+                for next_block_id in block.terminator.next_blocks() {
+                    if let Some(next_block) = self.blocks.get_mut(next_block_id) {
+                        next_block.previous.remove(block_id);
+                    }
+                }
+            }
         }
         let all_locals = self.locals.keys().collect::<IndexSet<_>>();
         let reachable_locals = reachable_blocks
             .iter()
-            .copied()
             .flat_map(|block_id| &self.blocks[block_id].instructions)
             .flat_map(|instruction| instruction.target_local())
             .collect::<IndexSet<_>>();
@@ -470,7 +477,7 @@ impl Function {
                     "dangling block {block_id:?}"
                 )));
             }
-            for previous_id in block.previous.iter().copied() {
+            for previous_id in block.previous.iter() {
                 match self.blocks.get(previous_id) {
                     None => {
                         result_builder.add_error(miette::MietteDiagnostic::new(format!(
@@ -563,13 +570,14 @@ impl Function {
                     Instr::ReturnValue { .. } => {
                         if index != 0
                             || block.previous.len() != 1
-                            || !matches!(self.blocks[block.previous.first().copied().unwrap()].terminator, Terminator::Call { return_block, .. } | Terminator::CallIf { return_block, .. } if return_block == block_id)
+                            || !matches!(self.blocks[block.previous.iter().next().unwrap()].terminator, Terminator::Call { return_block, .. } | Terminator::CallIf { return_block, .. } if return_block == block_id)
                         {
-                            result_builder.add_error(miette::MietteDiagnostic::new(format!("ReturnValue instruction must be the next instruction after a call. Found {block_id:?} at index {index} with previous = {:?}", block.previous.iter().copied().map(|previous| &self.blocks[previous].terminator).collect::<Vec<_>>())));
+                            result_builder.add_error(miette::MietteDiagnostic::new(format!("ReturnValue instruction must be the next instruction after a call. Found {block_id:?} at index {index} with previous = {:?}", block.previous.iter().map(|previous| &self.blocks[previous].terminator).collect::<Vec<_>>())));
                         }
                     }
                     Instr::Phi { sources, .. } => {
-                        let source_block_ids = sources.keys().collect::<IndexSet<_>>();
+                        let source_block_ids =
+                            sources.keys().collect::<StableSparseSlotKeySet<_>>();
                         if block.previous != source_block_ids {
                             result_builder.add_error(miette::MietteDiagnostic::new(format!("Phi instruction found in {block_id:?} at index {index} with is missing sources. Expected {:?}, actual {:?}", block.previous, source_block_ids)));
                         }
@@ -621,51 +629,18 @@ pub struct Block {
     /// The instruction that determines how control leaves this block.
     pub terminator: Terminator,
     /// The blocks known to jump or call into this block.
-    previous: IndexSet<BlockId>,
+    previous: StableSparseSlotKeySet<BlockId>,
 }
 
 impl Block {
-    /// Iterates the blocks this block's [Terminator] may transfer control to.
+    /// Iterates the blocks this block's [`Terminator`] may transfer control to.
     pub fn next_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
-        let mut next = 0;
-        std::iter::from_fn(move || {
-            let block = match self.terminator {
-                Terminator::Return => None,
-                Terminator::Jump { target_block, .. }
-                | Terminator::Call {
-                    return_block: target_block,
-                    ..
-                }
-                | Terminator::ReturnIf {
-                    else_block: target_block,
-                    ..
-                } => match next {
-                    0 => Some(target_block),
-                    _ => None,
-                },
-                Terminator::JumpIf {
-                    then_block,
-                    else_block,
-                    ..
-                }
-                | Terminator::CallIf {
-                    return_block: then_block,
-                    else_block,
-                    ..
-                } => match next {
-                    0 => Some(then_block),
-                    1 => Some(else_block),
-                    _ => None,
-                },
-            }?;
-            next += 1;
-            Some(block)
-        })
+        self.terminator.next_blocks()
     }
 
     /// Iterates the blocks known to jump or call into this block.
     pub fn previous_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
-        self.previous.iter().copied()
+        self.previous.iter()
     }
 }
 
@@ -1102,6 +1077,43 @@ impl Terminator {
             | Terminator::ReturnIf { source, .. } => Some(*source),
         }
         .into_iter()
+    }
+
+    pub fn next_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let block = match self {
+                Terminator::Return => None,
+                Terminator::Jump { target_block, .. }
+                | Terminator::Call {
+                    return_block: target_block,
+                    ..
+                }
+                | Terminator::ReturnIf {
+                    else_block: target_block,
+                    ..
+                } => match next {
+                    0 => Some(target_block),
+                    _ => None,
+                },
+                Terminator::JumpIf {
+                    then_block,
+                    else_block,
+                    ..
+                }
+                | Terminator::CallIf {
+                    return_block: then_block,
+                    else_block,
+                    ..
+                } => match next {
+                    0 => Some(then_block),
+                    1 => Some(else_block),
+                    _ => None,
+                },
+            }?;
+            next += 1;
+            Some(*block)
+        })
     }
 }
 
@@ -1544,8 +1556,12 @@ impl FunctionBuilder {
                 (None, None) => {
                     panic!("attempted to read variable {var:?} from dangling block {block:?}")
                 }
-                (Some(single), None) => self.read_variable(var, *single),
+                (Some(single), None) => {
+                    drop(previous_blocks);
+                    self.read_variable(var, single)
+                }
                 _ => {
+                    drop(previous_blocks);
                     let target = self.new_local(Ty::UNRESOLVED);
                     let index = self.push_instr(
                         block,
@@ -1574,7 +1590,6 @@ impl FunctionBuilder {
         let previous_blocks = self.function.blocks[block]
             .previous
             .iter()
-            .copied()
             .collect::<Vec<_>>();
         for previous in previous_blocks {
             let value = self.read_variable(var, previous);
@@ -1655,6 +1670,35 @@ impl FunctionBuilder {
     }
 }
 
+pub struct FunctionMutator<'a> {
+    function: &'a mut Function,
+}
+
+impl<'a> From<&'a mut Function> for FunctionMutator<'a> {
+    fn from(function: &'a mut Function) -> Self {
+        FunctionMutator { function }
+    }
+}
+
+impl FunctionMutator<'_> {
+    pub fn replace_terminator(&mut self, block: BlockId, new_terminator: Terminator) {
+        let new_next_blocks = new_terminator
+            .next_blocks()
+            .collect::<SparseSlotKeySet<_>>();
+        let old_terminator =
+            std::mem::replace(&mut self.function.blocks[block].terminator, new_terminator);
+        let old_next_blocks = old_terminator
+            .next_blocks()
+            .collect::<SparseSlotKeySet<_>>();
+        for dangling_block in old_next_blocks.difference(&new_next_blocks) {
+            self.function.blocks[dangling_block].previous.remove(block);
+        }
+        for new_next_block in new_next_blocks.difference(&old_next_blocks) {
+            self.function.blocks[new_next_block].previous.insert(block);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1722,7 +1766,7 @@ mod tests {
         let block = Block {
             instructions: vec![],
             terminator: Terminator::Return,
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![]);
     }
@@ -1735,7 +1779,7 @@ mod tests {
             terminator: Terminator::Jump {
                 target_block: ids[0],
             },
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
     }
@@ -1750,7 +1794,7 @@ mod tests {
                 callee: Callee::Local(local_ids[0]),
                 return_block: ids[0],
             },
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
         let _ = ids[1];
@@ -1767,7 +1811,7 @@ mod tests {
                 condition: Condition::Zero,
                 else_block: ids[0],
             },
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(block.next_blocks().collect::<Vec<_>>(), vec![ids[0]]);
     }
@@ -1784,7 +1828,7 @@ mod tests {
                 then_block: ids[0],
                 else_block: ids[1],
             },
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(
             block.next_blocks().collect::<Vec<_>>(),
@@ -1805,7 +1849,7 @@ mod tests {
                 return_block: ids[0],
                 else_block: ids[1],
             },
-            previous: IndexSet::new(),
+            previous: StableSparseSlotKeySet::new(),
         };
         assert_eq!(
             block.next_blocks().collect::<Vec<_>>(),
