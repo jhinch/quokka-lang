@@ -14,9 +14,10 @@ use crate::attr::{ConstDeclAttributes, FnDeclAttributes, GlobalDeclAttributes};
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::ty::{Ty, TyRegistry};
 use indexmap::{IndexMap, IndexSet};
-use quokka_lang_slotkeyset::{SlotKeySet, SparseSlotKeySet, StableSparseSlotKeySet};
+use quokka_lang_slotkeyset::{SlotKeySet, StableSparseSlotKeySet};
 use slotmap::sparse_secondary::Entry;
 use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
+use std::assert_matches;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::ops::Not;
@@ -400,7 +401,7 @@ pub struct Function {
     pub start_block: BlockId,
     /// The blocks that may terminate execution of the function (i.e. those ending in
     /// [`Terminator::Return`] or [`Terminator::ReturnIf`]).
-    pub end_blocks: IndexSet<BlockId>,
+    pub end_blocks: StableSparseSlotKeySet<BlockId>,
 }
 
 impl Function {
@@ -447,15 +448,12 @@ impl Function {
         let all_blocks = self.blocks.keys().collect::<SlotKeySet<_>>();
         let reachable_blocks = self.traverse_blocks().collect::<SlotKeySet<_>>();
         for block_id in all_blocks.difference(&reachable_blocks) {
-            let block = self.blocks.remove(block_id);
-            // ensure previous updated
-            if let Some(block) = block {
-                for next_block_id in block.terminator.next_blocks() {
-                    if let Some(next_block) = self.blocks.get_mut(next_block_id) {
-                        next_block.previous.remove(block_id);
-                    }
-                }
+            // detach the block from the next blocks safely
+            for next_block_id in self.blocks[block_id].next_blocks().collect::<Vec<_>>() {
+                FunctionMutator::from(&mut *self).remove_next_block(block_id, next_block_id);
             }
+            self.blocks.remove(block_id);
+            self.end_blocks.remove(block_id);
         }
         let all_locals = self.locals.keys().collect::<IndexSet<_>>();
         let reachable_locals = reachable_blocks
@@ -497,7 +495,7 @@ impl Function {
                 }
             }
         }
-        for block_id in self.end_blocks.iter().copied() {
+        for block_id in self.end_blocks.iter() {
             if !self.blocks.contains_key(block_id) {
                 result_builder.add_error(miette::MietteDiagnostic::new(format!(
                     "unknown end block {block_id:?}"
@@ -585,7 +583,7 @@ impl Function {
                             match self.locals.get(*source_id).and_then(|source| source.defined.iter().next()) {
                                 None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
                                 Some((source_block_id, &source_index)) => {
-                                    if previous_block_id != source_block_id && !block_to_upstream_blocks[&previous_block_id].contains(&source_block_id) {
+                                    if previous_block_id != source_block_id && !block_to_upstream_blocks.get(&previous_block_id).map(|upstream| upstream.contains(&source_block_id)).unwrap_or(false) {
                                     result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses {source_id:?} before assigned. Source defined in block {source_block_id:?} at index {source_index}")));
                                     }
                                 }
@@ -1681,20 +1679,208 @@ impl<'a> From<&'a mut Function> for FunctionMutator<'a> {
 }
 
 impl FunctionMutator<'_> {
-    pub fn replace_terminator(&mut self, block: BlockId, new_terminator: Terminator) {
-        let new_next_blocks = new_terminator
-            .next_blocks()
-            .collect::<SparseSlotKeySet<_>>();
-        let old_terminator =
-            std::mem::replace(&mut self.function.blocks[block].terminator, new_terminator);
-        let old_next_blocks = old_terminator
-            .next_blocks()
-            .collect::<SparseSlotKeySet<_>>();
-        for dangling_block in old_next_blocks.difference(&new_next_blocks) {
-            self.function.blocks[dangling_block].previous.remove(block);
+    pub fn remove_next_block(&mut self, block: BlockId, old_next_block: BlockId) {
+        assert!(
+            self.function.blocks[old_next_block]
+                .previous
+                .contains(block),
+            "block {block:?} not connected to {old_next_block:?}"
+        );
+        tracing::trace!(
+            "Modifying  {block:?}, to remove {old_next_block:?} in function {}. Current terminator {:?}",
+            self.function.name,
+            self.function.blocks[block].terminator
+        );
+        self.function.blocks[block].terminator =
+            match std::mem::take(&mut self.function.blocks[block].terminator) {
+                Terminator::CallIf {
+                    callee,
+                    return_block,
+                    else_block: new_next_block,
+                    ..
+                }
+                | Terminator::CallIf {
+                    callee,
+                    else_block: return_block,
+                    return_block: new_next_block,
+                    ..
+                } if return_block == old_next_block => Terminator::Call {
+                    callee,
+                    return_block: new_next_block,
+                },
+                Terminator::JumpIf {
+                    then_block: target_block,
+                    else_block: new_next_block,
+                    ..
+                }
+                | Terminator::JumpIf {
+                    else_block: target_block,
+                    then_block: new_next_block,
+                    ..
+                } if target_block == old_next_block => Terminator::Jump {
+                    target_block: new_next_block,
+                },
+                Terminator::ReturnIf {
+                    else_block: target_block,
+                    ..
+                }
+                | Terminator::Jump { target_block, .. }
+                    if target_block == old_next_block =>
+                {
+                    self.function.end_blocks.insert(block);
+                    Terminator::Return
+                }
+                Terminator::Call { return_block, .. } if return_block == old_next_block => {
+                    panic!("cannot remove Call terminator as call could have side effect")
+                }
+                terminator => {
+                    panic!("old_next_block {old_next_block:?} is a next block for {terminator:?}")
+                }
+            };
+        self.function.blocks[old_next_block].previous.remove(block);
+        for instruction in self.function.blocks[old_next_block].instructions.iter_mut() {
+            if let Instr::Phi { sources, .. } = instruction {
+                sources.remove(block);
+            }
         }
-        for new_next_block in new_next_blocks.difference(&old_next_blocks) {
-            self.function.blocks[new_next_block].previous.insert(block);
+    }
+
+    pub fn replace_next_block(
+        &mut self,
+        block: BlockId,
+        old_next_block: BlockId,
+        new_next_block: BlockId,
+    ) {
+        assert_ne!(
+            old_next_block, new_next_block,
+            "cannot replace next block {old_next_block:?} with itself"
+        );
+        if self.function.blocks[block]
+            .terminator
+            .next_blocks()
+            .any(|next_block| next_block == new_next_block)
+        {
+            self.remove_next_block(block, old_next_block);
+            return;
+        }
+        tracing::trace!(
+            "Modifying {block:?}, to replace next block {old_next_block:?} with {new_next_block:?} in function {}. Current terminator {:?}",
+            self.function.name,
+            self.function.blocks[block].terminator
+        );
+        match &mut self.function.blocks[block].terminator {
+            Terminator::Call {
+                return_block: next_block,
+                ..
+            }
+            | Terminator::CallIf {
+                return_block: next_block,
+                ..
+            }
+            | Terminator::CallIf {
+                else_block: next_block,
+                ..
+            }
+            | Terminator::Jump {
+                target_block: next_block,
+            }
+            | Terminator::JumpIf {
+                then_block: next_block,
+                ..
+            }
+            | Terminator::JumpIf {
+                else_block: next_block,
+                ..
+            }
+            | Terminator::ReturnIf {
+                else_block: next_block,
+                ..
+            } if *next_block == old_next_block => {
+                *next_block = new_next_block;
+            }
+            terminator => {
+                panic!("old_next_block {old_next_block:?} is a next block for {terminator:?}")
+            }
+        }
+        self.function.blocks[old_next_block].previous.remove(block);
+        let mut phi_mapping = SparseSecondaryMap::new();
+        for instruction in self.function.blocks[old_next_block].instructions.iter_mut() {
+            if let Instr::Phi { target, sources } = instruction {
+                phi_mapping.insert(*target, sources.remove(block).unwrap());
+            }
+        }
+        if self.function.blocks[new_next_block].previous.insert(block) {
+            for instruction in self.function.blocks[new_next_block].instructions.iter_mut() {
+                if let Instr::Phi { sources, .. } = instruction {
+                    if let Some(&local) = sources.get(old_next_block) {
+                        sources.insert(block, local);
+                    } else {
+                        panic!(
+                            "cannot determine source of phi in block {new_next_block:?} new previous block {block:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn remove_call_terminator(&mut self, block: BlockId) {
+        self.function.blocks[block].terminator =
+            match std::mem::take(&mut self.function.blocks[block].terminator) {
+                Terminator::Call {
+                    return_block: target_block,
+                    ..
+                } => Terminator::Jump { target_block },
+                Terminator::CallIf {
+                    source,
+                    condition,
+                    return_block: then_block,
+                    else_block,
+                    ..
+                } => Terminator::JumpIf {
+                    source,
+                    condition,
+                    then_block,
+                    else_block,
+                },
+                terminator => panic!("{terminator:?} is not a Call or CallIf terminator"),
+            }
+    }
+
+    pub fn join_blocks(&mut self, previous_block: BlockId, block: BlockId) {
+        assert_matches!(self.function.blocks[previous_block].terminator, Terminator::Jump { target_block } if target_block == block, "{previous_block:?} must jump to {block:?}");
+        assert_eq!(
+            self.function.blocks[block].previous.len(),
+            1,
+            "{block:?} must have only one previous block to join to previous {previous_block}"
+        );
+        tracing::trace!(
+            "joining blocks {previous_block:?}, and {block:?} in function {}",
+            self.function.name
+        );
+        let mut clean_count = self.function.blocks[previous_block].instructions.len();
+        let terminator = std::mem::take(&mut self.function.blocks[block].terminator);
+        let instructions = std::mem::take(&mut self.function.blocks[block].instructions);
+        self.function.blocks[previous_block].terminator = terminator;
+        self.function.blocks[previous_block]
+            .instructions
+            .extend(instructions);
+        self.function.end_blocks.remove(block);
+        while clean_count < self.function.blocks[previous_block].instructions.len() {
+            if let Some(target) =
+                self.function.blocks[previous_block].instructions[clean_count].target_local()
+            {
+                self.function.locals[target]
+                    .defined
+                    .remove(block)
+                    .unwrap_or_else(|| {
+                        panic!("expected {target:?} to be defined in block {block:?}")
+                    });
+                self.function.locals[target]
+                    .defined
+                    .insert(previous_block, clean_count);
+            }
+            clean_count += 1;
         }
     }
 }
@@ -1743,7 +1929,7 @@ mod tests {
             blocks,
             locals: SlotMap::with_key(),
             start_block: start,
-            end_blocks: IndexSet::new(),
+            end_blocks: StableSparseSlotKeySet::new(),
         }
     }
 
@@ -2159,10 +2345,7 @@ mod tests {
         let mut fb = new_builder();
         let b0 = fb.new_block();
         fb.set_terminator(b0, Terminator::Return);
-        assert_eq!(
-            fb.function.end_blocks.iter().copied().collect::<Vec<_>>(),
-            vec![b0]
-        );
+        assert_eq!(fb.function.end_blocks.iter().collect::<Vec<_>>(), vec![b0]);
     }
 
     #[test]

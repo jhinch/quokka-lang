@@ -1,4 +1,4 @@
-use crate::mir::{BlockId, Function, FunctionMutator, Instr, Mir, Terminator};
+use crate::mir::{BlockId, Function, FunctionMutator, Instr, Terminator};
 use crate::optimize::graph::{Graph, Node};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
@@ -14,26 +14,17 @@ use tracing::instrument;
 pub struct Adce;
 
 impl Optimize for Adce {
-    #[instrument(skip(self, mir, _ty_registry))]
-    fn optimize(&self, mir: &mut Mir, _ty_registry: &TyRegistry) -> Outcome {
-        let mut outcome = Outcome::Unmodified;
-        for function in mir.functions.values_mut() {
-            outcome |= self.optimize_function(function);
-        }
-        outcome
-    }
-}
-
-impl Adce {
-    #[instrument(skip(self, function), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
-    fn optimize_function(&self, function: &mut Function) -> Outcome {
+    #[instrument(skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    fn optimize_function(&self, function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
         let graph = Graph::from(&*function).reverse();
         let (reverse_dominance_frontier, immediate_post_dominators) =
             graph.calculate_dominance_frontier();
         let marked = self.mark_pass(function, &reverse_dominance_frontier);
         self.sweep_pass(function, marked, &immediate_post_dominators)
     }
+}
 
+impl Adce {
     #[instrument(skip(self, function, reverse_dominance_frontier))]
     fn mark_pass(
         &self,
@@ -140,31 +131,11 @@ impl Adce {
         for block_id in function.blocks.keys().collect::<Vec<_>>() {
             match &function.blocks[block_id].terminator {
                 Terminator::CallIf {
-                    callee,
                     return_block: then_block,
                     else_block,
                     ..
-                } if !marked.required_branches.contains(&block_id) => {
-                    if let Some(return_block) = nearest_required_post_dominator(
-                        block_id,
-                        immediate_post_dominators,
-                        &marked.required_branches,
-                    ) {
-                        tracing::trace!(
-                            "Updated callif in {block_id:?} with return_block={then_block:?}, else_block={else_block:?} to call target_block={return_block:?}"
-                        );
-                        outcome = Outcome::Modified;
-                        let callee = callee.clone();
-                        FunctionMutator::from(&mut *function).replace_terminator(
-                            block_id,
-                            Terminator::Call {
-                                callee,
-                                return_block,
-                            },
-                        );
-                    }
                 }
-                Terminator::JumpIf {
+                | Terminator::JumpIf {
                     then_block,
                     else_block,
                     ..
@@ -174,23 +145,39 @@ impl Adce {
                         immediate_post_dominators,
                         &marked.required_blocks,
                     ) {
+                        let then_block = *then_block;
+                        let else_block = *else_block;
                         tracing::trace!(
-                            "Updated jumpif in {block_id:?} with then_block={then_block:?}, else_block={else_block:?} to jump target_block={target_block:?}"
+                            "Updated {:?} in {block_id:?} with to target_block={target_block:?}",
+                            function.blocks[block_id].terminator
                         );
-                        outcome = Outcome::Modified;
-                        FunctionMutator::from(&mut *function)
-                            .replace_terminator(block_id, Terminator::Jump { target_block });
+                        if then_block != target_block {
+                            outcome = Outcome::Modified;
+                            FunctionMutator::from(&mut *function).replace_next_block(
+                                block_id,
+                                then_block,
+                                target_block,
+                            );
+                        }
+                        if else_block != target_block {
+                            outcome = Outcome::Modified;
+                            FunctionMutator::from(&mut *function).replace_next_block(
+                                block_id,
+                                else_block,
+                                target_block,
+                            );
+                        }
                     }
                 }
                 Terminator::ReturnIf { else_block, .. }
                     if !marked.required_branches.contains(&block_id) =>
                 {
-                    outcome = Outcome::Modified;
+                    let else_block = *else_block;
                     tracing::trace!(
-                        "Updated returnif in {block_id:?} with else_block={else_block:?} to return"
+                        "Updated {:?} in {block_id:?} with return",
+                        function.blocks[block_id].terminator
                     );
-                    FunctionMutator::from(&mut *function)
-                        .replace_terminator(block_id, Terminator::Return);
+                    FunctionMutator::from(&mut *function).remove_next_block(block_id, else_block);
                 }
                 _ => {}
             }

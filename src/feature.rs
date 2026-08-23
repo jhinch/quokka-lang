@@ -25,10 +25,12 @@ pub enum PreviewFeature {
     NoStartupCode,
     /// enable use of the sub-byte unsigned integer types (u2, u4)
     NarrowInt,
-    /// enable use Aggressive Dead Code Elimination (ADCE) on MIR
+    /// enable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     Adce,
-    /// enable use Sparse Conditional Constant Propagation (SCCP) on MIR
+    /// enable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
     Sccp,
+    /// enable prune (nop and basic block) optimization pass on MIR
+    Prune,
 }
 
 impl fmt::Display for PreviewFeature {

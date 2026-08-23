@@ -1,4 +1,4 @@
-use crate::mir::Mir;
+use crate::mir::Function;
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
 use tracing::instrument;
@@ -7,8 +7,8 @@ use tracing::instrument;
 pub struct Sccp;
 
 impl Optimize for Sccp {
-    #[instrument(skip(self, _mir, _ty_registry))]
-    fn optimize(&self, _mir: &mut Mir, _ty_registry: &TyRegistry) -> Outcome {
+    #[instrument(skip(self, _function, _ty_registry), fields(function = %_function.name), ret(level = tracing::Level::DEBUG))]
+    fn optimize_function(&self, _function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
         // todo
         Outcome::Unmodified
     }

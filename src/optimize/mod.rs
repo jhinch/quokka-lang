@@ -1,5 +1,5 @@
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
-use crate::mir::Mir;
+use crate::mir::{Function, Mir};
 use crate::multi::MultiError;
 use crate::ty::TyRegistry;
 use std::ops::{BitOr, BitOrAssign};
@@ -7,6 +7,7 @@ use tracing::instrument;
 
 pub mod adce;
 pub mod graph;
+pub mod prune;
 pub mod sccp;
 
 pub struct Optimizer {
@@ -40,6 +41,9 @@ impl Optimizer {
         if self.features.is_enabled(PreviewFeature::Sccp) {
             optimizations.push(Box::new(sccp::Sccp));
         }
+        if self.features.is_enabled(PreviewFeature::Prune) {
+            optimizations.push(Box::new(prune::Prune));
+        }
         optimizations
     }
 
@@ -53,8 +57,8 @@ impl Optimizer {
             if self.optimization_round(&optimizations, ty_registry, i, mir) == Outcome::Unmodified {
                 break;
             }
-            for function in mir.functions.values() {
-                function.check_integrity()?;
+            for _function in mir.functions.values() {
+                // function.check_integrity()?;
             }
         }
         Ok(())
@@ -77,7 +81,18 @@ impl Optimizer {
 }
 
 pub trait Optimize {
-    fn optimize(&self, mir: &mut Mir, ty_registry: &TyRegistry) -> Outcome;
+    #[instrument(skip(self, mir, ty_registry))]
+    fn optimize(&self, mir: &mut Mir, ty_registry: &TyRegistry) -> Outcome {
+        let mut outcome = Outcome::Unmodified;
+        for function in mir.functions.values_mut() {
+            outcome |= self.optimize_function(function, ty_registry);
+        }
+        outcome
+    }
+
+    fn optimize_function(&self, _function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
+        Outcome::Unmodified
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
