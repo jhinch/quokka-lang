@@ -57,8 +57,8 @@ impl Optimizer {
             if self.optimization_round(&optimizations, ty_registry, i, mir) == Outcome::Unmodified {
                 break;
             }
-            for _function in mir.functions.values() {
-                // function.check_integrity()?;
+            for function in mir.functions.values() {
+                function.check_integrity()?;
             }
         }
         Ok(())

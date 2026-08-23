@@ -1882,6 +1882,15 @@ impl FunctionMutator<'_> {
             }
             clean_count += 1;
         }
+        for next_block in self.function.blocks[previous_block]
+            .next_blocks()
+            .collect::<Vec<_>>()
+        {
+            self.function.blocks[next_block].previous.remove(block);
+            self.function.blocks[next_block]
+                .previous
+                .insert(previous_block);
+        }
     }
 }
 
