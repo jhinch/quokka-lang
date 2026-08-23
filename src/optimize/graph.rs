@@ -107,7 +107,7 @@ impl Graph {
             let mut postorder = self
                 .postorder()
                 .enumerate()
-                .map(|(index, node)| (node, self.forward_edges.len() - index))
+                .map(|(index, node)| (node, index))
                 .collect::<IndexMap<_, _>>();
             postorder.reverse();
             postorder
@@ -142,14 +142,14 @@ impl Graph {
                             // u16 so that it panics in debug mode if reach u16::MAX
                             let mut count: u16 = 0;
                             while finger1 != finger2 {
-                                while reverse_postorder[&finger1] > reverse_postorder[&finger2] {
+                                while reverse_postorder[&finger1] < reverse_postorder[&finger2] {
                                     finger1 = immediate_dominators[&finger1];
                                     tracing::trace!(
                                         "Consider immediate_dominator for {node:?}. finger1={finger1:?}, finger2={finger2:?}"
                                     );
                                     count += 1;
                                 }
-                                while reverse_postorder[&finger2] > reverse_postorder[&finger1] {
+                                while reverse_postorder[&finger2] < reverse_postorder[&finger1] {
                                     finger2 = immediate_dominators[&finger2];
                                     tracing::trace!(
                                         "Consider immediate_dominator for {node:?}. finger1={finger1:?}, finger2={finger2:?}"
