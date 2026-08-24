@@ -452,9 +452,6 @@ impl Function {
             for next_block_id in self.blocks[block_id].next_blocks().collect::<Vec<_>>() {
                 FunctionMutator::from(&mut *self).remove_next_block(block_id, next_block_id);
             }
-            for previous_block_id in self.blocks[block_id].previous_blocks().collect::<Vec<_>>() {
-                FunctionMutator::from(&mut *self).remove_next_block(previous_block_id, block_id);
-            }
             self.blocks.remove(block_id);
             self.end_blocks.remove(block_id);
         }

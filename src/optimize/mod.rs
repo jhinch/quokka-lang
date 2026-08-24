@@ -1,7 +1,8 @@
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
-use crate::mir::{Function, Mir};
+use crate::mir::{Function, Global, GlobalId, Mir};
 use crate::multi::MultiError;
 use crate::ty::TyRegistry;
+use slotmap::SlotMap;
 use std::ops::{BitOr, BitOrAssign};
 use tracing::instrument;
 
@@ -81,16 +82,21 @@ impl Optimizer {
 }
 
 pub trait Optimize {
-    #[instrument(skip(self, mir, ty_registry))]
+    #[instrument(skip_all)]
     fn optimize(&self, mir: &mut Mir, ty_registry: &TyRegistry) -> Outcome {
         let mut outcome = Outcome::Unmodified;
         for function in mir.functions.values_mut() {
-            outcome |= self.optimize_function(function, ty_registry);
+            outcome |= self.optimize_function(function, &mir.globals, ty_registry);
         }
         outcome
     }
 
-    fn optimize_function(&self, _function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
+    fn optimize_function(
+        &self,
+        _function: &mut Function,
+        _globals: &SlotMap<GlobalId, Global>,
+        _ty_registry: &TyRegistry,
+    ) -> Outcome {
         Outcome::Unmodified
     }
 }

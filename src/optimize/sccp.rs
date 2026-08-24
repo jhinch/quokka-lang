@@ -1,14 +1,14 @@
 use crate::ast::IntegerLiteral;
 use crate::consteval::Value;
 use crate::mir::{
-    BlockId, Condition, Function, FunctionMutator, Instr, LocalId, Operand, PlaceProjection,
-    Terminator,
+    BlockId, Condition, Function, FunctionMutator, Global, GlobalId, Instr, LocalId, Operand,
+    PlaceProjection, Terminator,
 };
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::{Ty, TyRegistry};
 use quokka_lang_slotkeyset::SlotKeySet;
 use slotmap::sparse_secondary::Entry;
-use slotmap::{SecondaryMap, SparseSecondaryMap};
+use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap};
 use std::collections::VecDeque;
 use tracing::instrument;
 
@@ -31,15 +31,25 @@ use tracing::instrument;
 pub struct Sccp;
 
 impl Optimize for Sccp {
-    #[instrument(name = "sccp", skip(self, function, ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
-    fn optimize_function(&self, function: &mut Function, ty_registry: &TyRegistry) -> Outcome {
-        let evaluation = self.solve(function, ty_registry);
+    #[instrument(name = "sccp", skip_all, fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    fn optimize_function(
+        &self,
+        function: &mut Function,
+        globals: &SlotMap<GlobalId, Global>,
+        ty_registry: &TyRegistry,
+    ) -> Outcome {
+        let evaluation = self.solve(function, globals, ty_registry);
         self.propagate(function, evaluation)
     }
 }
 
 impl Sccp {
-    fn solve(&self, function: &Function, ty_registry: &TyRegistry) -> Solution {
+    fn solve(
+        &self,
+        function: &Function,
+        globals: &SlotMap<GlobalId, Global>,
+        ty_registry: &TyRegistry,
+    ) -> Solution {
         let uses = self.calculate_uses(function);
         let mut values =
             SecondaryMap::<LocalId, SparseSecondaryMap<BlockId, ResolvedValue>>::with_capacity(
@@ -61,6 +71,7 @@ impl Sccp {
                         instruction,
                         block_id,
                         function,
+                        globals,
                         ty_registry,
                         &mut values,
                         &mut ssa_work_queue,
@@ -77,6 +88,7 @@ impl Sccp {
                                     &function.blocks[block_id].instructions[index],
                                     block_id,
                                     function,
+                                    globals,
                                     ty_registry,
                                     &mut values,
                                     &mut ssa_work_queue,
@@ -128,6 +140,7 @@ impl Sccp {
         instruction: &Instr,
         block_id: BlockId,
         function: &Function,
+        globals: &SlotMap<GlobalId, Global>,
         ty_registry: &TyRegistry,
         values: &mut SecondaryMap<LocalId, SparseSecondaryMap<BlockId, ResolvedValue>>,
         ssa_work_queue: &mut VecDeque<SSAWork>,
@@ -135,7 +148,7 @@ impl Sccp {
         let Some(target) = instruction.target_local() else {
             return;
         };
-        let value = self.model_instruction(instruction, function, ty_registry, values);
+        let value = self.model_instruction(instruction, function, globals, ty_registry, values);
         let changed = match values
             .entry(target)
             .unwrap()
@@ -245,6 +258,7 @@ impl Sccp {
         &self,
         instr: &Instr,
         function: &Function,
+        globals: &SlotMap<GlobalId, Global>,
         ty_registry: &TyRegistry,
         values: &SecondaryMap<LocalId, SparseSecondaryMap<BlockId, ResolvedValue>>,
     ) -> ResolvedValue {
@@ -264,7 +278,24 @@ impl Sccp {
                 .reduce(ResolvedValue::meet)
                 .unwrap_or(&ResolvedValue::Top)
                 .clone(),
-            Instr::Load { .. } => ResolvedValue::Bottom,
+            Instr::Load {
+                source,
+                projections,
+                ..
+            } => {
+                let global = &globals[*source];
+                // we should be able to resolve constants for projections as well, but it would make
+                // sense to refactor more out of
+                if !global.is_mutable() && projections.is_empty() {
+                    ResolvedValue::Value(Value::from_bytes(
+                        global.ty,
+                        ty_registry,
+                        global.value.as_slice(),
+                    ))
+                } else {
+                    ResolvedValue::Bottom
+                }
+            }
             Instr::Copy { target, source } => {
                 let source_ty = function.locals[*target].ty;
                 self.resolve_operand(source, source_ty, ty_registry, values)
@@ -558,7 +589,13 @@ impl Sccp {
                         .and_then(|values| values.get(block_id))
                         .unwrap_or(&ResolvedValue::Bottom);
                     if let ResolvedValue::Value(value) = value {
-                        if !matches!(instruction, Instr::Copy { .. } | Instr::Alloc { .. }) {
+                        if !matches!(
+                            instruction,
+                            Instr::Copy {
+                                source: Operand::Literal(_),
+                                ..
+                            } | Instr::Alloc { .. }
+                        ) {
                             let mut bytes = value.clone().into_vec();
                             bytes.resize(4, 0);
                             let bytes = *bytes.as_array::<4>().unwrap();

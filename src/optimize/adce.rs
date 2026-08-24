@@ -1,8 +1,9 @@
-use crate::mir::{BlockId, Function, FunctionMutator, Instr, Terminator};
+use crate::mir::{BlockId, Function, FunctionMutator, Global, GlobalId, Instr, Terminator};
 use crate::optimize::graph::{Graph, Node};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
 use indexmap::{IndexMap, IndexSet};
+use slotmap::SlotMap;
 use std::collections::VecDeque;
 use tracing::instrument;
 
@@ -15,8 +16,13 @@ use tracing::instrument;
 pub struct Adce;
 
 impl Optimize for Adce {
-    #[instrument(name = "adce", skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
-    fn optimize_function(&self, function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
+    #[instrument(name = "adce", skip_all, fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    fn optimize_function(
+        &self,
+        function: &mut Function,
+        _globals: &SlotMap<GlobalId, Global>,
+        _ty_registry: &TyRegistry,
+    ) -> Outcome {
         let graph = Graph::from(&*function).reverse();
         let (reverse_dominance_frontier, immediate_post_dominators) =
             graph.calculate_dominance_frontier();

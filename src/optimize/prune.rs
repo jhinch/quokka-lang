@@ -1,15 +1,21 @@
-use crate::mir::{Function, FunctionMutator, Instr, Local, Operand, Terminator};
+use crate::mir::{Function, FunctionMutator, Global, GlobalId, Instr, Local, Operand, Terminator};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
-use slotmap::SparseSecondaryMap;
+use indexmap::IndexMap;
+use slotmap::{SlotMap, SparseSecondaryMap};
 use tracing::instrument;
 
 /// remove nop instructions and join empty blocks
 pub struct Prune;
 
 impl Optimize for Prune {
-    #[instrument(name = "prune", skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
-    fn optimize_function(&self, function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
+    #[instrument(name = "prune", skip_all, fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    fn optimize_function(
+        &self,
+        function: &mut Function,
+        _globals: &SlotMap<GlobalId, Global>,
+        _ty_registry: &TyRegistry,
+    ) -> Outcome {
         let mut outcome = Outcome::Unmodified;
         for mut block_id in function.traverse_blocks().collect::<Vec<_>>() {
             let mut block_outcome = Outcome::Unmodified;
@@ -65,9 +71,9 @@ impl Optimize for Prune {
                                         }
                                         _ => None,
                                     })
-                                    .collect::<SparseSecondaryMap<_, _>>()
+                                    .collect::<IndexMap<_, _>>()
                             } else {
-                                SparseSecondaryMap::new()
+                                IndexMap::new()
                             };
                         if !phi_sources.is_empty() {
                             for (index, (_, source)) in phi_sources.iter_mut().enumerate() {
