@@ -32,7 +32,7 @@ impl Optimize for Adce {
 }
 
 impl Adce {
-    #[instrument(skip(self, function, reverse_dominance_frontier))]
+    #[instrument(skip_all)]
     fn mark_pass(
         &self,
         function: &Function,
@@ -127,7 +127,7 @@ impl Adce {
         }
     }
 
-    #[instrument(skip(self, function, marked, immediate_post_dominators), fields(function = %function.name))]
+    #[instrument(skip_all, fields(function = %function.name))]
     fn sweep_pass(
         &self,
         function: &mut Function,

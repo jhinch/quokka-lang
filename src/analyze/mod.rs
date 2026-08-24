@@ -47,7 +47,7 @@ impl Analyzer {
         self.features.extend(features);
     }
 
-    #[instrument(skip(self, root))]
+    #[instrument(skip_all)]
     pub fn analyze(mut self, root: &ast::Root) -> Result<(Mir, TyRegistry), MultiError> {
         self.register_types(root);
         self.check_errors()?;

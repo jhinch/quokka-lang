@@ -12,7 +12,7 @@ pub struct AnalyzeCommand {
 }
 
 impl Execute for AnalyzeCommand {
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     fn execute(self) -> miette::Result<()> {
         let file_contents =
             std::fs::read_to_string(&self.filename).map_err(|e| miette::miette!(e))?;

@@ -185,22 +185,22 @@ impl Parser<'_> {
 }
 
 impl Parser<'_> {
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub fn parse(self) -> MultiResult<Root> {
         self.parse_as_root(Parser::parse_root)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub fn parse_item_as_root(self) -> MultiResult<Item> {
         self.parse_as_root(Parser::parse_item)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub fn parse_statement_as_root(self) -> MultiResult<Statement> {
         self.parse_as_root(Parser::parse_statement)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub fn parse_expr_as_root(self) -> MultiResult<Expr> {
         self.parse_as_root(Parser::parse_expr)
     }

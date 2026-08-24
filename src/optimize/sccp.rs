@@ -135,6 +135,7 @@ impl Sccp {
         uses
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn visit_instruction(
         &self,
         instruction: &Instr,

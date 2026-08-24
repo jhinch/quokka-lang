@@ -215,7 +215,7 @@ impl Graph {
     /// from ("A Simple, Fast Dominance Algorithm", 2001).
     /// Figure 5: The Dominance-Frontier Algorithm
     #[must_use]
-    #[instrument(skip(self))]
+    #[instrument(skip_all)]
     pub fn calculate_dominance_frontier(
         &self,
     ) -> (IndexMap<Node, IndexSet<Node>>, IndexMap<Node, Node>) {

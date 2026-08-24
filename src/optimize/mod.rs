@@ -48,7 +48,7 @@ impl Optimizer {
         optimizations
     }
 
-    #[instrument(skip(self, ty_registry, mir))]
+    #[instrument(skip_all)]
     pub fn optimize(&self, ty_registry: &TyRegistry, mir: &mut Mir) -> Result<(), MultiError> {
         let optimizations = self.initialize_optimizations();
         if optimizations.is_empty() {
@@ -65,7 +65,7 @@ impl Optimizer {
         Ok(())
     }
 
-    #[instrument(skip(self, optimizations, ty_registry, mir))]
+    #[instrument(skip_all, fields(i = %i))]
     fn optimization_round(
         &self,
         optimizations: &[Box<dyn Optimize>],
