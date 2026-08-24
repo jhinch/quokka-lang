@@ -502,7 +502,7 @@ fn projected_ty(mut ty: Ty, projections: &[PlaceProjection], ty_registry: &TyReg
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Value {
+pub enum Value {
     U1(bool),
     U2(u2),
     U4(u4),
@@ -523,6 +523,7 @@ enum Value {
 }
 
 impl Value {
+    #[must_use]
     pub fn zeros(ty: Ty, ty_registry: &TyRegistry) -> Self {
         match ty {
             Ty::U1 => Value::U1(false),
@@ -552,6 +553,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn from_operand(
         slots: &SecondaryMap<LocalId, Option<Value>>,
         function: &mir::Function,
@@ -569,6 +571,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn from_bytes(ty: Ty, ty_registry: &TyRegistry, bytes: &[u8]) -> Self {
         let bit_width = ty.bit_size(ty_registry);
         let byte_width = bit_width.padded_bytes();
@@ -604,6 +607,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn into_vec(self) -> Vec<u8> {
         match self {
             Value::U1(value) => (value as u8).to_le_bytes().to_vec(),
@@ -617,6 +621,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_bool(&self, condition: Condition) -> bool {
         match self {
             Value::U1(value) => match condition {
@@ -627,7 +632,8 @@ impl Value {
         }
     }
 
-    fn rotate_left_one(self) -> Self {
+    #[must_use]
+    pub fn rotate_left_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
             Value::U2(value) => Value::U2(value << 1 | value >> 1),
@@ -640,7 +646,8 @@ impl Value {
         }
     }
 
-    fn rotate_right_one(self) -> Self {
+    #[must_use]
+    pub fn rotate_right_one(self) -> Self {
         match self {
             Value::U1(value) => Value::U1(value),
             Value::U2(value) => Value::U2(value >> 1 | value << 1),
@@ -653,7 +660,8 @@ impl Value {
         }
     }
 
-    fn shift_left_one(self) -> Self {
+    #[must_use]
+    pub fn shift_left_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
             Value::U2(value) => Value::U2(value << 1),
@@ -666,7 +674,8 @@ impl Value {
         }
     }
 
-    fn shift_right_one(self) -> Self {
+    #[must_use]
+    pub fn shift_right_one(self) -> Self {
         match self {
             Value::U1(_) => Value::U1(false),
             Value::U2(value) => Value::U2(value >> 1),

@@ -100,7 +100,7 @@ impl Graph {
     ///
     /// Algorithm uses the Cooper-Harvey-Kennedy iterative dominance algorithm
     /// from ("A Simple, Fast Dominance Algorithm", 2001).
-    ///  Figure 3: The Engineered Algorithm
+    /// Figure 3: The Engineered Algorithm
     #[must_use]
     pub fn calculate_immediate_dominators(&self) -> IndexMap<Node, Node> {
         let reverse_postorder = {
@@ -213,7 +213,7 @@ impl Graph {
     ///
     /// Algorithm uses the Cooper-Harvey-Kennedy dominance frontier algorithm
     /// from ("A Simple, Fast Dominance Algorithm", 2001).
-    ///  Figure 5: The Dominance-Frontier Algorithm
+    /// Figure 5: The Dominance-Frontier Algorithm
     #[must_use]
     #[instrument(skip(self))]
     pub fn calculate_dominance_frontier(

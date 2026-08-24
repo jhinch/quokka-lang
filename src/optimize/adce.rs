@@ -8,13 +8,14 @@ use tracing::instrument;
 
 /// Aggressive Dead Code Elimination (ADCE)
 ///
-/// Algorithm is an implementation of
-/// "Engineering a Compiler" by Keith D. Cooper & Linda Torczon 2004
+/// Algorithm pseudocode is
+/// from ( "Engineering a Compiler", 2004)
 /// Figure 10.3
+/// by Keith D. Cooper & Linda Torczon
 pub struct Adce;
 
 impl Optimize for Adce {
-    #[instrument(skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    #[instrument(name = "adce", skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
     fn optimize_function(&self, function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
         let graph = Graph::from(&*function).reverse();
         let (reverse_dominance_frontier, immediate_post_dominators) =

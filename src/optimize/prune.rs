@@ -8,7 +8,7 @@ use tracing::instrument;
 pub struct Prune;
 
 impl Optimize for Prune {
-    #[instrument(skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
+    #[instrument(name = "prune", skip(self, function, _ty_registry), fields(function = %function.name), ret(level = tracing::Level::DEBUG))]
     fn optimize_function(&self, function: &mut Function, _ty_registry: &TyRegistry) -> Outcome {
         let mut outcome = Outcome::Unmodified;
         for mut block_id in function.traverse_blocks().collect::<Vec<_>>() {

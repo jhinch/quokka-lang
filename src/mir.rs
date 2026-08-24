@@ -452,17 +452,26 @@ impl Function {
             for next_block_id in self.blocks[block_id].next_blocks().collect::<Vec<_>>() {
                 FunctionMutator::from(&mut *self).remove_next_block(block_id, next_block_id);
             }
+            for previous_block_id in self.blocks[block_id].previous_blocks().collect::<Vec<_>>() {
+                FunctionMutator::from(&mut *self).remove_next_block(previous_block_id, block_id);
+            }
             self.blocks.remove(block_id);
             self.end_blocks.remove(block_id);
         }
         let all_locals = self.locals.keys().collect::<IndexSet<_>>();
-        let reachable_locals = reachable_blocks
+        let mut reachable_locals = reachable_blocks
             .iter()
             .flat_map(|block_id| &self.blocks[block_id].instructions)
             .flat_map(|instruction| instruction.target_local())
             .collect::<IndexSet<_>>();
+        reachable_locals.extend(self.return_local);
         for local in all_locals.difference(&reachable_locals) {
             self.locals.remove(*local);
+        }
+        if let Some(return_local) = self.return_local {
+            self.locals[return_local]
+                .defined
+                .retain(|block_id, _| reachable_blocks.contains(block_id));
         }
     }
 
@@ -511,7 +520,7 @@ impl Function {
                     local.ty
                 )));
             }
-            if local.defined.is_empty() {
+            if local.defined.is_empty() && !local.is_return {
                 result_builder.add_error(miette::MietteDiagnostic::new(format!(
                     "dangling local {local_id:?}"
                 )));
@@ -1696,19 +1705,18 @@ impl FunctionMutator<'_> {
                 Terminator::CallIf {
                     callee,
                     return_block,
+                    else_block,
+                    ..
+                } if else_block == old_next_block => Terminator::Call {
+                    callee,
+                    return_block,
+                },
+                Terminator::CallIf {
+                    return_block: target_block,
                     else_block: new_next_block,
                     ..
                 }
-                | Terminator::CallIf {
-                    callee,
-                    else_block: return_block,
-                    return_block: new_next_block,
-                    ..
-                } if return_block == old_next_block => Terminator::Call {
-                    callee,
-                    return_block: new_next_block,
-                },
-                Terminator::JumpIf {
+                | Terminator::JumpIf {
                     then_block: target_block,
                     else_block: new_next_block,
                     ..
@@ -1734,7 +1742,9 @@ impl FunctionMutator<'_> {
                     panic!("cannot remove Call terminator as call could have side effect")
                 }
                 terminator => {
-                    panic!("old_next_block {old_next_block:?} is a next block for {terminator:?}")
+                    panic!(
+                        "old_next_block {old_next_block:?} is not a next block for {terminator:?}"
+                    )
                 }
             };
         self.function.blocks[old_next_block].previous.remove(block);
