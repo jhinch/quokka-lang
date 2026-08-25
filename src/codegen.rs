@@ -380,7 +380,7 @@ impl CodeGen {
                 lir.set_terminator(
                     block,
                     Terminator::Jp {
-                        block: target_block,
+                        next_block: target_block,
                     },
                 );
             }
