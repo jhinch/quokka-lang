@@ -1,7 +1,7 @@
 use crate::lir::{
     BlockId, CarryFlagId, CodeSectionData, Instr, Ld8Source, Operand8, R8Id, R16Id, ZeroFlagId,
 };
-use crate::reg::Color;
+use crate::reg::{Color, ColorSet};
 use indexmap::IndexSet;
 use slotmap::SecondaryMap;
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ pub struct NodeData {
     pressure: u64,
     moves: IndexSet<(BlockId, usize)>,
     precolored: Option<Color>,
-    permitted_colors: Option<IndexSet<Color>>,
+    permitted_colors: Option<ColorSet>,
 }
 
 impl InterferenceGraph {
@@ -61,8 +61,10 @@ impl InterferenceGraph {
     /// the number of colors of node `a` which are blocked by colors in node `b`
     fn colors_blocked_by(&self, a: VirtualReg, b: VirtualReg) -> u64 {
         self.permitted_colors(b)
+            .into_iter()
             .map(|c1| {
                 self.permitted_colors(a)
+                    .into_iter()
                     .filter(|&c2| c1.conflicts(c2))
                     .count() as u64
             })
@@ -71,39 +73,21 @@ impl InterferenceGraph {
     }
 
     /// iterate over the permitted colors for the given virtual register
-    fn permitted_colors(&self, a: VirtualReg) -> impl Iterator<Item = Color> + '_ {
-        enum Iter<'a> {
-            Precolored(std::iter::Once<Color>),
-            PermittedColors(indexmap::set::Iter<'a, Color>),
-            DefaultColors(std::slice::Iter<'a, Color>),
-        }
-
-        impl Iterator for Iter<'_> {
-            type Item = Color;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    Iter::Precolored(iter) => iter.next(),
-                    Iter::PermittedColors(iter) => iter.next().copied(),
-                    Iter::DefaultColors(iter) => iter.next().copied(),
-                }
-            }
-        }
-
+    fn permitted_colors(&self, a: VirtualReg) -> ColorSet {
         if let Some(data) = self.node_to_data.get(&a) {
             if let Some(color) = data.precolored {
-                return Iter::Precolored(std::iter::once(color));
+                return ColorSet::just(color);
             }
             if let Some(permitted_colors) = &data.permitted_colors {
-                return Iter::PermittedColors(permitted_colors.iter());
+                return permitted_colors.clone();
             }
         }
-        Iter::DefaultColors(match a {
-            VirtualReg::R8(_) => Color::r8().iter(),
-            VirtualReg::R16(_) => Color::r16().iter(),
-            VirtualReg::Zero(_) => Color::z().iter(),
-            VirtualReg::Carry(_) => Color::c().iter(),
-        })
+        match a {
+            VirtualReg::R8(_) => Color::r8(),
+            VirtualReg::R16(_) => Color::r16(),
+            VirtualReg::Zero(_) => Color::z(),
+            VirtualReg::Carry(_) => Color::c(),
+        }
     }
 }
 

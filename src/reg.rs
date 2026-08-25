@@ -55,73 +55,97 @@ pub enum Color {
     Fc = 0x2000,
 }
 
+impl TryFrom<u16> for Color {
+    type Error = ();
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0x0001 => Color::A,
+            0x0002 => Color::B,
+            0x0004 => Color::C,
+            0x0008 => Color::D,
+            0x0010 => Color::E,
+            0x0020 => Color::H,
+            0x0040 => Color::L,
+            0x0080 => Color::AF,
+            0x0100 => Color::BC,
+            0x0200 => Color::DE,
+            0x0400 => Color::HL,
+            0x0800 => Color::SP,
+            0x1000 => Color::Fz,
+            0x2000 => Color::Fc,
+            _ => return Err(()),
+        })
+    }
+}
+
 impl Color {
     /// Accumulator
     #[must_use]
-    pub const fn acc() -> &'static [Color] {
-        &[Color::A]
+    pub const fn acc() -> ColorSet {
+        ColorSet::just(Color::A)
     }
 
     /// general purposes 8-bit registers
     #[must_use]
-    pub const fn r8() -> &'static [Color] {
-        &[
-            Color::A,
-            Color::B,
-            Color::C,
-            Color::D,
-            Color::E,
-            Color::H,
-            Color::L,
-        ]
+    pub const fn r8() -> ColorSet {
+        let mut set = ColorSet::empty();
+        set.insert(Color::A);
+        set.insert(Color::B);
+        set.insert(Color::C);
+        set.insert(Color::D);
+        set.insert(Color::E);
+        set.insert(Color::H);
+        set.insert(Color::L);
+        set
     }
 
     /// general purpose 16-bit register
     #[must_use]
-    pub const fn r16() -> &'static [Color] {
-        &[Color::BC, Color::DE, Color::HL]
+    pub const fn r16() -> ColorSet {
+        ColorSet::just_3(Color::BC, Color::DE, Color::HL)
     }
 
     /// 16-bit register which you can PUSH and POP from the stack
     #[must_use]
-    pub const fn r16_stack() -> &'static [Color] {
-        &[Color::BC, Color::DE, Color::AF]
+    pub const fn r16_stack() -> ColorSet {
+        ColorSet::just_3(Color::BC, Color::DE, Color::AF)
     }
 
     /// 16-bit register which can be used as a general purpose pointer to memory
     #[must_use]
-    pub const fn r16_ptr() -> &'static [Color] {
-        &[Color::HL]
+    pub const fn r16_ptr() -> ColorSet {
+        ColorSet::just(Color::HL)
     }
 
     /// 8-bit register which can be used as a pointer to memory in the `$FFxx` range.
     #[must_use]
-    pub const fn r8_high_ptr() -> &'static [Color] {
-        &[Color::C]
+    pub const fn r8_high_ptr() -> ColorSet {
+        ColorSet::just(Color::C)
     }
 
     /// 16-bit register which can be used as a pointers to memory during a `LD`
     #[must_use]
-    pub const fn r16_ptr_ld() -> &'static [Color] {
-        &[Color::BC, Color::DE, Color::HL]
+    pub const fn r16_ptr_ld() -> ColorSet {
+        ColorSet::just_3(Color::BC, Color::DE, Color::HL)
     }
 
     /// flags
     #[must_use]
-    pub const fn flags() -> &'static [Color] {
-        &[Color::Fz, Color::Fc]
+    pub const fn flags() -> ColorSet {
+        ColorSet::just_2(Color::Fz, Color::Fc)
     }
 
     /// zero flag
     #[must_use]
-    pub const fn z() -> &'static [Color] {
-        &[Color::Fz]
+    pub const fn z() -> ColorSet {
+        ColorSet::just(Color::Fz)
     }
 
     /// carry flag
     #[must_use]
-    pub const fn c() -> &'static [Color] {
-        &[Color::Fc]
+    pub const fn c() -> ColorSet {
+        ColorSet::just(Color::Fc)
     }
 }
 
@@ -152,130 +176,141 @@ impl Color {
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct RegSet {
-    bits: u16,
-}
-
-impl RegSet {
-    #[must_use]
-    pub const fn empty() -> Self {
-        RegSet { bits: 0 }
-    }
-
-    const fn just(reg: Reg) -> Self {
-        RegSet { bits: reg as u16 }
-    }
-
-    const fn just_2(reg1: Reg, reg2: Reg) -> Self {
-        RegSet {
-            bits: reg1 as u16 | reg2 as u16,
+macro_rules! bit_set_impl {
+    ($struct_name:ident; $item_struct_name:ident; $iter_struct_name:ident) => {
+        #[derive(Clone, PartialEq, Eq)]
+        pub struct $struct_name {
+            bits: u16,
         }
-    }
 
-    const fn just_3(reg1: Reg, reg2: Reg, reg3: Reg) -> Self {
-        RegSet {
-            bits: reg1 as u16 | reg2 as u16 | reg3 as u16,
-        }
-    }
-}
-
-impl RegSet {
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        self.bits == 0
-    }
-
-    #[must_use]
-    pub const fn contains(&self, value: Reg) -> bool {
-        self.bits & value as u16 != 0
-    }
-
-    pub fn insert(&mut self, value: Reg) -> bool {
-        let bits = value as u16;
-        if self.bits & bits != 0 {
-            return false;
-        }
-        self.bits |= bits;
-        true
-    }
-
-    pub fn remove(&mut self, value: Reg) -> bool {
-        let bits = value as u16;
-        if self.bits & bits == 0 {
-            return false;
-        }
-        self.bits &= !bits;
-        true
-    }
-}
-
-impl fmt::Debug for RegSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if f.alternate() {
-            f.debug_tuple("RegSet")
-                .field(&format_args!("{:b}", self.bits))
-                .finish()
-        } else {
-            let mut debug_set = f.debug_set();
-            for reg in self.clone().into_iter() {
-                debug_set.entry(&reg);
+        impl $struct_name {
+            #[must_use]
+            pub const fn empty() -> Self {
+                Self { bits: 0 }
             }
-            debug_set.finish()
+
+            pub const fn just(reg: $item_struct_name) -> Self {
+                Self { bits: reg as u16 }
+            }
+
+            const fn just_2(reg1: $item_struct_name, reg2: $item_struct_name) -> Self {
+                Self {
+                    bits: reg1 as u16 | reg2 as u16,
+                }
+            }
+
+            const fn just_3(
+                reg1: $item_struct_name,
+                reg2: $item_struct_name,
+                reg3: $item_struct_name,
+            ) -> Self {
+                Self {
+                    bits: reg1 as u16 | reg2 as u16 | reg3 as u16,
+                }
+            }
         }
-    }
-}
 
-impl BitAnd for RegSet {
-    type Output = Self;
+        impl $struct_name {
+            #[must_use]
+            pub const fn is_empty(&self) -> bool {
+                self.bits == 0
+            }
 
-    fn bitand(self, rhs: Self) -> Self::Output {
-        RegSet {
-            bits: self.bits & rhs.bits,
+            #[must_use]
+            pub const fn contains(&self, value: $item_struct_name) -> bool {
+                self.bits & value as u16 != 0
+            }
+
+            pub const fn insert(&mut self, value: $item_struct_name) -> bool {
+                let bits = value as u16;
+                if self.bits & bits != 0 {
+                    return false;
+                }
+                self.bits |= bits;
+                true
+            }
+
+            pub const fn remove(&mut self, value: $item_struct_name) -> bool {
+                let bits = value as u16;
+                if self.bits & bits == 0 {
+                    return false;
+                }
+                self.bits &= !bits;
+                true
+            }
         }
-    }
-}
 
-impl BitAndAssign for RegSet {
-    fn bitand_assign(&mut self, rhs: Self) {
-        self.bits &= rhs.bits;
-    }
-}
-
-impl BitOr for RegSet {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        RegSet {
-            bits: self.bits | rhs.bits,
+        impl fmt::Debug for $struct_name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                if f.alternate() {
+                    f.debug_tuple(stringify!($struct_name))
+                        .field(&format_args!("{:b}", self.bits))
+                        .finish()
+                } else {
+                    let mut debug_set = f.debug_set();
+                    for item in self.clone().into_iter() {
+                        debug_set.entry(&item);
+                    }
+                    debug_set.finish()
+                }
+            }
         }
-    }
+
+        impl BitAnd for $struct_name {
+            type Output = Self;
+
+            fn bitand(self, rhs: Self) -> Self::Output {
+                Self {
+                    bits: self.bits & rhs.bits,
+                }
+            }
+        }
+
+        impl BitAndAssign for $struct_name {
+            fn bitand_assign(&mut self, rhs: Self) {
+                self.bits &= rhs.bits;
+            }
+        }
+
+        impl BitOr for $struct_name {
+            type Output = Self;
+
+            fn bitor(self, rhs: Self) -> Self::Output {
+                Self {
+                    bits: self.bits | rhs.bits,
+                }
+            }
+        }
+
+        impl BitOrAssign for $struct_name {
+            fn bitor_assign(&mut self, rhs: Self) {
+                self.bits |= rhs.bits;
+            }
+        }
+
+        impl IntoIterator for $struct_name {
+            type Item = $item_struct_name;
+            type IntoIter = $iter_struct_name;
+
+            fn into_iter(self) -> Self::IntoIter {
+                $iter_struct_name(self)
+            }
+        }
+
+        pub struct $iter_struct_name($struct_name);
+
+        impl Iterator for $iter_struct_name {
+            type Item = $item_struct_name;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let value = u16::try_from(self.0.bits.trailing_zeros()).ok()?;
+                let value = $item_struct_name::try_from(value).ok()?;
+                self.0.remove(value);
+                Some(value)
+            }
+        }
+    };
 }
 
-impl BitOrAssign for RegSet {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.bits |= rhs.bits;
-    }
-}
-
-impl IntoIterator for RegSet {
-    type Item = Reg;
-    type IntoIter = RegSetIntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        RegSetIntoIter(self)
-    }
-}
-
-pub struct RegSetIntoIter(RegSet);
-
-impl Iterator for RegSetIntoIter {
-    type Item = Reg;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = u16::try_from(self.0.bits.trailing_zeros()).ok()?;
-        let reg = Reg::try_from(value).ok()?;
-        self.0.remove(reg);
-        Some(reg)
-    }
-}
+bit_set_impl!(RegSet; Reg; RegSetIter);
+bit_set_impl!(ColorSet; Color; ColorSetIter);
