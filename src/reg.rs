@@ -4,33 +4,42 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum Reg {
-    A = 0x0001,
-    B = 0x0002,
-    C = 0x0004,
-    D = 0x0008,
-    E = 0x0010,
-    H = 0x0020,
-    L = 0x0040,
-    SP = 0x0080,
-    Fc = 0x0100,
-    Fz = 0x0200,
+    A = 1 << 0,
+    B = 1 << 1,
+    C = 1 << 2,
+    D = 1 << 3,
+    E = 1 << 4,
+    H = 1 << 5,
+    L = 1 << 6,
+    SP = 1 << 7,
+    Fc = 1 << 8,
+    Fz = 1 << 9,
+}
+
+impl From<Reg> for u16 {
+    fn from(value: Reg) -> Self {
+        value as u16
+    }
 }
 
 impl TryFrom<u16> for Reg {
     type Error = ();
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
-        Ok(match value {
-            0x0001 => Reg::A,
-            0x0002 => Reg::B,
-            0x0004 => Reg::C,
-            0x0008 => Reg::D,
-            0x0010 => Reg::E,
-            0x0020 => Reg::H,
-            0x0040 => Reg::L,
-            0x0080 => Reg::SP,
-            0x0100 => Reg::Fc,
-            0x0200 => Reg::Fz,
+        if value.count_ones() != 1 {
+            return Err(());
+        }
+        Ok(match value.trailing_zeros() {
+            0 => Reg::A,
+            1 => Reg::B,
+            2 => Reg::C,
+            3 => Reg::D,
+            4 => Reg::E,
+            5 => Reg::H,
+            6 => Reg::L,
+            7 => Reg::SP,
+            8 => Reg::Fc,
+            9 => Reg::Fz,
             _ => return Err(()),
         })
     }
@@ -39,41 +48,44 @@ impl TryFrom<u16> for Reg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum Color {
-    A = 0x0001,
-    B = 0x0002,
-    C = 0x0004,
-    D = 0x0008,
-    E = 0x0010,
-    H = 0x0020,
-    L = 0x0040,
-    AF = 0x0080,
-    BC = 0x0100,
-    DE = 0x0200,
-    HL = 0x0400,
-    SP = 0x0800,
-    Fz = 0x1000,
-    Fc = 0x2000,
+    A = 1 << 0,
+    B = 1 << 1,
+    C = 1 << 2,
+    D = 1 << 3,
+    E = 1 << 4,
+    H = 1 << 5,
+    L = 1 << 6,
+    AF = 1 << 7,
+    BC = 1 << 8,
+    DE = 1 << 9,
+    HL = 1 << 10,
+    SP = 1 << 11,
+    Fz = 1 << 12,
+    Fc = 1 << 13,
 }
 
 impl TryFrom<u16> for Color {
     type Error = ();
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
-        Ok(match value {
-            0x0001 => Color::A,
-            0x0002 => Color::B,
-            0x0004 => Color::C,
-            0x0008 => Color::D,
-            0x0010 => Color::E,
-            0x0020 => Color::H,
-            0x0040 => Color::L,
-            0x0080 => Color::AF,
-            0x0100 => Color::BC,
-            0x0200 => Color::DE,
-            0x0400 => Color::HL,
-            0x0800 => Color::SP,
-            0x1000 => Color::Fz,
-            0x2000 => Color::Fc,
+        if value.count_ones() != 1 {
+            return Err(());
+        }
+        Ok(match value.trailing_zeros() {
+            0 => Color::A,
+            1 => Color::B,
+            2 => Color::C,
+            3 => Color::D,
+            4 => Color::E,
+            5 => Color::H,
+            6 => Color::L,
+            7 => Color::AF,
+            8 => Color::BC,
+            9 => Color::DE,
+            10 => Color::HL,
+            11 => Color::SP,
+            12 => Color::Fz,
+            13 => Color::Fc,
             _ => return Err(()),
         })
     }
@@ -100,16 +112,45 @@ impl Color {
         set
     }
 
+    /// 8-bit register which makes up the low bits of a 16-bit register
+    #[must_use]
+    pub const fn r8_low() -> ColorSet {
+        let mut set = ColorSet::empty();
+        set.insert(Color::C);
+        set.insert(Color::E);
+        set.insert(Color::L);
+        set
+    }
+
+    /// 8-bit register which makes up the high bits of a 16-bit register
+    #[must_use]
+    pub const fn r8_high() -> ColorSet {
+        let mut set = ColorSet::empty();
+        set.insert(Color::B);
+        set.insert(Color::D);
+        set.insert(Color::H);
+        set
+    }
+
     /// general purpose 16-bit register
     #[must_use]
     pub const fn r16() -> ColorSet {
-        ColorSet::just_3(Color::BC, Color::DE, Color::HL)
+        let mut set = ColorSet::empty();
+        set.insert(Color::BC);
+        set.insert(Color::DE);
+        set.insert(Color::HL);
+        set
     }
 
     /// 16-bit register which you can PUSH and POP from the stack
     #[must_use]
     pub const fn r16_stack() -> ColorSet {
-        ColorSet::just_3(Color::BC, Color::DE, Color::AF)
+        let mut set = ColorSet::empty();
+        set.insert(Color::BC);
+        set.insert(Color::DE);
+        set.insert(Color::HL);
+        set.insert(Color::AF);
+        set
     }
 
     /// 16-bit register which can be used as a general purpose pointer to memory
@@ -127,13 +168,20 @@ impl Color {
     /// 16-bit register which can be used as a pointers to memory during a `LD`
     #[must_use]
     pub const fn r16_ptr_ld() -> ColorSet {
-        ColorSet::just_3(Color::BC, Color::DE, Color::HL)
+        let mut set = ColorSet::empty();
+        set.insert(Color::BC);
+        set.insert(Color::DE);
+        set.insert(Color::HL);
+        set
     }
 
     /// flags
     #[must_use]
     pub const fn flags() -> ColorSet {
-        ColorSet::just_2(Color::Fz, Color::Fc)
+        let mut set = ColorSet::empty();
+        set.insert(Color::Fz);
+        set.insert(Color::Fc);
+        set
     }
 
     /// zero flag
@@ -160,10 +208,31 @@ impl Color {
             Color::E => RegSet::just(Reg::E),
             Color::H => RegSet::just(Reg::H),
             Color::L => RegSet::just(Reg::L),
-            Color::BC => RegSet::just_2(Reg::B, Reg::C),
-            Color::DE => RegSet::just_2(Reg::D, Reg::E),
-            Color::HL => RegSet::just_2(Reg::H, Reg::L),
-            Color::AF => RegSet::just_3(Reg::A, Reg::Fz, Reg::Fc),
+            Color::BC => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::B);
+                set.insert(Reg::C);
+                set
+            }
+            Color::DE => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::D);
+                set.insert(Reg::E);
+                set
+            }
+            Color::HL => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::H);
+                set.insert(Reg::L);
+                set
+            }
+            Color::AF => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::A);
+                set.insert(Reg::Fz);
+                set.insert(Reg::Fc);
+                set
+            }
             Color::SP => RegSet::just(Reg::SP),
             Color::Fz => RegSet::just(Reg::Fz),
             Color::Fc => RegSet::just(Reg::Fc),
@@ -192,28 +261,17 @@ macro_rules! bit_set_impl {
             pub const fn just(reg: $item_struct_name) -> Self {
                 Self { bits: reg as u16 }
             }
-
-            const fn just_2(reg1: $item_struct_name, reg2: $item_struct_name) -> Self {
-                Self {
-                    bits: reg1 as u16 | reg2 as u16,
-                }
-            }
-
-            const fn just_3(
-                reg1: $item_struct_name,
-                reg2: $item_struct_name,
-                reg3: $item_struct_name,
-            ) -> Self {
-                Self {
-                    bits: reg1 as u16 | reg2 as u16 | reg3 as u16,
-                }
-            }
         }
 
         impl $struct_name {
             #[must_use]
             pub const fn is_empty(&self) -> bool {
                 self.bits == 0
+            }
+
+            #[must_use]
+            pub const fn len(&self) -> usize {
+                self.bits.count_ones() as usize
             }
 
             #[must_use]
@@ -237,6 +295,14 @@ macro_rules! bit_set_impl {
                 }
                 self.bits &= !bits;
                 true
+            }
+
+            pub fn retain(&mut self, mut f: impl FnMut($item_struct_name) -> bool) {
+                for value in self.clone() {
+                    if !f(value) {
+                        self.remove(value);
+                    }
+                }
             }
         }
 

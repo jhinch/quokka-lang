@@ -67,6 +67,14 @@ impl fmt::Display for R16Id {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum VirtualReg {
+    R8(R8Id),
+    R16(R16Id),
+    Zero(ZeroFlagId),
+    Carry(CarryFlagId),
+}
+
 pub const ZERO_FLAG_BIT: u8 = 7;
 pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
 pub const CARRY_FLAG_BIT: u8 = 4;

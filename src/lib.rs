@@ -24,6 +24,7 @@ pub mod optimize;
 pub mod parse;
 pub mod pipeline;
 pub mod reg;
+pub mod regalloc;
 pub mod source;
 pub mod symbol;
 pub mod ty;
