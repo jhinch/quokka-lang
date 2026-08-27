@@ -320,46 +320,50 @@ pub enum Instr {
     /// `NOP`
     Nop,
     /// `LD r8,r8`
+    Ld8 { target: R8Id, source: R8Id },
     /// `LD r8,n8`
+    Ld8Value { target: R8Id, source: u8 },
     /// `LD r8,[HL]`
     /// `LD A,[r16]`
     /// `LD A,[n16]`
+    Ld8Ptr { target: R8Id, source_addr: Addr },
     /// `LDH A,[n16]`
     /// `LDH A,[C]`
-    Ld8 { target: R8Id, source: Ld8Source },
+    Ld8HighPtr { target: R8Id, source_addr: HighAddr },
     /// `LD A,[HLI]`
     Ld8Inc {
         target: R8Id,
-        revised: R16Id,
-        source: R16Id,
+        revised_addr: R16Id,
+        source_addr: R16Id,
     },
     /// `LD A,[HLD]`
     Ld8Dec {
         target: R8Id,
-        revised: R16Id,
-        source: R16Id,
+        revised_addr: R16Id,
+        source_addr: R16Id,
     },
     /// `LD r16,n16`
     Ld16 { target: R16Id, source: Ld16Source },
     /// `LD [HL],r8`
     /// `LD [r16],A`
     /// `LD [n16],A`
+    Store { target_addr: Addr, source: R8Id },
     /// `LDH [n16],A`
     /// `LDH [C],A`
-    Store { target: StoreTarget, source: R8Id },
+    StoreHigh { target_addr: HighAddr, source: R8Id },
     /// `LD [HL],n8`
-    StoreValue { target: R16Id, source: u8 },
+    StoreValue { target_addr: R16Id, source: u8 },
     /// `LD [HLI],A`
     StoreInc {
-        revised: R16Id,
-        left: R16Id,
-        right: R8Id,
+        revised_addr: R16Id,
+        target_addr: R16Id,
+        source: R8Id,
     },
     /// `LD [HLD],A`
     StoreDec {
-        revised: R16Id,
-        left: R16Id,
-        right: R8Id,
+        revised_addr: R16Id,
+        target_addr: R16Id,
+        source: R8Id,
     },
     /// `ADC A,r8`
     /// `ADC A,[HL]`
@@ -467,7 +471,11 @@ pub enum Instr {
         source: R8Id,
     },
     /// `BIT u3,[HL]`
-    BitPtr { z: ZeroFlagId, bit: u3, addr: R16Id },
+    BitPtr {
+        z: ZeroFlagId,
+        bit: u3,
+        source_addr: R16Id,
+    },
     /// `RES u3,r8`
     Res { target: R8Id, bit: u3, source: R8Id },
     /// `RES u3,[HL]`
@@ -666,6 +674,9 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Ld8 { target, .. }
+                | Instr::Ld8Value { target, .. }
+                | Instr::Ld8Ptr { target, .. }
+                | Instr::Ld8HighPtr { target, .. }
                 | Instr::Ld8Inc { target, .. }
                 | Instr::Ld8Dec { target, .. }
                 | Instr::Adc { target, .. }
@@ -697,6 +708,7 @@ impl Instr {
                 Instr::Nop
                 | Instr::Ld16 { .. }
                 | Instr::Store { .. }
+                | Instr::StoreHigh { .. }
                 | Instr::StoreValue { .. }
                 | Instr::StoreInc { .. }
                 | Instr::StoreDec { .. }
@@ -737,19 +749,26 @@ impl Instr {
             | Instr::Join { target, .. }
             | Instr::LdReturn16 { target, .. }
             | Instr::Ld8Inc {
-                revised: target, ..
+                revised_addr: target,
+                ..
             }
             | Instr::Ld8Dec {
-                revised: target, ..
+                revised_addr: target,
+                ..
             }
             | Instr::StoreInc {
-                revised: target, ..
+                revised_addr: target,
+                ..
             }
             | Instr::StoreDec {
-                revised: target, ..
+                revised_addr: target,
+                ..
             } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
             | Instr::Adc { .. }
             | Instr::Add { .. }
             | Instr::Cp { .. }
@@ -773,6 +792,7 @@ impl Instr {
             | Instr::Swap { .. }
             | Instr::Ld16 { .. }
             | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
             | Instr::DecPtr { .. }
             | Instr::IncPtr { .. }
@@ -832,10 +852,14 @@ impl Instr {
             | Instr::SwapPtr { z, .. } => Some(*z),
             Instr::Nop
             | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
             | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
@@ -890,10 +914,14 @@ impl Instr {
             | Instr::Add16 { c, .. } => Some(*c),
             Instr::Nop
             | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
             | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
@@ -933,7 +961,7 @@ impl Instr {
                 | Instr::Xor { left, right, .. } => match next {
                     0 => Some(*left),
                     1 => match right {
-                        Operand8::Direct(right) => Some(*right),
+                        Operand8::Reg(right) => Some(*right),
                         _ => None,
                     },
                     _ => None,
@@ -945,17 +973,26 @@ impl Instr {
                     1 => Some(*high_in),
                     _ => None,
                 },
-                Instr::Ld8 { source, .. } => match next {
-                    0 => match source {
-                        Ld8Source::Operand(Operand8::Direct(source))
-                        | Ld8Source::HighPtr(source) => Some(*source),
-                        _ => None,
+                Instr::StoreHigh {
+                    target_addr,
+                    source,
+                    ..
+                } => match next {
+                    0 => Some(*source),
+                    1 => match target_addr {
+                        HighAddr::Reg(addr) => Some(*addr),
+                        HighAddr::Literal(_) => None,
                     },
                     _ => None,
                 },
-                Instr::Store { source, .. }
-                | Instr::StoreInc { right: source, .. }
-                | Instr::StoreDec { right: source, .. }
+                Instr::Ld8 { source, .. }
+                | Instr::Ld8HighPtr {
+                    source_addr: HighAddr::Reg(source),
+                    ..
+                }
+                | Instr::Store { source, .. }
+                | Instr::StoreInc { source, .. }
+                | Instr::StoreDec { source, .. }
                 | Instr::Dec { source, .. }
                 | Instr::Inc { source, .. }
                 | Instr::Cpl { source, .. }
@@ -974,6 +1011,9 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Ld8Value { .. }
+                | Instr::Ld8Ptr { .. }
+                | Instr::Ld8HighPtr { .. }
                 | Instr::Ld8Inc { .. }
                 | Instr::Ld8Dec { .. }
                 | Instr::Ld16 { .. }
@@ -1016,20 +1056,40 @@ impl Instr {
                     1 => Some(*right),
                     _ => None,
                 },
-                Instr::Ld8 { source, .. } => match next {
-                    0 => match source {
-                        Ld8Source::Operand(Operand8::Ptr(source)) => Some(*source),
+                Instr::Ld8Ptr {
+                    source_addr: addr, ..
+                }
+                | Instr::Store {
+                    target_addr: addr, ..
+                } => match next {
+                    0 => match addr {
+                        Addr::Reg(addr) => Some(*addr),
                         _ => None,
                     },
                     _ => None,
                 },
-                Instr::Ld8Inc { source, .. }
-                | Instr::Ld8Dec { source, .. }
-                | Instr::StoreInc { left: source, .. }
-                | Instr::StoreDec { left: source, .. }
+                Instr::Ld8Inc {
+                    source_addr: source,
+                    ..
+                }
+                | Instr::Ld8Dec {
+                    source_addr: source,
+                    ..
+                }
+                | Instr::StoreInc {
+                    target_addr: source,
+                    ..
+                }
+                | Instr::StoreDec {
+                    target_addr: source,
+                    ..
+                }
                 | Instr::DecPtr { addr: source, .. }
                 | Instr::IncPtr { addr: source, .. }
-                | Instr::BitPtr { addr: source, .. }
+                | Instr::BitPtr {
+                    source_addr: source,
+                    ..
+                }
                 | Instr::ResPtr { addr: source, .. }
                 | Instr::SetPtr { addr: source, .. }
                 | Instr::RlPtr { addr: source, .. }
@@ -1061,9 +1121,12 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Ld8 { .. }
+                | Instr::Ld8Value { .. }
+                | Instr::Ld8HighPtr { .. }
                 | Instr::Ld16 { .. }
-                | Instr::Store { .. }
                 | Instr::StoreValue { .. }
+                | Instr::StoreHigh { .. }
                 | Instr::Dec { .. }
                 | Instr::Inc { .. }
                 | Instr::Cpl { .. }
@@ -1097,10 +1160,14 @@ impl Instr {
             Instr::LdZero { z_in, .. } => Some(*z_in),
             Instr::Nop
             | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
             | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
@@ -1165,10 +1232,14 @@ impl Instr {
             | Instr::LdCarry { c_in, .. } => Some(*c_in),
             Instr::Nop
             | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
             | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
@@ -1219,48 +1290,68 @@ impl Instr {
     pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
             Instr::Nop => write!(f, "NOP"),
-            Instr::Ld8 { target, source } => write!(f, "LD {target}, {}", source.display(lir)),
+            Instr::Ld8 { target, source } => write!(f, "LD {target}, {source}"),
+            Instr::Ld8Value { target, source } => write!(f, "LD {target}, ${source:02x}"),
+            Instr::Ld8Ptr {
+                target,
+                source_addr,
+            } => write!(f, "LD {target}, {}", source_addr.display(lir)),
+            Instr::Ld8HighPtr {
+                target,
+                source_addr,
+            } => write!(f, "LD {target}, {}", source_addr.display(lir)),
             Instr::Ld8Inc {
                 target,
-                revised,
-                source,
+                revised_addr: revised,
+                source_addr: source,
             } => {
                 write!(f, "LD {target}, [I(out={revised};in={source})++]")
             }
             Instr::Ld8Dec {
                 target,
-                revised,
-                source,
+                revised_addr: revised,
+                source_addr: source,
             } => {
                 write!(f, "LD {target}, [(out={revised};in={source})--]")
             }
             Instr::Ld16 { target, source } => {
                 write!(f, "LD {target}, {}", source.display(lir, section))
             }
-            Instr::Store { target, source } => match target {
-                StoreTarget::Ptr(addr) => write!(f, "LD [{addr}], {source}"),
-                StoreTarget::LiteralPtr(addr) => write!(f, "LD [${addr:04x}], {source}"),
-                StoreTarget::SectionAddrPtr { section, offset } => {
+            Instr::Store {
+                target_addr,
+                source,
+            } => match target_addr {
+                Addr::Reg(addr) => write!(f, "LD [{addr}], {source}"),
+                Addr::Literal(addr) => write!(f, "LD [${addr:04x}], {source}"),
+                Addr::Section { section, offset } => {
                     if *offset == 0 {
                         write!(f, "LD [{}], {source}", section.display(lir))
                     } else {
                         write!(f, "LD [{}+${offset:04x}], {source}", section.display(lir))
                     }
                 }
-                StoreTarget::HighPtr(addr) => write!(f, "LD [$ff00+{addr}], {source}"),
-                StoreTarget::HighLiteralPtr(addr) => write!(f, "LD [$ff00+${addr:02x}], {source}"),
             },
-            Instr::StoreValue { target, source } => write!(f, "LD [{target}], {source}"),
+            Instr::StoreHigh {
+                target_addr,
+                source,
+            } => match target_addr {
+                HighAddr::Reg(addr) => write!(f, "LD [$ff00+{addr}], {source}"),
+                HighAddr::Literal(addr) => write!(f, "LD [$ff00+${addr:02x}], {source}"),
+            },
+            Instr::StoreValue {
+                target_addr,
+                source,
+            } => write!(f, "LD [{target_addr}], {source}"),
             Instr::StoreInc {
-                revised,
-                left,
-                right,
-            } => write!(f, "LD [(out={revised};in={left})++], {right}"),
+                revised_addr,
+                target_addr,
+                source,
+            } => write!(f, "LD [(out={revised_addr};in={target_addr})++], {source}"),
             Instr::StoreDec {
-                revised,
-                left,
-                right,
-            } => write!(f, "LD [(out={revised};in={left})--], {right}"),
+                revised_addr,
+                target_addr,
+                source,
+            } => write!(f, "LD [(out={revised_addr};in={target_addr})--], {source}"),
             Instr::Adc {
                 target,
                 z,
@@ -1368,8 +1459,12 @@ impl Instr {
             Instr::Bit { z, bit, source } => {
                 write!(f, "BIT {bit}, {source}; z(out={z})")
             }
-            Instr::BitPtr { z, bit, addr } => {
-                write!(f, "BIT {bit}, [{addr}]; z(out={z})")
+            Instr::BitPtr {
+                z,
+                bit,
+                source_addr,
+            } => {
+                write!(f, "BIT {bit}, [{source_addr}]; z(out={z})")
             }
             Instr::Res {
                 target,
@@ -1735,25 +1830,37 @@ impl PartialOrd for FlagId {
 }
 
 #[derive(Debug)]
-pub enum Ld8Source {
-    Operand(Operand8),
-    LiteralPtr(u16),
-    SectionAddrPtr { section: SectionId, offset: u16 },
-    HighPtr(R8Id),
-    HighLiteralPtr(u8),
+pub enum Addr {
+    Reg(R16Id),
+    Literal(u16),
+    Section { section: SectionId, offset: u16 },
 }
 
-impl Ld8Source {
+impl Addr {
     #[must_use]
     pub fn display<'a>(&'a self, lir: &'a Lir) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
-            Ld8Source::Operand(operand) => write!(f, "{operand}"),
-            Ld8Source::LiteralPtr(addr) => write!(f, "[${addr:04x}]"),
-            Ld8Source::SectionAddrPtr { section, offset } => {
+            Addr::Reg(operand) => write!(f, "[{operand}]"),
+            Addr::Literal(addr) => write!(f, "[${addr:04x}]"),
+            Addr::Section { section, offset } => {
                 write!(f, "[{}+${offset:04x}]", section.display(lir))
             }
-            Ld8Source::HighPtr(addr) => write!(f, "[$ff00 + {addr}]"),
-            Ld8Source::HighLiteralPtr(addr) => write!(f, "[$ff00 + {addr}]"),
+        })
+    }
+}
+
+#[derive(Debug)]
+pub enum HighAddr {
+    Reg(R8Id),
+    Literal(u8),
+}
+
+impl HighAddr {
+    #[must_use]
+    pub fn display<'a>(&'a self, _lir: &'a Lir) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| match self {
+            HighAddr::Reg(addr) => write!(f, "[$ff00 + {addr}]"),
+            HighAddr::Literal(addr) => write!(f, "[$ff00 + {addr}]"),
         })
     }
 }
@@ -1795,18 +1902,9 @@ impl Ld16Source {
 }
 
 #[derive(Debug)]
-pub enum StoreTarget {
-    Ptr(R16Id),
-    LiteralPtr(u16),
-    SectionAddrPtr { section: SectionId, offset: u16 },
-    HighPtr(R8Id),
-    HighLiteralPtr(u8),
-}
-
-#[derive(Debug)]
 pub enum Operand8 {
     Ptr(R16Id),
-    Direct(R8Id),
+    Reg(R8Id),
     Literal(u8),
 }
 
@@ -1814,7 +1912,7 @@ impl fmt::Display for Operand8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Operand8::Ptr(addr) => write!(f, "[{addr}]"),
-            Operand8::Direct(reg) => write!(f, "{reg}"),
+            Operand8::Reg(reg) => write!(f, "{reg}"),
             Operand8::Literal(value) => write!(f, "${value:02x}"),
         }
     }
@@ -2017,13 +2115,7 @@ impl CodeSectionBuilder {
             ),
             Entry::Vacant(_) => panic!("{target:?} not a phi register"),
         }
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target,
-                source: Ld8Source::Operand(Operand8::Direct(source)),
-            },
-        );
+        self.insert_instr(block, Instr::Ld8 { target, source });
     }
 
     pub fn complete_phi_r8(&mut self, target: R8Id, blocks: &[BlockId]) {
@@ -2063,14 +2155,14 @@ impl CodeSectionBuilder {
             block,
             Instr::Ld8 {
                 target: target_low,
-                source: Ld8Source::Operand(Operand8::Direct(source_low)),
+                source: source_low,
             },
         );
         self.insert_instr(
             block,
             Instr::Ld8 {
                 target: target_high,
-                source: Ld8Source::Operand(Operand8::Direct(source_high)),
+                source: source_high,
             },
         );
         self.insert_instr(
@@ -2095,17 +2187,59 @@ impl CodeSectionBuilder {
         );
     }
 
+    #[must_use]
+    pub fn insert_ld8_operand(&mut self, block: BlockId, source: Operand8) -> R8Id {
+        match source {
+            Operand8::Ptr(source_addr) => self.insert_ld8_ptr(block, Addr::Reg(source_addr)),
+            Operand8::Reg(source) => self.insert_ld8(block, source),
+            Operand8::Literal(source) => self.insert_ld8_value(block, source),
+        }
+    }
+
     /// `LD r8,r8`
+    #[must_use]
+    pub fn insert_ld8(&mut self, block: BlockId, source: R8Id) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(block, Instr::Ld8 { target, source });
+        target
+    }
+
     /// `LD r8,n8`
+    #[must_use]
+    pub fn insert_ld8_value(&mut self, block: BlockId, source: u8) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(block, Instr::Ld8Value { target, source });
+        target
+    }
+
     /// `LD r8,[HL]`
     /// `LD A,[r16]`
     /// `LD A,[n16]`
+    #[must_use]
+    pub fn insert_ld8_ptr(&mut self, block: BlockId, source_addr: Addr) -> R8Id {
+        let target = self.new_r8();
+        self.insert_instr(
+            block,
+            Instr::Ld8Ptr {
+                target,
+                source_addr,
+            },
+        );
+        target
+    }
+
     /// `LDH A,[n16]`
     /// `LDH A,[C]`
     #[must_use]
-    pub fn insert_ld8(&mut self, block: BlockId, source: Ld8Source) -> R8Id {
+    pub fn insert_ld8_high_ptr(&mut self, block: BlockId, source_addr: HighAddr) -> R8Id {
         let target = self.new_r8();
-        self.insert_instr(block, Instr::Ld8 { target, source });
+        self.insert_instr(
+            block,
+            Instr::Ld8HighPtr {
+                target,
+                source_addr,
+            },
+        );
         target
     }
 
@@ -2118,8 +2252,8 @@ impl CodeSectionBuilder {
             block,
             Instr::Ld8Inc {
                 target,
-                revised,
-                source,
+                revised_addr: revised,
+                source_addr: source,
             },
         );
         (target, revised)
@@ -2134,8 +2268,8 @@ impl CodeSectionBuilder {
             block,
             Instr::Ld8Dec {
                 target,
-                revised,
-                source,
+                revised_addr: revised,
+                source_addr: source,
             },
         );
         (target, revised)
@@ -2152,45 +2286,67 @@ impl CodeSectionBuilder {
     /// `LD [HL],r8`
     /// `LD [r16],A`
     /// `LD [n16],A`
+    pub fn insert_store(&mut self, block: BlockId, target_addr: Addr, source: R8Id) {
+        self.insert_instr(
+            block,
+            Instr::Store {
+                target_addr,
+                source,
+            },
+        );
+    }
+
     /// `LDH [n16],A`
     /// `LDH [C],A`
-    pub fn insert_store(&mut self, block: BlockId, target: StoreTarget, source: R8Id) {
-        self.insert_instr(block, Instr::Store { target, source });
+    pub fn insert_store_high(&mut self, block: BlockId, target_addr: HighAddr, source: R8Id) {
+        self.insert_instr(
+            block,
+            Instr::StoreHigh {
+                target_addr,
+                source,
+            },
+        );
     }
 
     /// `LD [HL],n8`
     pub fn insert_store_value(&mut self, block: BlockId, target: R16Id, source: u8) {
-        self.insert_instr(block, Instr::StoreValue { target, source });
+        self.insert_instr(
+            block,
+            Instr::StoreValue {
+                target_addr: target,
+                source,
+            },
+        );
     }
 
     /// `LD [HLI],A`
     #[must_use]
-    pub fn insert_store_inc(&mut self, block: BlockId, left: R16Id, right: R8Id) -> R16Id {
-        let revised = self.new_r16();
+    pub fn insert_store_inc(&mut self, block: BlockId, target_addr: R16Id, source: R8Id) -> R16Id {
+        let revised_addr = self.new_r16();
         self.insert_instr(
             block,
             Instr::StoreInc {
-                revised,
-                left,
-                right,
+                revised_addr,
+                target_addr,
+                source,
             },
         );
-        revised
+        revised_addr
     }
 
     /// `LD [HLD],A`
     #[must_use]
-    pub fn insert_store_dec(&mut self, block: BlockId, left: R16Id, right: R8Id) -> R16Id {
-        let revised = self.new_r16();
+    pub fn insert_store_dec(&mut self, block: BlockId, target_addr: R16Id, source: R8Id) -> R16Id {
+        let revised_addr = self.new_r16();
         self.insert_instr(
             block,
             Instr::StoreDec {
-                revised,
-                left,
-                right,
+                revised_addr,
+                target_addr,
+                source,
             },
         );
-        revised
+        revised_addr
     }
 
     /// `ADC A,r8`
@@ -2449,7 +2605,14 @@ impl CodeSectionBuilder {
     #[must_use]
     pub fn insert_bit_ptr(&mut self, block: BlockId, bit: u3, addr: R16Id) -> ZeroFlagId {
         let z = self.new_zero_flag();
-        self.insert_instr(block, Instr::BitPtr { z, bit, addr });
+        self.insert_instr(
+            block,
+            Instr::BitPtr {
+                z,
+                bit,
+                source_addr: addr,
+            },
+        );
         z
     }
 

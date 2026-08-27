@@ -1,4 +1,4 @@
-use crate::lir::{BlockId, CodeSectionData, Instr, Ld8Source, Operand8, VirtualReg};
+use crate::lir::{BlockId, CodeSectionData, Instr, VirtualReg};
 use crate::reg::{Color, ColorSet};
 use indexmap::IndexSet;
 use slotmap::SecondaryMap;
@@ -209,11 +209,7 @@ pub fn build_interference_graph(
     for (block_id, block) in code.blocks.iter() {
         let mut live: IndexSet<VirtualReg> = live_out[block_id].clone();
         for (index, instruction) in block.instructions.iter().enumerate().rev() {
-            if let Instr::Ld8 {
-                target,
-                source: Ld8Source::Operand(Operand8::Direct(source)),
-            } = instruction
-            {
+            if let Instr::Ld8 { target, source } = instruction {
                 live.swap_remove(&VirtualReg::R8(*source));
                 graph
                     .node_to_data
@@ -349,24 +345,26 @@ fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut Interferen
         graph.set_precolored(VirtualReg::Carry(c), Color::Fc);
     }
     match instruction {
-        Instr::Ld8 { target, source } => {
-            if !matches!(source, Ld8Source::Operand(_)) {
-                graph.set_precolored(VirtualReg::R8(*target), Color::A);
-            }
-        }
+        Instr::Ld8 { .. } => {}
         Instr::Ld8Inc {
-            target, revised, ..
+            target,
+            revised_addr,
+            ..
         }
         | Instr::Ld8Dec {
-            target, revised, ..
+            target,
+            revised_addr,
+            ..
         } => {
             graph.set_precolored(VirtualReg::R8(*target), Color::A);
-            graph.set_precolored(VirtualReg::R16(*revised), Color::HL);
+            graph.set_precolored(VirtualReg::R16(*revised_addr), Color::HL);
         }
-        Instr::StoreInc { revised, .. } | Instr::StoreDec { revised, .. } => {
-            graph.set_precolored(VirtualReg::R16(*revised), Color::HL);
+        Instr::StoreInc { revised_addr, .. } | Instr::StoreDec { revised_addr, .. } => {
+            graph.set_precolored(VirtualReg::R16(*revised_addr), Color::HL);
         }
-        Instr::Adc { target, .. }
+        Instr::Ld8Ptr { target, .. }
+        | Instr::Ld8HighPtr { target, .. }
+        | Instr::Adc { target, .. }
         | Instr::Add { target, .. }
         | Instr::Sbc { target, .. }
         | Instr::Sub { target, .. }
@@ -377,7 +375,8 @@ fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut Interferen
         | Instr::LdReturn8 { target, .. } => {
             graph.set_precolored(VirtualReg::R8(*target), Color::A);
         }
-        Instr::Dec { .. }
+        Instr::Ld8Value { .. }
+        | Instr::Dec { .. }
         | Instr::Inc { .. }
         | Instr::Res { .. }
         | Instr::Set { .. }
@@ -406,6 +405,7 @@ fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut Interferen
         }
         Instr::Nop => {}
         Instr::Store { .. } => {}
+        Instr::StoreHigh { .. } => {}
         Instr::StoreValue { .. } => {}
         Instr::Cp { .. } => {}
         Instr::DecPtr { .. } => {}

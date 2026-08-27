@@ -1,7 +1,7 @@
 use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
-use crate::lir::{BlockId, CodeSectionData, Instr, Ld8Source, Operand8, VirtualReg};
+use crate::lir::{BlockId, CodeSectionData, Instr, VirtualReg};
 use crate::reg::{Color, ColorSet};
 use indexmap::IndexSet;
 use std::collections::{HashMap, VecDeque};
@@ -160,10 +160,7 @@ impl RegAllocator {
         };
         let (block, index) = mv;
         let (a, b) = match &code.blocks[block].instructions[index] {
-            Instr::Ld8 {
-                target,
-                source: Ld8Source::Operand(Operand8::Direct(source)),
-            } => (*target, *source),
+            Instr::Ld8 { target, source } => (*target, *source),
             instruction => unimplemented!(
                 "worklist_moves only ever contains move instructions. Found {instruction:?}"
             ),
@@ -215,10 +212,7 @@ impl RegAllocator {
         for mv in self.related_moves(reg).collect::<Vec<_>>() {
             let (block, index) = mv;
             let (target, source) = match &code.blocks[block].instructions[index] {
-                Instr::Ld8 {
-                    target,
-                    source: Ld8Source::Operand(Operand8::Direct(source)),
-                } => (*target, *source),
+                Instr::Ld8 { target, source } => (*target, *source),
                 instruction => unimplemented!(
                     "worklist_moves only ever contains move instructions. Found {instruction:?}"
                 ),
