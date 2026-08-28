@@ -2255,7 +2255,7 @@ impl Terminator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Addr {
     Reg(R16Id),
     Literal(u16),
