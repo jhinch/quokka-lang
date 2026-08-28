@@ -139,8 +139,7 @@ impl InterferenceGraph {
         match a {
             VirtualReg::R8(_) => Color::r8(),
             VirtualReg::R16(_) => Color::r16(),
-            VirtualReg::Zero(_) => Color::z(),
-            VirtualReg::Carry(_) => Color::c(),
+            VirtualReg::Flag(_) => Color::flags(),
         }
     }
 
@@ -157,8 +156,7 @@ impl InterferenceGraph {
         match a {
             VirtualReg::R8(_) => Color::r8().len(),
             VirtualReg::R16(_) => Color::r16().len(),
-            VirtualReg::Zero(_) => Color::z().len(),
-            VirtualReg::Carry(_) => Color::c().len(),
+            VirtualReg::Flag(_) => Color::flags().len(),
         }
     }
 
@@ -319,12 +317,12 @@ fn instruction_uses(instruction: &Instr) -> impl Iterator<Item = VirtualReg> + '
         .source_r8()
         .map(VirtualReg::R8)
         .chain(instruction.source_r16().map(VirtualReg::R16))
-        .chain(instruction.zero_flag_in().into_iter().map(VirtualReg::Zero))
+        .chain(instruction.zero_flag_in().into_iter().map(VirtualReg::Flag))
         .chain(
             instruction
                 .carry_flag_in()
                 .into_iter()
-                .map(VirtualReg::Carry),
+                .map(VirtualReg::Flag),
         )
 }
 
@@ -333,16 +331,16 @@ fn instruction_defs(instruction: &Instr) -> impl Iterator<Item = VirtualReg> + '
         .target_r8()
         .map(VirtualReg::R8)
         .chain(instruction.target_r16().into_iter().map(VirtualReg::R16))
-        .chain(instruction.zero_flag().into_iter().map(VirtualReg::Zero))
-        .chain(instruction.carry_flag().into_iter().map(VirtualReg::Carry))
+        .chain(instruction.zero_flag().into_iter().map(VirtualReg::Flag))
+        .chain(instruction.carry_flag().into_iter().map(VirtualReg::Flag))
 }
 
 fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut InterferenceGraph) {
     if let Some(z) = instruction.zero_flag() {
-        graph.set_precolored(VirtualReg::Zero(z), Color::Fz);
+        graph.set_precolored(VirtualReg::Flag(z), Color::Fz);
     }
     if let Some(c) = instruction.carry_flag() {
-        graph.set_precolored(VirtualReg::Carry(c), Color::Fc);
+        graph.set_precolored(VirtualReg::Flag(c), Color::Fc);
     }
     match instruction {
         Instr::Ld8 { .. } => {}
@@ -424,7 +422,6 @@ fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut Interferen
         Instr::SwapPtr { .. } => {}
         Instr::Ccf { .. } => {}
         Instr::Scf { .. } => {}
-        Instr::LdZero { .. } => {}
-        Instr::LdCarry { .. } => {}
+        Instr::MoveFlag { .. } => {}
     }
 }

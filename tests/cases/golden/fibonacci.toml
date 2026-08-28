@@ -757,10 +757,10 @@ END_SECTION
 START_SECTION ROM0
 fibonacci::
 .bb1:
-  LD r8#4, [FIBONACCI_N+$0000]
+  LD r8#4, [FIBONACCI_N]
   LD r8#5, $00
-  CP (in=r8#4), r8#5; z(out=z#1), c(out=c#1)
-  JP z(in=z#1), .bb3; else=.bb4
+  CP A(in=r8#4), r8#5; z, c
+  JP z, .bb3; else=.bb4
 
 main::
 .bb2:
@@ -784,7 +784,7 @@ main::
 
 .bb4:
   LD r8#8, $01
-  ADD (out=r8#9;in=r8#4), r8#8; z(out=z#2), c(out=c#2)
+  ADD A(out=r8#9,in=r8#4), r8#8; z, c
   LD r8#10, $00
   LD r8#11, $01
   LD r8#12, $02
@@ -795,16 +795,16 @@ main::
 
 .bb5:
   LD r8#13, r8#9
-  CP (in=r8#1), r8#13; z(out=z#3), c(out=c#3)
-  JP nz(in=c#3), .bb6; else=.bb7
+  CP A(in=r8#1), r8#13; z, c
+  JP nc, .bb6; else=.bb7
 
 .bb6:
   JP .bb8
 
 .bb7:
-  ADD (out=r8#14;in=r8#2), r8#3; z(out=z#4), c(out=c#4)
+  ADD A(out=r8#14,in=r8#2), r8#3; z, c
   LD r8#15, $01
-  ADD (out=r8#16;in=r8#1), r8#15; z(out=z#5), c(out=c#5)
+  ADD A(out=r8#16,in=r8#1), r8#15; z, c
   LD r8#1, r8#16
   LD r8#2, r8#3
   LD r8#3, r8#14
@@ -822,10 +822,10 @@ main::
   (out=r16#5;high_in=r8#30;low_in=r8#31)
   (high_out=r8#33;low_out=r8#32;in=r16#1)
   (high_out=r8#35;low_out=r8#34;in=r16#5)
-  XOR (out=r8#36;in=r8#32), r8#34; z(out=z#6), c(out=c#6)
-  XOR (out=r8#37;in=r8#33), r8#35; z(out=z#7), c(out=c#7)
-  OR (out=r8#38;in=r8#37), r8#36; z(out=z#8), c(out=c#8)
-  JP z(in=z#8), .bb10; else=.bb11
+  XOR A(out=r8#36,in=r8#32), r8#34; z, c
+  XOR A(out=r8#37,in=r8#33), r8#35; z, c
+  OR A(out=r8#38,in=r8#37), r8#36; z, c
+  JP z, .bb10; else=.bb11
 
 .bb10:
   JP .bb12
@@ -838,20 +838,20 @@ main::
   RET
 
 .bb13:
-  A(out=r8#39)
+  LD r8#39, A
   LD r16#6, RESULTS+$0000
-  ADD (out=r16#7;in=r16#6), r16#1; c(out=c#9)
+  ADD HL(out=r16#7,in=r16#6), r16#1; c
   LD r16#8, $0000
-  ADD (out=r16#9;in=r16#7), r16#8; c(out=c#10)
+  ADD HL(out=r16#9,in=r16#7), r16#8; c
   LD [r16#9], r8#39
   LD r16#10, $0001
   (high_out=r8#41;low_out=r8#40;in=r16#10)
   LD r8#42, r8#41
   LD r8#43, r8#40
   (out=r16#11;high_in=r8#42;low_in=r8#43)
-  ADD (out=r16#12;in=r16#1), r16#11; c(out=c#11)
+  ADD HL(out=r16#12,in=r16#1), r16#11; c
   LD r8#44, $01
-  ADD (out=r8#45;in=r8#20), r8#44; z(out=z#9), c(out=c#12)
+  ADD A(out=r8#45,in=r8#20), r8#44; z, c
   LD r8#20, r8#45
   (high_out=r8#47;low_out=r8#46;in=r16#12)
   LD r8#18, r8#46

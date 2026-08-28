@@ -1,9 +1,8 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
-    Addr, BlockId, CARRY_FLAG_BIT, CARRY_FLAG_MASK, CarryFlagId, CodeSectionBuilder,
-    DataSectionData, FlagId, Ld16Source, Lir, LirBuilder, Operand8, R8Id, R16Id, RamRegionKind,
-    RamSectionData, RomRegionKind, SIGN_MASK, SectionId, Terminator, ZERO_FLAG_BIT, ZERO_FLAG_MASK,
-    ZeroFlagId,
+    Addr, BlockId, CodeSectionBuilder, DataSectionData, FlagId, Ld16Source, Lir, LirBuilder,
+    Operand8, R8Id, R16Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK, SectionId,
+    Terminator,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -351,7 +350,7 @@ impl CodeGen {
                 return_block: mir_return_block,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let (source, condition) = locals.r1s[*mir_source];
                 let (callee_section, callee_block) = ctx.functions[*callee];
                 let return_block = ctx.blocks[*mir_return_block];
                 let else_block = ctx.blocks[*mir_else_block];
@@ -390,7 +389,7 @@ impl CodeGen {
                 then_block: mir_then_block,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let (source, condition) = locals.r1s[*mir_source];
                 let then_block = ctx.blocks[*mir_then_block];
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
@@ -408,7 +407,7 @@ impl CodeGen {
                 condition: mir_condition,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.r1_to_flag(*mir_source, block, lir, locals);
+                let (source, condition) = locals.r1s[*mir_source];
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
@@ -433,142 +432,24 @@ impl CodeGen {
         match instruction {
             mir::Instr::Nop => {}
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
-            mir::Instr::Alloc { target } => {
-                let r8 = lir.insert_ld8_value(block, 0);
-                locals.r1s.insert(
-                    *target,
-                    (
-                        R1::Clean {
-                            r8,
-                            bit: u3::new(ZERO_FLAG_BIT),
-                        },
-                        mir::Condition::Zero,
-                    ),
-                );
-            }
-            mir::Instr::ReturnValue { target } => {
-                let r8 = lir.insert_ld_return_8(block);
-                locals.r1s.insert(
-                    *target,
-                    (
-                        R1::Dirty {
-                            r8,
-                            bit: u3::new(ZERO_FLAG_BIT),
-                        },
-                        mir::Condition::NotZero,
-                    ),
-                );
-            }
+            mir::Instr::Alloc { .. } => todo!("{instruction:?}"),
+            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
-            mir::Instr::Load {
-                target,
-                source,
-                projections,
-            } => {
-                let (source_addr, bit) = self.projected_global_to_addr(
-                    *source,
-                    projections.as_slice(),
-                    block,
-                    lir,
-                    ctx,
-                    locals,
-                );
-                let r8 = lir.insert_ld8_ptr(block, source_addr);
-                locals
-                    .r1s
-                    .insert(*target, (R1::Dirty { r8, bit }, mir::Condition::NotZero));
-            }
-            mir::Instr::Store {
-                target,
-                projections,
-                source,
-            } => {
-                let (target_addr, target_bit) = self.projected_global_to_addr(
-                    *target,
-                    projections.as_slice(),
-                    block,
-                    lir,
-                    ctx,
-                    locals,
-                );
-                let target_addr = match target_addr {
-                    Addr::Reg(target) => target,
-                    Addr::Section { section, offset } => {
-                        lir.insert_ld16(block, Ld16Source::SectionAddr { section, offset })
-                    }
-                    _ => {
-                        unreachable!("projected_global_to_addr should not produce {target_addr:?}")
-                    }
-                };
-                let (source, source_bit, _state, condition) =
-                    self.r1_to_operand(source, block, lir, locals);
-                match source {
-                    Operand8::Reg(_) => todo!("{instruction:?}"),
-                    Operand8::Literal(mut source) => {
-                        if condition == mir::Condition::Zero {
-                            source = !source;
-                        }
-                        let set = source & (1 << u8::from(source_bit)) != 0;
-                        if set {
-                            lir.insert_set_ptr(block, target_bit, target_addr);
-                        }
-                    }
-                    source => unreachable!("r1_to_operand should not produce {source:?}"),
-                }
-            }
-            mir::Instr::Copy { target, source } => {
-                let (source, bit, state, condition) =
-                    self.r1_to_operand(source, block, lir, locals);
-                let r8 = lir.insert_ld8_operand(block, source);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from((r8, bit, state)), condition));
-            }
-            mir::Instr::Read {
-                target,
-                source,
-                projections,
-            } => {
-                let (r8, bit) = self.projected_local_to_r8(
-                    *source,
-                    projections.as_slice(),
-                    block,
-                    lir,
-                    ctx,
-                    locals,
-                );
-                locals
-                    .r1s
-                    .insert(*target, (R1::Dirty { r8, bit }, mir::Condition::NotZero));
-            }
-            mir::Instr::Write { .. } => {
-                unimplemented!("{instruction:?} should not be produced for 1-bit target")
-            }
+            mir::Instr::Load { .. } => todo!("{instruction:?}"),
+            mir::Instr::Store { .. } => todo!("{instruction:?}"),
+            mir::Instr::Copy { .. } => todo!("{instruction:?}"),
+            mir::Instr::Read { .. } => todo!("{instruction:?}"),
+            mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (flag, condition) = locals.r1s[*source];
                 locals.r1s.insert(*target, (flag, !condition));
             }
             mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
-            mir::Instr::RotateLeft { target, source }
-            | mir::Instr::RotateRight { target, source } => {
-                let (r8, bit, state, condition) = self.r1_to_r8(*source, block, lir, locals);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from((r8, bit, state)), condition));
+            mir::Instr::RotateLeft { .. } | mir::Instr::RotateRight { .. } => {
+                todo!("{instruction:?}")
             }
-            mir::Instr::ShiftLeft { target, source: _ }
-            | mir::Instr::ShiftRight { target, source: _ } => {
-                let r8 = lir.insert_ld8_value(block, ZERO_FLAG_MASK);
-                locals.r1s.insert(
-                    *target,
-                    (
-                        R1::Clean {
-                            r8,
-                            bit: u3::new(ZERO_FLAG_BIT),
-                        },
-                        mir::Condition::NotZero,
-                    ),
-                );
+            mir::Instr::ShiftLeft { .. } | mir::Instr::ShiftRight { .. } => {
+                todo!("{instruction:?}")
             }
             mir::Instr::Eq {
                 target,
@@ -577,7 +458,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (R1::from(z), condition));
+                locals.r1s.insert(*target, (z, condition));
             }
             mir::Instr::Ne {
                 target,
@@ -586,7 +467,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (R1::from(z), !condition));
+                locals.r1s.insert(*target, (z, !condition));
             }
             mir::Instr::Lt {
                 target,
@@ -595,7 +476,7 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (R1::from(c), condition));
+                locals.r1s.insert(*target, (c, condition));
             }
             mir::Instr::Le { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
@@ -607,103 +488,15 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (R1::from(c), !condition));
+                locals.r1s.insert(*target, (c, !condition));
             }
             mir::Instr::Gt { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
             ),
-            mir::Instr::BitAnd {
-                target,
-                left,
-                right,
-            } => {
-                let (mut left, left_bit, mut left_condition) =
-                    self.r1_to_r8_clean(*left, block, lir, locals);
-                let (right, _right_bit, right_condition) =
-                    self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition != right_condition {
-                    let (new_left, _z, _c) =
-                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
-                    left = new_left;
-                    left_condition = !left_condition;
-                }
-                if left_condition == mir::Condition::NotZero {
-                    let (_r8, z, _c) = lir.insert_and(block, left, right);
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
-                } else {
-                    let (_r8, z, _c) = lir.insert_or(block, left, right);
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(z), mir::Condition::Zero));
-                }
-            }
-            mir::Instr::BitOr {
-                target,
-                left,
-                right,
-            } => {
-                let (mut left, left_bit, mut left_condition) =
-                    self.r1_to_r8_clean(*left, block, lir, locals);
-                let (right, _right_bit, right_condition) =
-                    self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition != right_condition {
-                    let (new_left, _z, _c) =
-                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
-                    left = new_left;
-                    left_condition = !left_condition;
-                }
-                if left_condition == mir::Condition::NotZero {
-                    let (_r8, z, _c) = lir.insert_or(block, left, right);
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(z), mir::Condition::NotZero));
-                } else {
-                    let (_r8, z, _c) = lir.insert_and(block, left, right);
-                    locals
-                        .r1s
-                        .insert(*target, (R1::from(z), mir::Condition::Zero));
-                }
-            }
-            mir::Instr::BitXor {
-                target,
-                left,
-                right,
-            }
-            | mir::Instr::Add {
-                target,
-                left,
-                right,
-            }
-            | mir::Instr::Sub {
-                target,
-                left,
-                right,
-            } => {
-                let (mut left, left_bit, left_condition) =
-                    self.r1_to_r8_clean(*left, block, lir, locals);
-                let (mut right, right_bit, right_condition) =
-                    self.r1_to_operand_clean(right, block, lir, locals);
-                if left_bit != right_bit {
-                    if let Operand8::Literal(value) = &right {
-                        right =
-                            Operand8::Literal((value >> u8::from(right_bit)) << u8::from(left_bit));
-                    } else {
-                        todo!(
-                            "{instruction:?}, left_bit={left_bit}, right_bit={right_bit}, left_condition={left_condition:?}, right_condition={right_condition:?}"
-                        );
-                    }
-                }
-                if left_condition != right_condition {
-                    let (new_left, _z, _c) =
-                        lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
-                    left = new_left;
-                }
-                let (_r8, z, _c) = lir.insert_xor(block, left, right);
-                locals
-                    .r1s
-                    .insert(*target, (R1::from(z), mir::Condition::NotZero));
+            mir::Instr::BitAnd { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitOr { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitXor { .. } | mir::Instr::Add { .. } | mir::Instr::Sub { .. } => {
+                todo!("{instruction:?} as u1 xor")
             }
         }
     }
@@ -797,49 +590,7 @@ impl CodeGen {
                 assert_eq!(u3, u3::new(0), "misaligned 8-bit ty");
                 locals.r8s.insert(*target, r8);
             }
-            mir::Instr::Write {
-                target,
-                left,
-                projections,
-                right,
-            } => {
-                let (left_r8, u3) = self.projected_local_to_r8(
-                    *left,
-                    projections.as_slice(),
-                    block,
-                    lir,
-                    ctx,
-                    locals,
-                );
-                let r8 = match ctx.function.locals[*left].ty {
-                    Ty::U1 => {
-                        let (mut right, right_bit, mut state, condition) =
-                            self.r1_to_operand(right, block, lir, locals);
-                        if u3 != right_bit {
-                            todo!("{instruction:?}");
-                        }
-                        if condition == mir::Condition::Zero {
-                            let new_right = lir.insert_ld8_operand(block, right);
-                            let new_right = lir.insert_cpl(block, new_right);
-                            right = Operand8::Reg(new_right);
-                            state = R1State::Dirty;
-                        }
-                        if state == R1State::Dirty {
-                            let mask = lir.insert_ld8_value(block, 1 << u8::from(right_bit));
-                            let (new_right, _z, _c) = lir.insert_and(block, mask, right);
-                            right = Operand8::Reg(new_right);
-                        }
-                        let r8 = lir.insert_res(block, u3, left_r8);
-                        let (r8, _z, _c) = lir.insert_or(block, r8, right);
-                        r8
-                    }
-                    ty if ty.bit_size(&self.ty_registry) == 8 => {
-                        lir.insert_ld8_operand(block, self.r8_to_operand(right, locals))
-                    }
-                    ty => todo!("{instruction:?} {ty:?}"),
-                };
-                locals.r8s.insert(*target, r8);
-            }
+            mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let r8 = lir.insert_cpl(block, locals.r8s[*source]);
                 locals.r8s.insert(*target, r8);
@@ -1217,122 +968,6 @@ impl CodeGen {
         lir.insert_split(block, right)
     }
 
-    fn r1_to_flag(
-        &self,
-        local: mir::LocalId,
-        block: BlockId,
-        lir: &mut CodeSectionBuilder,
-        locals: &Locals,
-    ) -> (FlagId, mir::Condition) {
-        let (flag, condition) = locals.r1s[local];
-        match flag {
-            R1::Flag(flag) => (flag, condition),
-            R1::Dirty { r8, bit } | R1::Clean { r8, bit } => {
-                let z = lir.insert_bit(block, bit, r8);
-                (FlagId::from(z), !condition)
-            }
-        }
-    }
-
-    fn r1_to_r8(
-        &self,
-        right: mir::LocalId,
-        block: BlockId,
-        lir: &mut CodeSectionBuilder,
-        locals: &Locals,
-    ) -> (R8Id, u3, R1State, mir::Condition) {
-        let (right, condition) = locals.r1s[right];
-        match right {
-            R1::Flag(FlagId::Zero(z_in)) => {
-                let right = lir.insert_ld_zero(block, z_in);
-                (right, u3::new(ZERO_FLAG_BIT), R1State::Dirty, condition)
-            }
-            R1::Flag(FlagId::Carry(c_in)) => {
-                let right = lir.insert_ld_carry(block, c_in);
-                (right, u3::new(CARRY_FLAG_BIT), R1State::Dirty, condition)
-            }
-            R1::Dirty { r8: right, bit } => (right, bit, R1State::Dirty, condition),
-            R1::Clean { r8: right, bit } => (right, bit, R1State::Clean, condition),
-        }
-    }
-
-    fn r1_to_r8_clean(
-        &self,
-        right: mir::LocalId,
-        block: BlockId,
-        lir: &mut CodeSectionBuilder,
-        locals: &Locals,
-    ) -> (R8Id, u3, mir::Condition) {
-        let (right, condition) = locals.r1s[right];
-        match right {
-            R1::Flag(FlagId::Zero(z_in)) => {
-                let right = lir.insert_ld_zero(block, z_in);
-                let (right, _z, _c) =
-                    lir.insert_and(block, right, Operand8::Literal(ZERO_FLAG_MASK));
-                (right, u3::new(ZERO_FLAG_BIT), condition)
-            }
-            R1::Flag(FlagId::Carry(c_in)) => {
-                let right = lir.insert_ld_carry(block, c_in);
-                let (right, _z, _c) =
-                    lir.insert_and(block, right, Operand8::Literal(CARRY_FLAG_MASK));
-                (right, u3::new(CARRY_FLAG_BIT), condition)
-            }
-            R1::Dirty { r8: right, bit } => {
-                let (right, _z, _c) =
-                    lir.insert_and(block, right, Operand8::Literal(1 << u8::from(bit)));
-                (right, bit, condition)
-            }
-            R1::Clean { r8: right, bit } => (right, bit, condition),
-        }
-    }
-
-    fn r1_to_operand(
-        &self,
-        right: &mir::Operand,
-        block: BlockId,
-        lir: &mut CodeSectionBuilder,
-        locals: &Locals,
-    ) -> (Operand8, u3, R1State, mir::Condition) {
-        match right {
-            mir::Operand::Local(right) => {
-                let (right, bit, state, condition) = self.r1_to_r8(*right, block, lir, locals);
-                (Operand8::Reg(right), bit, state, condition)
-            }
-            mir::Operand::Literal(right) => (
-                Operand8::Literal(if right.value != 0 { ZERO_FLAG_MASK } else { 0 }),
-                u3::new(ZERO_FLAG_BIT),
-                R1State::Clean,
-                mir::Condition::NotZero,
-            ),
-            mir::Operand::FnPtr(_) => {
-                unimplemented!("cannot perform 1-bit instruction using fn ptr")
-            }
-        }
-    }
-
-    fn r1_to_operand_clean(
-        &self,
-        right: &mir::Operand,
-        block: BlockId,
-        lir: &mut CodeSectionBuilder,
-        locals: &Locals,
-    ) -> (Operand8, u3, mir::Condition) {
-        match right {
-            mir::Operand::Local(right) => {
-                let (right, bit, condition) = self.r1_to_r8_clean(*right, block, lir, locals);
-                (Operand8::Reg(right), bit, condition)
-            }
-            mir::Operand::Literal(right) => (
-                Operand8::Literal(if right.value != 0 { ZERO_FLAG_MASK } else { 0 }),
-                u3::new(ZERO_FLAG_BIT),
-                mir::Condition::NotZero,
-            ),
-            mir::Operand::FnPtr(_) => {
-                unimplemented!("cannot perform 1-bit instruction using fn ptr")
-            }
-        }
-    }
-
     fn eq_from_comparison_op(
         &mut self,
         left: mir::LocalId,
@@ -1341,7 +976,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &mut Locals,
-    ) -> (ZeroFlagId, mir::Condition) {
+    ) -> (FlagId, mir::Condition) {
         match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
                 let (z, _c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
@@ -1374,7 +1009,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &mut Locals,
-    ) -> (CarryFlagId, mir::Condition) {
+    ) -> (FlagId, mir::Condition) {
         match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
                 let (_z, c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
@@ -1404,39 +1039,9 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &mut Locals,
-    ) -> (ZeroFlagId, CarryFlagId) {
+    ) -> (FlagId, FlagId) {
         match ctx.function.locals[left].ty {
-            Ty::U1 => {
-                let (mut left, left_bit, left_condition) =
-                    self.r1_to_r8_clean(left, block, lir, locals);
-                let (mut right, right_bit, right_condition) =
-                    self.r1_to_operand_clean(right, block, lir, locals);
-                if left_condition != right_condition {
-                    if left_condition == mir::Condition::Zero {
-                        let (r8, _z, _c) =
-                            lir.insert_xor(block, left, Operand8::Literal(1 << u8::from(left_bit)));
-                        left = r8;
-                    } else {
-                        right = match right {
-                            Operand8::Ptr(_) => {
-                                unreachable!("r1_to_operand should not produce Operand8::Ptr")
-                            }
-                            Operand8::Reg(right) => {
-                                let (right, _z, _c) = lir.insert_xor(
-                                    block,
-                                    right,
-                                    Operand8::Literal(1 << u8::from(right_bit)),
-                                );
-                                Operand8::Reg(right)
-                            }
-                            Operand8::Literal(value) => {
-                                Operand8::Literal(value ^ (1 << u8::from(right_bit)))
-                            }
-                        };
-                    }
-                }
-                lir.insert_cp(block, left, right)
-            }
+            Ty::U1 => todo!("{left:?} {right:?} u1"),
             Ty::U2 => todo!("{left:?} {right:?} u2"),
             Ty::U4 => todo!("{left:?} {right:?} u4"),
             ty if ty.bit_size(&self.ty_registry) == 8 => {
@@ -1568,59 +1173,11 @@ struct InstrCtx<'a> {
 
 #[derive(Default)]
 struct Locals {
-    r1s: SparseSecondaryMap<mir::LocalId, (R1, mir::Condition)>,
+    r1s: SparseSecondaryMap<mir::LocalId, (FlagId, mir::Condition)>,
     r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
     r16s: SparseSecondaryMap<mir::LocalId, R16Id>,
     phi_source_r8s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R8Id>>,
     phi_source_r16s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R16Id>>,
     phi_r8s: IndexMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
     phi_r16s: IndexMap<mir::LocalId, (R16Id, Vec<BlockId>)>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum R1 {
-    Flag(FlagId),
-    /// flag contained within `r8` at `bit` with all other bits being undefined.
-    Dirty {
-        r8: R8Id,
-        bit: u3,
-    },
-    /// flag contained within `r8` at `bit` with all other bits guaranteed to be `0`.
-    Clean {
-        r8: R8Id,
-        bit: u3,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum R1State {
-    Dirty,
-    Clean,
-}
-
-impl From<FlagId> for R1 {
-    fn from(value: FlagId) -> Self {
-        R1::Flag(value)
-    }
-}
-
-impl From<ZeroFlagId> for R1 {
-    fn from(value: ZeroFlagId) -> Self {
-        R1::Flag(value.into())
-    }
-}
-
-impl From<CarryFlagId> for R1 {
-    fn from(value: CarryFlagId) -> Self {
-        R1::Flag(value.into())
-    }
-}
-
-impl From<(R8Id, u3, R1State)> for R1 {
-    fn from((r8, bit, state): (R8Id, u3, R1State)) -> Self {
-        match state {
-            R1State::Dirty => R1::Dirty { r8, bit },
-            R1State::Clean => R1::Clean { r8, bit },
-        }
-    }
 }

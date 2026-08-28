@@ -561,7 +561,7 @@ END_SECTION
 START_SECTION ROM0
 collatz_steps::
 .bb1:
-  LD r8#7, [N+$0000]
+  LD r8#7, [N]
   LD r8#8, [N+$0001]
   (out=r16#4;high_in=r8#8;low_in=r8#7)
   LD r16#5, $0000
@@ -588,7 +588,7 @@ main::
   (out=r16#26;high_in=r8#79;low_in=r8#80)
   LD r16#27, N+$0000
   (high_out=r8#82;low_out=r8#81;in=r16#26)
-  LD [(out=r16#28;in=r16#27)++], r8#81
+  LD [HL(out=r16#28,in=r16#27)++], r8#81
   LD [r16#28], r8#82
   CALL collatz_steps; return=.bb10
 
@@ -600,10 +600,10 @@ main::
   (out=r16#8;high_in=r8#19;low_in=r8#20)
   (high_out=r8#22;low_out=r8#21;in=r16#1)
   (high_out=r8#24;low_out=r8#23;in=r16#8)
-  XOR (out=r8#25;in=r8#21), r8#23; z(out=z#1), c(out=c#1)
-  XOR (out=r8#26;in=r8#22), r8#24; z(out=z#2), c(out=c#2)
-  OR (out=r8#27;in=r8#26), r8#25; z(out=z#3), c(out=c#3)
-  JP z(in=z#3), .bb4; else=.bb5
+  XOR A(out=r8#25,in=r8#21), r8#23; z, c
+  XOR A(out=r8#26,in=r8#22), r8#24; z, c
+  OR A(out=r8#27,in=r8#26), r8#25; z, c
+  JP z, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
@@ -616,8 +616,8 @@ main::
   (out=r16#10;high_in=r8#30;low_in=r8#31)
   (high_out=r8#33;low_out=r8#32;in=r16#1)
   (high_out=r8#35;low_out=r8#34;in=r16#10)
-  AND (out=r8#36;in=r8#32), r8#34; z(out=z#4), c(out=c#4)
-  AND (out=r8#37;in=r8#33), r8#35; z(out=z#5), c(out=c#5)
+  AND A(out=r8#36,in=r8#32), r8#34; z, c
+  AND A(out=r8#37,in=r8#33), r8#35; z, c
   (out=r16#11;high_in=r8#37;low_in=r8#36)
   LD r16#12, $0000
   (high_out=r8#39;low_out=r8#38;in=r16#12)
@@ -626,10 +626,10 @@ main::
   (out=r16#13;high_in=r8#40;low_in=r8#41)
   (high_out=r8#43;low_out=r8#42;in=r16#11)
   (high_out=r8#45;low_out=r8#44;in=r16#13)
-  XOR (out=r8#46;in=r8#42), r8#44; z(out=z#6), c(out=c#6)
-  XOR (out=r8#47;in=r8#43), r8#45; z(out=z#7), c(out=c#7)
-  OR (out=r8#48;in=r8#47), r8#46; z(out=z#8), c(out=c#8)
-  JP z(in=z#8), .bb7; else=.bb8
+  XOR A(out=r8#46,in=r8#42), r8#44; z, c
+  XOR A(out=r8#47,in=r8#43), r8#45; z, c
+  OR A(out=r8#48,in=r8#47), r8#46; z, c
+  JP z, .bb7; else=.bb8
 
 .bb6:
   (high_out=r8#50;low_out=r8#49;in=r16#2)
@@ -640,8 +640,8 @@ main::
 
 .bb7:
   (high_out=r8#54;low_out=r8#53;in=r16#1)
-  SRL (out=r8#55;in=r8#54); z(out=z#9), c(out=c#9)
-  RR (out=r8#56;in=r8#53); z(out=z#10), c(out=c#10;in=c#9)
+  SRL (out=r8#55,in=r8#54); z, c
+  RR (out=r8#56,in=r8#53); z, z
   (out=r16#15;high_in=r8#55;low_in=r8#56)
   (high_out=r8#58;low_out=r8#57;in=r16#15)
   LD r8#5, r8#57
@@ -650,14 +650,14 @@ main::
   JP .bb9
 
 .bb8:
-  ADD (out=r16#16;in=r16#1), r16#1; c(out=c#11)
-  ADD (out=r16#17;in=r16#16), r16#1; c(out=c#12)
+  ADD HL(out=r16#16,in=r16#1), r16#1; c
+  ADD HL(out=r16#17,in=r16#16), r16#1; c
   LD r16#18, $0001
   (high_out=r8#60;low_out=r8#59;in=r16#18)
   LD r8#61, r8#60
   LD r8#62, r8#59
   (out=r16#19;high_in=r8#61;low_in=r8#62)
-  ADD (out=r16#20;in=r16#17), r16#19; c(out=c#13)
+  ADD HL(out=r16#20,in=r16#17), r16#19; c
   (high_out=r8#64;low_out=r8#63;in=r16#20)
   LD r8#5, r8#63
   LD r8#6, r8#64
@@ -674,7 +674,7 @@ main::
   LD r8#71, r8#70
   LD r8#72, r8#69
   (out=r16#23;high_in=r8#71;low_in=r8#72)
-  ADD (out=r16#24;in=r16#2), r16#22; c(out=c#14)
+  ADD HL(out=r16#24,in=r16#2), r16#22; c
   (high_out=r8#74;low_out=r8#73;in=r16#3)
   LD r8#1, r8#73
   LD r8#2, r8#74
@@ -686,10 +686,10 @@ main::
   JP .bb3
 
 .bb10:
-  HL(out=r16#29)
+  LD16 r16#29, HL
   LD r16#30, RESULT+$0000
   (high_out=r8#84;low_out=r8#83;in=r16#29)
-  LD [(out=r16#31;in=r16#30)++], r8#83
+  LD [HL(out=r16#31,in=r16#30)++], r8#83
   LD [r16#31], r8#84
   RET
 

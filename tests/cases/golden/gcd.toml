@@ -482,10 +482,10 @@ END_SECTION
 START_SECTION ROM0
 gcd::
 .bb1:
-  LD r8#9, [A+$0000]
+  LD r8#9, [A]
   LD r8#10, [A+$0001]
   (out=r16#5;high_in=r8#10;low_in=r8#9)
-  LD r8#11, [B+$0000]
+  LD r8#11, [B]
   LD r8#12, [B+$0001]
   (out=r16#6;high_in=r8#12;low_in=r8#11)
   (high_out=r8#14;low_out=r8#13;in=r16#6)
@@ -507,7 +507,7 @@ main::
   (out=r16#13;high_in=r8#64;low_in=r8#65)
   LD r16#14, A+$0000
   (high_out=r8#67;low_out=r8#66;in=r16#13)
-  LD [(out=r16#15;in=r16#14)++], r8#66
+  LD [HL(out=r16#15,in=r16#14)++], r8#66
   LD [r16#15], r8#67
   LD r16#16, $01ce
   (high_out=r8#69;low_out=r8#68;in=r16#16)
@@ -516,7 +516,7 @@ main::
   (out=r16#17;high_in=r8#70;low_in=r8#71)
   LD r16#18, B+$0000
   (high_out=r8#73;low_out=r8#72;in=r16#17)
-  LD [(out=r16#19;in=r16#18)++], r8#72
+  LD [HL(out=r16#19,in=r16#18)++], r8#72
   LD [r16#19], r8#73
   CALL gcd; return=.bb9
 
@@ -528,10 +528,10 @@ main::
   (out=r16#8;high_in=r8#19;low_in=r8#20)
   (high_out=r8#22;low_out=r8#21;in=r16#1)
   (high_out=r8#24;low_out=r8#23;in=r16#8)
-  XOR (out=r8#25;in=r8#21), r8#23; z(out=z#1), c(out=c#1)
-  XOR (out=r8#26;in=r8#22), r8#24; z(out=z#2), c(out=c#2)
-  OR (out=r8#27;in=r8#26), r8#25; z(out=z#3), c(out=c#3)
-  JP z(in=z#3), .bb4; else=.bb5
+  XOR A(out=r8#25,in=r8#21), r8#23; z, c
+  XOR A(out=r8#26,in=r8#22), r8#24; z, c
+  OR A(out=r8#27,in=r8#26), r8#25; z, c
+  JP z, .bb4; else=.bb5
 
 .bb4:
   (high_out=r8#29;low_out=r8#28;in=r16#2)
@@ -543,15 +543,15 @@ main::
 .bb5:
   (high_out=r8#33;low_out=r8#32;in=r16#1)
   (high_out=r8#35;low_out=r8#34;in=r16#2)
-  SUB (out=r8#36;in=r8#33), r8#35; z(out=z#4), c(out=c#4)
-  SBC (out=r8#37;in=r8#32), r8#34; z(out=z#5), c(out=c#5;in=c#4)
-  JP z(in=c#5), .bb6; else=.bb7
+  SUB A(out=r8#36,in=r8#33), r8#35; z, c
+  SBC A(out=r8#37,in=r8#32), r8#34; z, z
+  JP c, .bb6; else=.bb7
 
 .bb6:
   (high_out=r8#39;low_out=r8#38;in=r16#2)
   (high_out=r8#41;low_out=r8#40;in=r16#1)
-  SUB (out=r8#42;in=r8#39), r8#41; z(out=z#6), c(out=c#6)
-  SBC (out=r8#43;in=r8#38), r8#40; z(out=z#7), c(out=c#7;in=c#6)
+  SUB A(out=r8#42,in=r8#39), r8#41; z, c
+  SBC A(out=r8#43,in=r8#38), r8#40; z, z
   (out=r16#10;high_in=r8#42;low_in=r8#43)
   (high_out=r8#45;low_out=r8#44;in=r16#1)
   LD r8#5, r8#44
@@ -566,8 +566,8 @@ main::
 .bb7:
   (high_out=r8#49;low_out=r8#48;in=r16#1)
   (high_out=r8#51;low_out=r8#50;in=r16#2)
-  SUB (out=r8#52;in=r8#49), r8#51; z(out=z#8), c(out=c#8)
-  SBC (out=r8#53;in=r8#48), r8#50; z(out=z#9), c(out=c#9;in=c#8)
+  SUB A(out=r8#52,in=r8#49), r8#51; z, c
+  SBC A(out=r8#53,in=r8#48), r8#50; z, z
   (out=r16#11;high_in=r8#52;low_in=r8#53)
   (high_out=r8#55;low_out=r8#54;in=r16#11)
   LD r8#5, r8#54
@@ -591,10 +591,10 @@ main::
   JP .bb3
 
 .bb9:
-  HL(out=r16#20)
+  LD16 r16#20, HL
   LD r16#21, RESULT+$0000
   (high_out=r8#75;low_out=r8#74;in=r16#20)
-  LD [(out=r16#22;in=r16#21)++], r8#74
+  LD [HL(out=r16#22,in=r16#21)++], r8#74
   LD [r16#22], r8#75
   RET
 

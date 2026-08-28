@@ -1118,9 +1118,9 @@ main::
   (out=r16#60;high_in=r8#110;low_in=r8#111)
   LD r8#112, $05
   LD r16#61, DATA+$0000
-  ADD (out=r16#62;in=r16#61), r16#60; c(out=c#28)
+  ADD HL(out=r16#62,in=r16#61), r16#60; c
   LD r16#63, $0000
-  ADD (out=r16#64;in=r16#62), r16#63; c(out=c#29)
+  ADD HL(out=r16#64,in=r16#62), r16#63; c
   LD [r16#64], r8#112
   LD r16#65, $0001
   (high_out=r8#114;low_out=r8#113;in=r16#65)
@@ -1129,9 +1129,9 @@ main::
   (out=r16#66;high_in=r8#115;low_in=r8#116)
   LD r8#117, $03
   LD r16#67, DATA+$0000
-  ADD (out=r16#68;in=r16#67), r16#66; c(out=c#30)
+  ADD HL(out=r16#68,in=r16#67), r16#66; c
   LD r16#69, $0000
-  ADD (out=r16#70;in=r16#68), r16#69; c(out=c#31)
+  ADD HL(out=r16#70,in=r16#68), r16#69; c
   LD [r16#70], r8#117
   LD r16#71, $0002
   (high_out=r8#119;low_out=r8#118;in=r16#71)
@@ -1140,9 +1140,9 @@ main::
   (out=r16#72;high_in=r8#120;low_in=r8#121)
   LD r8#122, $08
   LD r16#73, DATA+$0000
-  ADD (out=r16#74;in=r16#73), r16#72; c(out=c#32)
+  ADD HL(out=r16#74,in=r16#73), r16#72; c
   LD r16#75, $0000
-  ADD (out=r16#76;in=r16#74), r16#75; c(out=c#33)
+  ADD HL(out=r16#76,in=r16#74), r16#75; c
   LD [r16#76], r8#122
   LD r16#77, $0003
   (high_out=r8#124;low_out=r8#123;in=r16#77)
@@ -1151,9 +1151,9 @@ main::
   (out=r16#78;high_in=r8#125;low_in=r8#126)
   LD r8#127, $01
   LD r16#79, DATA+$0000
-  ADD (out=r16#80;in=r16#79), r16#78; c(out=c#34)
+  ADD HL(out=r16#80,in=r16#79), r16#78; c
   LD r16#81, $0000
-  ADD (out=r16#82;in=r16#80), r16#81; c(out=c#35)
+  ADD HL(out=r16#82,in=r16#80), r16#81; c
   LD [r16#82], r8#127
   LD r16#83, $0004
   (high_out=r8#129;low_out=r8#128;in=r16#83)
@@ -1162,9 +1162,9 @@ main::
   (out=r16#84;high_in=r8#130;low_in=r8#131)
   LD r8#132, $09
   LD r16#85, DATA+$0000
-  ADD (out=r16#86;in=r16#85), r16#84; c(out=c#36)
+  ADD HL(out=r16#86,in=r16#85), r16#84; c
   LD r16#87, $0000
-  ADD (out=r16#88;in=r16#86), r16#87; c(out=c#37)
+  ADD HL(out=r16#88,in=r16#86), r16#87; c
   LD [r16#88], r8#132
   LD r16#89, $0005
   (high_out=r8#134;low_out=r8#133;in=r16#89)
@@ -1173,9 +1173,9 @@ main::
   (out=r16#90;high_in=r8#135;low_in=r8#136)
   LD r8#137, $02
   LD r16#91, DATA+$0000
-  ADD (out=r16#92;in=r16#91), r16#90; c(out=c#38)
+  ADD HL(out=r16#92,in=r16#91), r16#90; c
   LD r16#93, $0000
-  ADD (out=r16#94;in=r16#92), r16#93; c(out=c#39)
+  ADD HL(out=r16#94,in=r16#92), r16#93; c
   LD [r16#94], r8#137
   LD r16#95, $0006
   (high_out=r8#139;low_out=r8#138;in=r16#95)
@@ -1184,9 +1184,9 @@ main::
   (out=r16#96;high_in=r8#140;low_in=r8#141)
   LD r8#142, $07
   LD r16#97, DATA+$0000
-  ADD (out=r16#98;in=r16#97), r16#96; c(out=c#40)
+  ADD HL(out=r16#98,in=r16#97), r16#96; c
   LD r16#99, $0000
-  ADD (out=r16#100;in=r16#98), r16#99; c(out=c#41)
+  ADD HL(out=r16#100,in=r16#98), r16#99; c
   LD [r16#100], r8#142
   LD r16#101, $0007
   (high_out=r8#144;low_out=r8#143;in=r16#101)
@@ -1195,9 +1195,9 @@ main::
   (out=r16#102;high_in=r8#145;low_in=r8#146)
   LD r8#147, $04
   LD r16#103, DATA+$0000
-  ADD (out=r16#104;in=r16#103), r16#102; c(out=c#42)
+  ADD HL(out=r16#104,in=r16#103), r16#102; c
   LD r16#105, $0000
-  ADD (out=r16#106;in=r16#104), r16#105; c(out=c#43)
+  ADD HL(out=r16#106,in=r16#104), r16#105; c
   LD [r16#106], r8#147
   CALL bubble_sort; return=.bb13
 
@@ -1209,9 +1209,9 @@ main::
   (out=r16#6;high_in=r8#17;low_in=r8#18)
   (high_out=r8#20;low_out=r8#19;in=r16#1)
   (high_out=r8#22;low_out=r8#21;in=r16#6)
-  SUB (out=r8#23;in=r8#20), r8#22; z(out=z#1), c(out=c#1)
-  SBC (out=r8#24;in=r8#19), r8#21; z(out=z#2), c(out=c#2;in=c#1)
-  JP nz(in=c#2), .bb4; else=.bb5
+  SUB A(out=r8#23,in=r8#20), r8#22; z, c
+  SBC A(out=r8#24,in=r8#19), r8#21; z, z
+  JP nc, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
@@ -1224,8 +1224,8 @@ main::
   (out=r16#8;high_in=r8#27;low_in=r8#28)
   (high_out=r8#30;low_out=r8#29;in=r16#8)
   (high_out=r8#32;low_out=r8#31;in=r16#1)
-  SUB (out=r8#33;in=r8#30), r8#32; z(out=z#3), c(out=c#3)
-  SBC (out=r8#34;in=r8#29), r8#31; z(out=z#4), c(out=c#4;in=c#3)
+  SUB A(out=r8#33,in=r8#30), r8#32; z, c
+  SBC A(out=r8#34,in=r8#29), r8#31; z, z
   (out=r16#9;high_in=r8#33;low_in=r8#34)
   LD r16#10, $0001
   (high_out=r8#36;low_out=r8#35;in=r16#10)
@@ -1234,8 +1234,8 @@ main::
   (out=r16#11;high_in=r8#37;low_in=r8#38)
   (high_out=r8#40;low_out=r8#39;in=r16#9)
   (high_out=r8#42;low_out=r8#41;in=r16#11)
-  SUB (out=r8#43;in=r8#40), r8#42; z(out=z#5), c(out=c#5)
-  SBC (out=r8#44;in=r8#39), r8#41; z(out=z#6), c(out=c#6;in=c#5)
+  SUB A(out=r8#43,in=r8#40), r8#42; z, c
+  SBC A(out=r8#44,in=r8#39), r8#41; z, z
   (out=r16#12;high_in=r8#43;low_in=r8#44)
   LD r16#13, $0000
   (high_out=r8#46;low_out=r8#45;in=r16#13)
@@ -1260,13 +1260,13 @@ main::
   (out=r16#15;high_in=r8#54;low_in=r8#55)
   (high_out=r8#57;low_out=r8#56;in=r16#2)
   (high_out=r8#59;low_out=r8#58;in=r16#15)
-  SUB (out=r8#60;in=r8#57), r8#59; z(out=z#7), c(out=c#7)
-  SBC (out=r8#61;in=r8#56), r8#58; z(out=z#8), c(out=c#8;in=c#7)
+  SUB A(out=r8#60,in=r8#57), r8#59; z, c
+  SBC A(out=r8#61,in=r8#56), r8#58; z, z
   (high_out=r8#63;low_out=r8#62;in=r16#1)
   LD r8#64, r8#63
   LD r8#65, r8#62
   (out=r16#16;high_in=r8#64;low_in=r8#65)
-  JP nz(in=c#8), .bb8; else=.bb9
+  JP nc, .bb8; else=.bb9
 
 .bb8:
   JP .bb10
@@ -1277,20 +1277,20 @@ main::
   LD r8#68, r8#67
   LD r8#69, r8#66
   (out=r16#18;high_in=r8#68;low_in=r8#69)
-  ADD (out=r16#19;in=r16#2), r16#18; c(out=c#9)
+  ADD HL(out=r16#19,in=r16#2), r16#18; c
   LD r16#20, DATA+$0000
-  ADD (out=r16#21;in=r16#20), r16#19; c(out=c#10)
+  ADD HL(out=r16#21,in=r16#20), r16#19; c
   LD r16#22, $0000
-  ADD (out=r16#23;in=r16#21), r16#22; c(out=c#11)
+  ADD HL(out=r16#23,in=r16#21), r16#22; c
   LD r8#70, [r16#23]
   LD r16#24, DATA+$0000
-  ADD (out=r16#25;in=r16#24), r16#2; c(out=c#12)
+  ADD HL(out=r16#25,in=r16#24), r16#2; c
   LD r16#26, $0000
-  ADD (out=r16#27;in=r16#25), r16#26; c(out=c#13)
+  ADD HL(out=r16#27,in=r16#25), r16#26; c
   LD r8#71, [r16#27]
-  CP (in=r8#70), r8#71; z(out=z#9), c(out=c#14)
+  CP A(in=r8#70), r8#71; z, c
   LD r8#7, r8#6
-  JP z(in=c#14), .bb11; else=.bb12
+  JP c, .bb11; else=.bb12
 
 .bb10:
   LD r16#28, $0001
@@ -1298,7 +1298,7 @@ main::
   LD r8#74, r8#73
   LD r8#75, r8#72
   (out=r16#29;high_in=r8#74;low_in=r8#75)
-  ADD (out=r16#30;in=r16#1), r16#29; c(out=c#15)
+  ADD HL(out=r16#30,in=r16#1), r16#29; c
   LD r8#3, r8#6
   (high_out=r8#77;low_out=r8#76;in=r16#30)
   LD r8#1, r8#76
@@ -1308,39 +1308,39 @@ main::
 
 .bb11:
   LD r16#31, DATA+$0000
-  ADD (out=r16#32;in=r16#31), r16#2; c(out=c#16)
+  ADD HL(out=r16#32,in=r16#31), r16#2; c
   LD r16#33, $0000
-  ADD (out=r16#34;in=r16#32), r16#33; c(out=c#17)
+  ADD HL(out=r16#34,in=r16#32), r16#33; c
   LD r8#78, [r16#34]
   LD r16#35, $0001
   (high_out=r8#80;low_out=r8#79;in=r16#35)
   LD r8#81, r8#80
   LD r8#82, r8#79
   (out=r16#36;high_in=r8#81;low_in=r8#82)
-  ADD (out=r16#37;in=r16#2), r16#36; c(out=c#18)
+  ADD HL(out=r16#37,in=r16#2), r16#36; c
   LD r16#38, DATA+$0000
-  ADD (out=r16#39;in=r16#38), r16#37; c(out=c#19)
+  ADD HL(out=r16#39,in=r16#38), r16#37; c
   LD r16#40, $0000
-  ADD (out=r16#41;in=r16#39), r16#40; c(out=c#20)
+  ADD HL(out=r16#41,in=r16#39), r16#40; c
   LD r8#83, [r16#41]
   LD r16#42, DATA+$0000
-  ADD (out=r16#43;in=r16#42), r16#2; c(out=c#21)
+  ADD HL(out=r16#43,in=r16#42), r16#2; c
   LD r16#44, $0000
-  ADD (out=r16#45;in=r16#43), r16#44; c(out=c#22)
+  ADD HL(out=r16#45,in=r16#43), r16#44; c
   LD [r16#45], r8#83
   LD r16#46, $0001
   (high_out=r8#85;low_out=r8#84;in=r16#46)
   LD r8#86, r8#85
   LD r8#87, r8#84
   (out=r16#47;high_in=r8#86;low_in=r8#87)
-  ADD (out=r16#48;in=r16#2), r16#47; c(out=c#23)
+  ADD HL(out=r16#48,in=r16#2), r16#47; c
   LD r16#49, DATA+$0000
-  ADD (out=r16#50;in=r16#49), r16#48; c(out=c#24)
+  ADD HL(out=r16#50,in=r16#49), r16#48; c
   LD r16#51, $0000
-  ADD (out=r16#52;in=r16#50), r16#51; c(out=c#25)
+  ADD HL(out=r16#52,in=r16#50), r16#51; c
   LD [r16#52], r8#78
   LD r8#88, $01
-  ADD (out=r8#89;in=r8#6), r8#88; z(out=z#10), c(out=c#26)
+  ADD A(out=r8#89,in=r8#6), r8#88; z, c
   LD r8#7, r8#89
   JP .bb12
 
@@ -1354,7 +1354,7 @@ main::
   LD r8#96, r8#95
   LD r8#97, r8#94
   (out=r16#55;high_in=r8#96;low_in=r8#97)
-  ADD (out=r16#56;in=r16#2), r16#54; c(out=c#27)
+  ADD HL(out=r16#56,in=r16#2), r16#54; c
   (high_out=r8#99;low_out=r8#98;in=r16#15)
   LD r8#100, r8#99
   LD r8#101, r8#98
@@ -1371,7 +1371,7 @@ main::
   JP .bb7
 
 .bb13:
-  A(out=r8#148)
+  LD r8#148, A
   LD [SWAP_COUNT], r8#148
   RET
 

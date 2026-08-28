@@ -9,11 +9,8 @@ use tracing::instrument;
 
 #[instrument(skip_all)]
 pub fn allocate_registers(code: &mut CodeSectionData) -> HashMap<VirtualReg, Color> {
-    let max_iterations = code.r8_registers.len()
-        + code.r16_registers.len()
-        + code.zero_flags.len()
-        + code.carry_flags.len()
-        + 100;
+    let max_iterations =
+        code.r8_registers.len() + code.r16_registers.len() + code.flag_registers.len() + 100;
     for i in 0..max_iterations {
         if let Some(colors) = allocate_registers_round(code, i) {
             return colors;
