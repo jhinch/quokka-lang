@@ -482,120 +482,85 @@ END_SECTION
 START_SECTION ROM0
 gcd::
 .bb1:
-  LD r8#9, [A]
-  LD r8#10, [A+$0001]
-  (out=r16#5;high_in=r8#10;low_in=r8#9)
-  LD r8#11, [B]
-  LD r8#12, [B+$0001]
-  (out=r16#6;high_in=r8#12;low_in=r8#11)
-  (high_out=r8#14;low_out=r8#13;in=r16#6)
-  LD r8#1, r8#13
-  LD r8#2, r8#14
-  (out=r16#1;high_in=r8#2;low_in=r8#1)
-  (high_out=r8#16;low_out=r8#15;in=r16#5)
-  LD r8#3, r8#15
-  LD r8#4, r8#16
-  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  LD A, [A]
+  LD A, [A+$0001]
+  LD A, [B]
+  LD A, [B+$0001]
+  LD r8#1, A
+  LD r8#2, A
+  LD r8#3, A
+  LD r8#4, A
   JP .bb3
 
 main::
 .bb2:
-  LD r16#12, $042f
-  (high_out=r8#63;low_out=r8#62;in=r16#12)
-  LD r8#64, r8#63
-  LD r8#65, r8#62
-  (out=r16#13;high_in=r8#64;low_in=r8#65)
-  LD r16#14, A+$0000
-  (high_out=r8#67;low_out=r8#66;in=r16#13)
-  LD [HL(out=r16#15,in=r16#14)++], r8#66
-  LD [r16#15], r8#67
-  LD r16#16, $01ce
-  (high_out=r8#69;low_out=r8#68;in=r16#16)
-  LD r8#70, r8#69
-  LD r8#71, r8#68
-  (out=r16#17;high_in=r8#70;low_in=r8#71)
-  LD r16#18, B+$0000
-  (high_out=r8#73;low_out=r8#72;in=r16#17)
-  LD [HL(out=r16#19,in=r16#18)++], r8#72
-  LD [r16#19], r8#73
+  LD r8#28, $04
+  LD r8#29, $2f
+  LD r8#30, r8#29
+  LD r8#31, r8#28
+  LD r16#1, A+$0000
+  LD [HL(in=r16#1)++], r8#31
+  LD [HL], r8#30
+  LD r8#32, $01
+  LD r8#33, $ce
+  LD r8#34, r8#33
+  LD r8#35, r8#32
+  LD r16#3, B+$0000
+  LD [HL(in=r16#3)++], r8#35
+  LD [HL], r8#34
   CALL gcd; return=.bb9
 
 .bb3:
-  LD r16#7, $0000
-  (high_out=r8#18;low_out=r8#17;in=r16#7)
-  LD r8#19, r8#18
-  LD r8#20, r8#17
-  (out=r16#8;high_in=r8#19;low_in=r8#20)
-  (high_out=r8#22;low_out=r8#21;in=r16#1)
-  (high_out=r8#24;low_out=r8#23;in=r16#8)
-  XOR A(out=r8#25,in=r8#21), r8#23; z, c
-  XOR A(out=r8#26,in=r8#22), r8#24; z, c
-  OR A(out=r8#27,in=r8#26), r8#25; z, c
+  LD r8#13, $00
+  LD r8#14, $00
+  LD r8#15, r8#14
+  LD r8#16, r8#13
+  XOR A(in=r8#1), r8#16; z, c
+  XOR A(in=r8#2), r8#15; z, c
+  OR A, A; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
-  (high_out=r8#29;low_out=r8#28;in=r16#2)
-  LD r8#30, r8#29
-  LD r8#31, r8#28
-  (out=r16#9;high_in=r8#30;low_in=r8#31)
+  LD r8#20, r8#4
+  LD r8#21, r8#3
   RET
 
 .bb5:
-  (high_out=r8#33;low_out=r8#32;in=r16#1)
-  (high_out=r8#35;low_out=r8#34;in=r16#2)
-  SUB A(out=r8#36,in=r8#33), r8#35; z, c
-  SBC A(out=r8#37,in=r8#32), r8#34; z, z
+  SUB A(in=r8#2), r8#4; z, c
+  SBC A(in=r8#1), r8#3; z, z
   JP c, .bb6; else=.bb7
 
 .bb6:
-  (high_out=r8#39;low_out=r8#38;in=r16#2)
-  (high_out=r8#41;low_out=r8#40;in=r16#1)
-  SUB A(out=r8#42,in=r8#39), r8#41; z, c
-  SBC A(out=r8#43,in=r8#38), r8#40; z, z
-  (out=r16#10;high_in=r8#42;low_in=r8#43)
-  (high_out=r8#45;low_out=r8#44;in=r16#1)
-  LD r8#5, r8#44
-  LD r8#6, r8#45
-  (out=r16#3;high_in=r8#6;low_in=r8#5)
-  (high_out=r8#47;low_out=r8#46;in=r16#10)
-  LD r8#7, r8#46
-  LD r8#8, r8#47
-  (out=r16#4;high_in=r8#8;low_in=r8#7)
+  SUB A(in=r8#4), r8#2; z, c
+  SBC A(in=r8#3), r8#1; z, z
+  LD r8#5, r8#1
+  LD r8#6, r8#2
+  LD r8#7, A
+  LD r8#8, A
   JP .bb8
 
 .bb7:
-  (high_out=r8#49;low_out=r8#48;in=r16#1)
-  (high_out=r8#51;low_out=r8#50;in=r16#2)
-  SUB A(out=r8#52,in=r8#49), r8#51; z, c
-  SBC A(out=r8#53,in=r8#48), r8#50; z, z
-  (out=r16#11;high_in=r8#52;low_in=r8#53)
-  (high_out=r8#55;low_out=r8#54;in=r16#11)
-  LD r8#5, r8#54
-  LD r8#6, r8#55
-  (out=r16#3;high_in=r8#6;low_in=r8#5)
-  (high_out=r8#57;low_out=r8#56;in=r16#2)
-  LD r8#7, r8#56
-  LD r8#8, r8#57
-  (out=r16#4;high_in=r8#8;low_in=r8#7)
+  SUB A(in=r8#2), r8#4; z, c
+  SBC A(in=r8#1), r8#3; z, z
+  LD r8#5, A
+  LD r8#6, A
+  LD r8#7, r8#3
+  LD r8#8, r8#4
   JP .bb8
 
 .bb8:
-  (high_out=r8#59;low_out=r8#58;in=r16#3)
-  LD r8#1, r8#58
-  LD r8#2, r8#59
-  (out=r16#1;high_in=r8#2;low_in=r8#1)
-  (high_out=r8#61;low_out=r8#60;in=r16#4)
-  LD r8#3, r8#60
-  LD r8#4, r8#61
-  (out=r16#2;high_in=r8#4;low_in=r8#3)
+  LD r8#1, r8#5
+  LD r8#2, r8#6
+  LD r8#3, r8#7
+  LD r8#4, r8#8
   JP .bb3
 
 .bb9:
-  LD16 r16#20, HL
-  LD r16#21, RESULT+$0000
-  (high_out=r8#75;low_out=r8#74;in=r16#20)
-  LD [HL(out=r16#22,in=r16#21)++], r8#74
-  LD [r16#22], r8#75
+  LD r8#38, C
+  LD r8#39, B
+  LD r16#5, RESULT+$0000
+  LD [HL(in=r16#5)++], r8#38
+  LD [HL], r8#39
   RET
 
 END_SECTION

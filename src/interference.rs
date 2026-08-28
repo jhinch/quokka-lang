@@ -199,7 +199,7 @@ pub fn build_interference_graph(
     let mut graph = InterferenceGraph::default();
     for block in code.blocks.values() {
         for instruction in &block.instructions {
-            restrict_from_instruction_targets(instruction, &mut graph);
+            restrict_from_instruction_targets(code, instruction, &mut graph);
         }
     }
 
@@ -317,111 +317,29 @@ fn instruction_uses(instruction: &Instr) -> impl Iterator<Item = VirtualReg> + '
         .source_r8()
         .map(VirtualReg::R8)
         .chain(instruction.source_r16().map(VirtualReg::R16))
-        .chain(instruction.zero_flag_in().into_iter().map(VirtualReg::Flag))
-        .chain(
-            instruction
-                .carry_flag_in()
-                .into_iter()
-                .map(VirtualReg::Flag),
-        )
+        .chain(instruction.flag_in().into_iter().map(VirtualReg::Flag))
 }
 
 fn instruction_defs(instruction: &Instr) -> impl Iterator<Item = VirtualReg> + '_ {
     instruction
-        .target_r8()
+        .target_r8s()
         .map(VirtualReg::R8)
         .chain(instruction.target_r16().into_iter().map(VirtualReg::R16))
-        .chain(instruction.zero_flag().into_iter().map(VirtualReg::Flag))
-        .chain(instruction.carry_flag().into_iter().map(VirtualReg::Flag))
+        .chain(instruction.flags().map(VirtualReg::Flag))
 }
 
-fn restrict_from_instruction_targets(instruction: &Instr, graph: &mut InterferenceGraph) {
-    if let Some(z) = instruction.zero_flag() {
-        graph.set_precolored(VirtualReg::Flag(z), Color::Fz);
-    }
-    if let Some(c) = instruction.carry_flag() {
-        graph.set_precolored(VirtualReg::Flag(c), Color::Fc);
-    }
-    match instruction {
-        Instr::Ld8 { .. } => {}
-        Instr::Ld8Inc {
-            target,
-            revised_addr,
-            ..
+fn restrict_from_instruction_targets(
+    code: &CodeSectionData,
+    instruction: &Instr,
+    graph: &mut InterferenceGraph,
+) {
+    for reg in instruction_defs(instruction) {
+        if let Some(color) = match reg {
+            VirtualReg::R8(reg) => code.r8_registers[reg].color,
+            VirtualReg::R16(reg) => code.r16_registers[reg].color,
+            VirtualReg::Flag(reg) => code.flag_registers[reg].color,
+        } {
+            graph.set_precolored(reg, color);
         }
-        | Instr::Ld8Dec {
-            target,
-            revised_addr,
-            ..
-        } => {
-            graph.set_precolored(VirtualReg::R8(*target), Color::A);
-            graph.set_precolored(VirtualReg::R16(*revised_addr), Color::HL);
-        }
-        Instr::StoreInc { revised_addr, .. } | Instr::StoreDec { revised_addr, .. } => {
-            graph.set_precolored(VirtualReg::R16(*revised_addr), Color::HL);
-        }
-        Instr::Ld8Ptr { target, .. }
-        | Instr::Ld8HighPtr { target, .. }
-        | Instr::Adc { target, .. }
-        | Instr::Add { target, .. }
-        | Instr::Sbc { target, .. }
-        | Instr::Sub { target, .. }
-        | Instr::And { target, .. }
-        | Instr::Cpl { target, .. }
-        | Instr::Or { target, .. }
-        | Instr::Xor { target, .. }
-        | Instr::LdReturn8 { target, .. } => {
-            graph.set_precolored(VirtualReg::R8(*target), Color::A);
-        }
-        Instr::Ld8Value { .. }
-        | Instr::Dec { .. }
-        | Instr::Inc { .. }
-        | Instr::Res { .. }
-        | Instr::Set { .. }
-        | Instr::Rl { .. }
-        | Instr::Rlc { .. }
-        | Instr::Rr { .. }
-        | Instr::Rrc { .. }
-        | Instr::Sla { .. }
-        | Instr::Sra { .. }
-        | Instr::Srl { .. }
-        | Instr::Swap { .. } => {
-            // regular 8-bit registers
-            // graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8())
-        }
-        Instr::Add16 { target, .. } | Instr::LdReturn16 { target, .. } => {
-            graph.set_precolored(VirtualReg::R16(*target), Color::HL);
-        }
-        Instr::Ld16 { .. } | Instr::Dec16 { .. } | Instr::Inc16 { .. } | Instr::Join { .. } => {
-            // regular 16-bit registers
-            // graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16())
-        }
-        Instr::Split { .. } => {
-            // 8-bit splittable registers
-            // graph.constrain_colors_to(VirtualReg::R8(*low), Color::r8_low());
-            // graph.constrain_colors_to(VirtualReg::R8(*high), Color::r8_high());
-        }
-        Instr::Nop => {}
-        Instr::Store { .. } => {}
-        Instr::StoreHigh { .. } => {}
-        Instr::StoreValue { .. } => {}
-        Instr::Cp { .. } => {}
-        Instr::DecPtr { .. } => {}
-        Instr::IncPtr { .. } => {}
-        Instr::Bit { .. } => {}
-        Instr::BitPtr { .. } => {}
-        Instr::ResPtr { .. } => {}
-        Instr::SetPtr { .. } => {}
-        Instr::RlPtr { .. } => {}
-        Instr::RlcPtr { .. } => {}
-        Instr::RrPtr { .. } => {}
-        Instr::RrcPtr { .. } => {}
-        Instr::SlaPtr { .. } => {}
-        Instr::SraPtr { .. } => {}
-        Instr::SrlPtr { .. } => {}
-        Instr::SwapPtr { .. } => {}
-        Instr::Ccf { .. } => {}
-        Instr::Scf { .. } => {}
-        Instr::MoveFlag { .. } => {}
     }
 }

@@ -306,11 +306,11 @@ impl R16Id {
                 code.r16_registers[r16_out].color,
                 code.r16_registers[r16_in].color,
             ) {
-                (Some(Color::Fc), Some(Color::Fc)) => write!(f, "z"),
-                (Some(Color::Fc), _) => {
+                (Some(Color::HL), Some(Color::HL)) => write!(f, "HL"),
+                (Some(Color::HL), _) => {
                     write!(f, "HL(in={})", r16_in.display(lir, section))
                 }
-                (_, Some(Color::Fc)) => {
+                (_, Some(Color::HL)) => {
                     write!(f, "HL(out={})", r16_out.display(lir, section))
                 }
                 (_, _) => {
@@ -908,31 +908,12 @@ pub enum Instr {
     /// Virtual instruction to move a flag
     ///
     /// This does not add any machine instructions on its own, it simply is used
-    /// to convert a precolored zero flag into an unconstrained flag. If
-    ///
-    /// Zero flag is guaranteed set in bit [`ZERO_FLAG_BIT`].
-    /// All other bits have undefined behavior.
+    /// to convert a precolored zero flag into an unconstrained flag.
     MoveFlag { flag_out: FlagId, flag_in: FlagId },
-    /// Virtual instruction to capture the return value of a function call with an 8-bit return
-    /// type.
-    ///
-    /// This does not add any machine instructions on its own, it simply is used
-    /// to force constraints on the register allocation.
-    ///
-    /// Calling convention is to set the return value of the `A` register
-    LdReturn8 { target: R8Id },
-    /// Virtual instruction to capture the return value of a function call with an 16-bit return
-    /// type.
-    ///
-    /// This does not add any machine instructions on its own, it simply is used
-    /// to force constraints on the register allocation.
-    ///
-    /// Calling convention is to set the return value of the `HL` register
-    LdReturn16 { target: R16Id },
 }
 
 impl Instr {
-    pub fn target_r8(&self) -> impl Iterator<Item = R8Id> + '_ {
+    pub fn target_r8s(&self) -> impl Iterator<Item = R8Id> + '_ {
         let mut next = 0;
         std::iter::from_fn(move || {
             let r8 = match self {
@@ -966,8 +947,7 @@ impl Instr {
                 | Instr::Sla { target, .. }
                 | Instr::Sra { target, .. }
                 | Instr::Srl { target, .. }
-                | Instr::Swap { target, .. }
-                | Instr::LdReturn8 { target, .. } => match next {
+                | Instr::Swap { target, .. } => match next {
                     0 => Some(*target),
                     _ => None,
                 },
@@ -1000,7 +980,6 @@ impl Instr {
                 | Instr::Inc16 { .. }
                 | Instr::Join { .. }
                 | Instr::MoveFlag { .. } => None,
-                Instr::LdReturn16 { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1014,7 +993,6 @@ impl Instr {
             | Instr::Dec16 { target, .. }
             | Instr::Inc16 { target, .. }
             | Instr::Join { target, .. }
-            | Instr::LdReturn16 { target, .. }
             | Instr::Ld8Inc {
                 revised_addr: target,
                 ..
@@ -1078,137 +1056,87 @@ impl Instr {
             | Instr::Ccf { .. }
             | Instr::Scf { .. }
             | Instr::Split { .. }
-            | Instr::MoveFlag { .. }
-            | Instr::LdReturn8 { .. } => None,
+            | Instr::MoveFlag { .. } => None,
         }
     }
 
-    #[must_use]
-    pub fn zero_flag(&self) -> Option<FlagId> {
-        match self {
-            Instr::Adc { z, .. }
-            | Instr::Add { z, .. }
-            | Instr::Cp { z, .. }
-            | Instr::Dec { z, .. }
-            | Instr::DecPtr { z, .. }
-            | Instr::Inc { z, .. }
-            | Instr::IncPtr { z, .. }
-            | Instr::Sbc { z, .. }
-            | Instr::Sub { z, .. }
-            | Instr::And { z, .. }
-            | Instr::Or { z, .. }
-            | Instr::Xor { z, .. }
-            | Instr::Bit { z, .. }
-            | Instr::BitPtr { z, .. }
-            | Instr::Rl { z, .. }
-            | Instr::RlPtr { z, .. }
-            | Instr::Rlc { z, .. }
-            | Instr::RlcPtr { z, .. }
-            | Instr::Rr { z, .. }
-            | Instr::RrPtr { z, .. }
-            | Instr::Rrc { z, .. }
-            | Instr::RrcPtr { z, .. }
-            | Instr::Sla { z, .. }
-            | Instr::SlaPtr { z, .. }
-            | Instr::Sra { z, .. }
-            | Instr::SraPtr { z, .. }
-            | Instr::Srl { z, .. }
-            | Instr::SrlPtr { z, .. }
-            | Instr::Swap { z, .. }
-            | Instr::SwapPtr { z, .. } => Some(*z),
-            Instr::Nop
-            | Instr::Ld8 { .. }
-            | Instr::Ld8Value { .. }
-            | Instr::Ld8Ptr { .. }
-            | Instr::Ld8HighPtr { .. }
-            | Instr::Ld8Inc { .. }
-            | Instr::Ld8Dec { .. }
-            | Instr::Ld16 { .. }
-            | Instr::Store { .. }
-            | Instr::StoreHigh { .. }
-            | Instr::StoreValue { .. }
-            | Instr::StoreInc { .. }
-            | Instr::StoreDec { .. }
-            | Instr::Cpl { .. }
-            | Instr::Res { .. }
-            | Instr::ResPtr { .. }
-            | Instr::Set { .. }
-            | Instr::SetPtr { .. }
-            | Instr::Ccf { .. }
-            | Instr::Scf { .. }
-            | Instr::Add16 { .. }
-            | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. }
-            | Instr::Join { .. }
-            | Instr::Split { .. }
-            | Instr::MoveFlag { .. }
-            | Instr::LdReturn8 { .. }
-            | Instr::LdReturn16 { .. } => None,
-        }
-    }
-
-    #[must_use]
-    pub fn carry_flag(&self) -> Option<FlagId> {
-        match self {
-            Instr::Adc { c, .. }
-            | Instr::Add { c, .. }
-            | Instr::Cp { c, .. }
-            | Instr::Sbc { c, .. }
-            | Instr::Sub { c, .. }
-            | Instr::And { c, .. }
-            | Instr::Or { c, .. }
-            | Instr::Xor { c, .. }
-            | Instr::Rl { c, .. }
-            | Instr::RlPtr { c, .. }
-            | Instr::Rlc { c, .. }
-            | Instr::RlcPtr { c, .. }
-            | Instr::Rr { c, .. }
-            | Instr::RrPtr { c, .. }
-            | Instr::Rrc { c, .. }
-            | Instr::RrcPtr { c, .. }
-            | Instr::Sla { c, .. }
-            | Instr::SlaPtr { c, .. }
-            | Instr::Sra { c, .. }
-            | Instr::SraPtr { c, .. }
-            | Instr::Srl { c, .. }
-            | Instr::SrlPtr { c, .. }
-            | Instr::Swap { c, .. }
-            | Instr::SwapPtr { c, .. }
-            | Instr::Ccf { c, .. }
-            | Instr::Scf { c, .. }
-            | Instr::Add16 { c, .. } => Some(*c),
-            Instr::Nop
-            | Instr::Ld8 { .. }
-            | Instr::Ld8Value { .. }
-            | Instr::Ld8Ptr { .. }
-            | Instr::Ld8HighPtr { .. }
-            | Instr::Ld8Inc { .. }
-            | Instr::Ld8Dec { .. }
-            | Instr::Ld16 { .. }
-            | Instr::Store { .. }
-            | Instr::StoreHigh { .. }
-            | Instr::StoreValue { .. }
-            | Instr::StoreInc { .. }
-            | Instr::StoreDec { .. }
-            | Instr::Dec { .. }
-            | Instr::DecPtr { .. }
-            | Instr::Inc { .. }
-            | Instr::IncPtr { .. }
-            | Instr::Cpl { .. }
-            | Instr::Bit { .. }
-            | Instr::BitPtr { .. }
-            | Instr::Res { .. }
-            | Instr::ResPtr { .. }
-            | Instr::Set { .. }
-            | Instr::SetPtr { .. }
-            | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. }
-            | Instr::Join { .. }
-            | Instr::Split { .. }
-            | Instr::MoveFlag { .. }
-            | Instr::LdReturn8 { .. }
-            | Instr::LdReturn16 { .. } => None,
-        }
+    pub fn flags(&self) -> impl Iterator<Item = FlagId> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let flag = match self {
+                Instr::Adc { z, c, .. }
+                | Instr::Add { z, c, .. }
+                | Instr::Cp { z, c, .. }
+                | Instr::Sbc { z, c, .. }
+                | Instr::Sub { z, c, .. }
+                | Instr::And { z, c, .. }
+                | Instr::Or { z, c, .. }
+                | Instr::Xor { z, c, .. }
+                | Instr::Rl { z, c, .. }
+                | Instr::RlPtr { z, c, .. }
+                | Instr::Rlc { z, c, .. }
+                | Instr::RlcPtr { z, c, .. }
+                | Instr::Rr { z, c, .. }
+                | Instr::RrPtr { z, c, .. }
+                | Instr::Rrc { z, c, .. }
+                | Instr::RrcPtr { z, c, .. }
+                | Instr::Sla { z, c, .. }
+                | Instr::SlaPtr { z, c, .. }
+                | Instr::Sra { z, c, .. }
+                | Instr::SraPtr { z, c, .. }
+                | Instr::Srl { z, c, .. }
+                | Instr::SrlPtr { z, c, .. }
+                | Instr::Swap { z, c, .. }
+                | Instr::SwapPtr { z, c, .. } => match next {
+                    0 => Some(*z),
+                    1 => Some(*c),
+                    _ => None,
+                },
+                Instr::Dec { z, .. }
+                | Instr::DecPtr { z, .. }
+                | Instr::Inc { z, .. }
+                | Instr::IncPtr { z, .. }
+                | Instr::Bit { z, .. }
+                | Instr::BitPtr { z, .. } => match next {
+                    0 => Some(*z),
+                    _ => None,
+                },
+                Instr::Ccf { c, .. } | Instr::Scf { c, .. } | Instr::Add16 { c, .. } => {
+                    match next {
+                        0 => Some(*c),
+                        _ => None,
+                    }
+                }
+                Instr::MoveFlag { flag_out, .. } => match next {
+                    0 => Some(*flag_out),
+                    _ => None,
+                },
+                Instr::Nop
+                | Instr::Ld8 { .. }
+                | Instr::Ld8Value { .. }
+                | Instr::Ld8Ptr { .. }
+                | Instr::Ld8HighPtr { .. }
+                | Instr::Ld8Inc { .. }
+                | Instr::Ld8Dec { .. }
+                | Instr::Ld16 { .. }
+                | Instr::Store { .. }
+                | Instr::StoreHigh { .. }
+                | Instr::StoreValue { .. }
+                | Instr::StoreInc { .. }
+                | Instr::StoreDec { .. }
+                | Instr::Cpl { .. }
+                | Instr::Res { .. }
+                | Instr::ResPtr { .. }
+                | Instr::Set { .. }
+                | Instr::SetPtr { .. }
+                | Instr::Dec16 { .. }
+                | Instr::Inc16 { .. }
+                | Instr::Join { .. }
+                | Instr::Split { .. } => None,
+            }?;
+            next += 1;
+            Some(flag)
+        })
     }
 
     pub fn source_r8(&self) -> impl Iterator<Item = R8Id> + '_ {
@@ -1301,8 +1229,6 @@ impl Instr {
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
                 | Instr::MoveFlag { .. }
-                | Instr::LdReturn8 { .. }
-                | Instr::LdReturn16 { .. }
                 | Instr::Split { .. } => None,
             }?;
             next += 1;
@@ -1407,9 +1333,7 @@ impl Instr {
                 | Instr::Ccf { .. }
                 | Instr::Scf { .. }
                 | Instr::Join { .. }
-                | Instr::MoveFlag { .. }
-                | Instr::LdReturn8 { .. }
-                | Instr::LdReturn16 { .. } => None,
+                | Instr::MoveFlag { .. } => None,
             }?;
             next += 1;
             Some(r16)
@@ -1417,71 +1341,7 @@ impl Instr {
     }
 
     #[must_use]
-    pub fn zero_flag_in(&self) -> Option<FlagId> {
-        match self {
-            Instr::Nop
-            | Instr::Ld8 { .. }
-            | Instr::Ld8Value { .. }
-            | Instr::Ld8Ptr { .. }
-            | Instr::Ld8HighPtr { .. }
-            | Instr::Ld8Inc { .. }
-            | Instr::Ld8Dec { .. }
-            | Instr::Ld16 { .. }
-            | Instr::Store { .. }
-            | Instr::StoreHigh { .. }
-            | Instr::StoreValue { .. }
-            | Instr::StoreInc { .. }
-            | Instr::StoreDec { .. }
-            | Instr::Adc { .. }
-            | Instr::Add { .. }
-            | Instr::Cp { .. }
-            | Instr::Dec { .. }
-            | Instr::DecPtr { .. }
-            | Instr::Inc { .. }
-            | Instr::IncPtr { .. }
-            | Instr::Sbc { .. }
-            | Instr::Sub { .. }
-            | Instr::And { .. }
-            | Instr::Cpl { .. }
-            | Instr::Or { .. }
-            | Instr::Xor { .. }
-            | Instr::Bit { .. }
-            | Instr::BitPtr { .. }
-            | Instr::Res { .. }
-            | Instr::ResPtr { .. }
-            | Instr::Set { .. }
-            | Instr::SetPtr { .. }
-            | Instr::Rl { .. }
-            | Instr::RlPtr { .. }
-            | Instr::Rlc { .. }
-            | Instr::RlcPtr { .. }
-            | Instr::Rr { .. }
-            | Instr::RrPtr { .. }
-            | Instr::Rrc { .. }
-            | Instr::RrcPtr { .. }
-            | Instr::Sla { .. }
-            | Instr::SlaPtr { .. }
-            | Instr::Sra { .. }
-            | Instr::SraPtr { .. }
-            | Instr::Srl { .. }
-            | Instr::SrlPtr { .. }
-            | Instr::Swap { .. }
-            | Instr::SwapPtr { .. }
-            | Instr::Ccf { .. }
-            | Instr::Scf { .. }
-            | Instr::Add16 { .. }
-            | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. }
-            | Instr::Join { .. }
-            | Instr::Split { .. }
-            | Instr::MoveFlag { .. }
-            | Instr::LdReturn8 { .. }
-            | Instr::LdReturn16 { .. } => None,
-        }
-    }
-
-    #[must_use]
-    pub fn carry_flag_in(&self) -> Option<FlagId> {
+    pub fn flag_in(&self) -> Option<FlagId> {
         match self {
             Instr::Adc { c_in, .. }
             | Instr::Sbc { c_in, .. }
@@ -1490,6 +1350,7 @@ impl Instr {
             | Instr::Rr { c_in, .. }
             | Instr::RrPtr { c_in, .. }
             | Instr::Ccf { c_in, .. } => Some(*c_in),
+            Instr::MoveFlag { flag_in, .. } => Some(*flag_in),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1537,10 +1398,7 @@ impl Instr {
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::Join { .. }
-            | Instr::Split { .. }
-            | Instr::MoveFlag { .. }
-            | Instr::LdReturn8 { .. }
-            | Instr::LdReturn16 { .. } => None,
+            | Instr::Split { .. } => None,
         }
     }
 }
@@ -2120,12 +1978,6 @@ impl Instr {
                     flag_in.display(lir, section)
                 )
             }
-            Instr::LdReturn8 { target } => {
-                write!(f, "LD {}, A", target.display(lir, section))
-            }
-            Instr::LdReturn16 { target } => {
-                write!(f, "LD16 {}, HL", target.display(lir, section))
-            }
         })
     }
 }
@@ -2463,21 +2315,15 @@ impl LirBuilder {
 pub struct CodeSectionBuilder {
     data: CodeSectionData,
     terminated_blocks: SlotKeySet<BlockId>,
-    outstanding_phi_r8s: SparseSecondaryMap<R8Id, SparseSlotKeySet<BlockId>>,
-    outstanding_phi_r16s: SparseSecondaryMap<R16Id, SparseSlotKeySet<BlockId>>,
-    phi_r16s_high_low: SparseSecondaryMap<R16Id, (R8Id, R8Id)>,
+    outstanding_phis: SparseSecondaryMap<R8Id, SparseSlotKeySet<BlockId>>,
 }
 
 impl CodeSectionBuilder {
     #[must_use]
     pub fn build(self) -> Section {
         assert!(
-            self.outstanding_phi_r8s.is_empty(),
-            "uncompleted phi r8 registers"
-        );
-        assert!(
-            self.outstanding_phi_r16s.is_empty(),
-            "uncompleted phi r16 registers"
+            self.outstanding_phis.is_empty(),
+            "uncompleted phi registers"
         );
         Section {
             data: SectionData::Code(self.data),
@@ -2555,8 +2401,29 @@ impl CodeSectionBuilder {
         })
     }
 
+    fn new_r8_precolored(&mut self, color: Color) -> R8Id {
+        self.data.r8_registers.insert(Register {
+            color: Some(color),
+            ..Default::default()
+        })
+    }
+
     fn new_r16(&mut self) -> R16Id {
         self.data.r16_registers.insert(Register::default())
+    }
+
+    fn new_hl(&mut self) -> R16Id {
+        self.data.r16_registers.insert(Register {
+            color: Some(Color::HL),
+            ..Default::default()
+        })
+    }
+
+    fn new_bc(&mut self) -> R16Id {
+        self.data.r16_registers.insert(Register {
+            color: Some(Color::BC),
+            ..Default::default()
+        })
     }
 
     fn new_flag(&mut self) -> FlagId {
@@ -2579,7 +2446,7 @@ impl CodeSectionBuilder {
 
     fn insert_instr(&mut self, block: BlockId, instr: Instr) {
         let index = self.data.blocks[block].instructions.len();
-        for target in instr.target_r8() {
+        for target in instr.target_r8s() {
             assert!(!self.data.r8_registers[target].defined.contains_key(block));
             self.data.r8_registers[target].defined.insert(block, index);
         }
@@ -2587,11 +2454,7 @@ impl CodeSectionBuilder {
             assert!(!self.data.r16_registers[target].defined.contains_key(block));
             self.data.r16_registers[target].defined.insert(block, index);
         }
-        if let Some(flag) = instr.zero_flag() {
-            assert!(!self.data.flag_registers[flag].defined.contains_key(block));
-            self.data.flag_registers[flag].defined.insert(block, index);
-        }
-        if let Some(flag) = instr.carry_flag() {
+        for flag in instr.flags() {
             assert!(!self.data.flag_registers[flag].defined.contains_key(block));
             self.data.flag_registers[flag].defined.insert(block, index);
         }
@@ -2599,14 +2462,14 @@ impl CodeSectionBuilder {
     }
 
     #[must_use]
-    pub fn reserve_phi_r8(&mut self) -> R8Id {
+    pub fn reserve_phi(&mut self) -> R8Id {
         let r8 = self.new_r8();
-        self.outstanding_phi_r8s.insert(r8, SparseSlotKeySet::new());
+        self.outstanding_phis.insert(r8, SparseSlotKeySet::new());
         r8
     }
 
-    pub fn insert_phi_r8_ld(&mut self, block: BlockId, target: R8Id, source: R8Id) {
-        match self.outstanding_phi_r8s.entry(target).unwrap() {
+    pub fn insert_phi_ld(&mut self, block: BlockId, target: R8Id, source: R8Id) {
+        match self.outstanding_phis.entry(target).unwrap() {
             Entry::Occupied(mut entry) => assert!(
                 entry.get_mut().insert(block),
                 "block {block:?} already inserted load for phi register {target:?}"
@@ -2616,66 +2479,9 @@ impl CodeSectionBuilder {
         self.insert_instr(block, Instr::Ld8 { target, source });
     }
 
-    pub fn complete_phi_r8(&mut self, target: R8Id, blocks: &[BlockId]) {
+    pub fn complete_phi(&mut self, target: R8Id, blocks: &[BlockId]) {
         let actual = self
-            .outstanding_phi_r8s
-            .remove(target)
-            .unwrap_or_else(|| panic!("{target:?} already completed"));
-        let expected = blocks.iter().copied().collect::<SparseSlotKeySet<_>>();
-        assert_eq!(
-            actual, expected,
-            "missing phi loads for phi register {target:?}"
-        );
-    }
-
-    #[must_use]
-    pub fn reserve_phi_r16(&mut self) -> R16Id {
-        let r16 = self.new_r16();
-        self.outstanding_phi_r16s
-            .insert(r16, SparseSlotKeySet::new());
-        let low = self.new_r8();
-        let high = self.new_r8();
-        self.phi_r16s_high_low.insert(r16, (high, low));
-        r16
-    }
-
-    pub fn insert_phi_r16_ld(&mut self, block: BlockId, target: R16Id, source: R16Id) {
-        match self.outstanding_phi_r16s.entry(target).unwrap() {
-            Entry::Occupied(mut entry) => assert!(
-                entry.get_mut().insert(block),
-                "block {block:?} already inserted load for phi register {target:?}"
-            ),
-            Entry::Vacant(_) => panic!("{target:?} not a phi register"),
-        }
-        let (source_high, source_low) = self.insert_split(block, source);
-        let (target_high, target_low) = self.phi_r16s_high_low[target];
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target: target_low,
-                source: source_low,
-            },
-        );
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target: target_high,
-                source: source_high,
-            },
-        );
-        self.insert_instr(
-            block,
-            Instr::Join {
-                target,
-                high_in: target_high,
-                low_in: target_low,
-            },
-        );
-    }
-
-    pub fn complete_phi_r16(&mut self, target: R16Id, blocks: &[BlockId]) {
-        let actual = self
-            .outstanding_phi_r16s
+            .outstanding_phis
             .remove(target)
             .unwrap_or_else(|| panic!("{target:?} already completed"));
         let expected = blocks.iter().copied().collect::<SparseSlotKeySet<_>>();
@@ -2715,7 +2521,10 @@ impl CodeSectionBuilder {
     /// `LD A,[n16]`
     #[must_use]
     pub fn insert_ld8_ptr(&mut self, block: BlockId, source_addr: Addr) -> R8Id {
-        let target = self.new_r8();
+        let target = match &source_addr {
+            Addr::Reg(_) => self.new_r8(),
+            _ => self.new_a(),
+        };
         self.insert_instr(
             block,
             Instr::Ld8Ptr {
@@ -2730,7 +2539,7 @@ impl CodeSectionBuilder {
     /// `LDH A,[C]`
     #[must_use]
     pub fn insert_ld8_high_ptr(&mut self, block: BlockId, source_addr: HighAddr) -> R8Id {
-        let target = self.new_r8();
+        let target = self.new_a();
         self.insert_instr(
             block,
             Instr::Ld8HighPtr {
@@ -2744,7 +2553,7 @@ impl CodeSectionBuilder {
     /// `LD A,[HLI]`
     #[must_use]
     pub fn insert_ld8_inc(&mut self, block: BlockId, source: R16Id) -> (R8Id, R16Id) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let revised = self.new_r16();
         self.insert_instr(
             block,
@@ -2760,7 +2569,7 @@ impl CodeSectionBuilder {
     /// `LD A,[HLD]`
     #[must_use]
     pub fn insert_ld8_dec(&mut self, block: BlockId, source: R16Id) -> (R8Id, R16Id) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let revised = self.new_r16();
         self.insert_instr(
             block,
@@ -2820,7 +2629,7 @@ impl CodeSectionBuilder {
     /// `LD [HLI],A`
     #[must_use]
     pub fn insert_store_inc(&mut self, block: BlockId, target_addr: R16Id, source: R8Id) -> R16Id {
-        let revised_addr = self.new_r16();
+        let revised_addr = self.new_hl();
         self.insert_instr(
             block,
             Instr::StoreInc {
@@ -2835,7 +2644,7 @@ impl CodeSectionBuilder {
     /// `LD [HLD],A`
     #[must_use]
     pub fn insert_store_dec(&mut self, block: BlockId, target_addr: R16Id, source: R8Id) -> R16Id {
-        let revised_addr = self.new_r16();
+        let revised_addr = self.new_hl();
         self.insert_instr(
             block,
             Instr::StoreDec {
@@ -2858,7 +2667,7 @@ impl CodeSectionBuilder {
         right: Operand8,
         carry: FlagId,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -2885,7 +2694,7 @@ impl CodeSectionBuilder {
         left: R8Id,
         right: Operand8,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -2957,7 +2766,7 @@ impl CodeSectionBuilder {
         right: Operand8,
         carry: FlagId,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -2984,7 +2793,7 @@ impl CodeSectionBuilder {
         left: R8Id,
         right: Operand8,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -3010,7 +2819,7 @@ impl CodeSectionBuilder {
         left: R8Id,
         right: Operand8,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -3029,7 +2838,7 @@ impl CodeSectionBuilder {
     /// `CPL`
     #[must_use]
     pub fn insert_cpl(&mut self, block: BlockId, source: R8Id) -> R8Id {
-        let target = self.new_r8();
+        let target = self.new_a();
         self.insert_instr(block, Instr::Cpl { target, source });
         target
     }
@@ -3044,7 +2853,7 @@ impl CodeSectionBuilder {
         left: R8Id,
         right: Operand8,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -3070,7 +2879,7 @@ impl CodeSectionBuilder {
         left: R8Id,
         right: Operand8,
     ) -> (R8Id, FlagId, FlagId) {
-        let target = self.new_r8();
+        let target = self.new_a();
         let z = self.new_zero_flag();
         let c = self.new_carry_flag();
         self.insert_instr(
@@ -3403,7 +3212,7 @@ impl CodeSectionBuilder {
     /// `ADD HL,r16`
     #[must_use]
     pub fn insert_add16(&mut self, block: BlockId, left: R16Id, right: R16Id) -> (R16Id, FlagId) {
-        let target = self.new_r16();
+        let target = self.new_hl();
         let c = self.new_carry_flag();
         self.insert_instr(
             block,
@@ -3435,15 +3244,37 @@ impl CodeSectionBuilder {
 
     #[must_use]
     pub fn insert_split(&mut self, block: BlockId, source: R16Id) -> (R8Id, R8Id) {
-        let low = self.new_r8();
-        let high = self.new_r8();
+        let (high, low) = match self.data.r16_registers[source].color {
+            Some(Color::HL) => {
+                let low = self.new_r8_precolored(Color::L);
+                let high = self.new_r8_precolored(Color::H);
+                (high, low)
+            }
+            Some(Color::BC) => {
+                let low = self.new_r8_precolored(Color::C);
+                let high = self.new_r8_precolored(Color::B);
+                (high, low)
+            }
+            _ => {
+                let low = self.new_r8();
+                let high = self.new_r8();
+                (high, low)
+            }
+        };
         self.insert_instr(block, Instr::Split { high, low, source });
         (high, low)
     }
 
     #[must_use]
     pub fn insert_join(&mut self, block: BlockId, high_in: R8Id, low_in: R8Id) -> R16Id {
-        let target = self.new_r16();
+        let target = match (
+            self.data.r8_registers[high_in].color,
+            self.data.r8_registers[low_in].color,
+        ) {
+            (Some(Color::H), Some(Color::L)) => self.new_hl(),
+            (Some(Color::B), Some(Color::C)) => self.new_bc(),
+            _ => self.new_r16(),
+        };
         self.insert_instr(
             block,
             Instr::Join {
@@ -3464,15 +3295,32 @@ impl CodeSectionBuilder {
 
     #[must_use]
     pub fn insert_ld_return_8(&mut self, block: BlockId) -> R8Id {
+        let source = self.new_a();
         let target = self.new_r8();
-        self.insert_instr(block, Instr::LdReturn8 { target });
+        self.insert_instr(block, Instr::Ld8 { target, source });
         target
     }
 
     #[must_use]
-    pub fn insert_ld_return_16(&mut self, block: BlockId) -> R16Id {
-        let target = self.new_r16();
-        self.insert_instr(block, Instr::LdReturn16 { target });
-        target
+    pub fn insert_ld_return_16(&mut self, block: BlockId) -> (R8Id, R8Id) {
+        let source_low = self.new_r8_precolored(Color::C);
+        let source_high = self.new_r8_precolored(Color::B);
+        let target_low = self.new_r8();
+        let target_high = self.new_r8();
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: target_low,
+                source: source_low,
+            },
+        );
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: target_high,
+                source: source_high,
+            },
+        );
+        (target_high, target_low)
     }
 }

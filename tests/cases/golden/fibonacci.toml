@@ -757,24 +757,21 @@ END_SECTION
 START_SECTION ROM0
 fibonacci::
 .bb1:
-  LD r8#4, [FIBONACCI_N]
+  LD A, [FIBONACCI_N]
   LD r8#5, $00
-  CP A(in=r8#4), r8#5; z, c
+  CP A, r8#5; z, c
   JP z, .bb3; else=.bb4
 
 main::
 .bb2:
-  LD r16#2, $0000
-  (high_out=r8#22;low_out=r8#21;in=r16#2)
+  LD r8#21, $00
+  LD r8#22, $00
   LD r8#23, r8#22
   LD r8#24, r8#21
-  (out=r16#3;high_in=r8#23;low_in=r8#24)
   LD r8#25, $00
   LD r8#20, r8#25
-  (high_out=r8#27;low_out=r8#26;in=r16#3)
-  LD r8#18, r8#26
-  LD r8#19, r8#27
-  (out=r16#1;high_in=r8#19;low_in=r8#18)
+  LD r8#18, r8#24
+  LD r8#19, r8#23
   JP .bb9
 
 .bb3:
@@ -784,7 +781,7 @@ main::
 
 .bb4:
   LD r8#8, $01
-  ADD A(out=r8#9,in=r8#4), r8#8; z, c
+  ADD A, r8#8; z, c
   LD r8#10, $00
   LD r8#11, $01
   LD r8#12, $02
@@ -794,7 +791,7 @@ main::
   JP .bb5
 
 .bb5:
-  LD r8#13, r8#9
+  LD r8#13, A
   CP A(in=r8#1), r8#13; z, c
   JP nc, .bb6; else=.bb7
 
@@ -802,12 +799,12 @@ main::
   JP .bb8
 
 .bb7:
-  ADD A(out=r8#14,in=r8#2), r8#3; z, c
+  ADD A(in=r8#2), r8#3; z, c
   LD r8#15, $01
-  ADD A(out=r8#16,in=r8#1), r8#15; z, c
-  LD r8#1, r8#16
+  ADD A(in=r8#1), r8#15; z, c
+  LD r8#1, A
   LD r8#2, r8#3
-  LD r8#3, r8#14
+  LD r8#3, A
   JP .bb5
 
 .bb8:
@@ -815,16 +812,13 @@ main::
   RET
 
 .bb9:
-  LD r16#4, $000a
-  (high_out=r8#29;low_out=r8#28;in=r16#4)
-  LD r8#30, r8#29
-  LD r8#31, r8#28
-  (out=r16#5;high_in=r8#30;low_in=r8#31)
-  (high_out=r8#33;low_out=r8#32;in=r16#1)
-  (high_out=r8#35;low_out=r8#34;in=r16#5)
-  XOR A(out=r8#36,in=r8#32), r8#34; z, c
-  XOR A(out=r8#37,in=r8#33), r8#35; z, c
-  OR A(out=r8#38,in=r8#37), r8#36; z, c
+  LD r8#26, $00
+  LD r8#27, $0a
+  LD r8#28, r8#27
+  LD r8#29, r8#26
+  XOR A(in=r8#18), r8#29; z, c
+  XOR A(in=r8#19), r8#28; z, c
+  OR A, A; z, c
   JP z, .bb10; else=.bb11
 
 .bb10:
@@ -838,25 +832,24 @@ main::
   RET
 
 .bb13:
-  LD r8#39, A
-  LD r16#6, RESULTS+$0000
-  ADD HL(out=r16#7,in=r16#6), r16#1; c
-  LD r16#8, $0000
-  ADD HL(out=r16#9,in=r16#7), r16#8; c
-  LD [r16#9], r8#39
-  LD r16#10, $0001
-  (high_out=r8#41;low_out=r8#40;in=r16#10)
-  LD r8#42, r8#41
-  LD r8#43, r8#40
-  (out=r16#11;high_in=r8#42;low_in=r8#43)
-  ADD HL(out=r16#12,in=r16#1), r16#11; c
-  LD r8#44, $01
-  ADD A(out=r8#45,in=r8#20), r8#44; z, c
-  LD r8#20, r8#45
-  (high_out=r8#47;low_out=r8#46;in=r16#12)
-  LD r8#18, r8#46
-  LD r8#19, r8#47
+  LD r8#34, A
   (out=r16#1;high_in=r8#19;low_in=r8#18)
+  LD r16#2, RESULTS+$0000
+  ADD HL(in=r16#2), r16#1; c
+  LD r16#4, $0000
+  ADD HL, r16#4; c
+  LD [HL], r8#34
+  LD r8#35, $00
+  LD r8#36, $01
+  LD r8#37, r8#36
+  LD r8#38, r8#35
+  ADD A(in=r8#19), r8#37; z, c
+  ADC A(in=r8#18), r8#38; z, z
+  LD r8#41, $01
+  ADD A(in=r8#20), r8#41; z, c
+  LD r8#20, A
+  LD r8#18, A
+  LD r8#19, A
   JP .bb9
 
 END_SECTION
