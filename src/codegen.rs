@@ -355,6 +355,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
+                let source = self.r1_to_flag(source, block, lir);
                 let (callee_section, callee_block) = ctx.functions[*callee];
                 let return_block = ctx.blocks[*mir_return_block];
                 let else_block = ctx.blocks[*mir_else_block];
@@ -394,6 +395,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
+                let source = self.r1_to_flag(source, block, lir);
                 let then_block = ctx.blocks[*mir_then_block];
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
@@ -412,6 +414,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
+                let source = self.r1_to_flag(source, block, lir);
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
@@ -436,12 +439,39 @@ impl CodeGen {
         match instruction {
             mir::Instr::Nop => {}
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
-            mir::Instr::Alloc { .. } => todo!("{instruction:?}"),
-            mir::Instr::ReturnValue { .. } => todo!("{instruction:?}"),
+            mir::Instr::Alloc { target } => {
+                let r8 = lir.insert_ld8_value(block, 0);
+                locals
+                    .r1s
+                    .insert(*target, (R1::R8(r8), mir::Condition::NotZero));
+            }
+            mir::Instr::ReturnValue { target } => {
+                let r8 = lir.insert_ld_return_8(block);
+                locals
+                    .r1s
+                    .insert(*target, (R1::R8(r8), mir::Condition::NotZero));
+            }
             mir::Instr::Phi { .. } => todo!("{instruction:?}"),
             mir::Instr::Load { .. } => todo!("{instruction:?}"),
             mir::Instr::Store { .. } => todo!("{instruction:?}"),
-            mir::Instr::Copy { .. } => todo!("{instruction:?}"),
+            mir::Instr::Copy { target, source } => {
+                let (r8, _condition) = match source {
+                    mir::Operand::Local(source) => {
+                        let (r1, condition) = locals.r1s[*source];
+                        let r8 = self.r1_to_r8(r1, block, lir);
+                        (r8, condition)
+                    }
+                    mir::Operand::Literal(source) => {
+                        let value = if source.value == 0 { 0x00u8 } else { 0xffu8 };
+                        let r8 = lir.insert_ld8_value(block, value);
+                        (r8, mir::Condition::NotZero)
+                    }
+                    mir::Operand::FnPtr(_) => unimplemented!("Cannot copy a fn ptr to a r1"),
+                };
+                locals
+                    .r1s
+                    .insert(*target, (R1::R8(r8), mir::Condition::NotZero));
+            }
             mir::Instr::Read { .. } => todo!("{instruction:?}"),
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
@@ -449,11 +479,17 @@ impl CodeGen {
                 locals.r1s.insert(*target, (flag, !condition));
             }
             mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
-            mir::Instr::RotateLeft { .. } | mir::Instr::RotateRight { .. } => {
-                todo!("{instruction:?}")
+            mir::Instr::RotateLeft { target, source }
+            | mir::Instr::RotateRight { target, source } => {
+                let (r1, condition) = locals.r1s[*source];
+                let r8 = self.r1_to_r8(r1, block, lir);
+                locals.r1s.insert(*target, (R1::R8(r8), condition));
             }
-            mir::Instr::ShiftLeft { .. } | mir::Instr::ShiftRight { .. } => {
-                todo!("{instruction:?}")
+            mir::Instr::ShiftLeft { target, .. } | mir::Instr::ShiftRight { target, .. } => {
+                let r8 = lir.insert_ld8_value(block, 0);
+                locals
+                    .r1s
+                    .insert(*target, (R1::R8(r8), mir::Condition::NotZero));
             }
             mir::Instr::Eq {
                 target,
@@ -462,7 +498,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (z, condition));
+                locals.r1s.insert(*target, (R1::Zero(z), condition));
             }
             mir::Instr::Ne {
                 target,
@@ -471,7 +507,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (z, !condition));
+                locals.r1s.insert(*target, (R1::Zero(z), !condition));
             }
             mir::Instr::Lt {
                 target,
@@ -480,7 +516,7 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (c, condition));
+                locals.r1s.insert(*target, (R1::Carry(c), condition));
             }
             mir::Instr::Le { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
@@ -492,7 +528,7 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
-                locals.r1s.insert(*target, (c, !condition));
+                locals.r1s.insert(*target, (R1::Carry(c), !condition));
             }
             mir::Instr::Gt { .. } => unimplemented!(
                 "{instruction:?} as it should be rewritten within the optimization phase"
@@ -501,6 +537,68 @@ impl CodeGen {
             mir::Instr::BitOr { .. } => todo!("{instruction:?}"),
             mir::Instr::BitXor { .. } | mir::Instr::Add { .. } | mir::Instr::Sub { .. } => {
                 todo!("{instruction:?} as u1 xor")
+            }
+        }
+    }
+
+    fn r1_to_flag(&mut self, r1: R1, block: BlockId, lir: &mut CodeSectionBuilder) -> FlagId {
+        match r1 {
+            R1::Carry(flag) | R1::Zero(flag) => flag,
+            R1::R8(r8) => {
+                let (z, _c) = lir.insert_cp(block, r8, Operand8::Literal(0xFF));
+                z
+            }
+            R1::Bit(r8, bit) => lir.insert_bit(block, bit, r8),
+        }
+    }
+
+    fn r1_to_r8(&mut self, r1: R1, block: BlockId, lir: &mut CodeSectionBuilder) -> R8Id {
+        match r1 {
+            R1::Carry(c_in) => {
+                let (r8, _z, _c) = lir.insert_sbc_a_a(block, c_in);
+                r8
+            }
+            R1::Zero(z_in) => {
+                // zero flags are difficult, unfortunately. We need to push them onto
+                // the stack then pop onto a 16-bit register
+                lir.insert_push_af_z(block, z_in);
+                let r16 = lir.insert_pop_r16(block);
+                let (_high, low) = lir.insert_split(block, r16);
+                // low now has the zero flag stored in the 7th bit. We can now
+                // use the rotate left strategy
+                let (_r8, _z, c_in) = lir.insert_rlc(block, low);
+                let (r8, _z, _c) = lir.insert_sbc_a_a(block, c_in);
+                r8
+            }
+            R1::R8(r8) => r8,
+            R1::Bit(r8, bit) => {
+                match u8::from(bit) {
+                    0 => {
+                        // rotate right essentially moves the bit into the carry bit,
+                        // allowing for handling it like the carry flag handling above
+                        let (_target, _z, c_in) = lir.insert_rrc(block, r8);
+                        let (r8, _z, _c) = lir.insert_sbc_a_a(block, c_in);
+                        r8
+                    }
+                    7 => {
+                        // rotate left essentially moves the bit into the carry bit,
+                        // allowing for handling it like the carry flag handling above
+                        let (_r8, _z, c_in) = lir.insert_rlc(block, r8);
+                        let (r8, _z, _c) = lir.insert_sbc_a_a(block, c_in);
+                        r8
+                    }
+                    _ => {
+                        let mask = 1 << u8::from(bit);
+                        // AND with the mask sets all the undefined bits to 0
+                        let (r8, _z, _c) = lir.insert_and(block, r8, Operand8::Literal(mask));
+                        // ADD !mask + 1 will move the bit into the carry bit
+                        let (_r8, _z, c_in) =
+                            lir.insert_add(block, r8, Operand8::Literal((!mask) + 1));
+                        // now we can use the same trick as before
+                        let (r8, _z, _c) = lir.insert_sbc_a_a(block, c_in);
+                        r8
+                    }
+                }
             }
         }
     }
@@ -1175,11 +1273,23 @@ struct InstrCtx<'a> {
 
 #[derive(Default)]
 struct Locals {
-    r1s: SparseSecondaryMap<mir::LocalId, (FlagId, mir::Condition)>,
+    r1s: SparseSecondaryMap<mir::LocalId, (R1, mir::Condition)>,
     r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
     r16s: SparseSecondaryMap<mir::LocalId, (R8Id, R8Id)>,
     phi_source_r8s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R8Id>>,
     phi_source_r16s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, (R8Id, R8Id)>>,
     phi_r8s: IndexMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
     phi_r16s: IndexMap<mir::LocalId, (R8Id, R8Id, Vec<BlockId>)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum R1 {
+    /// R1 represented by a zero flag
+    Zero(FlagId),
+    /// R1 represented by a carry flag
+    Carry(FlagId),
+    /// R1 represented by a R8, with 0xFF as 1 and 0x00 as 0
+    R8(R8Id),
+    /// R1 represented by a bit set in a register
+    Bit(R8Id, u3),
 }

@@ -883,10 +883,24 @@ pub enum Instr {
         left: R16Id,
         right: R16Id,
     },
+    /// `ADD SP e8`
+    AddSP { z: FlagId, c: FlagId, right: i8 },
     /// `DEC r16`
     Dec16 { target: R16Id, source: R16Id },
     /// `INC r16`
     Inc16 { target: R16Id, source: R16Id },
+    /// `PUSH r16`
+    PushR16 { source: R16Id },
+    /// `PUSH AF`
+    PushAF {
+        source: R8Id,
+        z_in: FlagId,
+        c_in: FlagId,
+    },
+    /// `POP r16`
+    PopR16 { target: R16Id },
+    /// `POP AF`
+    PopAF { target: R8Id, z: FlagId, c: FlagId },
     /// Virtual instruction to join 2x 8-bit registers into 1x 16-bit register.
     ///
     /// This does not add any machine instructions on its own, it simply is used
@@ -905,11 +919,16 @@ pub enum Instr {
         low: R8Id,
         source: R16Id,
     },
-    /// Virtual instruction to move a flag
+    /// Virtual instruction to move a zero flag
     ///
     /// This does not add any machine instructions on its own, it simply is used
     /// to convert a precolored zero flag into an unconstrained flag.
-    MoveFlag { flag_out: FlagId, flag_in: FlagId },
+    MoveZero { z: FlagId, z_in: FlagId },
+    /// Virtual instruction to move a carry flag
+    ///
+    /// This does not add any machine instructions on its own, it simply is used
+    /// to convert a precolored carry flag into an unconstrained flag.
+    MoveCarry { c: FlagId, c_in: FlagId },
 }
 
 impl Instr {
@@ -947,7 +966,8 @@ impl Instr {
                 | Instr::Sla { target, .. }
                 | Instr::Sra { target, .. }
                 | Instr::Srl { target, .. }
-                | Instr::Swap { target, .. } => match next {
+                | Instr::Swap { target, .. }
+                | Instr::PopAF { target, .. } => match next {
                     0 => Some(*target),
                     _ => None,
                 },
@@ -979,7 +999,12 @@ impl Instr {
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
                 | Instr::Join { .. }
-                | Instr::MoveFlag { .. } => None,
+                | Instr::MoveZero { .. }
+                | Instr::MoveCarry { .. }
+                | Instr::AddSP { .. }
+                | Instr::PushAF { .. }
+                | Instr::PushR16 { .. }
+                | Instr::PopR16 { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1008,7 +1033,8 @@ impl Instr {
             | Instr::StoreDec {
                 revised_addr: target,
                 ..
-            } => Some(*target),
+            }
+            | Instr::PopR16 { target, .. } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1056,7 +1082,12 @@ impl Instr {
             | Instr::Ccf { .. }
             | Instr::Scf { .. }
             | Instr::Split { .. }
-            | Instr::MoveFlag { .. } => None,
+            | Instr::MoveZero { .. }
+            | Instr::MoveCarry { .. }
+            | Instr::AddSP { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PushAF { .. }
+            | Instr::PopAF { .. } => None,
         }
     }
 
@@ -1087,7 +1118,9 @@ impl Instr {
                 | Instr::Srl { z, c, .. }
                 | Instr::SrlPtr { z, c, .. }
                 | Instr::Swap { z, c, .. }
-                | Instr::SwapPtr { z, c, .. } => match next {
+                | Instr::SwapPtr { z, c, .. }
+                | Instr::AddSP { z, c, .. }
+                | Instr::PopAF { z, c, .. } => match next {
                     0 => Some(*z),
                     1 => Some(*c),
                     _ => None,
@@ -1097,18 +1130,16 @@ impl Instr {
                 | Instr::Inc { z, .. }
                 | Instr::IncPtr { z, .. }
                 | Instr::Bit { z, .. }
-                | Instr::BitPtr { z, .. } => match next {
+                | Instr::BitPtr { z, .. }
+                | Instr::MoveZero { z, .. } => match next {
                     0 => Some(*z),
                     _ => None,
                 },
-                Instr::Ccf { c, .. } | Instr::Scf { c, .. } | Instr::Add16 { c, .. } => {
-                    match next {
-                        0 => Some(*c),
-                        _ => None,
-                    }
-                }
-                Instr::MoveFlag { flag_out, .. } => match next {
-                    0 => Some(*flag_out),
+                Instr::Ccf { c, .. }
+                | Instr::Scf { c, .. }
+                | Instr::Add16 { c, .. }
+                | Instr::MoveCarry { c, .. } => match next {
+                    0 => Some(*c),
                     _ => None,
                 },
                 Instr::Nop
@@ -1132,7 +1163,10 @@ impl Instr {
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
                 | Instr::Join { .. }
-                | Instr::Split { .. } => None,
+                | Instr::Split { .. }
+                | Instr::PushR16 { .. }
+                | Instr::PushAF { .. }
+                | Instr::PopR16 { .. } => None,
             }?;
             next += 1;
             Some(flag)
@@ -1198,7 +1232,8 @@ impl Instr {
                 | Instr::Sla { source, .. }
                 | Instr::Sra { source, .. }
                 | Instr::Srl { source, .. }
-                | Instr::Swap { source, .. } => match next {
+                | Instr::Swap { source, .. }
+                | Instr::PushAF { source, .. } => match next {
                     0 => Some(*source),
                     _ => None,
                 },
@@ -1228,8 +1263,13 @@ impl Instr {
                 | Instr::Add16 { .. }
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
-                | Instr::MoveFlag { .. }
-                | Instr::Split { .. } => None,
+                | Instr::MoveZero { .. }
+                | Instr::MoveCarry { .. }
+                | Instr::Split { .. }
+                | Instr::AddSP { .. }
+                | Instr::PushR16 { .. }
+                | Instr::PopR16 { .. }
+                | Instr::PopAF { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1291,7 +1331,8 @@ impl Instr {
                 | Instr::SwapPtr { addr: source, .. }
                 | Instr::Dec16 { source, .. }
                 | Instr::Inc16 { source, .. }
-                | Instr::Split { source, .. } => match next {
+                | Instr::Split { source, .. }
+                | Instr::PushR16 { source, .. } => match next {
                     0 => Some(*source),
                     _ => None,
                 },
@@ -1333,7 +1374,12 @@ impl Instr {
                 | Instr::Ccf { .. }
                 | Instr::Scf { .. }
                 | Instr::Join { .. }
-                | Instr::MoveFlag { .. } => None,
+                | Instr::MoveZero { .. }
+                | Instr::MoveCarry { .. }
+                | Instr::AddSP { .. }
+                | Instr::PushAF { .. }
+                | Instr::PopR16 { .. }
+                | Instr::PopAF { .. } => None,
             }?;
             next += 1;
             Some(r16)
@@ -1349,8 +1395,11 @@ impl Instr {
             | Instr::RlPtr { c_in, .. }
             | Instr::Rr { c_in, .. }
             | Instr::RrPtr { c_in, .. }
-            | Instr::Ccf { c_in, .. } => Some(*c_in),
-            Instr::MoveFlag { flag_in, .. } => Some(*flag_in),
+            | Instr::Ccf { c_in, .. }
+            | Instr::MoveCarry { c_in, .. }
+            // todo: PUSH AF is wrong here. Need to change return to iterator
+            | Instr::PushAF { c_in, .. } => Some(*c_in),
+            Instr::MoveZero { z_in, .. } => Some(*z_in),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1398,7 +1447,11 @@ impl Instr {
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::Join { .. }
-            | Instr::Split { .. } => None,
+            | Instr::Split { .. }
+            | Instr::AddSP { .. }
+            | Instr::PopAF { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PopR16 { .. } => None,
         }
     }
 }
@@ -1948,6 +2001,38 @@ impl Instr {
                     R16Id::display_revised(*target, *source, lir, section)
                 )
             }
+            Instr::AddSP { z, c, right } => {
+                write!(
+                    f,
+                    "ADD SP {right}; {}, {}",
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section),
+                )
+            }
+            Instr::PushAF { source, z_in, c_in } => {
+                write!(
+                    f,
+                    "PUSH AF(high_in={}, z_in={}, c_in={})",
+                    source.display(lir, section),
+                    z_in.display(lir, section),
+                    c_in.display(lir, section),
+                )
+            }
+            Instr::PushR16 { source } => {
+                write!(f, "PUSH {}", source.display(lir, section))
+            }
+            Instr::PopAF { target, z, c } => {
+                write!(
+                    f,
+                    "POP AF(high_out={}); {}, {}",
+                    target.display(lir, section),
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section),
+                )
+            }
+            Instr::PopR16 { target } => {
+                write!(f, "POP {}", target.display(lir, section))
+            }
             Instr::Join {
                 target,
                 high_in,
@@ -1970,12 +2055,20 @@ impl Instr {
                     source.display(lir, section)
                 )
             }
-            Instr::MoveFlag { flag_in, flag_out } => {
+            Instr::MoveZero { z, z_in } => {
                 write!(
                     f,
                     "(out={},in={})",
-                    flag_out.display(lir, section),
-                    flag_in.display(lir, section)
+                    z.display(lir, section),
+                    z_in.display(lir, section)
+                )
+            }
+            Instr::MoveCarry { c, c_in } => {
+                write!(
+                    f,
+                    "(out={},in={})",
+                    c.display(lir, section),
+                    c_in.display(lir, section)
                 )
             }
         })
@@ -2764,7 +2857,7 @@ impl CodeSectionBuilder {
         block: BlockId,
         left: R8Id,
         right: Operand8,
-        carry: FlagId,
+        c_in: FlagId,
     ) -> (R8Id, FlagId, FlagId) {
         let target = self.new_a();
         let z = self.new_zero_flag();
@@ -2777,7 +2870,7 @@ impl CodeSectionBuilder {
                 c,
                 left,
                 right,
-                c_in: carry,
+                c_in,
             },
         );
         (target, z, c)
@@ -3287,10 +3380,56 @@ impl CodeSectionBuilder {
     }
 
     #[must_use]
-    pub fn insert_move_flag(&mut self, block: BlockId, flag_in: FlagId) -> FlagId {
-        let flag_out = self.new_flag();
-        self.insert_instr(block, Instr::MoveFlag { flag_out, flag_in });
-        flag_out
+    pub fn insert_zero_flag(&mut self, block: BlockId, z_in: FlagId) -> FlagId {
+        let z = self.new_flag();
+        self.insert_instr(block, Instr::MoveZero { z, z_in });
+        z
+    }
+
+    #[must_use]
+    pub fn insert_carry_flag(&mut self, block: BlockId, c_in: FlagId) -> FlagId {
+        let c = self.new_flag();
+        self.insert_instr(block, Instr::MoveCarry { c, c_in });
+        c
+    }
+
+    /// `SBC A, A`
+    /// Useful for converting a carry flag into `0xFF` if carry set or `0x00` is not set
+    #[must_use]
+    pub fn insert_sbc_a_a(&mut self, block: BlockId, c_in: FlagId) -> (R8Id, FlagId, FlagId) {
+        let target = self.new_a();
+        let left = self.new_a();
+        let right = self.new_a();
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        self.insert_instr(
+            block,
+            Instr::Sbc {
+                target,
+                z,
+                c,
+                left,
+                right: Operand8::Reg(right),
+                c_in,
+            },
+        );
+        (target, z, c)
+    }
+
+    /// `PUSH AF`
+    /// Useful for storing the zero flag to the stack to be restored via a pop
+    pub fn insert_push_af_z(&mut self, block: BlockId, z_in: FlagId) {
+        let source = self.new_a();
+        let c_in = self.new_carry_flag();
+        self.insert_instr(block, Instr::PushAF { source, z_in, c_in });
+    }
+
+    /// `POP r16`
+    #[must_use]
+    pub fn insert_pop_r16(&mut self, block: BlockId) -> R16Id {
+        let target = self.new_r16();
+        self.insert_instr(block, Instr::PopR16 { target });
+        target
     }
 
     #[must_use]
