@@ -9,6 +9,8 @@ pub struct AnalyzeCommand {
     /// Enable one or more preview features
     #[arg(short = 'p', long = "preview")]
     preview_features: Vec<PreviewFeature>,
+    #[arg(long = "no-optimize")]
+    no_optimize: bool,
 }
 
 impl Execute for AnalyzeCommand {
@@ -26,11 +28,14 @@ impl Execute for AnalyzeCommand {
 
 impl AnalyzeCommand {
     fn analyze(&self, file_contents: &str) -> miette::Result<()> {
-        let output = PipelineConfig::default()
+        let mut output = PipelineConfig::default()
             .with_features(self.preview_features.iter().cloned().collect())
             .start()
             .parse(file_contents)?
             .analyze()?;
+        if !self.no_optimize {
+            output = output.optimize()?;
+        }
         println!("{}", output.mir().display(output.ty_registry()));
         Ok(())
     }

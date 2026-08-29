@@ -9,6 +9,8 @@ pub struct CodegenCommand {
     /// Enable one or more preview features
     #[arg(short = 'p', long = "preview")]
     preview_features: Vec<PreviewFeature>,
+    #[arg(long = "allocate-registers")]
+    allocate_registers: bool,
 }
 
 impl Execute for CodegenCommand {
@@ -33,7 +35,12 @@ impl CodegenCommand {
             .analyze()?
             .optimize()?
             .codegen()?;
-        println!("{}", output.lir());
+        if self.allocate_registers {
+            let output = output.allocate();
+            println!("{}", output.lir());
+        } else {
+            println!("{}", output.lir());
+        }
         Ok(())
     }
 }

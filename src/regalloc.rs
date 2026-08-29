@@ -54,6 +54,7 @@ fn rewrite_code(
     _spills: IndexSet<VirtualReg>,
     _block_liveness: BlockLiveness,
 ) {
+    panic!("Spilled {_spills:?}");
 }
 
 #[derive(Default)]

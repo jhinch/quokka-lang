@@ -1424,7 +1424,10 @@ impl Instr {
                     0 => Some(*c_in),
                     _ => None,
                 },
-                Instr::MoveZero { z_in, .. } => Some(*z_in),
+                Instr::MoveZero { z_in, .. } => match next {
+                    0 => Some(*z_in),
+                    _ => None,
+                },
                 Instr::Nop
                 | Instr::Ld8 { .. }
                 | Instr::Ld8Value { .. }

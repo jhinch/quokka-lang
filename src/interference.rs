@@ -236,7 +236,9 @@ pub fn build_interference_graph(
             }
             for reg in instruction_defs(instruction) {
                 for live_reg in live.iter().copied() {
-                    graph.add_edge(live_reg, reg);
+                    if live_reg != reg {
+                        graph.add_edge(live_reg, reg);
+                    }
                 }
             }
 
@@ -248,6 +250,17 @@ pub fn build_interference_graph(
             }
             for reg in instruction_uses(instruction) {
                 live.insert(reg);
+            }
+        }
+    }
+    if cfg!(debug_assertions) {
+        for (reg, data) in &graph.node_to_data {
+            if let Some(permitted_colors) = data.permitted_colors.as_ref().cloned() {
+                assert!(
+                    !permitted_colors.is_empty(),
+                    "{reg:?} has an initial state of no permitted colors. precolor = {:?}",
+                    data.precolored
+                );
             }
         }
     }

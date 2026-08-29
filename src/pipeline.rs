@@ -2,11 +2,12 @@ use crate::analyze::Analyzer;
 use crate::ast;
 use crate::codegen::CodeGen;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
-use crate::lir::Lir;
+use crate::lir::{Lir, SectionData};
 use crate::mir::Mir;
 use crate::multi::MultiError;
 use crate::optimize::Optimizer;
 use crate::parse::Parser;
+use crate::regalloc::allocate_registers;
 use crate::ty::TyRegistry;
 
 #[derive(Default)]
@@ -142,6 +143,32 @@ pub struct CodegenOutput {
 }
 
 impl CodegenOutput {
+    #[must_use]
+    pub fn lir(&self) -> &Lir {
+        &self.lir
+    }
+
+    #[must_use]
+    pub fn allocate(mut self) -> AllocateOutput {
+        for section in self.lir.sections.values_mut() {
+            if let SectionData::Code(code) = &mut section.data {
+                allocate_registers(code);
+            }
+        }
+        AllocateOutput {
+            config: self.config,
+            lir: self.lir,
+        }
+    }
+}
+
+pub struct AllocateOutput {
+    #[allow(dead_code)]
+    config: PipelineConfig,
+    lir: Lir,
+}
+
+impl AllocateOutput {
     #[must_use]
     pub fn lir(&self) -> &Lir {
         &self.lir
