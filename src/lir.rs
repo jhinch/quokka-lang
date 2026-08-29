@@ -932,6 +932,24 @@ pub enum Instr {
 }
 
 impl Instr {
+    #[must_use]
+    pub fn is_move(&self) -> bool {
+        matches!(
+            self,
+            Instr::Ld8 { .. } | Instr::MoveZero { .. } | Instr::MoveCarry { .. }
+        )
+    }
+
+    #[must_use]
+    pub fn as_move(&self) -> Option<(VirtualReg, VirtualReg)> {
+        Some(match self {
+            Instr::Ld8 { target, source } => (VirtualReg::R8(*target), VirtualReg::R8(*source)),
+            Instr::MoveZero { z, z_in } => (VirtualReg::Flag(*z), VirtualReg::Flag(*z_in)),
+            Instr::MoveCarry { c, c_in } => (VirtualReg::Flag(*c), VirtualReg::Flag(*c_in)),
+            _ => return None,
+        })
+    }
+
     pub fn target_r8s(&self) -> impl Iterator<Item = R8Id> + '_ {
         let mut next = 0;
         std::iter::from_fn(move || {
@@ -1386,73 +1404,83 @@ impl Instr {
         })
     }
 
-    #[must_use]
-    pub fn flag_in(&self) -> Option<FlagId> {
-        match self {
-            Instr::Adc { c_in, .. }
-            | Instr::Sbc { c_in, .. }
-            | Instr::Rl { c_in, .. }
-            | Instr::RlPtr { c_in, .. }
-            | Instr::Rr { c_in, .. }
-            | Instr::RrPtr { c_in, .. }
-            | Instr::Ccf { c_in, .. }
-            | Instr::MoveCarry { c_in, .. }
-            // todo: PUSH AF is wrong here. Need to change return to iterator
-            | Instr::PushAF { c_in, .. } => Some(*c_in),
-            Instr::MoveZero { z_in, .. } => Some(*z_in),
-            Instr::Nop
-            | Instr::Ld8 { .. }
-            | Instr::Ld8Value { .. }
-            | Instr::Ld8Ptr { .. }
-            | Instr::Ld8HighPtr { .. }
-            | Instr::Ld8Inc { .. }
-            | Instr::Ld8Dec { .. }
-            | Instr::Ld16 { .. }
-            | Instr::Store { .. }
-            | Instr::StoreHigh { .. }
-            | Instr::StoreValue { .. }
-            | Instr::StoreInc { .. }
-            | Instr::StoreDec { .. }
-            | Instr::Add { .. }
-            | Instr::Cp { .. }
-            | Instr::Dec { .. }
-            | Instr::DecPtr { .. }
-            | Instr::Inc { .. }
-            | Instr::IncPtr { .. }
-            | Instr::Sub { .. }
-            | Instr::And { .. }
-            | Instr::Cpl { .. }
-            | Instr::Or { .. }
-            | Instr::Xor { .. }
-            | Instr::Bit { .. }
-            | Instr::BitPtr { .. }
-            | Instr::Res { .. }
-            | Instr::ResPtr { .. }
-            | Instr::Set { .. }
-            | Instr::SetPtr { .. }
-            | Instr::Rlc { .. }
-            | Instr::RlcPtr { .. }
-            | Instr::Rrc { .. }
-            | Instr::RrcPtr { .. }
-            | Instr::Sla { .. }
-            | Instr::SlaPtr { .. }
-            | Instr::Sra { .. }
-            | Instr::SraPtr { .. }
-            | Instr::Srl { .. }
-            | Instr::SrlPtr { .. }
-            | Instr::Swap { .. }
-            | Instr::SwapPtr { .. }
-            | Instr::Scf { .. }
-            | Instr::Add16 { .. }
-            | Instr::Dec16 { .. }
-            | Instr::Inc16 { .. }
-            | Instr::Join { .. }
-            | Instr::Split { .. }
-            | Instr::AddSP { .. }
-            | Instr::PopAF { .. }
-            | Instr::PushR16 { .. }
-            | Instr::PopR16 { .. } => None,
-        }
+    pub fn flags_in(&self) -> impl Iterator<Item = FlagId> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let flag = match self {
+                Instr::PushAF { z_in, c_in, .. } => match next {
+                    0 => Some(*z_in),
+                    1 => Some(*c_in),
+                    _ => None,
+                },
+                Instr::Adc { c_in, .. }
+                | Instr::Sbc { c_in, .. }
+                | Instr::Rl { c_in, .. }
+                | Instr::RlPtr { c_in, .. }
+                | Instr::Rr { c_in, .. }
+                | Instr::RrPtr { c_in, .. }
+                | Instr::Ccf { c_in, .. }
+                | Instr::MoveCarry { c_in, .. } => match next {
+                    0 => Some(*c_in),
+                    _ => None,
+                },
+                Instr::MoveZero { z_in, .. } => Some(*z_in),
+                Instr::Nop
+                | Instr::Ld8 { .. }
+                | Instr::Ld8Value { .. }
+                | Instr::Ld8Ptr { .. }
+                | Instr::Ld8HighPtr { .. }
+                | Instr::Ld8Inc { .. }
+                | Instr::Ld8Dec { .. }
+                | Instr::Ld16 { .. }
+                | Instr::Store { .. }
+                | Instr::StoreHigh { .. }
+                | Instr::StoreValue { .. }
+                | Instr::StoreInc { .. }
+                | Instr::StoreDec { .. }
+                | Instr::Add { .. }
+                | Instr::Cp { .. }
+                | Instr::Dec { .. }
+                | Instr::DecPtr { .. }
+                | Instr::Inc { .. }
+                | Instr::IncPtr { .. }
+                | Instr::Sub { .. }
+                | Instr::And { .. }
+                | Instr::Cpl { .. }
+                | Instr::Or { .. }
+                | Instr::Xor { .. }
+                | Instr::Bit { .. }
+                | Instr::BitPtr { .. }
+                | Instr::Res { .. }
+                | Instr::ResPtr { .. }
+                | Instr::Set { .. }
+                | Instr::SetPtr { .. }
+                | Instr::Rlc { .. }
+                | Instr::RlcPtr { .. }
+                | Instr::Rrc { .. }
+                | Instr::RrcPtr { .. }
+                | Instr::Sla { .. }
+                | Instr::SlaPtr { .. }
+                | Instr::Sra { .. }
+                | Instr::SraPtr { .. }
+                | Instr::Srl { .. }
+                | Instr::SrlPtr { .. }
+                | Instr::Swap { .. }
+                | Instr::SwapPtr { .. }
+                | Instr::Scf { .. }
+                | Instr::Add16 { .. }
+                | Instr::Dec16 { .. }
+                | Instr::Inc16 { .. }
+                | Instr::Join { .. }
+                | Instr::Split { .. }
+                | Instr::AddSP { .. }
+                | Instr::PopAF { .. }
+                | Instr::PushR16 { .. }
+                | Instr::PopR16 { .. } => None,
+            }?;
+            next += 1;
+            Some(flag)
+        })
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
-use crate::lir::{BlockId, CodeSectionData, Instr, VirtualReg};
+use crate::lir::{BlockId, CodeSectionData, VirtualReg};
 use crate::reg::{Color, ColorSet};
 use indexmap::IndexSet;
 use std::collections::{HashMap, VecDeque};
@@ -19,10 +19,10 @@ pub fn allocate_registers(code: &mut CodeSectionData) -> HashMap<VirtualReg, Col
     panic!("Failed to allocate registers")
 }
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(i = %i))]
 pub fn allocate_registers_round(
     code: &mut CodeSectionData,
-    _i: usize,
+    i: usize,
 ) -> Option<HashMap<VirtualReg, Color>> {
     let block_liveness = calculate_block_liveness(code);
     match try_allocate_registers(code, &block_liveness) {
@@ -156,14 +156,14 @@ impl RegAllocator {
             return;
         };
         let (block, index) = mv;
-        let (a, b) = match &code.blocks[block].instructions[index] {
-            Instr::Ld8 { target, source } => (*target, *source),
-            instruction => unimplemented!(
-                "worklist_moves only ever contains move instructions. Found {instruction:?}"
-            ),
+        let Some((a, b)) = code.blocks[block].instructions[index].as_move() else {
+            unimplemented!(
+                "{:?} is not a move but it is stored in the moves worklist",
+                code.blocks[block].instructions[index]
+            );
         };
-        let mut a = self.get_alias(VirtualReg::R8(a));
-        let mut b = self.get_alias(VirtualReg::R8(b));
+        let mut a = self.get_alias(a);
+        let mut b = self.get_alias(b);
         // Preference keeping a precolored node
         if self.graph.is_precolored(b) {
             std::mem::swap(&mut a, &mut b);
@@ -208,16 +208,16 @@ impl RegAllocator {
     fn freeze_moves(&mut self, code: &CodeSectionData, reg: VirtualReg) {
         for mv in self.related_moves(reg).collect::<Vec<_>>() {
             let (block, index) = mv;
-            let (target, source) = match &code.blocks[block].instructions[index] {
-                Instr::Ld8 { target, source } => (*target, *source),
-                instruction => unimplemented!(
-                    "worklist_moves only ever contains move instructions. Found {instruction:?}"
-                ),
+            let Some((target, source)) = code.blocks[block].instructions[index].as_move() else {
+                unimplemented!(
+                    "{:?} is not a move but it is stored in the moves worklist",
+                    code.blocks[block].instructions[index]
+                );
             };
-            let mv_reg = if self.get_alias(VirtualReg::R8(source)) == self.get_alias(reg) {
-                self.get_alias(VirtualReg::R8(target))
+            let mv_reg = if self.get_alias(source) == self.get_alias(reg) {
+                self.get_alias(target)
             } else {
-                self.get_alias(VirtualReg::R8(source))
+                self.get_alias(source)
             };
             self.active_moves.swap_remove(&mv);
             self.frozen_moves.insert(mv);
