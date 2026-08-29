@@ -3433,6 +3433,20 @@ impl CodeSectionBuilder {
     }
 
     #[must_use]
+    pub fn insert_move_zero(&mut self, block: BlockId, z_in: FlagId) -> FlagId {
+        let z = self.new_flag();
+        self.insert_instr(block, Instr::MoveZero { z, z_in });
+        z
+    }
+
+    #[must_use]
+    pub fn insert_move_carry(&mut self, block: BlockId, c_in: FlagId) -> FlagId {
+        let c = self.new_flag();
+        self.insert_instr(block, Instr::MoveCarry { c, c_in });
+        c
+    }
+
+    #[must_use]
     pub fn insert_ld_return_8(&mut self, block: BlockId) -> R8Id {
         let source = self.new_a();
         let target = self.new_r8();
