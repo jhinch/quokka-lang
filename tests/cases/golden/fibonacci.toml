@@ -762,8 +762,8 @@ fibonacci::
   LD r8#6, $00
   LD r8#7, r8#6
   CP A(in=r8#5), r8#7; z, c
-  (out=f#3,in=z)
-  JP f#3, .bb3; else=.bb4
+  (out=z#2,in=z)
+  JP z#2, .bb3; else=.bb4
 
 main::
 .bb2:
@@ -808,10 +808,10 @@ main::
   LD r8#23, r8#15
   LD r8#24, r8#23
   CP A(in=r8#22), r8#24; z, c
-  (out=f#8,in=c)
+  (out=c#4,in=c)
   LD r8#25, r8#2
   LD r8#26, r8#3
-  JP nf#8, .bb6; else=.bb7
+  JP nc#4, .bb6; else=.bb7
 
 .bb6:
   JP .bb8
@@ -845,9 +845,9 @@ main::
   XOR A(in=r8#46), r8#52; z, c
   XOR A(in=r8#47), r8#53; z, c
   OR A, A; z, c
-  (out=f#19,in=z)
+  (out=z#10,in=z)
   LD r8#57, r8#37
-  JP f#19, .bb10; else=.bb11
+  JP z#10, .bb10; else=.bb11
 
 .bb10:
   JP .bb12

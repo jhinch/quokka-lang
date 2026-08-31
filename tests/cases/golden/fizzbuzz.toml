@@ -976,8 +976,8 @@ main::
   LD A, [MOD_y]
   LD r8#6, A
   CP A(in=r8#4), r8#6; z, c
-  (out=f#3,in=c)
-  JP f#3, .bb5; else=.bb6
+  (out=c#2,in=c)
+  JP c#2, .bb5; else=.bb6
 
 .bb5:
   JP .bb7
@@ -1009,22 +1009,22 @@ main::
   LD r8#25, $00
   LD r8#26, r8#25
   CP A(in=r8#19), r8#26; z, c
-  (out=f#8,in=z)
-  JP f#8, .bb10; else=.bb11
+  (out=z#4,in=z)
+  JP z#4, .bb10; else=.bb11
 
 .bb10:
   LD r8#27, $00
   LD r8#28, r8#27
   CP A(in=r8#24), r8#28; z, c
-  (out=f#11,in=z)
-  JP f#11, .bb12; else=.bb13
+  (out=z#6,in=z)
+  JP z#6, .bb12; else=.bb13
 
 .bb11:
   LD r8#29, $00
   LD r8#30, r8#29
   CP A(in=r8#24), r8#30; z, c
-  (out=f#14,in=z)
-  JP f#14, .bb14; else=.bb15
+  (out=z#8,in=z)
+  JP z#8, .bb14; else=.bb15
 
 .bb12:
   LD r8#31, $03
@@ -1066,9 +1066,9 @@ main::
   XOR A(in=r8#58), r8#64; z, c
   XOR A(in=r8#59), r8#65; z, c
   OR A, A; z, c
-  (out=f#21,in=z)
+  (out=z#12,in=z)
   LD r8#69, r8#49
-  JP f#21, .bb17; else=.bb18
+  JP z#12, .bb17; else=.bb18
 
 .bb17:
   JP .bb19

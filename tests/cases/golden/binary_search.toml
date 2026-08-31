@@ -1093,8 +1093,8 @@ main::
   LD r8#24, r8#4
   SUB A(in=r8#22), r8#24; z, c
   SBC A(in=r8#21), r8#23; z, z
-  (out=f#5,in=c)
-  JP f#5, .bb4; else=.bb5
+  (out=c#3,in=c)
+  JP c#3, .bb4; else=.bb5
 
 .bb4:
   LD r8#27, $00
@@ -1128,8 +1128,8 @@ main::
   LD A, [TARGET]
   LD r8#48, A
   CP A(in=r8#46), r8#48; z, c
-  (out=f#18,in=z)
-  JP f#18, .bb6; else=.bb7
+  (out=z#8,in=z)
+  JP z#8, .bb6; else=.bb7
 
 .bb6:
   LD r8#49, r8#44
@@ -1142,8 +1142,8 @@ main::
   LD A, [TARGET]
   LD r8#54, A
   CP A(in=r8#46), r8#54; z, c
-  (out=f#21,in=c)
-  JP f#21, .bb8; else=.bb9
+  (out=c#12,in=c)
+  JP c#12, .bb8; else=.bb9
 
 .bb8:
   LD r8#55, $00

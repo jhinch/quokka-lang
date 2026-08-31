@@ -602,10 +602,10 @@ main::
   XOR A(in=r8#17), r8#23; z, c
   XOR A(in=r8#18), r8#24; z, c
   OR A, A; z, c
-  (out=f#7,in=z)
+  (out=z#4,in=z)
   LD r8#28, r8#3
   LD r8#29, r8#4
-  JP f#7, .bb4; else=.bb5
+  JP z#4, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
@@ -630,8 +630,8 @@ main::
   XOR A(in=r8#38), r8#44; z, c
   XOR A(in=r8#39), r8#45; z, c
   OR A, A; z, c
-  (out=f#18,in=z)
-  JP f#18, .bb7; else=.bb8
+  (out=z#10,in=z)
+  JP z#10, .bb7; else=.bb8
 
 .bb6:
   LD r8#49, r8#29

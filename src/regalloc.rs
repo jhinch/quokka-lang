@@ -2,8 +2,8 @@ use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
 use crate::lir::{
-    Addr, Block, BlockId, CodeSectionData, FlagId, HighAddr, Instr, Operand8, R8Id, R16Id,
-    Register, Terminator, VirtualReg,
+    Addr, Block, BlockId, CarryId, CodeSectionData, HighAddr, Instr, Operand8, R8Id, R16Id,
+    Register, Terminator, VirtualReg, ZeroId,
 };
 use crate::reg::{Color, ColorSet};
 use indexmap::{IndexMap, IndexSet};
@@ -15,8 +15,11 @@ use tracing::instrument;
 #[instrument(skip_all)]
 pub fn allocate_registers(code: &mut CodeSectionData) -> HashMap<VirtualReg, Color> {
     let mut spill_slots = SpillSlots::default();
-    let max_iterations =
-        code.r8_registers.len() + code.r16_registers.len() + code.flag_registers.len() + 100;
+    let max_iterations = code.r8_registers.len()
+        + code.r16_registers.len()
+        + code.zero_registers.len()
+        + code.carry_registers.len()
+        + 100;
     for i in 0..max_iterations {
         if let Some(colors) = allocate_registers_round(i, code, &mut spill_slots) {
             return colors;
@@ -479,9 +482,8 @@ fn rewrite_code(
             .filter(|&&reg| match reg {
                 VirtualReg::R8(reg) => code.r8_registers[reg].color.is_some(),
                 VirtualReg::R16(reg) => code.r16_registers[reg].color.is_some(),
-                VirtualReg::Zero(reg) | VirtualReg::Carry(reg) => {
-                    code.flag_registers[reg].color.is_some()
-                }
+                VirtualReg::Zero(reg) => code.zero_registers[reg].color.is_some(),
+                VirtualReg::Carry(reg) => code.carry_registers[reg].color.is_some(),
             })
             .collect::<Vec<_>>();
         debug_assert!(
@@ -675,7 +677,7 @@ fn load_spill_slot(
                 color: Some(Color::HL),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -700,7 +702,7 @@ fn load_spill_slot(
                 color: Some(Color::HL),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -759,11 +761,11 @@ fn load_spill_slot(
                 target: one,
                 source: 0xff,
             });
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -798,11 +800,11 @@ fn load_spill_slot(
                 target: moved,
                 source,
             });
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -836,7 +838,7 @@ fn store_spill_slot(
                 color: Some(Color::HL),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -856,7 +858,7 @@ fn store_spill_slot(
                 color: Some(Color::HL),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -912,7 +914,7 @@ fn store_spill_slot(
                 color: Some(Color::A),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c_in = code.flag_registers.insert(Register {
+            let c_in = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -945,11 +947,11 @@ fn store_spill_slot(
                 color: None,
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c_in = code.flag_registers.insert(Register {
+            let c_in = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -971,11 +973,11 @@ fn store_spill_slot(
                 color: Some(Color::A),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -1006,11 +1008,11 @@ fn store_spill_slot(
                 color: Some(Color::A),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
@@ -1060,7 +1062,7 @@ fn rewrite_instruction(
             })
             .unwrap_or(r16)
     };
-    let sub_zero = |z: FlagId| {
+    let sub_zero = |z: ZeroId| {
         use_substitutions
             .get(&VirtualReg::Zero(z))
             .map(|sub| {
@@ -1071,7 +1073,7 @@ fn rewrite_instruction(
             })
             .unwrap_or(z)
     };
-    let sub_carry = |c: FlagId| {
+    let sub_carry = |c: CarryId| {
         use_substitutions
             .get(&VirtualReg::Carry(c))
             .map(|sub| {
@@ -1251,11 +1253,11 @@ fn rewrite_function_entry_with_frame(code: &mut CodeSectionData, entry: BlockId,
         code.blocks[entry].instructions.first(),
         Some(Instr::AddSP { .. })
     ) {
-        let z = code.flag_registers.insert(Register {
+        let z = code.zero_registers.insert(Register {
             color: Some(Color::Fz),
             defined: [(entry, 0)].into_iter().collect(),
         });
-        let c = code.flag_registers.insert(Register {
+        let c = code.carry_registers.insert(Register {
             color: Some(Color::Fc),
             defined: [(entry, 0)].into_iter().collect(),
         });
@@ -1303,11 +1305,11 @@ fn rewrite_function_exits_with_frame(
             Some(Instr::AddSP { .. })
         ) {
             let index = code.blocks[exit].instructions.len();
-            let z = code.flag_registers.insert(Register {
+            let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(exit, index)].into_iter().collect(),
             });
-            let c = code.flag_registers.insert(Register {
+            let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(exit, index)].into_iter().collect(),
             });

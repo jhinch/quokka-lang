@@ -340,7 +340,8 @@ fn restrict_from_instruction_targets(
         if let Some(color) = match reg {
             VirtualReg::R8(reg) => code.r8_registers[reg].color,
             VirtualReg::R16(reg) => code.r16_registers[reg].color,
-            VirtualReg::Zero(reg) | VirtualReg::Carry(reg) => code.flag_registers[reg].color,
+            VirtualReg::Zero(reg) => code.zero_registers[reg].color,
+            VirtualReg::Carry(reg) => code.carry_registers[reg].color,
         } {
             graph.set_precolored(reg, color);
         }
@@ -761,7 +762,7 @@ fn restrict_from_instruction_targets(
         }
         Instr::MoveZero { z, z_in } => {
             graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*z_in), Color::z());
+            graph.constrain_colors_to(VirtualReg::Zero(*z_in), Color::z());
         }
     }
 }

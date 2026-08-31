@@ -1,7 +1,8 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
-    Addr, BlockId, CodeSectionBuilder, DataSectionData, FlagId, Ld16Source, Lir, LirBuilder,
-    Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK, SectionId, Terminator,
+    Addr, BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, Ld16Source, Lir,
+    LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK, SectionId,
+    Terminator, ZeroId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -738,12 +739,13 @@ impl CodeGen {
 
     fn r1_to_flag(&mut self, r1: R1, block: BlockId, lir: &mut CodeSectionBuilder) -> FlagId {
         match r1 {
-            R1::Carry(flag) | R1::Zero(flag) => flag,
+            R1::Zero(flag) => FlagId::from(flag),
+            R1::Carry(flag) => FlagId::from(flag),
             R1::R8(r8) => {
                 let (z, _c) = lir.insert_cp(block, r8, Operand8::Literal(0xFF));
-                z
+                FlagId::from(z)
             }
-            R1::Bit(r8, bit) => lir.insert_bit(block, bit, r8),
+            R1::Bit(r8, bit) => FlagId::from(lir.insert_bit(block, bit, r8)),
         }
     }
 
@@ -1288,7 +1290,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &Locals,
-    ) -> (FlagId, mir::Condition) {
+    ) -> (ZeroId, mir::Condition) {
         match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
                 let (z, _c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
@@ -1321,7 +1323,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &Locals,
-    ) -> (FlagId, mir::Condition) {
+    ) -> (CarryId, mir::Condition) {
         match ctx.function.locals[left].ty {
             Ty::U1 | Ty::U2 | Ty::U4 => {
                 let (_z, c) = self.cp_from_r8(left, right, block, lir, ctx, locals);
@@ -1351,7 +1353,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &Locals,
-    ) -> (FlagId, FlagId) {
+    ) -> (ZeroId, CarryId) {
         match ctx.function.locals[left].ty {
             Ty::U1 => todo!("{left:?} {right:?} u1"),
             Ty::U2 => todo!("{left:?} {right:?} u2"),
@@ -1508,9 +1510,9 @@ struct Locals {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum R1 {
     /// R1 represented by a zero flag
-    Zero(FlagId),
+    Zero(ZeroId),
     /// R1 represented by a carry flag
-    Carry(FlagId),
+    Carry(CarryId),
     /// R1 represented by a R8, with 0xFF as 1 and 0x00 as 0
     R8(R8Id),
     /// R1 represented by a bit set in a register

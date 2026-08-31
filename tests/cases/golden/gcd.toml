@@ -530,10 +530,10 @@ main::
   XOR A(in=r8#17), r8#23; z, c
   XOR A(in=r8#18), r8#24; z, c
   OR A, A; z, c
-  (out=f#7,in=z)
+  (out=z#4,in=z)
   LD r8#28, r8#3
   LD r8#29, r8#4
-  JP f#7, .bb4; else=.bb5
+  JP z#4, .bb4; else=.bb5
 
 .bb4:
   LD r8#30, r8#29
@@ -545,8 +545,8 @@ main::
 .bb5:
   SUB A(in=r8#18), r8#29; z, c
   SBC A(in=r8#17), r8#28; z, z
-  (out=f#12,in=c)
-  JP f#12, .bb6; else=.bb7
+  (out=c#6,in=c)
+  JP c#6, .bb6; else=.bb7
 
 .bb6:
   SUB A(in=r8#29), r8#18; z, c
