@@ -369,9 +369,10 @@ macro_rules! bit_set_impl {
             type Item = $item_struct_name;
 
             fn next(&mut self) -> Option<Self::Item> {
-                let value = u16::try_from(self.0.bits.trailing_zeros()).ok()?;
+                let value = u16::try_from(1 << self.0.bits.trailing_zeros()).ok()?;
                 let value = $item_struct_name::try_from(value).ok()?;
                 self.0.remove(value);
+                // tracing::debug!("{:?} {:b} {:b}", value, value as u16, self.0.bits);
                 Some(value)
             }
         }

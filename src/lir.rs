@@ -376,7 +376,8 @@ impl R16Id {
 pub enum VirtualReg {
     R8(R8Id),
     R16(R16Id),
-    Flag(FlagId),
+    Zero(FlagId),
+    Carry(FlagId),
 }
 
 pub const ZERO_FLAG_BIT: u8 = 7;
@@ -593,7 +594,7 @@ pub struct Function {
 pub struct Block {
     pub instructions: Vec<Instr>,
     pub terminator: Terminator,
-    previous: Vec<BlockId>,
+    pub previous: Vec<BlockId>,
 }
 
 impl Block {
@@ -619,7 +620,7 @@ pub struct Register {
     pub color: Option<Color>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instr {
     /// `NOP`
     Nop,
@@ -654,19 +655,19 @@ pub enum Instr {
     Store { target_addr: Addr, source: R8Id },
     /// `LDH [n16],A`
     /// `LDH [C],A`
-    StoreHigh { target_addr: HighAddr, source: R8Id },
+    StoreHigh { addr: HighAddr, source: R8Id },
     /// `LD [HL],n8`
-    StoreValue { target_addr: R16Id, source: u8 },
+    StoreValue { addr: R16Id, source: u8 },
     /// `LD [HLI],A`
     StoreInc {
         revised_addr: R16Id,
-        target_addr: R16Id,
+        addr: R16Id,
         source: R8Id,
     },
     /// `LD [HLD],A`
     StoreDec {
         revised_addr: R16Id,
-        target_addr: R16Id,
+        addr: R16Id,
         source: R8Id,
     },
     /// `ADC A,r8`
@@ -885,6 +886,8 @@ pub enum Instr {
     },
     /// `ADD SP e8`
     AddSP { z: FlagId, c: FlagId, right: i8 },
+    /// `LD HL,SP+e8`
+    LdSPE8 { target: R16Id, c: FlagId, right: i8 },
     /// `DEC r16`
     Dec16 { target: R16Id, source: R16Id },
     /// `INC r16`
@@ -944,10 +947,26 @@ impl Instr {
     pub fn as_move(&self) -> Option<(VirtualReg, VirtualReg)> {
         Some(match self {
             Instr::Ld8 { target, source } => (VirtualReg::R8(*target), VirtualReg::R8(*source)),
-            Instr::MoveZero { z, z_in } => (VirtualReg::Flag(*z), VirtualReg::Flag(*z_in)),
-            Instr::MoveCarry { c, c_in } => (VirtualReg::Flag(*c), VirtualReg::Flag(*c_in)),
+            Instr::MoveZero { z, z_in } => (VirtualReg::Zero(*z), VirtualReg::Zero(*z_in)),
+            Instr::MoveCarry { c, c_in } => (VirtualReg::Carry(*c), VirtualReg::Carry(*c_in)),
             _ => return None,
         })
+    }
+
+    pub fn register_defs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        self.target_r8s()
+            .map(VirtualReg::R8)
+            .chain(self.target_r16().into_iter().map(VirtualReg::R16))
+            .chain(self.zero().map(VirtualReg::Zero))
+            .chain(self.carry().map(VirtualReg::Carry))
+    }
+
+    pub fn register_uses(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        self.source_r8()
+            .map(VirtualReg::R8)
+            .chain(self.source_r16().map(VirtualReg::R16))
+            .chain(self.zero_in().map(VirtualReg::Zero))
+            .chain(self.carry_in().map(VirtualReg::Carry))
     }
 
     pub fn target_r8s(&self) -> impl Iterator<Item = R8Id> + '_ {
@@ -1020,6 +1039,7 @@ impl Instr {
                 | Instr::MoveZero { .. }
                 | Instr::MoveCarry { .. }
                 | Instr::AddSP { .. }
+                | Instr::LdSPE8 { .. }
                 | Instr::PushAF { .. }
                 | Instr::PushR16 { .. }
                 | Instr::PopR16 { .. } => None,
@@ -1044,6 +1064,7 @@ impl Instr {
                 revised_addr: target,
                 ..
             }
+            | Instr::Ld16 { target, .. }
             | Instr::StoreInc {
                 revised_addr: target,
                 ..
@@ -1052,6 +1073,7 @@ impl Instr {
                 revised_addr: target,
                 ..
             }
+            | Instr::LdSPE8 { target, .. }
             | Instr::PopR16 { target, .. } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
@@ -1079,7 +1101,6 @@ impl Instr {
             | Instr::Sra { .. }
             | Instr::Srl { .. }
             | Instr::Swap { .. }
-            | Instr::Ld16 { .. }
             | Instr::Store { .. }
             | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
@@ -1109,86 +1130,146 @@ impl Instr {
         }
     }
 
+    #[must_use]
+    pub fn zero(&self) -> Option<FlagId> {
+        match self {
+            Instr::Adc { z, .. }
+            | Instr::Add { z, .. }
+            | Instr::Cp { z, .. }
+            | Instr::Dec { z, .. }
+            | Instr::DecPtr { z, .. }
+            | Instr::Inc { z, .. }
+            | Instr::IncPtr { z, .. }
+            | Instr::Sbc { z, .. }
+            | Instr::Sub { z, .. }
+            | Instr::And { z, .. }
+            | Instr::Or { z, .. }
+            | Instr::Xor { z, .. }
+            | Instr::Bit { z, .. }
+            | Instr::BitPtr { z, .. }
+            | Instr::Rl { z, .. }
+            | Instr::RlPtr { z, .. }
+            | Instr::Rlc { z, .. }
+            | Instr::RlcPtr { z, .. }
+            | Instr::Rr { z, .. }
+            | Instr::RrPtr { z, .. }
+            | Instr::Rrc { z, .. }
+            | Instr::RrcPtr { z, .. }
+            | Instr::Sla { z, .. }
+            | Instr::SlaPtr { z, .. }
+            | Instr::Sra { z, .. }
+            | Instr::SraPtr { z, .. }
+            | Instr::Srl { z, .. }
+            | Instr::SrlPtr { z, .. }
+            | Instr::Swap { z, .. }
+            | Instr::SwapPtr { z, .. }
+            | Instr::AddSP { z, .. }
+            | Instr::PopAF { z, .. }
+            | Instr::MoveZero { z, .. } => Some(*z),
+            Instr::Nop
+            | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
+            | Instr::Ld8Inc { .. }
+            | Instr::Ld8Dec { .. }
+            | Instr::Ld16 { .. }
+            | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
+            | Instr::StoreValue { .. }
+            | Instr::StoreInc { .. }
+            | Instr::StoreDec { .. }
+            | Instr::Cpl { .. }
+            | Instr::Res { .. }
+            | Instr::ResPtr { .. }
+            | Instr::Set { .. }
+            | Instr::SetPtr { .. }
+            | Instr::Ccf { .. }
+            | Instr::Scf { .. }
+            | Instr::Add16 { .. }
+            | Instr::LdSPE8 { .. }
+            | Instr::Dec16 { .. }
+            | Instr::Inc16 { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PushAF { .. }
+            | Instr::PopR16 { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. }
+            | Instr::MoveCarry { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub fn carry(&self) -> Option<FlagId> {
+        match self {
+            Instr::Adc { c, .. }
+            | Instr::Add { c, .. }
+            | Instr::Cp { c, .. }
+            | Instr::Sbc { c, .. }
+            | Instr::Sub { c, .. }
+            | Instr::And { c, .. }
+            | Instr::Or { c, .. }
+            | Instr::Xor { c, .. }
+            | Instr::Rl { c, .. }
+            | Instr::RlPtr { c, .. }
+            | Instr::Rlc { c, .. }
+            | Instr::RlcPtr { c, .. }
+            | Instr::Rr { c, .. }
+            | Instr::RrPtr { c, .. }
+            | Instr::Rrc { c, .. }
+            | Instr::RrcPtr { c, .. }
+            | Instr::Sla { c, .. }
+            | Instr::SlaPtr { c, .. }
+            | Instr::Sra { c, .. }
+            | Instr::SraPtr { c, .. }
+            | Instr::Srl { c, .. }
+            | Instr::SrlPtr { c, .. }
+            | Instr::Swap { c, .. }
+            | Instr::SwapPtr { c, .. }
+            | Instr::Ccf { c, .. }
+            | Instr::Scf { c, .. }
+            | Instr::Add16 { c, .. }
+            | Instr::AddSP { c, .. }
+            | Instr::LdSPE8 { c, .. }
+            | Instr::PopAF { c, .. }
+            | Instr::MoveCarry { c, .. } => Some(*c),
+            Instr::Nop
+            | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
+            | Instr::Ld8Inc { .. }
+            | Instr::Ld8Dec { .. }
+            | Instr::Ld16 { .. }
+            | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
+            | Instr::StoreValue { .. }
+            | Instr::StoreInc { .. }
+            | Instr::StoreDec { .. }
+            | Instr::Dec { .. }
+            | Instr::DecPtr { .. }
+            | Instr::Inc { .. }
+            | Instr::IncPtr { .. }
+            | Instr::Cpl { .. }
+            | Instr::Bit { .. }
+            | Instr::BitPtr { .. }
+            | Instr::Res { .. }
+            | Instr::ResPtr { .. }
+            | Instr::Set { .. }
+            | Instr::SetPtr { .. }
+            | Instr::Dec16 { .. }
+            | Instr::Inc16 { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PushAF { .. }
+            | Instr::PopR16 { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. }
+            | Instr::MoveZero { .. } => None,
+        }
+    }
+
     pub fn flags(&self) -> impl Iterator<Item = FlagId> + '_ {
-        let mut next = 0;
-        std::iter::from_fn(move || {
-            let flag = match self {
-                Instr::Adc { z, c, .. }
-                | Instr::Add { z, c, .. }
-                | Instr::Cp { z, c, .. }
-                | Instr::Sbc { z, c, .. }
-                | Instr::Sub { z, c, .. }
-                | Instr::And { z, c, .. }
-                | Instr::Or { z, c, .. }
-                | Instr::Xor { z, c, .. }
-                | Instr::Rl { z, c, .. }
-                | Instr::RlPtr { z, c, .. }
-                | Instr::Rlc { z, c, .. }
-                | Instr::RlcPtr { z, c, .. }
-                | Instr::Rr { z, c, .. }
-                | Instr::RrPtr { z, c, .. }
-                | Instr::Rrc { z, c, .. }
-                | Instr::RrcPtr { z, c, .. }
-                | Instr::Sla { z, c, .. }
-                | Instr::SlaPtr { z, c, .. }
-                | Instr::Sra { z, c, .. }
-                | Instr::SraPtr { z, c, .. }
-                | Instr::Srl { z, c, .. }
-                | Instr::SrlPtr { z, c, .. }
-                | Instr::Swap { z, c, .. }
-                | Instr::SwapPtr { z, c, .. }
-                | Instr::AddSP { z, c, .. }
-                | Instr::PopAF { z, c, .. } => match next {
-                    0 => Some(*z),
-                    1 => Some(*c),
-                    _ => None,
-                },
-                Instr::Dec { z, .. }
-                | Instr::DecPtr { z, .. }
-                | Instr::Inc { z, .. }
-                | Instr::IncPtr { z, .. }
-                | Instr::Bit { z, .. }
-                | Instr::BitPtr { z, .. }
-                | Instr::MoveZero { z, .. } => match next {
-                    0 => Some(*z),
-                    _ => None,
-                },
-                Instr::Ccf { c, .. }
-                | Instr::Scf { c, .. }
-                | Instr::Add16 { c, .. }
-                | Instr::MoveCarry { c, .. } => match next {
-                    0 => Some(*c),
-                    _ => None,
-                },
-                Instr::Nop
-                | Instr::Ld8 { .. }
-                | Instr::Ld8Value { .. }
-                | Instr::Ld8Ptr { .. }
-                | Instr::Ld8HighPtr { .. }
-                | Instr::Ld8Inc { .. }
-                | Instr::Ld8Dec { .. }
-                | Instr::Ld16 { .. }
-                | Instr::Store { .. }
-                | Instr::StoreHigh { .. }
-                | Instr::StoreValue { .. }
-                | Instr::StoreInc { .. }
-                | Instr::StoreDec { .. }
-                | Instr::Cpl { .. }
-                | Instr::Res { .. }
-                | Instr::ResPtr { .. }
-                | Instr::Set { .. }
-                | Instr::SetPtr { .. }
-                | Instr::Dec16 { .. }
-                | Instr::Inc16 { .. }
-                | Instr::Join { .. }
-                | Instr::Split { .. }
-                | Instr::PushR16 { .. }
-                | Instr::PushAF { .. }
-                | Instr::PopR16 { .. } => None,
-            }?;
-            next += 1;
-            Some(flag)
-        })
+        self.zero().into_iter().chain(self.carry())
     }
 
     pub fn source_r8(&self) -> impl Iterator<Item = R8Id> + '_ {
@@ -1218,7 +1299,7 @@ impl Instr {
                     _ => None,
                 },
                 Instr::StoreHigh {
-                    target_addr,
+                    addr: target_addr,
                     source,
                     ..
                 } => match next {
@@ -1285,6 +1366,7 @@ impl Instr {
                 | Instr::MoveCarry { .. }
                 | Instr::Split { .. }
                 | Instr::AddSP { .. }
+                | Instr::LdSPE8 { .. }
                 | Instr::PushR16 { .. }
                 | Instr::PopR16 { .. }
                 | Instr::PopAF { .. } => None,
@@ -1323,14 +1405,8 @@ impl Instr {
                     source_addr: source,
                     ..
                 }
-                | Instr::StoreInc {
-                    target_addr: source,
-                    ..
-                }
-                | Instr::StoreDec {
-                    target_addr: source,
-                    ..
-                }
+                | Instr::StoreInc { addr: source, .. }
+                | Instr::StoreDec { addr: source, .. }
                 | Instr::DecPtr { addr: source, .. }
                 | Instr::IncPtr { addr: source, .. }
                 | Instr::BitPtr {
@@ -1395,6 +1471,7 @@ impl Instr {
                 | Instr::MoveZero { .. }
                 | Instr::MoveCarry { .. }
                 | Instr::AddSP { .. }
+                | Instr::LdSPE8 { .. }
                 | Instr::PushAF { .. }
                 | Instr::PopR16 { .. }
                 | Instr::PopAF { .. } => None,
@@ -1404,86 +1481,141 @@ impl Instr {
         })
     }
 
-    pub fn flags_in(&self) -> impl Iterator<Item = FlagId> + '_ {
-        let mut next = 0;
-        std::iter::from_fn(move || {
-            let flag = match self {
-                Instr::PushAF { z_in, c_in, .. } => match next {
-                    0 => Some(*z_in),
-                    1 => Some(*c_in),
-                    _ => None,
-                },
-                Instr::Adc { c_in, .. }
-                | Instr::Sbc { c_in, .. }
-                | Instr::Rl { c_in, .. }
-                | Instr::RlPtr { c_in, .. }
-                | Instr::Rr { c_in, .. }
-                | Instr::RrPtr { c_in, .. }
-                | Instr::Ccf { c_in, .. }
-                | Instr::MoveCarry { c_in, .. } => match next {
-                    0 => Some(*c_in),
-                    _ => None,
-                },
-                Instr::MoveZero { z_in, .. } => match next {
-                    0 => Some(*z_in),
-                    _ => None,
-                },
-                Instr::Nop
-                | Instr::Ld8 { .. }
-                | Instr::Ld8Value { .. }
-                | Instr::Ld8Ptr { .. }
-                | Instr::Ld8HighPtr { .. }
-                | Instr::Ld8Inc { .. }
-                | Instr::Ld8Dec { .. }
-                | Instr::Ld16 { .. }
-                | Instr::Store { .. }
-                | Instr::StoreHigh { .. }
-                | Instr::StoreValue { .. }
-                | Instr::StoreInc { .. }
-                | Instr::StoreDec { .. }
-                | Instr::Add { .. }
-                | Instr::Cp { .. }
-                | Instr::Dec { .. }
-                | Instr::DecPtr { .. }
-                | Instr::Inc { .. }
-                | Instr::IncPtr { .. }
-                | Instr::Sub { .. }
-                | Instr::And { .. }
-                | Instr::Cpl { .. }
-                | Instr::Or { .. }
-                | Instr::Xor { .. }
-                | Instr::Bit { .. }
-                | Instr::BitPtr { .. }
-                | Instr::Res { .. }
-                | Instr::ResPtr { .. }
-                | Instr::Set { .. }
-                | Instr::SetPtr { .. }
-                | Instr::Rlc { .. }
-                | Instr::RlcPtr { .. }
-                | Instr::Rrc { .. }
-                | Instr::RrcPtr { .. }
-                | Instr::Sla { .. }
-                | Instr::SlaPtr { .. }
-                | Instr::Sra { .. }
-                | Instr::SraPtr { .. }
-                | Instr::Srl { .. }
-                | Instr::SrlPtr { .. }
-                | Instr::Swap { .. }
-                | Instr::SwapPtr { .. }
-                | Instr::Scf { .. }
-                | Instr::Add16 { .. }
-                | Instr::Dec16 { .. }
-                | Instr::Inc16 { .. }
-                | Instr::Join { .. }
-                | Instr::Split { .. }
-                | Instr::AddSP { .. }
-                | Instr::PopAF { .. }
-                | Instr::PushR16 { .. }
-                | Instr::PopR16 { .. } => None,
-            }?;
-            next += 1;
-            Some(flag)
-        })
+    #[must_use]
+    pub fn zero_in(&self) -> Option<FlagId> {
+        match self {
+            Instr::PushAF { z_in, .. } | Instr::MoveZero { z_in, .. } => Some(*z_in),
+            Instr::Nop
+            | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
+            | Instr::Ld8Inc { .. }
+            | Instr::Ld8Dec { .. }
+            | Instr::Ld16 { .. }
+            | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
+            | Instr::StoreValue { .. }
+            | Instr::StoreInc { .. }
+            | Instr::StoreDec { .. }
+            | Instr::Adc { .. }
+            | Instr::Add { .. }
+            | Instr::Cp { .. }
+            | Instr::Dec { .. }
+            | Instr::DecPtr { .. }
+            | Instr::Inc { .. }
+            | Instr::IncPtr { .. }
+            | Instr::Sbc { .. }
+            | Instr::Sub { .. }
+            | Instr::And { .. }
+            | Instr::Cpl { .. }
+            | Instr::Or { .. }
+            | Instr::Xor { .. }
+            | Instr::Bit { .. }
+            | Instr::BitPtr { .. }
+            | Instr::Res { .. }
+            | Instr::ResPtr { .. }
+            | Instr::Set { .. }
+            | Instr::SetPtr { .. }
+            | Instr::Rl { .. }
+            | Instr::RlPtr { .. }
+            | Instr::Rlc { .. }
+            | Instr::RlcPtr { .. }
+            | Instr::Rr { .. }
+            | Instr::RrPtr { .. }
+            | Instr::Rrc { .. }
+            | Instr::RrcPtr { .. }
+            | Instr::Sla { .. }
+            | Instr::SlaPtr { .. }
+            | Instr::Sra { .. }
+            | Instr::SraPtr { .. }
+            | Instr::Srl { .. }
+            | Instr::SrlPtr { .. }
+            | Instr::Swap { .. }
+            | Instr::SwapPtr { .. }
+            | Instr::Ccf { .. }
+            | Instr::Scf { .. }
+            | Instr::Add16 { .. }
+            | Instr::AddSP { .. }
+            | Instr::LdSPE8 { .. }
+            | Instr::Dec16 { .. }
+            | Instr::Inc16 { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PopR16 { .. }
+            | Instr::PopAF { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. }
+            | Instr::MoveCarry { .. } => None,
+        }
+    }
+
+    #[must_use]
+    pub fn carry_in(&self) -> Option<FlagId> {
+        match self {
+            Instr::Adc { c_in, .. }
+            | Instr::Sbc { c_in, .. }
+            | Instr::Rl { c_in, .. }
+            | Instr::RlPtr { c_in, .. }
+            | Instr::Rr { c_in, .. }
+            | Instr::RrPtr { c_in, .. }
+            | Instr::Ccf { c_in, .. }
+            | Instr::MoveCarry { c_in, .. }
+            | Instr::PushAF { c_in, .. } => Some(*c_in),
+            Instr::Nop
+            | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
+            | Instr::Ld8Inc { .. }
+            | Instr::Ld8Dec { .. }
+            | Instr::Ld16 { .. }
+            | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
+            | Instr::StoreValue { .. }
+            | Instr::StoreInc { .. }
+            | Instr::StoreDec { .. }
+            | Instr::Add { .. }
+            | Instr::Cp { .. }
+            | Instr::Dec { .. }
+            | Instr::DecPtr { .. }
+            | Instr::Inc { .. }
+            | Instr::IncPtr { .. }
+            | Instr::Sub { .. }
+            | Instr::And { .. }
+            | Instr::Cpl { .. }
+            | Instr::Or { .. }
+            | Instr::Xor { .. }
+            | Instr::Bit { .. }
+            | Instr::BitPtr { .. }
+            | Instr::Res { .. }
+            | Instr::ResPtr { .. }
+            | Instr::Set { .. }
+            | Instr::SetPtr { .. }
+            | Instr::Rlc { .. }
+            | Instr::RlcPtr { .. }
+            | Instr::Rrc { .. }
+            | Instr::RrcPtr { .. }
+            | Instr::Sla { .. }
+            | Instr::SlaPtr { .. }
+            | Instr::Sra { .. }
+            | Instr::SraPtr { .. }
+            | Instr::Srl { .. }
+            | Instr::SrlPtr { .. }
+            | Instr::Swap { .. }
+            | Instr::SwapPtr { .. }
+            | Instr::Scf { .. }
+            | Instr::Add16 { .. }
+            | Instr::Dec16 { .. }
+            | Instr::Inc16 { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. }
+            | Instr::AddSP { .. }
+            | Instr::LdSPE8 { .. }
+            | Instr::PopAF { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PopR16 { .. }
+            | Instr::MoveZero { .. } => None,
+        }
     }
 }
 
@@ -1561,7 +1693,7 @@ impl Instr {
                 source.display(lir, section)
             ),
             Instr::StoreHigh {
-                target_addr,
+                addr: target_addr,
                 source,
             } => write!(
                 f,
@@ -1570,7 +1702,7 @@ impl Instr {
                 source.display(lir, section)
             ),
             Instr::StoreValue {
-                target_addr,
+                addr: target_addr,
                 source,
             } => write!(
                 f,
@@ -1579,7 +1711,7 @@ impl Instr {
             ),
             Instr::StoreInc {
                 revised_addr,
-                target_addr,
+                addr: target_addr,
                 source,
             } => write!(
                 f,
@@ -1589,7 +1721,7 @@ impl Instr {
             ),
             Instr::StoreDec {
                 revised_addr,
-                target_addr,
+                addr: target_addr,
                 source,
             } => write!(
                 f,
@@ -2040,6 +2172,14 @@ impl Instr {
                     c.display_carry(lir, section),
                 )
             }
+            Instr::LdSPE8 { target, c, right } => {
+                write!(
+                    f,
+                    "LD {} SP+{right}; {}",
+                    target.display(lir, section),
+                    c.display_carry(lir, section),
+                )
+            }
             Instr::PushAF { source, z_in, c_in } => {
                 write!(
                     f,
@@ -2313,7 +2453,7 @@ impl Addr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum HighAddr {
     Reg(R8Id),
     Literal(u8),
@@ -2329,7 +2469,7 @@ impl HighAddr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ld16Source {
     Literal(u16),
     FnAddr {
@@ -2365,7 +2505,7 @@ impl Ld16Source {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Operand8 {
     Ptr(R16Id),
     Reg(R8Id),
@@ -2733,7 +2873,7 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::StoreHigh {
-                target_addr,
+                addr: target_addr,
                 source,
             },
         );
@@ -2744,7 +2884,7 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::StoreValue {
-                target_addr: target,
+                addr: target,
                 source,
             },
         );
@@ -2758,7 +2898,7 @@ impl CodeSectionBuilder {
             block,
             Instr::StoreInc {
                 revised_addr,
-                target_addr,
+                addr: target_addr,
                 source,
             },
         );
@@ -2773,7 +2913,7 @@ impl CodeSectionBuilder {
             block,
             Instr::StoreDec {
                 revised_addr,
-                target_addr,
+                addr: target_addr,
                 source,
             },
         );

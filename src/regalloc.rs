@@ -1,18 +1,24 @@
 use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
-use crate::lir::{BlockId, CodeSectionData, VirtualReg};
+use crate::lir::{
+    Addr, Block, BlockId, CodeSectionData, FlagId, HighAddr, Instr, Operand8, R8Id, R16Id,
+    Register, Terminator, VirtualReg,
+};
 use crate::reg::{Color, ColorSet};
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
+use quokka_lang_slotkeyset::{SparseSlotKeySet, StableSparseSlotKeySet};
+use slotmap::SparseSecondaryMap;
 use std::collections::{HashMap, VecDeque};
 use tracing::instrument;
 
 #[instrument(skip_all)]
 pub fn allocate_registers(code: &mut CodeSectionData) -> HashMap<VirtualReg, Color> {
+    let mut spill_slots = SpillSlots::default();
     let max_iterations =
         code.r8_registers.len() + code.r16_registers.len() + code.flag_registers.len() + 100;
     for i in 0..max_iterations {
-        if let Some(colors) = allocate_registers_round(code, i) {
+        if let Some(colors) = allocate_registers_round(i, code, &mut spill_slots) {
             return colors;
         }
     }
@@ -20,15 +26,16 @@ pub fn allocate_registers(code: &mut CodeSectionData) -> HashMap<VirtualReg, Col
 }
 
 #[instrument(skip_all, fields(i = %i))]
-pub fn allocate_registers_round(
-    code: &mut CodeSectionData,
+fn allocate_registers_round(
     i: usize,
+    code: &mut CodeSectionData,
+    spill_slots: &mut SpillSlots,
 ) -> Option<HashMap<VirtualReg, Color>> {
     let block_liveness = calculate_block_liveness(code);
     match try_allocate_registers(code, &block_liveness) {
         Ok(colors) => Some(colors),
-        Err(spills) => {
-            rewrite_code(code, spills, block_liveness);
+        Err(failure) => {
+            rewrite_code(code, spill_slots, failure);
             None
         }
     }
@@ -38,7 +45,7 @@ pub fn allocate_registers_round(
 fn try_allocate_registers(
     code: &CodeSectionData,
     block_liveness: &BlockLiveness,
-) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
+) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
     let (graph, moves) = build_interference_graph(code, block_liveness);
     let allocator = RegAllocator {
         graph,
@@ -48,13 +55,30 @@ fn try_allocate_registers(
     allocator.run(code)
 }
 
-#[instrument(skip_all)]
-fn rewrite_code(
-    _code: &mut CodeSectionData,
-    _spills: IndexSet<VirtualReg>,
-    _block_liveness: BlockLiveness,
-) {
-    panic!("Spilled {_spills:?}");
+fn calculate_function_blocks(code: &CodeSectionData) -> FunctionBlocks {
+    let mut result = FunctionBlocks::default();
+    for entry in code.functions.keys() {
+        let mut blocks = SparseSlotKeySet::new();
+        let mut exits = StableSparseSlotKeySet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(entry);
+        while let Some(block) = queue.pop_front() {
+            if blocks.contains(block) {
+                continue;
+            }
+            blocks.insert(block);
+            result.block_to_function.insert(block, entry);
+            queue.extend(code.blocks[block].next_blocks());
+            if matches!(
+                code.blocks[block].terminator,
+                Terminator::Ret | Terminator::RetIf { .. }
+            ) {
+                exits.insert(block);
+            }
+        }
+        result.function_to_exits.insert(entry, exits);
+    }
+    result
 }
 
 #[derive(Default)]
@@ -95,7 +119,7 @@ impl RegAllocator {
     pub fn run(
         mut self,
         code: &CodeSectionData,
-    ) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
+    ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
         self.initialize_work(code);
         loop {
             if !self.simplify_worklist.is_empty() {
@@ -249,7 +273,7 @@ impl RegAllocator {
     fn assign_colors(
         mut self,
         code: &CodeSectionData,
-    ) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
+    ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
         let mut colors = HashMap::<VirtualReg, Color>::new();
         for reg in code
             .r8_registers
@@ -289,7 +313,10 @@ impl RegAllocator {
         if self.spilled_nodes.is_empty() {
             Ok(colors)
         } else {
-            Err(self.spilled_nodes)
+            Err(Box::new(AllocationFailure {
+                graph: self.graph,
+                spills: self.spilled_nodes,
+            }))
         }
     }
 
@@ -430,4 +457,886 @@ impl RegAllocator {
             self.spill_worklist.insert(a);
         }
     }
+}
+
+#[derive(Debug)]
+pub struct AllocationFailure {
+    pub graph: InterferenceGraph,
+    pub spills: IndexSet<VirtualReg>,
+}
+
+#[instrument(skip_all)]
+fn rewrite_code(
+    code: &mut CodeSectionData,
+    spill_slots: &mut SpillSlots,
+    mut failure: Box<AllocationFailure>,
+) {
+    tracing::debug!(spills = ?failure.spills, "rewrite_code");
+    if cfg!(debug_assertions) {
+        let precolored_spills = failure
+            .spills
+            .iter()
+            .filter(|&&reg| match reg {
+                VirtualReg::R8(reg) => code.r8_registers[reg].color.is_some(),
+                VirtualReg::R16(reg) => code.r16_registers[reg].color.is_some(),
+                VirtualReg::Zero(reg) | VirtualReg::Carry(reg) => {
+                    code.flag_registers[reg].color.is_some()
+                }
+            })
+            .collect::<Vec<_>>();
+        debug_assert!(
+            precolored_spills.is_empty(),
+            "cannot spill a precolored register {precolored_spills:?}"
+        );
+    }
+
+    let flag_spill_r8s = failure
+        .spills
+        .iter()
+        .copied()
+        .filter(|reg| matches!(reg, VirtualReg::Zero(_) | VirtualReg::Carry(_)))
+        .map(|flag| (flag, code.r8_registers.insert(Register::default())))
+        .collect::<IndexMap<_, _>>();
+    failure
+        .spills
+        .retain(|reg| !flag_spill_r8s.contains_key(reg));
+
+    let functions_blocks = calculate_function_blocks(code);
+    allocate_spill_slots(
+        code,
+        spill_slots,
+        &failure.spills,
+        &failure.graph,
+        &functions_blocks,
+    );
+    for block in code.blocks.keys().collect::<Vec<_>>() {
+        rewrite_block_with_spills(code, block, spill_slots, &failure.spills, &flag_spill_r8s);
+    }
+    if !spill_slots.function_to_frame.is_empty() {
+        rewrite_functions_with_frames(code, spill_slots, &functions_blocks);
+    }
+}
+
+fn allocate_spill_slots(
+    code: &mut CodeSectionData,
+    spill_slots: &mut SpillSlots,
+    new_spills: &IndexSet<VirtualReg>,
+    graph: &InterferenceGraph,
+    functions_blocks: &FunctionBlocks,
+) {
+    for reg in new_spills {
+        match reg {
+            VirtualReg::R8(reg) => {
+                let function = code.r8_registers[*reg].defined.keys().fold(None, |result, block| {
+                    let entry = functions_blocks.block_to_function.get(block).copied().unwrap_or_else(|| panic!("Cannot allocate spill for {reg:?} as it is defined in a block not in a function"));
+                    if let Some(existing) = result {
+                        assert_eq!(existing, entry, "Cannot allocate spill for {reg:?} as it belongs to multiple functions {existing} and {entry}");
+                    }
+                    Some(entry)
+                }).expect("Cannot spill an r8 not defined anywhere");
+                let frame = spill_slots
+                    .function_to_frame
+                    .entry(function)
+                    .unwrap()
+                    .or_default();
+                let slot = frame.occupants.iter().position(|occupants| {
+                    occupants
+                        .iter()
+                        .all(|occupant| !graph.has_edge(VirtualReg::R8(*reg), *occupant))
+                });
+                let slot = match slot {
+                    Some(slot) => slot,
+                    None => {
+                        let slot = frame.occupants.len();
+                        frame.occupants.push(Vec::new());
+                        slot
+                    }
+                };
+                frame.occupants[slot].push(VirtualReg::R8(*reg));
+                spill_slots.r8_to_slot.insert(
+                    *reg,
+                    i8::try_from(slot).expect("More than 127 slots required"),
+                );
+            }
+            VirtualReg::R16(reg) => {
+                let function = code.r16_registers[*reg].defined.keys().fold(None, |result, block| {
+                    let entry = functions_blocks.block_to_function.get(block).copied().unwrap_or_else(|| panic!("Cannot allocate spill for {reg:?} as it is defined in a block not in a function"));
+                    if let Some(existing) = result {
+                        assert_eq!(existing, entry, "Cannot allocate spill for {reg:?} as it belongs to multiple functions {existing} and {entry}");
+                    }
+                    Some(entry)
+                }).expect("Cannot spill an r16 not defined anywhere");
+                let frame = spill_slots
+                    .function_to_frame
+                    .entry(function)
+                    .unwrap()
+                    .or_default();
+                let mut found_low = false;
+                let slot = frame.occupants.iter().position(|occupants| {
+                    let found = occupants
+                        .iter()
+                        .all(|occupant| !graph.has_edge(VirtualReg::R16(*reg), *occupant));
+                    if found {
+                        if found_low {
+                            true
+                        } else {
+                            found_low = true;
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                });
+                let slot = match slot {
+                    Some(slot) => slot - 1,
+                    None => {
+                        if !found_low {
+                            frame.occupants.push(Vec::new());
+                        }
+                        let slot = frame.occupants.len();
+                        frame.occupants.push(Vec::new());
+                        slot - 1
+                    }
+                };
+                frame.occupants[slot].push(VirtualReg::R16(*reg));
+                spill_slots.r16_to_slot.insert(
+                    *reg,
+                    i8::try_from(slot).expect("More than 127 slots required"),
+                );
+            }
+            VirtualReg::Zero(_) | VirtualReg::Carry(_) => {
+                unimplemented!("flag spills are handled differently")
+            }
+        }
+    }
+}
+
+fn rewrite_block_with_spills(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    spill_slots: &SpillSlots,
+    spills: &IndexSet<VirtualReg>,
+    flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+) {
+    let old_instructions = std::mem::take(&mut code.blocks[block_id].instructions);
+    let mut new_instructions = Vec::with_capacity(old_instructions.len());
+
+    for instruction in old_instructions {
+        let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
+
+        for reg in instruction.register_uses() {
+            if spills.contains(&reg) && !use_substitutions.contains_key(&reg) {
+                let fresh = load_spill_slot(
+                    code,
+                    block_id,
+                    &mut new_instructions,
+                    reg,
+                    spill_slots,
+                    flag_spill_r8s,
+                );
+                use_substitutions.insert(reg, fresh);
+            }
+        }
+
+        let defs_requiring_stores = instruction
+            .register_defs()
+            .filter(|reg| spills.contains(reg))
+            .collect::<Vec<_>>();
+
+        new_instructions.push(rewrite_instruction(instruction, &use_substitutions));
+
+        for reg in defs_requiring_stores {
+            store_spill_slot(
+                code,
+                block_id,
+                &mut new_instructions,
+                reg,
+                spill_slots,
+                flag_spill_r8s,
+            );
+        }
+    }
+
+    code.blocks[block_id].instructions = new_instructions;
+}
+
+fn load_spill_slot(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    instructions: &mut Vec<Instr>,
+    reg: VirtualReg,
+    spill_slots: &SpillSlots,
+    flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+) -> VirtualReg {
+    match reg {
+        VirtualReg::R8(r8) => {
+            let slot = spill_slots.r8_to_slot[r8];
+            let source_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::LdSPE8 {
+                target: source_addr,
+                c,
+                right: slot,
+            });
+            let target = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8Ptr {
+                target,
+                source_addr: Addr::Reg(source_addr),
+            });
+            VirtualReg::R8(target)
+        }
+        VirtualReg::R16(r16) => {
+            let slot = spill_slots.r16_to_slot[r16];
+            let source_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::LdSPE8 {
+                target: source_addr,
+                c,
+                right: slot,
+            });
+            let a = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let revised_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8Inc {
+                target: a,
+                revised_addr,
+                source_addr,
+            });
+            let low_in = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8 {
+                target: low_in,
+                source: a,
+            });
+            let high_in = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8Ptr {
+                target: high_in,
+                source_addr: Addr::Reg(revised_addr),
+            });
+            let target = code.r16_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Join {
+                target,
+                low_in,
+                high_in,
+            });
+            VirtualReg::R16(target)
+        }
+        VirtualReg::Zero(flag) => {
+            let source = flag_spill_r8s[&VirtualReg::Zero(flag)];
+            let one = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8Value {
+                target: one,
+                source: 0xff,
+            });
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let target = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            // zero flag is stored as 0xff when set and 0x00 when not set. To set it back to the
+            // zero flag we need to take the complement of the value, but CPL doesn't set the zero
+            // flag so XOR is the next best instruction.
+            instructions.push(Instr::Xor {
+                target,
+                z,
+                c,
+                left: one,
+                right: Operand8::Reg(source),
+            });
+            VirtualReg::Zero(z)
+        }
+        VirtualReg::Carry(flag) => {
+            let source = flag_spill_r8s[&VirtualReg::Carry(flag)];
+            // even though the register will contain 0xFF if true and 0x00 if false
+            // and therefore a rotate instruction will not change the value, we still
+            // need to do a move to not confuse the register allocator and the defined
+            // declarations. To avoid this we would need to change how the LIR instructions
+            // are defined
+            let moved = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Ld8 {
+                target: moved,
+                source,
+            });
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let target = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Rrc {
+                target,
+                z,
+                c,
+                source: moved,
+            });
+            VirtualReg::Carry(c)
+        }
+    }
+}
+
+fn store_spill_slot(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    instructions: &mut Vec<Instr>,
+    reg: VirtualReg,
+    spill_slots: &SpillSlots,
+    flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+) {
+    match reg {
+        VirtualReg::R8(r8) => {
+            let slot = spill_slots.r8_to_slot[r8];
+            let target_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::LdSPE8 {
+                target: target_addr,
+                c,
+                right: slot,
+            });
+            instructions.push(Instr::Store {
+                target_addr: Addr::Reg(target_addr),
+                source: r8,
+            });
+        }
+        VirtualReg::R16(r16) => {
+            let slot = spill_slots.r16_to_slot[r16];
+            let target_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::LdSPE8 {
+                target: target_addr,
+                c,
+                right: slot,
+            });
+            let low = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let high = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Split {
+                high,
+                low,
+                source: r16,
+            });
+            let a = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            // Currently uses `LD A, R8` then `LD [HLI], A` instead of
+            // `LD HL, SP+e8` for the low byte and `LD HL, SP+e8+1` for the high
+            // byte as it is less cycle time at the cost of interfering with `A`.
+            // Given most instructions which aren't loads interfere with `A` this
+            // seems like a reasonable tradeoff
+            instructions.push(Instr::Ld8 {
+                target: a,
+                source: low,
+            });
+            let revised_addr = code.r16_registers.insert(Register {
+                color: Some(Color::HL),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::StoreInc {
+                revised_addr,
+                addr: target_addr,
+                source: a,
+            });
+            instructions.push(Instr::Store {
+                target_addr: Addr::Reg(revised_addr),
+                source: high,
+            });
+        }
+        VirtualReg::Zero(z_in) => {
+            // zero flags are difficult, unfortunately. We need to push them onto
+            // the stack then pop onto a 16-bit register
+            let a = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c_in = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::PushAF {
+                source: a,
+                z_in,
+                c_in,
+            });
+            let target = code.r16_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::PopR16 { target });
+            let low = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let high = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Split {
+                high,
+                low,
+                source: target,
+            });
+            // low now has the zero flag stored in the 7th bit. We can now
+            // use the rotate left strategy
+            let target = code.r8_registers.insert(Register {
+                color: None,
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c_in = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Rlc {
+                target,
+                z,
+                c: c_in,
+                source: low,
+            });
+            let a1 = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let a2 = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let source = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Sbc {
+                target: source,
+                z,
+                c,
+                left: a1,
+                right: Operand8::Reg(a2),
+                c_in,
+            });
+            let target = flag_spill_r8s[&VirtualReg::Zero(z_in)];
+            code.r8_registers[target]
+                .defined
+                .insert(block_id, instructions.len());
+            instructions.push(Instr::Ld8 { target, source });
+        }
+        VirtualReg::Carry(c_in) => {
+            let a1 = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let a2 = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let source = code.r8_registers.insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
+            instructions.push(Instr::Sbc {
+                target: source,
+                z,
+                c,
+                left: a1,
+                right: Operand8::Reg(a2),
+                c_in,
+            });
+            let target = flag_spill_r8s[&VirtualReg::Carry(c_in)];
+            code.r8_registers[target]
+                .defined
+                .insert(block_id, instructions.len());
+            instructions.push(Instr::Ld8 { target, source });
+        }
+    }
+}
+
+fn rewrite_instruction(
+    mut instruction: Instr,
+    use_substitutions: &HashMap<VirtualReg, VirtualReg>,
+) -> Instr {
+    if use_substitutions.is_empty() {
+        return instruction;
+    }
+    let sub_r8 = |r8: R8Id| {
+        use_substitutions
+            .get(&VirtualReg::R8(r8))
+            .map(|sub| {
+                let VirtualReg::R8(r8) = sub else {
+                    panic!("{r8:?} substitutes to non-r8 {sub:?}")
+                };
+                *r8
+            })
+            .unwrap_or(r8)
+    };
+    let sub_r16 = |r16: R16Id| {
+        use_substitutions
+            .get(&VirtualReg::R16(r16))
+            .map(|sub| {
+                let VirtualReg::R16(r16) = sub else {
+                    panic!("{r16:?} substitutes to non-r16 {sub:?}")
+                };
+                *r16
+            })
+            .unwrap_or(r16)
+    };
+    let sub_zero = |z: FlagId| {
+        use_substitutions
+            .get(&VirtualReg::Zero(z))
+            .map(|sub| {
+                let VirtualReg::Zero(z) = sub else {
+                    panic!("{z:?} substitutes to non-zero {sub:?}")
+                };
+                *z
+            })
+            .unwrap_or(z)
+    };
+    let sub_carry = |c: FlagId| {
+        use_substitutions
+            .get(&VirtualReg::Carry(c))
+            .map(|sub| {
+                let VirtualReg::Carry(c) = sub else {
+                    panic!("{c:?} substitutes to non-carry {sub:?}")
+                };
+                *c
+            })
+            .unwrap_or(c)
+    };
+    match &mut instruction {
+        Instr::Nop
+        | Instr::Ld8Value { .. }
+        | Instr::Ld16 { .. }
+        | Instr::Scf { .. }
+        | Instr::AddSP { .. }
+        | Instr::LdSPE8 { .. }
+        | Instr::PopR16 { .. }
+        | Instr::PopAF { .. } => {}
+        Instr::Ld8 { source, .. }
+        | Instr::Dec { source, .. }
+        | Instr::Inc { source, .. }
+        | Instr::Bit { source, .. }
+        | Instr::Res { source, .. }
+        | Instr::Set { source, .. }
+        | Instr::Rlc { source, .. }
+        | Instr::Rrc { source, .. }
+        | Instr::Sla { source, .. }
+        | Instr::Sra { source, .. }
+        | Instr::Srl { source, .. }
+        | Instr::Swap { source, .. }
+        | Instr::Cpl { source, .. } => {
+            *source = sub_r8(*source);
+        }
+        Instr::Ld8Ptr { source_addr, .. } => {
+            if let Addr::Reg(source_addr) = source_addr {
+                *source_addr = sub_r16(*source_addr);
+            }
+        }
+        Instr::Ld8HighPtr { source_addr, .. } => {
+            if let HighAddr::Reg(source_addr) = source_addr {
+                *source_addr = sub_r8(*source_addr);
+            }
+        }
+        Instr::Ld8Inc {
+            source_addr: addr, ..
+        }
+        | Instr::Ld8Dec {
+            source_addr: addr, ..
+        }
+        | Instr::StoreValue { addr, .. }
+        | Instr::DecPtr { addr, .. }
+        | Instr::IncPtr { addr, .. }
+        | Instr::BitPtr {
+            source_addr: addr, ..
+        }
+        | Instr::ResPtr { addr, .. }
+        | Instr::SetPtr { addr, .. }
+        | Instr::RlcPtr { addr, .. }
+        | Instr::RrcPtr { addr, .. }
+        | Instr::SlaPtr { addr, .. }
+        | Instr::SraPtr { addr, .. }
+        | Instr::SrlPtr { addr, .. }
+        | Instr::SwapPtr { addr, .. } => {
+            *addr = sub_r16(*addr);
+        }
+        Instr::Store {
+            target_addr,
+            source,
+        } => {
+            if let Addr::Reg(target_addr) = target_addr {
+                *target_addr = sub_r16(*target_addr);
+            }
+            *source = sub_r8(*source);
+        }
+        Instr::StoreHigh {
+            addr: target_addr,
+            source,
+        } => {
+            if let HighAddr::Reg(target_addr) = target_addr {
+                *target_addr = sub_r8(*target_addr);
+            }
+            *source = sub_r8(*source);
+        }
+        Instr::StoreInc {
+            addr: target_addr,
+            source,
+            ..
+        }
+        | Instr::StoreDec {
+            addr: target_addr,
+            source,
+            ..
+        } => {
+            *target_addr = sub_r16(*target_addr);
+            *source = sub_r8(*source);
+        }
+        Instr::Adc {
+            left, right, c_in, ..
+        }
+        | Instr::Sbc {
+            left, right, c_in, ..
+        } => {
+            *left = sub_r8(*left);
+            if let Operand8::Reg(right) = right {
+                *right = sub_r8(*right);
+            }
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::Add { left, right, .. }
+        | Instr::Cp { left, right, .. }
+        | Instr::Sub { left, right, .. }
+        | Instr::And { left, right, .. }
+        | Instr::Or { left, right, .. }
+        | Instr::Xor { left, right, .. } => {
+            *left = sub_r8(*left);
+            if let Operand8::Reg(right) = right {
+                *right = sub_r8(*right);
+            }
+        }
+        Instr::Rl { source, c_in, .. } | Instr::Rr { source, c_in, .. } => {
+            *source = sub_r8(*source);
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::RlPtr { addr, c_in, .. } | Instr::RrPtr { addr, c_in, .. } => {
+            *addr = sub_r16(*addr);
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::Ccf { c_in, .. } | Instr::MoveCarry { c_in, .. } => {
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::Add16 { left, right, .. } => {
+            *left = sub_r16(*right);
+        }
+        Instr::Dec16 { source, .. }
+        | Instr::Inc16 { source, .. }
+        | Instr::PushR16 { source }
+        | Instr::Split { source, .. } => {
+            *source = sub_r16(*source);
+        }
+        Instr::PushAF { source, z_in, c_in } => {
+            *source = sub_r8(*source);
+            *z_in = sub_zero(*z_in);
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::Join {
+            high_in, low_in, ..
+        } => {
+            *low_in = sub_r8(*low_in);
+            *high_in = sub_r8(*high_in);
+        }
+        Instr::MoveZero { z_in, .. } => {
+            *z_in = sub_zero(*z_in);
+        }
+    }
+    instruction
+}
+
+fn rewrite_functions_with_frames(
+    code: &mut CodeSectionData,
+    spill_slots: &SpillSlots,
+    functions_blocks: &FunctionBlocks,
+) {
+    let mut functions = spill_slots.function_to_frame.keys().collect::<Vec<_>>();
+    // we want to ensure that we process the frames in a known order so that any incidental
+    // blocks or registers allocated have a stable value
+    functions.sort();
+    for entry in functions {
+        let frame = &spill_slots.function_to_frame[entry];
+        rewrite_function_entry_with_frame(code, entry, frame);
+        rewrite_function_exits_with_frame(code, &functions_blocks.function_to_exits[entry], frame);
+    }
+}
+
+fn rewrite_function_entry_with_frame(code: &mut CodeSectionData, entry: BlockId, frame: &Frame) {
+    if !matches!(
+        code.blocks[entry].instructions.first(),
+        Some(Instr::AddSP { .. })
+    ) {
+        let z = code.flag_registers.insert(Register {
+            color: Some(Color::Fz),
+            defined: [(entry, 0)].into_iter().collect(),
+        });
+        let c = code.flag_registers.insert(Register {
+            color: Some(Color::Fc),
+            defined: [(entry, 0)].into_iter().collect(),
+        });
+        code.blocks[entry]
+            .instructions
+            .insert(0, Instr::AddSP { z, c, right: 0 });
+    }
+    if let Some(Instr::AddSP { right, .. }) = &mut code.blocks[entry].instructions.first_mut() {
+        *right = -i8::try_from(frame.occupants.len()).expect("More than 127 slots required");
+    } else {
+        unreachable!("first instruction of block {entry} should be AddSP");
+    }
+}
+
+fn rewrite_function_exits_with_frame(
+    code: &mut CodeSectionData,
+    exits: &StableSparseSlotKeySet<BlockId>,
+    frame: &Frame,
+) {
+    for mut exit in exits {
+        if let Terminator::RetIf {
+            source,
+            negate,
+            else_block,
+        } = &code.blocks[exit].terminator
+        {
+            let source = *source;
+            let negate = *negate;
+            let else_block = *else_block;
+            let then_block = code.blocks.insert(Block {
+                instructions: Vec::new(),
+                terminator: Terminator::Ret,
+                previous: vec![exit],
+            });
+            code.blocks[exit].terminator = Terminator::JpIf {
+                source,
+                negate,
+                then_block,
+                else_block,
+            };
+            exit = then_block;
+        }
+        if !matches!(
+            code.blocks[exit].instructions.last(),
+            Some(Instr::AddSP { .. })
+        ) {
+            let index = code.blocks[exit].instructions.len();
+            let z = code.flag_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(exit, index)].into_iter().collect(),
+            });
+            let c = code.flag_registers.insert(Register {
+                color: Some(Color::Fc),
+                defined: [(exit, index)].into_iter().collect(),
+            });
+            code.blocks[exit]
+                .instructions
+                .push(Instr::AddSP { z, c, right: 0 });
+        }
+        if let Some(Instr::AddSP { right, .. }) = &mut code.blocks[exit].instructions.last_mut() {
+            *right = i8::try_from(frame.occupants.len()).expect("More than 127 slots required");
+        } else {
+            unreachable!("last instruction of block {exit} should be AddSP");
+        }
+    }
+}
+
+#[derive(Default)]
+struct Frame {
+    occupants: Vec<Vec<VirtualReg>>,
+}
+
+#[derive(Default)]
+struct SpillSlots {
+    function_to_frame: SparseSecondaryMap<BlockId, Frame>,
+    r8_to_slot: SparseSecondaryMap<R8Id, i8>,
+    r16_to_slot: SparseSecondaryMap<R16Id, i8>,
+}
+
+#[derive(Default)]
+struct FunctionBlocks {
+    block_to_function: SparseSecondaryMap<BlockId, BlockId>,
+    function_to_exits: SparseSecondaryMap<BlockId, StableSparseSlotKeySet<BlockId>>,
 }
