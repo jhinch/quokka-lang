@@ -969,121 +969,106 @@ binary_search::
 
 main::
 .bb2:
-  LD r8#79, $00
-  LD r8#80, $00
-  LD r8#81, r8#80
-  LD r8#82, r8#79
-  LD r8#83, r8#82
-  LD r8#84, r8#81
-  LD r8#85, $01
-  LD r8#86, r8#85
-  (out=r16#6;high_in=r8#84;low_in=r8#83)
-  LD r16#7, SORTED+$0000
-  ADD HL(in=r16#7), r16#6; c
-  LD r16#9, $0000
-  ADD HL, r16#9; c
-  LD [HL], r8#86
-  LD r8#87, $00
-  LD r8#88, $01
-  LD r8#89, r8#88
-  LD r8#90, r8#87
-  LD r8#91, r8#90
-  LD r8#92, r8#89
-  LD r8#93, $03
-  LD r8#94, r8#93
-  (out=r16#11;high_in=r8#92;low_in=r8#91)
-  LD r16#12, SORTED+$0000
-  ADD HL(in=r16#12), r16#11; c
-  LD r16#14, $0000
-  ADD HL, r16#14; c
-  LD [HL], r8#94
   LD r8#95, $00
-  LD r8#96, $02
+  LD r8#96, $00
   LD r8#97, r8#96
   LD r8#98, r8#95
   LD r8#99, r8#98
   LD r8#100, r8#97
-  LD r8#101, $04
+  LD r8#101, $01
   LD r8#102, r8#101
-  (out=r16#16;high_in=r8#100;low_in=r8#99)
-  LD r16#17, SORTED+$0000
-  ADD HL(in=r16#17), r16#16; c
-  LD r16#19, $0000
-  ADD HL, r16#19; c
+  (out=r16#6;high_in=r8#100;low_in=r8#99)
+  LD HL, SORTED+$0000
+  ADD HL, r16#6; c
   LD [HL], r8#102
   LD r8#103, $00
-  LD r8#104, $03
+  LD r8#104, $01
   LD r8#105, r8#104
   LD r8#106, r8#103
   LD r8#107, r8#106
   LD r8#108, r8#105
-  LD r8#109, $07
+  LD r8#109, $03
   LD r8#110, r8#109
-  (out=r16#21;high_in=r8#108;low_in=r8#107)
-  LD r16#22, SORTED+$0000
-  ADD HL(in=r16#22), r16#21; c
-  LD r16#24, $0000
-  ADD HL, r16#24; c
+  (out=r16#9;high_in=r8#108;low_in=r8#107)
+  LD HL, SORTED+$0000
+  ADD HL, r16#9; c
   LD [HL], r8#110
   LD r8#111, $00
-  LD r8#112, $04
+  LD r8#112, $02
   LD r8#113, r8#112
   LD r8#114, r8#111
   LD r8#115, r8#114
   LD r8#116, r8#113
-  LD r8#117, $09
+  LD r8#117, $04
   LD r8#118, r8#117
-  (out=r16#26;high_in=r8#116;low_in=r8#115)
-  LD r16#27, SORTED+$0000
-  ADD HL(in=r16#27), r16#26; c
-  LD r16#29, $0000
-  ADD HL, r16#29; c
+  (out=r16#12;high_in=r8#116;low_in=r8#115)
+  LD HL, SORTED+$0000
+  ADD HL, r16#12; c
   LD [HL], r8#118
   LD r8#119, $00
-  LD r8#120, $05
+  LD r8#120, $03
   LD r8#121, r8#120
   LD r8#122, r8#119
   LD r8#123, r8#122
   LD r8#124, r8#121
-  LD r8#125, $0c
+  LD r8#125, $07
   LD r8#126, r8#125
-  (out=r16#31;high_in=r8#124;low_in=r8#123)
-  LD r16#32, SORTED+$0000
-  ADD HL(in=r16#32), r16#31; c
-  LD r16#34, $0000
-  ADD HL, r16#34; c
+  (out=r16#15;high_in=r8#124;low_in=r8#123)
+  LD HL, SORTED+$0000
+  ADD HL, r16#15; c
   LD [HL], r8#126
   LD r8#127, $00
-  LD r8#128, $06
+  LD r8#128, $04
   LD r8#129, r8#128
   LD r8#130, r8#127
   LD r8#131, r8#130
   LD r8#132, r8#129
-  LD r8#133, $0f
+  LD r8#133, $09
   LD r8#134, r8#133
-  (out=r16#36;high_in=r8#132;low_in=r8#131)
-  LD r16#37, SORTED+$0000
-  ADD HL(in=r16#37), r16#36; c
-  LD r16#39, $0000
-  ADD HL, r16#39; c
+  (out=r16#18;high_in=r8#132;low_in=r8#131)
+  LD HL, SORTED+$0000
+  ADD HL, r16#18; c
   LD [HL], r8#134
   LD r8#135, $00
-  LD r8#136, $07
+  LD r8#136, $05
   LD r8#137, r8#136
   LD r8#138, r8#135
   LD r8#139, r8#138
   LD r8#140, r8#137
-  LD r8#141, $14
+  LD r8#141, $0c
   LD r8#142, r8#141
-  (out=r16#41;high_in=r8#140;low_in=r8#139)
-  LD r16#42, SORTED+$0000
-  ADD HL(in=r16#42), r16#41; c
-  LD r16#44, $0000
-  ADD HL, r16#44; c
+  (out=r16#21;high_in=r8#140;low_in=r8#139)
+  LD HL, SORTED+$0000
+  ADD HL, r16#21; c
   LD [HL], r8#142
-  LD r8#143, $0c
-  LD r8#144, r8#143
-  LD [TARGET], r8#144
+  LD r8#143, $00
+  LD r8#144, $06
+  LD r8#145, r8#144
+  LD r8#146, r8#143
+  LD r8#147, r8#146
+  LD r8#148, r8#145
+  LD r8#149, $0f
+  LD r8#150, r8#149
+  (out=r16#24;high_in=r8#148;low_in=r8#147)
+  LD HL, SORTED+$0000
+  ADD HL, r16#24; c
+  LD [HL], r8#150
+  LD r8#151, $00
+  LD r8#152, $07
+  LD r8#153, r8#152
+  LD r8#154, r8#151
+  LD r8#155, r8#154
+  LD r8#156, r8#153
+  LD r8#157, $14
+  LD r8#158, r8#157
+  (out=r16#27;high_in=r8#156;low_in=r8#155)
+  LD HL, SORTED+$0000
+  ADD HL, r16#27; c
+  LD [HL], r8#158
+  LD r8#159, $0c
+  LD r8#160, r8#159
+  LD HL, TARGET+$0000
+  LD [HL], r8#160
   CALL binary_search; return=.bb11
 
 .bb3:
@@ -1091,113 +1076,130 @@ main::
   LD r8#22, r8#2
   LD r8#23, r8#3
   LD r8#24, r8#4
-  SUB A(in=r8#22), r8#24; z, c
-  SBC A(in=r8#21), r8#23; z, z
+  LD A, r8#22
+  SUB A, r8#24; z, c
+  LD A, r8#21
+  SBC A, r8#23; z, z
   (out=c#3,in=c)
   JP c#3, .bb4; else=.bb5
 
 .bb4:
-  LD r8#27, $00
-  LD r8#28, $ff
-  LD r8#29, r8#28
-  LD r8#30, r8#27
+  LD r8#29, $00
+  LD r8#30, $ff
   LD r8#31, r8#30
   LD r8#32, r8#29
   LD r8#33, r8#32
   LD r8#34, r8#31
   LD r8#35, r8#34
   LD r8#36, r8#33
+  LD r8#37, r8#36
+  LD r8#38, r8#35
   RET
 
 .bb5:
-  ADD A(in=r8#24), r8#22; z, c
-  ADC A(in=r8#23), r8#21; z, z
-  LD r8#39, A
-  LD r8#40, A
-  SRL (out=r8#41,in=r8#40); z, c
-  RR (out=r8#42,in=r8#39); z, z
-  LD r8#43, r8#42
-  LD r8#44, r8#41
-  (out=r16#1;high_in=r8#44;low_in=r8#43)
-  LD r16#2, SORTED+$0000
-  ADD HL(in=r16#2), r16#1; c
-  LD r16#4, $0000
-  ADD HL, r16#4; c
-  LD r8#45, [HL]
-  LD r8#46, r8#45
-  LD A, [TARGET]
-  LD r8#48, A
-  CP A(in=r8#46), r8#48; z, c
+  LD A, r8#23
+  ADD A, r8#21; z, c
+  LD r8#41, A
+  LD A, r8#24
+  ADC A, r8#22; z, z
+  LD r8#44, A
+  LD r8#45, r8#41
+  LD r8#46, r8#44
+  SRL (out=r8#47,in=r8#46); z, c
+  RR (out=r8#48,in=r8#45); z, z
+  LD r8#49, r8#48
+  LD r8#50, r8#47
+  (out=r16#1;high_in=r8#50;low_in=r8#49)
+  LD HL, SORTED+$0000
+  ADD HL, r16#1; c
+  LD r8#51, [HL]
+  LD r8#52, r8#51
+  LD HL, TARGET+$0000
+  LD r8#53, [HL]
+  LD r8#54, r8#53
+  LD A, r8#52
+  CP A, r8#54; z, c
   (out=z#8,in=z)
   JP z#8, .bb6; else=.bb7
 
 .bb6:
-  LD r8#49, r8#44
-  LD r8#50, r8#43
-  LD r8#51, r8#50
-  LD r8#52, r8#49
+  LD r8#56, r8#50
+  LD r8#57, r8#49
+  LD r8#58, r8#57
+  LD r8#59, r8#56
   RET
 
 .bb7:
-  LD A, [TARGET]
-  LD r8#54, A
-  CP A(in=r8#46), r8#54; z, c
-  (out=c#12,in=c)
-  JP c#12, .bb8; else=.bb9
+  LD HL, TARGET+$0000
+  LD r8#60, [HL]
+  LD r8#61, r8#60
+  LD A, r8#52
+  CP A, r8#61; z, c
+  (out=c#11,in=c)
+  JP c#11, .bb8; else=.bb9
 
 .bb8:
-  LD r8#55, $00
-  LD r8#56, $01
-  LD r8#57, r8#56
-  LD r8#58, r8#55
-  LD r8#59, r8#58
-  LD r8#60, r8#57
-  ADD A(in=r8#44), r8#60; z, c
-  ADC A(in=r8#43), r8#59; z, z
-  LD r8#63, A
-  LD r8#64, A
+  LD r8#63, $00
+  LD r8#64, $01
+  LD r8#65, r8#64
+  LD r8#66, r8#63
+  LD r8#67, r8#66
+  LD r8#68, r8#65
+  LD A, r8#49
+  ADD A, r8#67; z, c
+  LD r8#71, A
+  LD A, r8#50
+  ADC A, r8#68; z, z
+  LD r8#74, A
+  LD r8#75, r8#71
+  LD r8#76, r8#74
   LD r8#5, r8#21
   LD r8#6, r8#22
-  LD r8#7, r8#63
-  LD r8#8, r8#64
+  LD r8#7, r8#75
+  LD r8#8, r8#76
   JP .bb10
 
 .bb9:
-  LD r8#65, $00
-  LD r8#66, $01
-  LD r8#67, r8#66
-  LD r8#68, r8#65
-  LD r8#69, r8#68
-  LD r8#70, r8#67
-  SUB A(in=r8#44), r8#70; z, c
-  SBC A(in=r8#43), r8#69; z, z
-  LD r8#73, A
-  LD r8#74, A
-  LD r8#5, r8#73
-  LD r8#6, r8#74
+  LD r8#77, $00
+  LD r8#78, $01
+  LD r8#79, r8#78
+  LD r8#80, r8#77
+  LD r8#81, r8#80
+  LD r8#82, r8#79
+  LD A, r8#50
+  SUB A, r8#82; z, c
+  LD r8#85, A
+  LD A, r8#49
+  SBC A, r8#81; z, z
+  LD r8#88, A
+  LD r8#89, r8#88
+  LD r8#90, r8#85
+  LD r8#5, r8#89
+  LD r8#6, r8#90
   LD r8#7, r8#23
   LD r8#8, r8#24
   JP .bb10
 
 .bb10:
-  LD r8#75, r8#5
-  LD r8#76, r8#6
-  LD r8#77, r8#7
-  LD r8#78, r8#8
-  LD r8#1, r8#75
-  LD r8#2, r8#76
-  LD r8#3, r8#77
-  LD r8#4, r8#78
+  LD r8#91, r8#5
+  LD r8#92, r8#6
+  LD r8#93, r8#7
+  LD r8#94, r8#8
+  LD r8#1, r8#91
+  LD r8#2, r8#92
+  LD r8#3, r8#93
+  LD r8#4, r8#94
   JP .bb3
 
 .bb11:
-  LD r8#147, C
-  LD r8#148, B
-  LD r8#149, r8#147
-  LD r8#150, r8#148
-  LD r16#46, FOUND_INDEX+$0000
-  LD [HL(in=r16#46)++], r8#149
-  LD [HL], r8#150
+  LD r8#163, C
+  LD r8#164, B
+  LD r8#165, r8#163
+  LD r8#166, r8#164
+  LD HL, FOUND_INDEX+$0000
+  LD A, r8#165
+  LD [HL++], A
+  LD [HL], r8#166
   RET
 
 END_SECTION

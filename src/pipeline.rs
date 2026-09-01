@@ -2,7 +2,7 @@ use crate::analyze::Analyzer;
 use crate::ast;
 use crate::codegen::CodeGen;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
-use crate::lir::{Lir, SectionData};
+use crate::lir::Lir;
 use crate::mir::Mir;
 use crate::multi::MultiError;
 use crate::optimize::Optimizer;
@@ -150,11 +150,7 @@ impl CodegenOutput {
 
     #[must_use]
     pub fn allocate(mut self) -> AllocateOutput {
-        for section in self.lir.sections.values_mut() {
-            if let SectionData::Code(code) = &mut section.data {
-                allocate_registers(code);
-            }
-        }
+        allocate_registers(&mut self.lir);
         AllocateOutput {
             config: self.config,
             lir: self.lir,

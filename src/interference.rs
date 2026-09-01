@@ -357,12 +357,12 @@ fn restrict_from_instruction_targets(
             // `LD r8,r8`
             // `RES u3,r8`
             // `SET u3,r8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
         }
         Instr::Ld8Value { target, .. } => {
             // `LD r8,n8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
         }
         Instr::Ld8Ptr {
             target,
@@ -378,9 +378,9 @@ fn restrict_from_instruction_targets(
             } else {
                 (Color::acc(), Color::r16())
             };
-            graph.constrain_colors_to(VirtualReg::R8(*target), target_set);
+            graph.constrain_colors_to(VirtualReg::from(*target), target_set);
             if let Addr::Reg(source_addr) = source_addr {
-                graph.constrain_colors_to(VirtualReg::R16(*source_addr), source_set);
+                graph.constrain_colors_to(VirtualReg::from(*source_addr), source_set);
             }
         }
         Instr::Ld8HighPtr {
@@ -389,9 +389,9 @@ fn restrict_from_instruction_targets(
         } => {
             // `LDH A,[n16]`
             // `LDH A,[C]`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
             if let HighAddr::Reg(source_addr) = source_addr {
-                graph.constrain_colors_to(VirtualReg::R8(*source_addr), Color::r8_high_ptr());
+                graph.constrain_colors_to(VirtualReg::from(*source_addr), Color::r8_high_ptr());
             }
         }
         Instr::Ld8Inc {
@@ -406,13 +406,13 @@ fn restrict_from_instruction_targets(
         } => {
             // `LD A,[HLI]`
             // `LD A,[HLD]`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::acc());
-            graph.constrain_colors_to(VirtualReg::R16(*revised_addr), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::R16(*source_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*revised_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*source_addr), Color::r16_ptr());
         }
         Instr::Ld16 { target, .. } => {
             // `LD r16,n16`
-            graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16());
         }
         Instr::Store {
             target_addr,
@@ -429,9 +429,9 @@ fn restrict_from_instruction_targets(
                 (Color::r16(), Color::acc())
             };
             if let Addr::Reg(target_addr) = target_addr {
-                graph.constrain_colors_to(VirtualReg::R16(*target_addr), target_set);
+                graph.constrain_colors_to(VirtualReg::from(*target_addr), target_set);
             }
-            graph.constrain_colors_to(VirtualReg::R8(*source), source_set);
+            graph.constrain_colors_to(VirtualReg::from(*source), source_set);
         }
         Instr::StoreHigh {
             addr: target_addr,
@@ -440,15 +440,15 @@ fn restrict_from_instruction_targets(
             // `LDH [n16],A`
             // `LDH [C],A`
             if let HighAddr::Reg(target_addr) = target_addr {
-                graph.constrain_colors_to(VirtualReg::R8(*target_addr), Color::r8_high_ptr());
+                graph.constrain_colors_to(VirtualReg::from(*target_addr), Color::r8_high_ptr());
             }
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::acc());
         }
         Instr::StoreValue {
             addr: target_addr, ..
         } => {
             // `LD [HL],n8`
-            graph.constrain_colors_to(VirtualReg::R16(*target_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*target_addr), Color::r16_ptr());
         }
         Instr::StoreInc {
             revised_addr,
@@ -462,9 +462,9 @@ fn restrict_from_instruction_targets(
         } => {
             // `LD [HLI],A`
             // `LD [HLD],A`
-            graph.constrain_colors_to(VirtualReg::R16(*revised_addr), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::R16(*target_addr), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*revised_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*target_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::acc());
         }
         Instr::Adc {
             target,
@@ -488,12 +488,12 @@ fn restrict_from_instruction_targets(
             // `SBC A,r8`
             // `SBC A,[HL]`
             // `SBC A,n8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::acc());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R8(*left), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*left), Color::acc());
             restrict_from_operand(right, graph);
-            graph.constrain_colors_to(VirtualReg::Carry(*c_in), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
         }
         Instr::Add {
             target,
@@ -545,27 +545,27 @@ fn restrict_from_instruction_targets(
             // `XOR A,r8`
             // `XOR A,[HL]`
             // `XOR A,n8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::acc());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R8(*left), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*left), Color::acc());
             restrict_from_operand(right, graph);
         }
         Instr::Cp { z, c, left, right } => {
             // `CP A,r8`
             // `CP A,[HL]`
             // `CP A,n8`
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R8(*left), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*left), Color::acc());
             restrict_from_operand(right, graph);
         }
         Instr::Dec { target, z, source } | Instr::Inc { target, z, source } => {
             // `DEC r8`
             // `INC r8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
         }
         Instr::DecPtr { z, addr }
         | Instr::IncPtr { z, addr }
@@ -577,23 +577,23 @@ fn restrict_from_instruction_targets(
             // `DEC [HL]`
             // `INC [HL]`
             // `BIT u3,[HL]`
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::R16(*addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*addr), Color::r16_ptr());
         }
         Instr::Cpl { target, source } => {
             // `CPL`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::acc());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::acc());
         }
         Instr::Bit { z, source, .. } => {
             // `BIT u3,r8`
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
         }
         Instr::ResPtr { addr, .. } | Instr::SetPtr { addr, .. } => {
             // `RES u3,[HL]`
             // `SET u3,[HL]`
-            graph.constrain_colors_to(VirtualReg::R16(*addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*addr), Color::r16_ptr());
         }
         Instr::Rl {
             target,
@@ -613,19 +613,19 @@ fn restrict_from_instruction_targets(
             // `RLA`
             // `RR r8`
             // `RRA`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::r8());
-            graph.constrain_colors_to(VirtualReg::Carry(*c_in), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
         }
         Instr::RlPtr { z, c, addr, c_in } | Instr::RrPtr { z, c, addr, c_in } => {
             // `RL [HL]`
             // `RR [HL]`
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R16(*addr), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::Carry(*c_in), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
         }
         Instr::Rlc {
             target,
@@ -671,10 +671,10 @@ fn restrict_from_instruction_targets(
             // `SRA r8`
             // `SRL r8`
             // `SWAP r8`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R8(*source), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
         }
         Instr::RlcPtr { z, c, addr }
         | Instr::RrcPtr { z, c, addr }
@@ -688,18 +688,18 @@ fn restrict_from_instruction_targets(
             // `SRA [HL]`
             // `SRL [HL]`
             // `SWAP [HL]`
-            graph.constrain_colors_to(VirtualReg::R16(*addr), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::Ccf { c, c_in } | Instr::MoveCarry { c, c_in } => {
             // `CCF`
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::Carry(*c_in), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
         }
         Instr::Scf { c } => {
             // `SCF`
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::Add16 {
             target,
@@ -708,31 +708,31 @@ fn restrict_from_instruction_targets(
             right,
         } => {
             // `ADD HL,r16`
-            graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
-            graph.constrain_colors_to(VirtualReg::R16(*left), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::R16(*right), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*left), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*right), Color::r16());
         }
         Instr::AddSP { z, c, .. } => {
             // `ADD SP e8`
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::LdSPE8 { c, target, .. } => {
             // `LD HL SP+e8`
-            graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16_ptr());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::Dec16 { target, source } | Instr::Inc16 { target, source } => {
             // `DEC r16`
             // `INC r16`
-            graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16());
-            graph.constrain_colors_to(VirtualReg::R16(*source), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r16());
         }
         Instr::PushR16 { source: target } | Instr::PopR16 { target } => {
             // `PUSH r16`
             // `POP r16`
-            graph.constrain_colors_to(VirtualReg::R16(*target), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16());
         }
         Instr::PushAF {
             source: target,
@@ -742,9 +742,9 @@ fn restrict_from_instruction_targets(
         | Instr::PopAF { target, z, c } => {
             // `PUSH AF`
             // `POP AF`
-            graph.constrain_colors_to(VirtualReg::R8(*target), Color::r8());
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Carry(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::Join {
             target: r16,
@@ -756,13 +756,13 @@ fn restrict_from_instruction_targets(
             low,
             source: r16,
         } => {
-            graph.constrain_colors_to(VirtualReg::R8(*low), Color::r8());
-            graph.constrain_colors_to(VirtualReg::R8(*high), Color::r8());
-            graph.constrain_colors_to(VirtualReg::R16(*r16), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*low), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*high), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*r16), Color::r16());
         }
         Instr::MoveZero { z, z_in } => {
-            graph.constrain_colors_to(VirtualReg::Zero(*z), Color::z());
-            graph.constrain_colors_to(VirtualReg::Zero(*z_in), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*z_in), Color::z());
         }
     }
 }
@@ -770,10 +770,10 @@ fn restrict_from_instruction_targets(
 fn restrict_from_operand(right: &Operand8, graph: &mut InterferenceGraph) {
     match right {
         Operand8::Ptr(right) => {
-            graph.constrain_colors_to(VirtualReg::R16(*right), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*right), Color::r16_ptr());
         }
         Operand8::Reg(right) => {
-            graph.constrain_colors_to(VirtualReg::R8(*right), Color::r8());
+            graph.constrain_colors_to(VirtualReg::from(*right), Color::r8());
         }
         Operand8::Literal(_) => {}
     }

@@ -482,113 +482,131 @@ END_SECTION
 START_SECTION ROM0
 gcd::
 .bb1:
-  LD A, [A]
-  LD A, [A+$0001]
-  LD r8#11, A
-  LD r8#12, A
-  LD A, [B]
-  LD A, [B+$0001]
+  LD HL, A+$0000
+  LD A, [HL++]
+  LD r8#10, A
+  LD r8#11, [HL]
+  LD r8#12, r8#10
+  LD r8#13, r8#11
+  LD HL, B+$0000
+  LD A, [HL++]
   LD r8#15, A
-  LD r8#16, A
-  LD r8#1, r8#15
-  LD r8#2, r8#16
-  LD r8#3, r8#11
-  LD r8#4, r8#12
+  LD r8#16, [HL]
+  LD r8#17, r8#15
+  LD r8#18, r8#16
+  LD r8#1, r8#17
+  LD r8#2, r8#18
+  LD r8#3, r8#12
+  LD r8#4, r8#13
   JP .bb3
 
 main::
 .bb2:
-  LD r8#48, $04
-  LD r8#49, $2f
-  LD r8#50, r8#49
-  LD r8#51, r8#48
-  LD r8#52, r8#51
-  LD r8#53, r8#50
-  LD r16#1, A+$0000
-  LD [HL(in=r16#1)++], r8#52
-  LD [HL], r8#53
-  LD r8#54, $01
-  LD r8#55, $ce
-  LD r8#56, r8#55
-  LD r8#57, r8#54
-  LD r8#58, r8#57
-  LD r8#59, r8#56
-  LD r16#3, B+$0000
-  LD [HL(in=r16#3)++], r8#58
-  LD [HL], r8#59
+  LD r8#61, $04
+  LD r8#62, $2f
+  LD r8#63, r8#62
+  LD r8#64, r8#61
+  LD r8#65, r8#64
+  LD r8#66, r8#63
+  LD HL, A+$0000
+  LD A, r8#65
+  LD [HL++], A
+  LD [HL], r8#66
+  LD r8#68, $01
+  LD r8#69, $ce
+  LD r8#70, r8#69
+  LD r8#71, r8#68
+  LD r8#72, r8#71
+  LD r8#73, r8#70
+  LD HL, B+$0000
+  LD A, r8#72
+  LD [HL++], A
+  LD [HL], r8#73
   CALL gcd; return=.bb9
 
 .bb3:
-  LD r8#17, r8#1
-  LD r8#18, r8#2
-  LD r8#19, $00
-  LD r8#20, $00
-  LD r8#21, r8#20
-  LD r8#22, r8#19
+  LD r8#19, r8#1
+  LD r8#20, r8#2
+  LD r8#21, $00
+  LD r8#22, $00
   LD r8#23, r8#22
   LD r8#24, r8#21
-  XOR A(in=r8#17), r8#23; z, c
-  XOR A(in=r8#18), r8#24; z, c
-  OR A, A; z, c
-  (out=z#4,in=z)
-  LD r8#28, r8#3
-  LD r8#29, r8#4
-  JP z#4, .bb4; else=.bb5
+  LD r8#25, r8#24
+  LD r8#26, r8#23
+  LD A, r8#20
+  SUB A, r8#26; z, c
+  LD A, r8#19
+  SBC A, r8#25; z, z
+  (out=z#3,in=z)
+  LD r8#31, r8#3
+  LD r8#32, r8#4
+  JP z#3, .bb4; else=.bb5
 
 .bb4:
-  LD r8#30, r8#29
-  LD r8#31, r8#28
-  LD r8#32, r8#31
-  LD r8#33, r8#30
+  LD r8#33, r8#32
+  LD r8#34, r8#31
+  LD r8#35, r8#34
+  LD r8#36, r8#33
   RET
 
 .bb5:
-  SUB A(in=r8#18), r8#29; z, c
-  SBC A(in=r8#17), r8#28; z, z
-  (out=c#6,in=c)
-  JP c#6, .bb6; else=.bb7
+  LD A, r8#20
+  SUB A, r8#32; z, c
+  LD A, r8#19
+  SBC A, r8#31; z, z
+  (out=c#5,in=c)
+  JP c#5, .bb6; else=.bb7
 
 .bb6:
-  SUB A(in=r8#29), r8#18; z, c
-  SBC A(in=r8#28), r8#17; z, z
-  LD r8#38, A
-  LD r8#39, A
-  LD r8#5, r8#17
-  LD r8#6, r8#18
-  LD r8#7, r8#38
-  LD r8#8, r8#39
+  LD A, r8#32
+  SUB A, r8#20; z, c
+  LD r8#43, A
+  LD A, r8#31
+  SBC A, r8#19; z, z
+  LD r8#46, A
+  LD r8#47, r8#46
+  LD r8#48, r8#43
+  LD r8#5, r8#19
+  LD r8#6, r8#20
+  LD r8#7, r8#47
+  LD r8#8, r8#48
   JP .bb8
 
 .bb7:
-  SUB A(in=r8#18), r8#29; z, c
-  SBC A(in=r8#17), r8#28; z, z
-  LD r8#42, A
-  LD r8#43, A
-  LD r8#5, r8#42
-  LD r8#6, r8#43
-  LD r8#7, r8#28
-  LD r8#8, r8#29
+  LD A, r8#20
+  SUB A, r8#32; z, c
+  LD r8#51, A
+  LD A, r8#19
+  SBC A, r8#31; z, z
+  LD r8#54, A
+  LD r8#55, r8#54
+  LD r8#56, r8#51
+  LD r8#5, r8#55
+  LD r8#6, r8#56
+  LD r8#7, r8#31
+  LD r8#8, r8#32
   JP .bb8
 
 .bb8:
-  LD r8#44, r8#5
-  LD r8#45, r8#6
-  LD r8#46, r8#7
-  LD r8#47, r8#8
-  LD r8#1, r8#44
-  LD r8#2, r8#45
-  LD r8#3, r8#46
-  LD r8#4, r8#47
+  LD r8#57, r8#5
+  LD r8#58, r8#6
+  LD r8#59, r8#7
+  LD r8#60, r8#8
+  LD r8#1, r8#57
+  LD r8#2, r8#58
+  LD r8#3, r8#59
+  LD r8#4, r8#60
   JP .bb3
 
 .bb9:
-  LD r8#62, C
-  LD r8#63, B
-  LD r8#64, r8#62
-  LD r8#65, r8#63
-  LD r16#5, RESULT+$0000
-  LD [HL(in=r16#5)++], r8#64
-  LD [HL], r8#65
+  LD r8#77, C
+  LD r8#78, B
+  LD r8#79, r8#77
+  LD r8#80, r8#78
+  LD HL, RESULT+$0000
+  LD A, r8#79
+  LD [HL++], A
+  LD [HL], r8#80
   RET
 
 END_SECTION
