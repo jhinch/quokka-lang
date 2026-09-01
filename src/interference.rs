@@ -205,13 +205,16 @@ pub fn build_interference_graph(
     let mut graph = InterferenceGraph::default();
     for block in code.blocks.values() {
         for instruction in &block.instructions {
-            restrict_from_instruction_targets(code, instruction, &mut graph);
+            restrict_from_instruction(code, instruction, &mut graph);
         }
     }
 
     let mut moves = IndexSet::new();
     for (block_id, block) in code.blocks.iter() {
         let mut live: IndexSet<VirtualReg> = live_out[block_id].clone();
+        for reg in block.terminator.register_uses() {
+            live.insert(reg);
+        }
         for (index, instruction) in block.instructions.iter().enumerate().rev() {
             if let Some((target, source)) = instruction.as_move() {
                 live.swap_remove(&source);
@@ -287,6 +290,11 @@ pub fn calculate_block_liveness(code: &CodeSectionData) -> BlockLiveness {
                 defs.insert(reg);
             }
         }
+        for reg in block.terminator.register_uses() {
+            if !defs.contains(&reg) {
+                uses.insert(reg);
+            }
+        }
         block_to_defs.insert(block_id, defs);
         block_to_uses.insert(block_id, uses);
     }
@@ -331,7 +339,7 @@ pub struct BlockLiveness {
     pub live_out: SecondaryMap<BlockId, IndexSet<VirtualReg>>,
 }
 
-fn restrict_from_instruction_targets(
+fn restrict_from_instruction(
     code: &CodeSectionData,
     instruction: &Instr,
     graph: &mut InterferenceGraph,

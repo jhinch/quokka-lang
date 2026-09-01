@@ -2385,6 +2385,23 @@ pub enum Terminator {
 }
 
 impl Terminator {
+    pub fn register_uses(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        match self {
+            Terminator::CallIf { source, .. }
+            | Terminator::RetIf { source, .. }
+            | Terminator::JpIf { source, .. } => Some(match source {
+                FlagId::Zero(flag) => VirtualReg::from(*flag),
+                FlagId::Carry(flag) => VirtualReg::from(*flag),
+            }),
+            Terminator::Call { .. }
+            | Terminator::CallR16 { .. }
+            | Terminator::Jp { .. }
+            | Terminator::Ret
+            | Terminator::Halt { .. } => None,
+        }
+        .into_iter()
+    }
+
     pub fn next_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
         let mut next = 0;
         std::iter::from_fn(move || {
