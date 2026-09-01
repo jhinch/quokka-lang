@@ -300,6 +300,8 @@ impl RegAllocator {
             .keys()
             .map(VirtualReg::R8)
             .chain(code.r16_registers.keys().map(VirtualReg::R16))
+            .chain(code.zero_registers.keys().map(VirtualReg::Zero))
+            .chain(code.carry_registers.keys().map(VirtualReg::Carry))
         {
             if let Some(color) = self.graph.precolor(reg) {
                 colors.insert(reg, color);
@@ -661,8 +663,27 @@ fn rewrite_block_with_spills(
             .register_defs()
             .filter(|reg| spills.contains(reg))
             .collect::<Vec<_>>();
+        let defs = instruction.register_defs().collect::<Vec<_>>();
 
+        let index = new_instructions.len();
         new_instructions.push(rewrite_instruction(instruction, &use_substitutions));
+        // as we are inserting new instructions, we need to update the defined index to match
+        for reg in defs {
+            match reg {
+                VirtualReg::R8(reg) => {
+                    code.r8_registers[reg].defined.insert(block_id, index);
+                }
+                VirtualReg::R16(reg) => {
+                    code.r16_registers[reg].defined.insert(block_id, index);
+                }
+                VirtualReg::Zero(reg) => {
+                    code.zero_registers[reg].defined.insert(block_id, index);
+                }
+                VirtualReg::Carry(reg) => {
+                    code.carry_registers[reg].defined.insert(block_id, index);
+                }
+            }
+        }
 
         for reg in defs_requiring_stores {
             store_spill_slot(
