@@ -589,101 +589,68 @@ impl Sccp {
                         .get(target)
                         .and_then(|values| values.get(block_id))
                         .unwrap_or(&ResolvedValue::Bottom);
-                    if let ResolvedValue::Value(value) = value {
-                        if !matches!(
+                    if let ResolvedValue::Value(value) = value
+                        && !matches!(
                             instruction,
                             Instr::Copy {
                                 source: Operand::Literal(_),
                                 ..
                             } | Instr::Alloc { .. }
-                        ) {
-                            let mut bytes = value.clone().into_vec();
-                            bytes.resize(4, 0);
-                            let bytes = *bytes.as_array::<4>().unwrap();
-                            *instruction = Instr::Copy {
-                                target,
-                                source: Operand::Literal(IntegerLiteral::from(u32::from_le_bytes(
-                                    bytes,
-                                ))),
+                        )
+                    {
+                        let mut bytes = value.clone().into_vec();
+                        bytes.resize(4, 0);
+                        let bytes = *bytes.as_array::<4>().unwrap();
+                        *instruction = Instr::Copy {
+                            target,
+                            source: Operand::Literal(IntegerLiteral::from(u32::from_le_bytes(
+                                bytes,
+                            ))),
+                        };
+                        outcome = Outcome::Modified;
+                    }
+                }
+                match instruction {
+                    Instr::Load { projections, .. }
+                    | Instr::Store { projections, .. }
+                    | Instr::Read { projections, .. }
+                    | Instr::Write { projections, .. } => {
+                        for projection in projections.iter_mut() {
+                            let PlaceProjection::Index(index) = projection else {
+                                continue;
                             };
-                            outcome = Outcome::Modified;
-                        }
-                    } else {
-                        match instruction {
-                            Instr::Load { projections, .. }
-                            | Instr::Store { projections, .. }
-                            | Instr::Read { projections, .. }
-                            | Instr::Write { projections, .. } => {
-                                for projection in projections.iter_mut() {
-                                    let PlaceProjection::Index(index) = projection else {
-                                        continue;
-                                    };
-                                    if let Operand::Local(index_id) = index {
-                                        let index_id = *index_id;
-                                        let index_value = evaluation
-                                            .values
-                                            .get(index_id)
-                                            .and_then(|values| values.get(block_id))
-                                            .unwrap_or(&ResolvedValue::Bottom);
-                                        if let ResolvedValue::Value(index_value) = index_value {
-                                            let mut bytes = index_value.clone().into_vec();
-                                            bytes.resize(4, 0);
-                                            let bytes = *bytes.as_array::<4>().unwrap();
-                                            *index = Operand::Literal(IntegerLiteral::from(
-                                                u32::from_le_bytes(bytes),
-                                            ));
-                                            outcome = Outcome::Modified;
-                                        }
-                                    }
-                                }
-                                match instruction {
-                                    Instr::Store { source, .. }
-                                    | Instr::Write { right: source, .. } => {
-                                        if let Operand::Local(source_id) = source {
-                                            let source_id = *source_id;
-                                            let source_value = evaluation
-                                                .values
-                                                .get(source_id)
-                                                .and_then(|values| values.get(block_id))
-                                                .unwrap_or(&ResolvedValue::Bottom);
-                                            if let ResolvedValue::Value(source_value) = source_value
-                                            {
-                                                let mut bytes = source_value.clone().into_vec();
-                                                bytes.resize(4, 0);
-                                                let bytes = *bytes.as_array::<4>().unwrap();
-                                                *source = Operand::Literal(IntegerLiteral::from(
-                                                    u32::from_le_bytes(bytes),
-                                                ));
-                                                outcome = Outcome::Modified;
-                                            }
-                                        }
-                                    }
-                                    _ => {}
+                            if let Operand::Local(index_id) = index {
+                                let index_id = *index_id;
+                                let index_value = evaluation
+                                    .values
+                                    .get(index_id)
+                                    .and_then(|values| values.get(block_id))
+                                    .unwrap_or(&ResolvedValue::Bottom);
+                                if let ResolvedValue::Value(index_value) = index_value {
+                                    let mut bytes = index_value.clone().into_vec();
+                                    bytes.resize(4, 0);
+                                    let bytes = *bytes.as_array::<4>().unwrap();
+                                    *index = Operand::Literal(IntegerLiteral::from(
+                                        u32::from_le_bytes(bytes),
+                                    ));
+                                    outcome = Outcome::Modified;
                                 }
                             }
-                            Instr::Eq { right, .. }
-                            | Instr::Ne { right, .. }
-                            | Instr::Lt { right, .. }
-                            | Instr::Le { right, .. }
-                            | Instr::Ge { right, .. }
-                            | Instr::Gt { right, .. }
-                            | Instr::BitAnd { right, .. }
-                            | Instr::BitOr { right, .. }
-                            | Instr::BitXor { right, .. }
-                            | Instr::Add { right, .. }
-                            | Instr::Sub { right, .. } => {
-                                if let Operand::Local(right_id) = right {
-                                    let right_id = *right_id;
-                                    let right_value = evaluation
+                        }
+                        match instruction {
+                            Instr::Store { source, .. } | Instr::Write { right: source, .. } => {
+                                if let Operand::Local(source_id) = source {
+                                    let source_id = *source_id;
+                                    let source_value = evaluation
                                         .values
-                                        .get(right_id)
+                                        .get(source_id)
                                         .and_then(|values| values.get(block_id))
                                         .unwrap_or(&ResolvedValue::Bottom);
-                                    if let ResolvedValue::Value(right_value) = right_value {
-                                        let mut bytes = right_value.clone().into_vec();
+                                    if let ResolvedValue::Value(source_value) = source_value {
+                                        let mut bytes = source_value.clone().into_vec();
                                         bytes.resize(4, 0);
                                         let bytes = *bytes.as_array::<4>().unwrap();
-                                        *right = Operand::Literal(IntegerLiteral::from(
+                                        *source = Operand::Literal(IntegerLiteral::from(
                                             u32::from_le_bytes(bytes),
                                         ));
                                         outcome = Outcome::Modified;
@@ -693,6 +660,36 @@ impl Sccp {
                             _ => {}
                         }
                     }
+                    Instr::Eq { right, .. }
+                    | Instr::Ne { right, .. }
+                    | Instr::Lt { right, .. }
+                    | Instr::Le { right, .. }
+                    | Instr::Ge { right, .. }
+                    | Instr::Gt { right, .. }
+                    | Instr::BitAnd { right, .. }
+                    | Instr::BitOr { right, .. }
+                    | Instr::BitXor { right, .. }
+                    | Instr::Add { right, .. }
+                    | Instr::Sub { right, .. } => {
+                        if let Operand::Local(right_id) = right {
+                            let right_id = *right_id;
+                            let right_value = evaluation
+                                .values
+                                .get(right_id)
+                                .and_then(|values| values.get(block_id))
+                                .unwrap_or(&ResolvedValue::Bottom);
+                            if let ResolvedValue::Value(right_value) = right_value {
+                                let mut bytes = right_value.clone().into_vec();
+                                bytes.resize(4, 0);
+                                let bytes = *bytes.as_array::<4>().unwrap();
+                                *right = Operand::Literal(IntegerLiteral::from(
+                                    u32::from_le_bytes(bytes),
+                                ));
+                                outcome = Outcome::Modified;
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
             for next_block_id in function.blocks[block_id].next_blocks().collect::<Vec<_>>() {
