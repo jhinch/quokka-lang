@@ -25,6 +25,7 @@ pub fn allocate_registers(lir: &mut Lir) {
                     VirtualReg::Carry(reg) => code.carry_registers[reg].color = Some(color),
                 }
             }
+            cleanup_redundant_instructions(code);
         }
     }
 }
@@ -1417,6 +1418,61 @@ fn rewrite_function_exits_with_frame(
             *right = i8::try_from(frame.occupants.len()).expect("More than 127 slots required");
         } else {
             unreachable!("last instruction of block {exit} should be AddSP");
+        }
+    }
+}
+
+fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
+    for (block_id, block) in code.blocks.iter_mut() {
+        for instruction in std::mem::take(&mut block.instructions) {
+            let retain = match &instruction {
+                Instr::Ld8 { target, source }
+                    if code.r8_registers[*target].color == code.r8_registers[*source].color =>
+                {
+                    false
+                }
+                Instr::Nop
+                | Instr::Join { .. }
+                | Instr::Split { .. }
+                | Instr::MoveZero { .. }
+                | Instr::MoveCarry { .. }
+                | Instr::LdReturn8 { .. }
+                | Instr::LdReturn16 { .. } => false,
+                _ => true,
+            };
+            if retain {
+                let index = block.instructions.len();
+                for reg in instruction.register_defs() {
+                    match reg {
+                        VirtualReg::R8(reg) => {
+                            code.r8_registers[reg].defined.insert(block_id, index)
+                        }
+                        VirtualReg::R16(reg) => {
+                            code.r16_registers[reg].defined.insert(block_id, index)
+                        }
+                        VirtualReg::Zero(reg) => {
+                            code.zero_registers[reg].defined.insert(block_id, index)
+                        }
+                        VirtualReg::Carry(reg) => {
+                            code.carry_registers[reg].defined.insert(block_id, index)
+                        }
+                    };
+                }
+                block.instructions.push(instruction);
+            } else {
+                for reg in instruction.register_defs() {
+                    // we don't want to remove the register as we are not updating the
+                    // uses of the register. Instead, we just clean up the definition pointer
+                    match reg {
+                        VirtualReg::R8(reg) => code.r8_registers[reg].defined.remove(block_id),
+                        VirtualReg::R16(reg) => code.r16_registers[reg].defined.remove(block_id),
+                        VirtualReg::Zero(reg) => code.zero_registers[reg].defined.remove(block_id),
+                        VirtualReg::Carry(reg) => {
+                            code.carry_registers[reg].defined.remove(block_id)
+                        }
+                    };
+                }
+            }
         }
     }
 }

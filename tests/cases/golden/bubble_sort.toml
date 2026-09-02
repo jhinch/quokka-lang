@@ -1078,9 +1078,119 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+source.file = "bubble_sort.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global DATA: [u8; 8]
+@GlobalDeclAttributes { section: Auto }
+global SWAP_COUNT: u8
+
+bubble_sort -> u8:
+  .bb1:
+    swaps#2: u8 = copy 0
+    i#3: u16 = copy 0
+    jump .bb2
+  .bb2:
+    i#4: u16 = phi i#3 <- .bb1, i#38 <- .bb9
+    #5: u16 = copy 8
+    #6: u1 = ge i#4, #5
+    swaps#33: u8 = phi swaps#2 <- .bb1, swaps#27 <- .bb9
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u16 = copy 8
+    #8: u16 = sub #7, i#4
+    #9: u16 = copy 1
+    limit#10: u16 = sub #8, #9
+    j#11: u16 = copy 0
+    jump .bb8
+  .bb3:
+    #RET: u8 = copy swaps#33
+    return
+  .bb8:
+    j#12: u16 = phi j#11 <- .bb5, j#31 <- .bb15
+    limit#13: u16 = copy limit#10
+    #14: u1 = ge j#12, limit#13
+    swaps#27: u8 = phi swaps#33 <- .bb5, swaps#34 <- .bb15
+    i#36: u16 = copy i#4
+    jumpif #14 != 0, .bb10, .bb11
+  .bb10:
+    jump .bb9
+  .bb11:
+    #15: u16 = copy 1
+    #16: u16 = add j#12, #15
+    #17: u8 = load DATA[#16]
+    #18: u8 = load DATA[j#12]
+    #19: u1 = lt #17, #18
+    jumpif #19 != 0, .bb14, .bb15
+  .bb9:
+    #35: u16 = copy 1
+    i#38: u16 = add i#4, #35
+    jump .bb2
+  .bb14:
+    tmp#20: u8 = load DATA[j#12]
+    #21: u16 = copy 1
+    #22: u16 = add j#12, #21
+    #23: u8 = load DATA[#22]
+    store DATA[j#12] = #23
+    #24: u16 = copy 1
+    #25: u16 = add j#12, #24
+    store DATA[#25] = tmp#20
+    #26: u8 = copy 1
+    swaps#28: u8 = add swaps#27, #26
+    jump .bb15
+  .bb15:
+    #29: u16 = copy 1
+    j#30: u16 = copy j#12
+    j#31: u16 = add j#12, #29
+    limit#32: u16 = copy limit#13
+    swaps#34: u8 = phi swaps#27 <- .bb11, swaps#28 <- .bb14
+    i#37: u16 = copy i#36
+    jump .bb8
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 0
+    #2: u8 = copy 5
+    store DATA[#1] = #2
+    #3: u16 = copy 1
+    #4: u8 = copy 3
+    store DATA[#3] = #4
+    #5: u16 = copy 2
+    #6: u8 = copy 8
+    store DATA[#5] = #6
+    #7: u16 = copy 3
+    #8: u8 = copy 1
+    store DATA[#7] = #8
+    #9: u16 = copy 4
+    #10: u8 = copy 9
+    store DATA[#9] = #10
+    #11: u16 = copy 5
+    #12: u8 = copy 2
+    store DATA[#11] = #12
+    #13: u16 = copy 6
+    #14: u8 = copy 7
+    store DATA[#13] = #14
+    #15: u16 = copy 7
+    #16: u8 = copy 4
+    store DATA[#15] = #16
+    call bubble_sort, .bb2
+  .bb2:
+    #17: u8 = returnvalue
+    store SWAP_COUNT = #17
+    return
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
 source.file = "bubble_sort.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -1442,6 +1552,286 @@ main::
   LD r8#244, r8#243
   LD HL, SWAP_COUNT+$0000
   LD [HL], r8#244
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+allocate_registers = true
+source.file = "bubble_sort.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+DATA::
+alloc 64 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+SWAP_COUNT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+bubble_sort::
+.bb1:
+  ADD SP -10; z, c
+  LD A, $00
+  LD D, $00
+  LD B, $00
+  LD C, A
+  JP .bb3
+
+main::
+.bb2:
+  LD C, $00
+  LD B, $00
+  LD A, $05
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $01
+  LD A, $03
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $02
+  LD A, $08
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $03
+  LD A, $01
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $04
+  LD A, $09
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $05
+  LD A, $02
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $06
+  LD A, $07
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $07
+  LD A, $04
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  CALL bubble_sort; return=.bb13
+
+.bb3:
+  LD A, D
+  LD HL SP+8; c
+  LD [HL], A
+  LD A, B
+  LD HL SP+9; c
+  LD [HL], A
+  LD A, $00
+  LD D, $08
+  LD B, A
+  LD HL SP+9; c
+  LD A, [HL]
+  SUB A, D; z, c
+  LD HL SP+8; c
+  LD A, [HL]
+  SBC A, B; z, z
+  LD B, C
+  JP nc#3, .bb4; else=.bb5
+
+.bb4:
+  JP .bb6
+
+.bb5:
+  LD A, $00
+  LD A, $08
+  LD HL SP+9; c
+  LD C, [HL]
+  SUB A, C; z, c
+  LD HL SP+8; c
+  LD C, [HL]
+  SBC A, C; z, z
+  LD C, $00
+  LD D, $01
+  SUB A, D; z, c
+  SBC A, C; z, z
+  LD HL SP+6; c
+  LD [HL], A
+  LD HL SP+7; c
+  LD [HL], A
+  LD D, $00
+  LD A, $00
+  LD C, B
+  JP .bb7
+
+.bb6:
+  LD A, B
+  ADD SP 10; z, c
+  RET
+
+.bb7:
+  LD E, D
+  LD HL SP+0; c
+  LD [HL], A
+  LD HL SP+7; c
+  LD A, [HL]
+  LD HL SP+6; c
+  LD B, [HL]
+  LD HL SP+4; c
+  LD [HL], B
+  LD HL SP+5; c
+  LD [HL], A
+  LD HL SP+0; c
+  LD A, [HL]
+  LD HL SP+5; c
+  LD B, [HL]
+  SUB A, B; z, c
+  LD A, E
+  LD HL SP+4; c
+  LD B, [HL]
+  SBC A, B; z, z
+  LD A, C
+  LD HL SP+1; c
+  LD [HL], A
+  LD HL SP+9; c
+  LD A, [HL]
+  LD HL SP+8; c
+  LD B, [HL]
+  LD HL SP+2; c
+  LD [HL], B
+  LD HL SP+3; c
+  LD [HL], A
+  JP nc, .bb8; else=.bb9
+
+.bb8:
+  JP .bb10
+
+.bb9:
+  LD C, $00
+  LD B, $01
+  LD A, E
+  ADD A, C; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL SP+0; c
+  LD B, [HL]
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD B, [HL]
+  CP A, B; z, c
+  LD HL SP+1; c
+  LD A, [HL]
+  LD C, A
+  JP c#16, .bb11; else=.bb12
+
+.bb10:
+  LD C, $00
+  LD A, $01
+  LD B, A
+  LD HL SP+8; c
+  LD A, [HL]
+  ADD A, C; z, c
+  LD HL SP+9; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD D, A
+  LD B, A
+  LD HL SP+1; c
+  LD A, [HL]
+  LD C, A
+  JP .bb3
+
+.bb11:
+  LD HL SP+0; c
+  LD A, [HL]
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD A, [HL]
+  LD D, A
+  LD C, $00
+  LD A, $01
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL SP+0; c
+  LD B, [HL]
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD A, $01
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  LD [HL], D
+  LD B, $01
+  LD HL SP+1; c
+  LD A, [HL]
+  ADD A, B; z, c
+  LD C, A
+  JP .bb12
+
+.bb12:
+  LD D, $00
+  LD A, $01
+  LD B, A
+  LD HL SP+0; c
+  LD A, [HL]
+  LD H, E
+  LD A, E
+  ADD A, D; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD D, A
+  LD B, A
+  LD A, D
+  LD HL SP+5; c
+  LD D, [HL]
+  LD HL SP+4; c
+  LD E, [HL]
+  LD HL SP+3; c
+  LD D, [HL]
+  LD HL SP+2; c
+  LD E, [HL]
+  LD D, B
+  JP .bb7
+
+.bb13:
+  LD HL, SWAP_COUNT+$0000
+  LD [HL], A
   RET
 
 END_SECTION

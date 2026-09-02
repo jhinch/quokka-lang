@@ -543,9 +543,71 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else"]
+optimize = true
+source.file = "collatz.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u16
+@GlobalDeclAttributes { section: Auto }
+global RESULT: u16
+
+collatz_steps -> u16:
+  .bb1:
+    n#2: u16 = load N
+    steps#3: u16 = copy 0
+    jump .bb2
+  .bb2:
+    n#4: u16 = phi n#2 <- .bb1, n#20 <- .bb10
+    #5: u16 = copy 1
+    #6: u1 = eq n#4, #5
+    steps#18: u16 = phi steps#3 <- .bb1, steps#19 <- .bb10
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #7: u16 = copy 1
+    #8: u16 = bitand n#4, #7
+    #9: u16 = copy 0
+    is_even#10: u1 = eq #8, #9
+    jumpif is_even#10 != 0, .bb8, .bb9
+  .bb3:
+    #RET: u16 = copy steps#18
+    return
+  .bb8:
+    n#11: u16 = shiftright n#4
+    jump .bb10
+  .bb9:
+    #12: u16 = add n#4, n#4
+    #13: u16 = add #12, n#4
+    #14: u16 = copy 1
+    n#15: u16 = add #13, #14
+    jump .bb10
+  .bb10:
+    #16: u16 = copy 1
+    steps#17: u16 = copy steps#18
+    steps#19: u16 = add steps#18, #16
+    n#20: u16 = phi n#11 <- .bb8, n#15 <- .bb9
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 27
+    store N = #1
+    call collatz_steps, .bb2
+  .bb2:
+    #2: u16 = returnvalue
+    store RESULT = #2
+    return
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else"]
+optimize = true
 source.file = "collatz.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -731,6 +793,125 @@ main::
   LD A, r8#125
   LD [HL++], A
   LD [HL], r8#126
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else"]
+optimize = true
+allocate_registers = true
+source.file = "collatz.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+N::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+collatz_steps::
+.bb1:
+  LD HL, N+$0000
+  LD A, [HL++]
+  LD C, [HL]
+  LD B, $00
+  LD E, $00
+  LD D, A
+  LD A, B
+  LD B, E
+  JP .bb3
+
+main::
+.bb2:
+  LD A, $00
+  LD B, $1b
+  LD HL, N+$0000
+  LD [HL++], A
+  LD [HL], B
+  CALL collatz_steps; return=.bb10
+
+.bb3:
+  LD A, D
+  LD D, C
+  LD C, $00
+  LD E, $01
+  LD A, D
+  SUB A, E; z, c
+  SBC A, C; z, z
+  LD C, A
+  LD H, B
+  JP z, .bb4; else=.bb5
+
+.bb4:
+  JP .bb6
+
+.bb5:
+  LD E, $00
+  LD B, $01
+  AND A, E; z, c
+  LD A, D
+  AND A, B; z, c
+  LD B, A
+  LD A, B
+  LD B, $00
+  LD E, $00
+  SUB A, E; z, c
+  SBC A, B; z, z
+  JP z, .bb7; else=.bb8
+
+.bb6:
+  LD B, H
+  LD A, C
+  RET
+
+.bb7:
+  SRL B(in=D); z, c
+  RR A; z, z
+  JP .bb9
+
+.bb8:
+  ADD A, A; z, c
+  LD A, D
+  ADC A, D; z, z
+  ADD A, A; z, c
+  ADC A, D; z, z
+  LD D, $00
+  LD B, $01
+  ADD A, D; z, c
+  ADC A, B; z, z
+  LD B, A
+  JP .bb9
+
+.bb9:
+  LD D, $00
+  LD L, $01
+  LD E, D
+  LD D, L
+  LD L, C
+  LD L, H
+  LD A, C
+  ADD A, E; z, c
+  LD A, H
+  ADC A, D; z, z
+  LD E, A
+  LD D, A
+  LD C, B
+  LD B, E
+  JP .bb3
+
+.bb10:
+  LD HL, RESULT+$0000
+  LD A, L
+  LD [HL++], A
+  LD [HL], H
   RET
 
 END_SECTION

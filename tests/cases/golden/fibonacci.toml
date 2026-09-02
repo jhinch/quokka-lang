@@ -739,9 +739,85 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+source.file = "fibonacci.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global FIBONACCI_N: u8
+@GlobalDeclAttributes { section: Auto }
+global RESULTS: [u8; 10]
+
+fibonacci -> u8:
+  .bb1:
+    n#2: u8 = load FIBONACCI_N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 0
+    #RET: u8 = copy #5
+    return
+  .bb3:
+    #6: u8 = copy 1
+    n#7: u8 = add n#2, #6
+    a#8: u8 = copy 0
+    b#9: u8 = copy 1
+    i#10: u8 = copy 2
+    jump .bb6
+  .bb6:
+    i#11: u8 = phi i#10 <- .bb3, i#18 <- .bb9
+    n#12: u8 = copy n#7
+    #13: u1 = ge i#11, n#12
+    a#14: u8 = phi a#8 <- .bb3, b#15 <- .bb9
+    b#15: u8 = phi b#9 <- .bb3, c#16 <- .bb9
+    jumpif #13 != 0, .bb8, .bb9
+  .bb8:
+    jump .bb7
+  .bb9:
+    c#16: u8 = add a#14, b#15
+    #17: u8 = copy 1
+    i#18: u8 = add i#11, #17
+    jump .bb6
+  .bb7:
+    #RET: u8 = copy b#15
+    return
+
+main -> unit:
+  .bb1:
+    i#1: u16 = copy 0
+    n#2: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#3: u16 = phi i#1 <- .bb1, i#9 <- .bb8
+    #4: u16 = copy 10
+    #5: u1 = eq i#3, #4
+    n#6: u8 = phi n#2 <- .bb1, n#11 <- .bb8
+    jumpif #5 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    store FIBONACCI_N = n#6
+    call fibonacci, .bb8
+  .bb3:
+    return
+  .bb8:
+    #7: u8 = returnvalue
+    store RESULTS[i#3] = #7
+    #8: u16 = copy 1
+    i#9: u16 = add i#3, #8
+    #10: u8 = copy 1
+    n#11: u8 = add n#6, #10
+    jump .bb2
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
 source.file = "fibonacci.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -901,6 +977,122 @@ main::
   LD r8#45, r8#89
   LD r8#43, r8#82
   LD r8#44, r8#83
+  JP .bb9
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+allocate_registers = true
+source.file = "fibonacci.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+FIBONACCI_N::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULTS::
+alloc 80 x bit
+END_SECTION
+
+START_SECTION ROM0
+fibonacci::
+.bb1:
+  LD HL, FIBONACCI_N+$0000
+  LD A, [HL]
+  LD B, $00
+  CP A, B; z, c
+  JP z, .bb3; else=.bb4
+
+main::
+.bb2:
+  ADD SP -1; z, c
+  LD B, $00
+  LD C, $00
+  LD A, $00
+  JP .bb9
+
+.bb3:
+  LD A, $00
+  RET
+
+.bb4:
+  LD B, $01
+  ADD A, B; z, c
+  LD A, $00
+  LD A, $01
+  LD A, $02
+  JP .bb5
+
+.bb5:
+  LD B, A
+  CP A, B; z, c
+  LD B, A
+  JP nc, .bb6; else=.bb7
+
+.bb6:
+  JP .bb8
+
+.bb7:
+  ADD A, B; z, c
+  LD C, $01
+  ADD A, C; z, c
+  LD A, B
+  JP .bb5
+
+.bb8:
+  RET
+
+.bb9:
+  LD E, B
+  LD HL SP+0; c
+  LD [HL], C
+  LD B, $00
+  LD C, $0a
+  LD HL SP+0; c
+  LD A, [HL]
+  SUB A, C; z, c
+  LD A, E
+  SBC A, B; z, z
+  LD D, A
+  JP z#9, .bb10; else=.bb11
+
+.bb10:
+  JP .bb12
+
+.bb11:
+  LD HL, FIBONACCI_N+$0000
+  LD [HL], D
+  CALL fibonacci; return=.bb13
+
+.bb12:
+  ADD SP 1; z, c
+  RET
+
+.bb13:
+  LD HL SP+0; c
+  LD B, [HL]
+  LD HL, RESULTS+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD A, $01
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD C, A
+  LD B, A
+  LD E, $01
+  LD A, D
+  ADD A, E; z, c
   JP .bb9
 
 END_SECTION

@@ -45,8 +45,38 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "codegen"
+optimize = true
+source.file = "empty_main.q"
+expected_lir = """
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
+optimize = true
+source.file = "empty_main.q"
+expected_lir = """
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+optimize = true
+allocate_registers = true
 source.file = "empty_main.q"
 expected_lir = """
 START_SECTION ROM0

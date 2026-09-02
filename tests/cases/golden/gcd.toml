@@ -459,9 +459,65 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else"]
+optimize = true
+source.file = "gcd.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: u16
+@GlobalDeclAttributes { section: Auto }
+global B: u16
+@GlobalDeclAttributes { section: Auto }
+global RESULT: u16
+
+gcd -> u16:
+  .bb1:
+    a#2: u16 = load A
+    b#3: u16 = load B
+    jump .bb2
+  .bb2:
+    b#4: u16 = phi b#3 <- .bb1, b#11 <- .bb10
+    #5: u16 = copy 0
+    #6: u1 = eq b#4, #5
+    a#7: u16 = phi a#2 <- .bb1, a#12 <- .bb10
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    #RET: u16 = copy a#7
+    return
+  .bb5:
+    #8: u1 = lt b#4, a#7
+    jumpif #8 != 0, .bb8, .bb9
+  .bb8:
+    a#9: u16 = sub a#7, b#4
+    jump .bb10
+  .bb9:
+    b#10: u16 = sub b#4, a#7
+    jump .bb10
+  .bb10:
+    b#11: u16 = phi b#4 <- .bb8, b#10 <- .bb9
+    a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 1071
+    store A = #1
+    #2: u16 = copy 462
+    store B = #2
+    call gcd, .bb2
+  .bb2:
+    #3: u16 = returnvalue
+    store RESULT = #3
+    return
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else"]
+optimize = true
 source.file = "gcd.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -609,6 +665,115 @@ main::
   LD A, r8#79
   LD [HL++], A
   LD [HL], r8#80
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else"]
+optimize = true
+allocate_registers = true
+source.file = "gcd.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+B::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+gcd::
+.bb1:
+  LD HL, A+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  LD C, A
+  LD HL, B+$0000
+  LD A, [HL++]
+  LD E, [HL]
+  LD D, A
+  LD H, E
+  LD A, B
+  JP .bb3
+
+main::
+.bb2:
+  LD A, $04
+  LD B, $2f
+  LD HL, A+$0000
+  LD [HL++], A
+  LD [HL], B
+  LD A, $01
+  LD B, $ce
+  LD HL, B+$0000
+  LD [HL++], A
+  LD [HL], B
+  CALL gcd; return=.bb9
+
+.bb3:
+  LD E, D
+  LD B, H
+  LD D, $00
+  LD H, $00
+  LD A, B
+  SUB A, H; z, c
+  LD A, E
+  SBC A, D; z, z
+  JP z#3, .bb4; else=.bb5
+
+.bb4:
+  LD B, C
+  RET
+
+.bb5:
+  LD A, B
+  SUB A, A; z, c
+  LD A, E
+  SBC A, C; z, z
+  JP c, .bb6; else=.bb7
+
+.bb6:
+  SUB A, B; z, c
+  LD A, C
+  SBC A, E; z, z
+  LD H, A
+  LD D, E
+  LD A, B
+  LD C, A
+  LD B, H
+  JP .bb8
+
+.bb7:
+  LD A, B
+  SUB A, A; z, c
+  LD A, E
+  SBC A, C; z, z
+  LD D, A
+  LD B, A
+  JP .bb8
+
+.bb8:
+  LD H, A
+  LD A, B
+  JP .bb3
+
+.bb9:
+  LD HL, RESULT+$0000
+  LD A, L
+  LD [HL++], A
+  LD [HL], H
   RET
 
 END_SECTION

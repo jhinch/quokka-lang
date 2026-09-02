@@ -913,9 +913,115 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+source.file = "fizzbuzz.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global MOD_x: u8
+@GlobalDeclAttributes { section: Auto }
+global MOD_y: u8
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+@GlobalDeclAttributes { section: Auto }
+global RESULTS: [u8; 15]
+
+x_mod_y -> u8:
+  .bb1:
+    result#2: u8 = load MOD_x
+    jump .bb2
+  .bb2:
+    result#3: u8 = phi result#2 <- .bb1, result#7 <- .bb5
+    #4: u8 = load MOD_y
+    #5: u1 = lt result#3, #4
+    jumpif #5 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    #6: u8 = load MOD_y
+    result#7: u8 = sub result#3, #6
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy result#3
+    return
+
+fizzbuzz -> u8:
+  .bb1:
+    #2: u8 = load N
+    store MOD_x = #2
+    #3: u8 = copy 3
+    store MOD_y = #3
+    call x_mod_y, .bb2
+  .bb2:
+    mod3#4: u8 = returnvalue
+    #5: u8 = copy 5
+    store MOD_y = #5
+    call x_mod_y, .bb3
+  .bb3:
+    mod5#6: u8 = returnvalue
+    #7: u8 = copy 0
+    #8: u1 = eq mod3#4, #7
+    jumpif #8 != 0, .bb4, .bb5
+  .bb4:
+    #9: u8 = copy 0
+    #10: u1 = eq mod5#6, #9
+    jumpif #10 != 0, .bb6, .bb7
+  .bb5:
+    #13: u8 = copy 0
+    #14: u1 = eq mod5#6, #13
+    jumpif #14 != 0, .bb12, .bb13
+  .bb6:
+    #11: u8 = copy 3
+    #RET: u8 = copy #11
+    return
+  .bb7:
+    #12: u8 = copy 1
+    #RET: u8 = copy #12
+    return
+  .bb12:
+    #15: u8 = copy 2
+    #RET: u8 = copy #15
+    return
+  .bb13:
+    #16: u8 = copy 0
+    #RET: u8 = copy #16
+    return
+
+main -> unit:
+  .bb1:
+    i#1: u16 = copy 0
+    n#2: u8 = copy 1
+    jump .bb2
+  .bb2:
+    i#3: u16 = phi i#1 <- .bb1, i#9 <- .bb8
+    #4: u16 = copy 15
+    #5: u1 = eq i#3, #4
+    n#6: u8 = phi n#2 <- .bb1, n#11 <- .bb8
+    jumpif #5 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    store N = n#6
+    call fizzbuzz, .bb8
+  .bb3:
+    return
+  .bb8:
+    #7: u8 = returnvalue
+    store RESULTS[i#3] = #7
+    #8: u16 = copy 1
+    i#9: u16 = add i#3, #8
+    #10: u8 = copy 1
+    n#11: u8 = add n#6, #10
+    jump .bb2
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
 source.file = "fizzbuzz.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -1128,6 +1234,165 @@ main::
   LD r8#55, r8#99
   LD r8#53, r8#92
   LD r8#54, r8#93
+  JP .bb16
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+allocate_registers = true
+source.file = "fizzbuzz.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+MOD_x::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+MOD_y::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+N::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULTS::
+alloc 120 x bit
+END_SECTION
+
+START_SECTION ROM0
+x_mod_y::
+.bb1:
+  LD HL, MOD_x+$0000
+  LD A, [HL]
+  JP .bb4
+
+fizzbuzz::
+.bb2:
+  LD HL, N+$0000
+  LD A, [HL]
+  LD HL, MOD_x+$0000
+  LD [HL], A
+  LD A, $03
+  LD HL, MOD_y+$0000
+  LD [HL], A
+  CALL x_mod_y; return=.bb8
+
+main::
+.bb3:
+  ADD SP -1; z, c
+  LD B, $00
+  LD C, $00
+  LD A, $01
+  JP .bb16
+
+.bb4:
+  LD HL, MOD_y+$0000
+  LD B, [HL]
+  CP A, B; z, c
+  JP c, .bb5; else=.bb6
+
+.bb5:
+  JP .bb7
+
+.bb6:
+  LD HL, MOD_y+$0000
+  LD B, [HL]
+  SUB A, B; z, c
+  JP .bb4
+
+.bb7:
+  RET
+
+.bb8:
+  LD B, $05
+  LD HL, MOD_y+$0000
+  LD [HL], B
+  CALL x_mod_y; return=.bb9
+
+.bb9:
+  LD B, $00
+  CP A, B; z, c
+  JP z, .bb10; else=.bb11
+
+.bb10:
+  LD B, $00
+  CP A, B; z, c
+  JP z, .bb12; else=.bb13
+
+.bb11:
+  LD B, $00
+  CP A, B; z, c
+  JP z, .bb14; else=.bb15
+
+.bb12:
+  LD A, $03
+  RET
+
+.bb13:
+  LD A, $01
+  RET
+
+.bb14:
+  LD A, $02
+  RET
+
+.bb15:
+  LD A, $00
+  RET
+
+.bb16:
+  LD E, B
+  LD HL SP+0; c
+  LD [HL], C
+  LD B, $00
+  LD C, $0f
+  LD HL SP+0; c
+  LD A, [HL]
+  SUB A, C; z, c
+  LD A, E
+  SBC A, B; z, z
+  LD D, A
+  JP z#11, .bb17; else=.bb18
+
+.bb17:
+  JP .bb19
+
+.bb18:
+  LD HL, N+$0000
+  LD [HL], D
+  CALL fizzbuzz; return=.bb20
+
+.bb19:
+  ADD SP 1; z, c
+  RET
+
+.bb20:
+  LD HL SP+0; c
+  LD B, [HL]
+  LD HL, RESULTS+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD A, $01
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, B; z, z
+  LD C, A
+  LD B, A
+  LD E, $01
+  LD A, D
+  ADD A, E; z, c
   JP .bb16
 
 END_SECTION

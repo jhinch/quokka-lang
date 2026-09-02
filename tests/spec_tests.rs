@@ -39,6 +39,10 @@ struct TestCase {
     #[serde(default)]
     entrypoint: ParseEntrypointKind,
     #[serde(default)]
+    optimize: bool,
+    #[serde(default)]
+    allocate_registers: bool,
+    #[serde(default)]
     preview_features: Vec<quokka_lang::feature::PreviewFeature>,
     #[serde(default)]
     ignored: Option<String>,
@@ -575,7 +579,14 @@ fn test_analyzer(mut case: TestCase) {
     let root = pipeline
         .parse(case.source())
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"));
-    let (actual_mir, actual_errors) = match root.analyze().and_then(|output| output.optimize()) {
+    let result = root.analyze().and_then(|output| {
+        if case.optimize {
+            output.optimize()
+        } else {
+            Ok(output)
+        }
+    });
+    let (actual_mir, actual_errors) = match result {
         Ok(output) => (
             format!("{}", output.mir().display(output.ty_registry())),
             Vec::new(),
@@ -608,9 +619,23 @@ fn test_codegen(mut case: TestCase) {
         .parse(case.source())
         .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"))
         .analyze()
+        .and_then(|output| {
+            if case.optimize {
+                output.optimize()
+            } else {
+                Ok(output)
+            }
+        })
         .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
-    let (actual_lir, actual_errors) = match root.codegen() {
-        Ok(output) => (format!("{}", output.lir()), Vec::new()),
+    let result = root.codegen().map(|output| {
+        if case.allocate_registers {
+            output.allocate().into_lir()
+        } else {
+            output.into_lir()
+        }
+    });
+    let (actual_lir, actual_errors) = match result {
+        Ok(lir) => (format!("{}", lir), Vec::new()),
         Err(errors) => (String::new(), prepare_multi_error(errors)),
     };
     if let Some(tx) = case.updates_tx.clone() {

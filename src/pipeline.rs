@@ -149,6 +149,11 @@ impl CodegenOutput {
     }
 
     #[must_use]
+    pub fn into_lir(self) -> Lir {
+        self.lir
+    }
+
+    #[must_use]
     pub fn allocate(mut self) -> AllocateOutput {
         allocate_registers(&mut self.lir);
         AllocateOutput {
@@ -168,5 +173,10 @@ impl AllocateOutput {
     #[must_use]
     pub fn lir(&self) -> &Lir {
         &self.lir
+    }
+
+    #[must_use]
+    pub fn into_lir(self) -> Lir {
+        self.lir
     }
 }

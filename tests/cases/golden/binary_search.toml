@@ -926,9 +926,100 @@ main -> unit:
 """
 
 [[case]]
+name = "optimize"
+kind = "analyzer"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+source.file = "binary_search.q"
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global SORTED: [u8; 8]
+@GlobalDeclAttributes { section: Auto }
+global TARGET: u8
+@GlobalDeclAttributes { section: Auto }
+global FOUND_INDEX: u16
+
+binary_search -> u16:
+  .bb1:
+    low#2: u16 = copy 0
+    high#3: u16 = copy 7
+    jump .bb2
+  .bb2:
+    high#4: u16 = phi high#3 <- .bb1, high#19 <- .bb14
+    low#5: u16 = phi low#2 <- .bb1, low#20 <- .bb14
+    #6: u1 = lt high#4, low#5
+    jumpif #6 != 0, .bb4, .bb5
+  .bb4:
+    #7: u16 = copy 255
+    #RET: u16 = copy #7
+    return
+  .bb5:
+    #8: u16 = add low#5, high#4
+    mid#9: u16 = shiftright #8
+    value#10: u8 = load SORTED[mid#9]
+    #11: u8 = load TARGET
+    #12: u1 = eq value#10, #11
+    jumpif #12 != 0, .bb8, .bb9
+  .bb8:
+    #RET: u16 = copy mid#9
+    return
+  .bb9:
+    #13: u8 = load TARGET
+    #14: u1 = lt value#10, #13
+    jumpif #14 != 0, .bb12, .bb13
+  .bb12:
+    #15: u16 = copy 1
+    low#16: u16 = add mid#9, #15
+    jump .bb14
+  .bb13:
+    #17: u16 = copy 1
+    high#18: u16 = sub mid#9, #17
+    jump .bb14
+  .bb14:
+    high#19: u16 = phi high#4 <- .bb12, high#18 <- .bb13
+    low#20: u16 = phi low#16 <- .bb12, low#5 <- .bb13
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 0
+    #2: u8 = copy 1
+    store SORTED[#1] = #2
+    #3: u16 = copy 1
+    #4: u8 = copy 3
+    store SORTED[#3] = #4
+    #5: u16 = copy 2
+    #6: u8 = copy 4
+    store SORTED[#5] = #6
+    #7: u16 = copy 3
+    #8: u8 = copy 7
+    store SORTED[#7] = #8
+    #9: u16 = copy 4
+    #10: u8 = copy 9
+    store SORTED[#9] = #10
+    #11: u16 = copy 5
+    #12: u8 = copy 12
+    store SORTED[#11] = #12
+    #13: u16 = copy 6
+    #14: u8 = copy 15
+    store SORTED[#13] = #14
+    #15: u16 = copy 7
+    #16: u8 = copy 20
+    store SORTED[#15] = #16
+    #17: u8 = copy 12
+    store TARGET = #17
+    call binary_search, .bb2
+  .bb2:
+    #18: u16 = returnvalue
+    store FOUND_INDEX = #18
+    return
+"""
+
+[[case]]
 name = "codegen"
 kind = "codegen"
 preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
 source.file = "binary_search.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -1202,6 +1293,196 @@ main::
   LD A, r8#165
   LD [HL++], A
   LD [HL], r8#166
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "allocate_registers"
+kind = "codegen"
+preview_features = ["function-call", "loop", "if-else", "array"]
+optimize = true
+allocate_registers = true
+source.file = "binary_search.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+SORTED::
+alloc 64 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+TARGET::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+FOUND_INDEX::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+binary_search::
+.bb1:
+  ADD SP -3; z, c
+  LD C, $00
+  LD B, $00
+  LD A, $00
+  LD D, $07
+  JP .bb3
+
+main::
+.bb2:
+  LD C, $00
+  LD B, $00
+  LD A, $01
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $01
+  LD A, $03
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $02
+  LD A, $04
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $03
+  LD A, $07
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $04
+  LD A, $09
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $05
+  LD A, $0c
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $06
+  LD A, $0f
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD C, $00
+  LD B, $07
+  LD A, $14
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD [HL], A
+  LD A, $0c
+  LD HL, TARGET+$0000
+  LD [HL], A
+  CALL binary_search; return=.bb11
+
+.bb3:
+  LD HL SP+0; c
+  LD [HL], A
+  LD A, D
+  LD HL SP+1; c
+  LD [HL], A
+  LD E, C
+  LD A, B
+  LD HL SP+2; c
+  LD [HL], A
+  LD HL SP+1; c
+  LD A, [HL]
+  LD HL SP+2; c
+  LD B, [HL]
+  SUB A, B; z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  SBC A, E; z, z
+  JP c, .bb4; else=.bb5
+
+.bb4:
+  LD B, $00
+  LD A, $ff
+  ADD SP 3; z, c
+  RET
+
+.bb5:
+  LD A, E
+  LD HL SP+0; c
+  LD B, [HL]
+  ADD A, B; z, c
+  LD HL SP+2; c
+  LD A, [HL]
+  LD HL SP+1; c
+  LD B, [HL]
+  ADC A, B; z, z
+  SRL B(in=A); z, c
+  RR A; z, z
+  LD D, B
+  LD HL, SORTED+$0000
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL, TARGET+$0000
+  LD B, [HL]
+  CP A, B; z, c
+  JP z, .bb6; else=.bb7
+
+.bb6:
+  LD B, D
+  ADD SP 3; z, c
+  RET
+
+.bb7:
+  LD HL, TARGET+$0000
+  LD B, [HL]
+  CP A, B; z, c
+  JP c, .bb8; else=.bb9
+
+.bb8:
+  LD C, $00
+  LD B, $01
+  ADD A, C; z, c
+  LD A, D
+  ADC A, B; z, z
+  LD B, A
+  LD HL SP+0; c
+  LD C, [HL]
+  LD A, C
+  LD HL SP+1; c
+  LD C, [HL]
+  LD D, A
+  JP .bb10
+
+.bb9:
+  LD B, $00
+  LD C, $01
+  LD A, D
+  SUB A, C; z, c
+  SBC A, B; z, z
+  LD B, A
+  LD C, B
+  LD D, E
+  LD HL SP+2; c
+  LD B, [HL]
+  JP .bb10
+
+.bb10:
+  LD E, D
+  LD D, C
+  LD C, E
+  JP .bb3
+
+.bb11:
+  LD HL, FOUND_INDEX+$0000
+  LD A, L
+  LD [HL++], A
+  LD [HL], H
   RET
 
 END_SECTION
