@@ -871,6 +871,7 @@ main::
   RET
 
 .bb13:
+  LD A, RETURN
   LD r8#68, A
   LD r8#69, r8#68
   (out=r16#3;high_in=r8#55;low_in=r8#54)

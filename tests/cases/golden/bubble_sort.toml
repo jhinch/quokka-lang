@@ -1437,6 +1437,7 @@ main::
   JP .bb7
 
 .bb13:
+  LD A, RETURN
   LD r8#243, A
   LD r8#244, r8#243
   LD HL, SWAP_COUNT+$0000

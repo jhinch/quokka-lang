@@ -525,6 +525,7 @@ impl CodeGen {
             }
             mir::Instr::ReturnValue { target } => {
                 let r8 = lir.insert_ld_return_8(block);
+                let r8 = lir.insert_move_a(block, r8);
                 (*target, R1::R8(r8), mir::Condition::NotZero)
             }
             mir::Instr::Phi { target, .. } => (
@@ -860,6 +861,7 @@ impl CodeGen {
             }
             mir::Instr::ReturnValue { target } => {
                 let r8 = lir.insert_ld_return_8(block);
+                let r8 = lir.insert_move_a(block, r8);
                 (*target, r8)
             }
             mir::Instr::Phi { target, sources: _ } => (*target, locals.phi_r8s[target].0),
@@ -1051,7 +1053,10 @@ impl CodeGen {
                 (*target, high, low)
             }
             mir::Instr::ReturnValue { target } => {
-                let (high, low) = lir.insert_ld_return_16(block);
+                let r16 = lir.insert_ld_return_16(block);
+                let (high, low) = lir.insert_split(block, r16);
+                let low = lir.insert_ld8(block, low);
+                let high = lir.insert_ld8(block, high);
                 (*target, high, low)
             }
             mir::Instr::Phi { target, sources: _ } => {

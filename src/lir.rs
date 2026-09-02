@@ -1010,6 +1010,18 @@ pub enum Instr {
     /// This does not add any machine instructions on its own, it simply is used
     /// to convert a precolored carry flag into an unconstrained flag.
     MoveCarry { c: CarryId, c_in: CarryId },
+    /// Virtual instruction to load an 8-bit return value for a function call.
+    ///
+    /// The calling convention is for an 8-bit return value is to store the return value
+    /// in the `A` register. This instruction assists the register allocator have the correct
+    /// live range for the virtual register.
+    LdReturn8 { target: AId },
+    /// Virtual instruction to load an 16-bit return value for a function call.
+    ///
+    /// The calling convention is for an 16-bit return value is to store the return value
+    /// in the `HL` register. This instruction assists the register allocator have the correct
+    /// live range for the virtual register.
+    LdReturn16 { target: R16Id },
 }
 
 impl Instr {
@@ -1085,7 +1097,8 @@ impl Instr {
                 | Instr::Cpl { target, .. }
                 | Instr::Or { target, .. }
                 | Instr::Xor { target, .. }
-                | Instr::PopAF { target, .. } => match next {
+                | Instr::PopAF { target, .. }
+                | Instr::LdReturn8 { target, .. } => match next {
                     0 => Some(target.0),
                     _ => None,
                 },
@@ -1123,7 +1136,8 @@ impl Instr {
                 | Instr::LdSPE8 { .. }
                 | Instr::PushAF { .. }
                 | Instr::PushR16 { .. }
-                | Instr::PopR16 { .. } => None,
+                | Instr::PopR16 { .. }
+                | Instr::LdReturn16 { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1155,7 +1169,8 @@ impl Instr {
             | Instr::Inc16 { target, .. }
             | Instr::Join { target, .. }
             | Instr::Ld16 { target, .. }
-            | Instr::PopR16 { target, .. } => Some(*target),
+            | Instr::PopR16 { target, .. }
+            | Instr::LdReturn16 { target, .. } => Some(*target),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1207,7 +1222,8 @@ impl Instr {
             | Instr::AddSP { .. }
             | Instr::PushR16 { .. }
             | Instr::PushAF { .. }
-            | Instr::PopAF { .. } => None,
+            | Instr::PopAF { .. }
+            | Instr::LdReturn8 { .. } => None,
         }
     }
 
@@ -1276,7 +1292,9 @@ impl Instr {
             | Instr::PopR16 { .. }
             | Instr::Join { .. }
             | Instr::Split { .. }
-            | Instr::MoveCarry { .. } => None,
+            | Instr::MoveCarry { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 
@@ -1345,7 +1363,9 @@ impl Instr {
             | Instr::PopR16 { .. }
             | Instr::Join { .. }
             | Instr::Split { .. }
-            | Instr::MoveZero { .. } => None,
+            | Instr::MoveZero { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 
@@ -1456,7 +1476,9 @@ impl Instr {
                 | Instr::LdSPE8 { .. }
                 | Instr::PushR16 { .. }
                 | Instr::PopR16 { .. }
-                | Instr::PopAF { .. } => None,
+                | Instr::PopAF { .. }
+                | Instr::LdReturn8 { .. }
+                | Instr::LdReturn16 { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1561,7 +1583,9 @@ impl Instr {
                 | Instr::LdSPE8 { .. }
                 | Instr::PushAF { .. }
                 | Instr::PopR16 { .. }
-                | Instr::PopAF { .. } => None,
+                | Instr::PopAF { .. }
+                | Instr::LdReturn8 { .. }
+                | Instr::LdReturn16 { .. } => None,
             }?;
             next += 1;
             Some(r16)
@@ -1632,7 +1656,9 @@ impl Instr {
             | Instr::PopAF { .. }
             | Instr::Join { .. }
             | Instr::Split { .. }
-            | Instr::MoveCarry { .. } => None,
+            | Instr::MoveCarry { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 
@@ -1701,7 +1727,9 @@ impl Instr {
             | Instr::PopAF { .. }
             | Instr::PushR16 { .. }
             | Instr::PopR16 { .. }
-            | Instr::MoveZero { .. } => None,
+            | Instr::MoveZero { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. } => None,
         }
     }
 }
@@ -2328,6 +2356,12 @@ impl Instr {
                     c.display(lir, section),
                     c_in.display(lir, section)
                 )
+            }
+            Instr::LdReturn8 { target } => {
+                write!(f, "LD {}, RETURN", target.display(lir, section))
+            }
+            Instr::LdReturn16 { target } => {
+                write!(f, "LD {}, RETURN", target.display(lir, section))
             }
         })
     }
@@ -3794,39 +3828,16 @@ impl CodeSectionBuilder {
     }
 
     #[must_use]
-    pub fn insert_ld_return_8(&mut self, block: BlockId) -> R8Id {
-        let source = self.new_a();
-        let target = self.new_r8();
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target,
-                source: source.0,
-            },
-        );
+    pub fn insert_ld_return_8(&mut self, block: BlockId) -> AId {
+        let target = self.new_a();
+        self.insert_instr(block, Instr::LdReturn8 { target });
         target
     }
 
     #[must_use]
-    pub fn insert_ld_return_16(&mut self, block: BlockId) -> (R8Id, R8Id) {
-        let source_low = self.new_r8_precolored(Color::C);
-        let source_high = self.new_r8_precolored(Color::B);
-        let target_low = self.new_r8();
-        let target_high = self.new_r8();
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target: target_low,
-                source: source_low,
-            },
-        );
-        self.insert_instr(
-            block,
-            Instr::Ld8 {
-                target: target_high,
-                source: source_high,
-            },
-        );
-        (target_high, target_low)
+    pub fn insert_ld_return_16(&mut self, block: BlockId) -> R16Id {
+        let target = self.new_hl().0;
+        self.insert_instr(block, Instr::LdReturn16 { target });
+        target
     }
 }

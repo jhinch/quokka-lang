@@ -721,8 +721,10 @@ main::
   JP .bb3
 
 .bb10:
-  LD r8#123, C
-  LD r8#124, B
+  LD HL, RETURN
+  (high_out=H;low_out=L;in=HL)
+  LD r8#123, L
+  LD r8#124, H
   LD r8#125, r8#123
   LD r8#126, r8#124
   LD HL, RESULT+$0000

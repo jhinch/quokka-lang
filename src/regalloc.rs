@@ -1183,7 +1183,9 @@ fn rewrite_instruction(
         | Instr::AddSP { .. }
         | Instr::LdSPE8 { .. }
         | Instr::PopR16 { .. }
-        | Instr::PopAF { .. } => {}
+        | Instr::PopAF { .. }
+        | Instr::LdReturn8 { .. }
+        | Instr::LdReturn16 { .. } => {}
         Instr::Ld8 { source, .. }
         | Instr::Dec { source, .. }
         | Instr::Inc { source, .. }

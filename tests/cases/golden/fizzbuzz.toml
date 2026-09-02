@@ -1005,6 +1005,7 @@ main::
   RET
 
 .bb8:
+  LD A, RETURN
   LD r8#21, A
   LD r8#22, r8#21
   LD r8#23, $05
@@ -1014,6 +1015,7 @@ main::
   CALL x_mod_y; return=.bb9
 
 .bb9:
+  LD A, RETURN
   LD r8#26, A
   LD r8#27, r8#26
   LD r8#28, $00
@@ -1096,6 +1098,7 @@ main::
   RET
 
 .bb20:
+  LD A, RETURN
   LD r8#78, A
   LD r8#79, r8#78
   (out=r16#9;high_in=r8#65;low_in=r8#64)

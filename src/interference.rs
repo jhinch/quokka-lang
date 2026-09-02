@@ -772,6 +772,12 @@ fn restrict_from_instruction(
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*z_in), Color::z());
         }
+        Instr::LdReturn8 { target } => {
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+        }
+        Instr::LdReturn16 { target } => {
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16_ptr());
+        }
     }
 }
 

@@ -1192,8 +1192,10 @@ main::
   JP .bb3
 
 .bb11:
-  LD r8#163, C
-  LD r8#164, B
+  LD HL, RETURN
+  (high_out=H;low_out=L;in=HL)
+  LD r8#163, L
+  LD r8#164, H
   LD r8#165, r8#163
   LD r8#166, r8#164
   LD HL, FOUND_INDEX+$0000
