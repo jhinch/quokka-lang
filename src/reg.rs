@@ -391,3 +391,311 @@ macro_rules! bit_set_impl {
 
 bit_set_impl!(RegSet; Reg; RegSetIter);
 bit_set_impl!(ColorSet; Color; ColorSetIter);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALL_REGS: [Reg; 10] = [
+        Reg::A,
+        Reg::B,
+        Reg::C,
+        Reg::D,
+        Reg::E,
+        Reg::H,
+        Reg::L,
+        Reg::SP,
+        Reg::Fc,
+        Reg::Fz,
+    ];
+
+    const ALL_COLORS: [Color; 15] = [
+        Color::A,
+        Color::F,
+        Color::B,
+        Color::C,
+        Color::D,
+        Color::E,
+        Color::H,
+        Color::L,
+        Color::AF,
+        Color::BC,
+        Color::DE,
+        Color::HL,
+        Color::SP,
+        Color::Fz,
+        Color::Fc,
+    ];
+
+    #[test]
+    fn reg_to_u16_is_a_single_bit() {
+        for reg in ALL_REGS {
+            assert_eq!(u16::from(reg).count_ones(), 1, "{reg:?}");
+        }
+        assert_eq!(u16::from(Reg::A), 1);
+        assert_eq!(u16::from(Reg::SP), 1 << 7);
+        assert_eq!(u16::from(Reg::Fz), 1 << 9);
+    }
+
+    #[test]
+    fn reg_try_from_u16_round_trips() {
+        for reg in ALL_REGS {
+            assert_eq!(Reg::try_from(u16::from(reg)), Ok(reg), "{reg:?}");
+        }
+    }
+
+    #[test]
+    fn reg_try_from_u16_rejects_non_single_bit() {
+        assert_eq!(Reg::try_from(0), Err(()));
+        assert_eq!(Reg::try_from(0b11), Err(()));
+        assert_eq!(Reg::try_from(u16::MAX), Err(()));
+    }
+
+    #[test]
+    fn reg_try_from_u16_rejects_bit_outside_range() {
+        assert_eq!(Reg::try_from(1 << 10), Err(()));
+        assert_eq!(Reg::try_from(1 << 15), Err(()));
+    }
+
+    #[test]
+    fn color_try_from_u16_round_trips() {
+        for color in ALL_COLORS {
+            assert_eq!(Color::try_from(color as u16), Ok(color), "{color:?}");
+        }
+    }
+
+    #[test]
+    fn color_try_from_u16_rejects_invalid() {
+        assert_eq!(Color::try_from(0), Err(()));
+        assert_eq!(Color::try_from(0b101), Err(()));
+        assert_eq!(Color::try_from(1 << 15), Err(()));
+    }
+
+    #[test]
+    fn color_regs_single_register_mappings() {
+        assert_eq!(Color::A.regs(), RegSet::just(Reg::A));
+        assert_eq!(Color::B.regs(), RegSet::just(Reg::B));
+        assert_eq!(Color::L.regs(), RegSet::just(Reg::L));
+        assert_eq!(Color::SP.regs(), RegSet::just(Reg::SP));
+        assert_eq!(Color::Fz.regs(), RegSet::just(Reg::Fz));
+        assert_eq!(Color::Fc.regs(), RegSet::just(Reg::Fc));
+    }
+
+    #[test]
+    fn color_regs_composite_register_mappings() {
+        let f = Color::F.regs();
+        assert_eq!(f.len(), 2);
+        assert!(f.contains(Reg::Fz) && f.contains(Reg::Fc));
+
+        let bc = Color::BC.regs();
+        assert_eq!(bc.len(), 2);
+        assert!(bc.contains(Reg::B) && bc.contains(Reg::C));
+
+        let hl = Color::HL.regs();
+        assert_eq!(hl.len(), 2);
+        assert!(hl.contains(Reg::H) && hl.contains(Reg::L));
+
+        let af = Color::AF.regs();
+        assert_eq!(af.len(), 3);
+        assert!(af.contains(Reg::A) && af.contains(Reg::Fz) && af.contains(Reg::Fc));
+    }
+
+    #[test]
+    fn color_conflicts_when_registers_overlap() {
+        assert!(Color::A.conflicts(Color::A));
+        assert!(Color::A.conflicts(Color::AF));
+        assert!(Color::B.conflicts(Color::BC));
+        assert!(Color::C.conflicts(Color::BC));
+        assert!(Color::F.conflicts(Color::Fz));
+        assert!(Color::F.conflicts(Color::AF));
+        assert!(Color::HL.conflicts(Color::L));
+    }
+
+    #[test]
+    fn color_does_not_conflict_when_registers_are_disjoint() {
+        assert!(!Color::A.conflicts(Color::B));
+        assert!(!Color::A.conflicts(Color::F));
+        assert!(!Color::BC.conflicts(Color::DE));
+        assert!(!Color::HL.conflicts(Color::SP));
+        assert!(!Color::Fz.conflicts(Color::Fc));
+    }
+
+    #[test]
+    fn color_conflicts_is_symmetric() {
+        for a in ALL_COLORS {
+            for b in ALL_COLORS {
+                assert_eq!(a.conflicts(b), b.conflicts(a), "{a:?} vs {b:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn color_group_helpers_have_expected_members() {
+        assert_eq!(Color::acc(), ColorSet::just(Color::A));
+        assert_eq!(Color::r16_ptr(), ColorSet::just(Color::HL));
+        assert_eq!(Color::r8_high_ptr(), ColorSet::just(Color::C));
+        assert_eq!(Color::z(), ColorSet::just(Color::Fz));
+        assert_eq!(Color::c(), ColorSet::just(Color::Fc));
+
+        let expect = |set: ColorSet, members: &[Color]| {
+            assert_eq!(set.len(), members.len());
+            for &m in members {
+                assert!(set.contains(m), "{m:?}");
+            }
+        };
+
+        expect(
+            Color::r8(),
+            &[
+                Color::A,
+                Color::B,
+                Color::C,
+                Color::D,
+                Color::E,
+                Color::H,
+                Color::L,
+            ],
+        );
+        expect(Color::r8_low(), &[Color::F, Color::C, Color::E, Color::L]);
+        expect(Color::r8_high(), &[Color::A, Color::B, Color::D, Color::H]);
+        expect(Color::r16(), &[Color::BC, Color::DE, Color::HL]);
+        expect(
+            Color::r16_stack(),
+            &[Color::BC, Color::DE, Color::HL, Color::AF],
+        );
+        expect(Color::r16_ptr_ld(), &[Color::BC, Color::DE, Color::HL]);
+        expect(Color::flags(), &[Color::Fz, Color::Fc]);
+    }
+
+    #[test]
+    fn set_empty_has_no_members() {
+        let set = RegSet::empty();
+        assert!(set.is_empty());
+        assert_eq!(set.len(), 0);
+        assert_eq!(set.into_iter().count(), 0);
+    }
+
+    #[test]
+    fn set_just_holds_a_single_member() {
+        let set = RegSet::just(Reg::D);
+        assert!(!set.is_empty());
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(Reg::D));
+        assert!(!set.contains(Reg::E));
+        assert_eq!(set.into_iter().collect::<Vec<_>>(), vec![Reg::D]);
+    }
+
+    #[test]
+    fn set_insert_reports_whether_member_was_new() {
+        let mut set = ColorSet::empty();
+        assert!(set.insert(Color::B));
+        assert!(!set.insert(Color::B));
+        assert!(set.insert(Color::C));
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(Color::B) && set.contains(Color::C));
+    }
+
+    #[test]
+    fn set_remove_reports_whether_member_was_present() {
+        let mut set = ColorSet::empty();
+        set.insert(Color::B);
+        assert!(set.remove(Color::B));
+        assert!(!set.remove(Color::B));
+        assert!(!set.remove(Color::C));
+        assert!(set.is_empty());
+    }
+
+    #[test]
+    fn set_retain_keeps_only_matching_members() {
+        let mut set = RegSet::empty();
+        for reg in ALL_REGS {
+            set.insert(reg);
+        }
+        set.retain(|reg| matches!(reg, Reg::A | Reg::B | Reg::C));
+        assert_eq!(set.len(), 3);
+        assert!(set.contains(Reg::A) && set.contains(Reg::B) && set.contains(Reg::C));
+        assert!(!set.contains(Reg::D));
+    }
+
+    #[test]
+    fn set_bitand_is_intersection() {
+        let mut a = RegSet::empty();
+        a.insert(Reg::A);
+        a.insert(Reg::B);
+        a.insert(Reg::C);
+        let mut b = RegSet::empty();
+        b.insert(Reg::B);
+        b.insert(Reg::C);
+        b.insert(Reg::D);
+
+        let intersection = a.clone() & b.clone();
+        assert_eq!(intersection.len(), 2);
+        assert!(intersection.contains(Reg::B) && intersection.contains(Reg::C));
+
+        let mut assigned = a;
+        assigned &= b;
+        assert_eq!(assigned, intersection);
+    }
+
+    #[test]
+    fn set_bitor_is_union() {
+        let mut a = RegSet::empty();
+        a.insert(Reg::A);
+        a.insert(Reg::B);
+        let mut b = RegSet::empty();
+        b.insert(Reg::B);
+        b.insert(Reg::C);
+
+        let union = a.clone() | b.clone();
+        assert_eq!(union.len(), 3);
+        assert!(union.contains(Reg::A) && union.contains(Reg::B) && union.contains(Reg::C));
+
+        let mut assigned = a;
+        assigned |= b;
+        assert_eq!(assigned, union);
+    }
+
+    #[test]
+    fn set_iterates_members_in_ascending_bit_order() {
+        let mut set = ColorSet::empty();
+        set.insert(Color::HL);
+        set.insert(Color::A);
+        set.insert(Color::B);
+        assert_eq!(
+            set.into_iter().collect::<Vec<_>>(),
+            vec![Color::A, Color::B, Color::HL]
+        );
+    }
+
+    #[test]
+    fn set_iterates_over_every_member() {
+        let mut set = RegSet::empty();
+        for reg in ALL_REGS {
+            set.insert(reg);
+        }
+        let mut items = set.into_iter().collect::<Vec<_>>();
+        items.sort_by_key(|r| u16::from(*r));
+        let mut expected = ALL_REGS.to_vec();
+        expected.sort_by_key(|r| u16::from(*r));
+        assert_eq!(items, expected);
+    }
+
+    #[test]
+    fn set_debug_lists_members() {
+        let mut set = RegSet::empty();
+        set.insert(Reg::A);
+        set.insert(Reg::B);
+        assert_eq!(format!("{set:?}"), "{A, B}");
+        assert_eq!(format!("{:?}", RegSet::empty()), "{}");
+    }
+
+    #[test]
+    fn set_debug_alternate_shows_raw_bits() {
+        let mut set = RegSet::empty();
+        set.insert(Reg::A);
+        set.insert(Reg::C);
+        let rendered = format!("{set:#?}");
+        assert!(rendered.contains("RegSet"), "{rendered}");
+        assert!(rendered.contains("101"), "{rendered}");
+    }
+}
