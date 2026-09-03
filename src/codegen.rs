@@ -623,7 +623,21 @@ impl CodeGen {
                 };
                 (*target, R1::R8(r8), condition)
             }
-            mir::Instr::Read { .. } => todo!("{instruction:?}"),
+            mir::Instr::Read {
+                target,
+                source,
+                projections,
+            } => {
+                let (r8, bit) = self.projected_local_to_r8(
+                    *source,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                (*target, R1::Bit(r8, bit), mir::Condition::NotZero)
+            }
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (flag, condition) = locals.r1s[*source];
