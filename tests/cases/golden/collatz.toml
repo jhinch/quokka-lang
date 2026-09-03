@@ -106,7 +106,6 @@ Eof:
 [[case]]
 name = "parse"
 kind = "parser"
-preview_features = ["function-call", "loop", "if-else"]
 source.file = "collatz.q"
 expected_ast = """
 Root(
@@ -485,7 +484,6 @@ Root(
 [[case]]
 name = "analyze"
 kind = "analyzer"
-preview_features = ["function-call", "loop", "if-else"]
 source.file = "collatz.q"
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -545,7 +543,6 @@ main -> unit:
 [[case]]
 name = "optimize"
 kind = "analyzer"
-preview_features = ["function-call", "loop", "if-else"]
 optimize = true
 source.file = "collatz.q"
 expected_mir = """
@@ -606,7 +603,6 @@ main -> unit:
 [[case]]
 name = "codegen"
 kind = "codegen"
-preview_features = ["function-call", "loop", "if-else"]
 optimize = true
 source.file = "collatz.q"
 expected_lir = """
@@ -801,7 +797,6 @@ END_SECTION
 [[case]]
 name = "allocate_registers"
 kind = "codegen"
-preview_features = ["function-call", "loop", "if-else"]
 optimize = true
 allocate_registers = true
 source.file = "collatz.q"

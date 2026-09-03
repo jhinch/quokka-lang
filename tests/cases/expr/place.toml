@@ -19,7 +19,6 @@ Expr(
 name = "single_field_access"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 a.b
 """
@@ -40,7 +39,6 @@ Expr(
 name = "chained_field_access"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 a.b.c
 """
@@ -62,7 +60,6 @@ Expr(
 name = "field_access_within_arithmetic"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 a.b + c.d
 """
@@ -99,7 +96,6 @@ Expr(
 name = "assign_to_field"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 a.b = 1
 """
@@ -126,38 +122,9 @@ Expr(
 """
 
 [[case]]
-name = "index_without_preview_feature"
+name = "array_index"
 kind = "parser"
 entrypoint = "expr"
-source = """
-a[0]
-"""
-expected_errors = [
-    "Preview feature error: use --preview array @ [1:4]",
-]
-expected_ast = """
-Expr(
-  span: (0, 4),
-  data: Place(Place(
-    name: ("a", (0, 1)),
-    span: (0, 4),
-    projections: [
-      Index(Expr(
-        span: (2, 1),
-        data: Integer(IntegerLiteral(
-          value: 0,
-        )),
-      )),
-    ],
-  )),
-)
-"""
-
-[[case]]
-name = "index_with_preview_feature"
-kind = "parser"
-entrypoint = "expr"
-preview_features = ["array"]
 source = """
 a[0]
 """
@@ -183,7 +150,6 @@ Expr(
 name = "field_then_index"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array", "field-access"]
 source = """
 a.b[0]
 """
@@ -210,7 +176,6 @@ Expr(
 name = "index_then_field"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array", "field-access"]
 source = """
 a[0].b
 """
@@ -234,33 +199,9 @@ Expr(
 """
 
 [[case]]
-name = "field_access_without_preview"
-kind = "parser"
-entrypoint = "expr"
-source = """
-a.b
-"""
-expected_ast = """
-Expr(
-  span: (0, 3),
-  data: Place(Place(
-    name: ("a", (0, 1)),
-    span: (0, 3),
-    projections: [
-      Field(("b", (2, 1))),
-    ],
-  )),
-)
-"""
-expected_errors = [
-    "Preview feature error: use --preview field-access @ [1:3]",
-]
-
-[[case]]
 name = "index_on_literal_value"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
 source = """
 1[0]
 """
@@ -272,7 +213,6 @@ expected_errors = [
 name = "index_on_grouped_value"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
 source = """
 (1 + 2)[0]
 """
@@ -284,7 +224,6 @@ expected_errors = [
 name = "index_on_call_result"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array", "function-call"]
 source = """
 a()[0]
 """
@@ -296,7 +235,6 @@ expected_errors = [
 name = "field_access_on_literal_value"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 1.b
 """
@@ -308,7 +246,6 @@ expected_errors = [
 name = "field_access_on_grouped_value"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 (1 + 2).b
 """
@@ -320,7 +257,6 @@ expected_errors = [
 name = "field_access_on_call_result"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access", "function-call"]
 source = """
 a().b
 """

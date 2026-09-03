@@ -1,7 +1,6 @@
 [[case]]
 name = "if_condition_not_bool"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let x: u8 = 1;
@@ -17,7 +16,6 @@ expected_errors = [
 [[case]]
 name = "if_condition_bool_ok"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let c: u1 = 1;
@@ -42,7 +40,6 @@ main -> unit:
 [[case]]
 name = "if_without_else_yields_unit_ok"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let c: u1 = 1;
@@ -64,7 +61,6 @@ main -> unit:
 [[case]]
 name = "if_branches_mismatched_types"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let c: u1 = 1;
@@ -80,7 +76,6 @@ expected_errors = [
 [[case]]
 name = "if_branches_matching_types_ok"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let c: u1 = 1;
@@ -108,7 +103,6 @@ main -> unit:
 [[case]]
 name = "if_no_else_but_used_as_value"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn main() {
     let c: u1 = 1;
@@ -123,7 +117,6 @@ expected_errors = [
 [[case]]
 name = "if_true_branch_diverges_is_ok"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 fn foo() -> u8 {
     let c: u1 = 1;

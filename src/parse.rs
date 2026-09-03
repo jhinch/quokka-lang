@@ -435,8 +435,6 @@ impl Parser<'_> {
             self.expect(TokenKind::RightBracket)?;
             let end_span = self.lexer.current().unwrap().span();
             let span = span_between(start_span, end_span);
-            self.features
-                .check_enabled(PreviewFeature::Array, span, &mut self.result_builder);
 
             TyRef::array(span, name, count)
         } else {
@@ -632,7 +630,7 @@ impl Parser<'_> {
                     ExprData::from(Box::new(expr))
                 }
                 TokenKind::If => {
-                    let lhs_token = self.consume_token()?;
+                    self.chomp()?;
                     let condition = Box::new(self.parse_expr()?);
                     self.expect(TokenKind::Then)?;
                     let true_block = Box::new(self.parse_expr_or_block()?);
@@ -643,12 +641,6 @@ impl Parser<'_> {
                         None
                     };
 
-                    self.features.check_enabled(
-                        PreviewFeature::IfElse,
-                        lhs_token.span(),
-                        &mut self.result_builder,
-                    );
-
                     ExprData::from(If {
                         condition,
                         true_block,
@@ -656,13 +648,8 @@ impl Parser<'_> {
                     })
                 }
                 TokenKind::Loop => {
-                    let lhs_token = self.consume_token()?;
+                    self.chomp()?;
                     let body = self.parse_body()?;
-                    self.features.check_enabled(
-                        PreviewFeature::Loop,
-                        lhs_token.span(),
-                        &mut self.result_builder,
-                    );
                     ExprData::from(Loop { body })
                 }
                 TokenKind::Asm => {
@@ -797,11 +784,6 @@ impl Parser<'_> {
                             OpKind::FunctionCall => {
                                 let end_span = self.expect(TokenKind::RightParen)?.span();
                                 let span = span_between(op_token.span(), end_span);
-                                self.features.check_enabled(
-                                    PreviewFeature::FunctionCall,
-                                    span,
-                                    &mut self.result_builder,
-                                );
                                 match lhs.data {
                                     ExprData::Place(callee) => ExprData::from(Call { callee }),
                                     _ => return Err(Error::from(CallOnValueError { span })),
@@ -811,11 +793,6 @@ impl Parser<'_> {
                                 let index = Box::new(self.parse_expr()?);
                                 let end_span = self.expect(TokenKind::RightBracket)?.span();
                                 let span = span_between(op_token.span(), end_span);
-                                self.features.check_enabled(
-                                    PreviewFeature::Array,
-                                    span,
-                                    &mut self.result_builder,
-                                );
                                 match lhs.data {
                                     ExprData::Place(mut place) => {
                                         place.span = span_between(place.span, end_span);
@@ -828,11 +805,6 @@ impl Parser<'_> {
                             OpKind::FieldAccess => {
                                 let name = self.parse_identifier()?;
                                 let span = span_between(op_token.span(), name.span);
-                                self.features.check_enabled(
-                                    PreviewFeature::FieldAccess,
-                                    span,
-                                    &mut self.result_builder,
-                                );
                                 match lhs.data {
                                     ExprData::Place(mut place) => {
                                         place.span = span_between(place.span, span);

@@ -1,0 +1,140 @@
+# Tests for the `local-field-access` preview feature gate.
+#
+# Field access expressions are a full language feature when used on globals or
+# inside a const decl. Accessing a field of a *local* variable at runtime
+# (outside a const decl) additionally requires the `local-field-access` preview
+# feature.
+
+[[case]]
+name = "field_access_local_without_preview"
+kind = "analyzer"
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+fn main() {
+    let p = P;
+    let v: u8 = p.x;
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview local-field-access @ [90:91]",
+]
+
+[[case]]
+name = "field_access_local_with_preview"
+kind = "analyzer"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+fn main() {
+    let p = P;
+    let v: u8 = p.x;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global P: Point
+
+main -> unit:
+  .bb1:
+    p#1: Point = load P
+    v#2: u8 = read p#1.x
+    return
+"""
+
+[[case]]
+name = "assign_local_field_without_preview"
+kind = "analyzer"
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+fn main() {
+    let p = P;
+    p.x = 3;
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview local-field-access @ [78:79]",
+]
+
+[[case]]
+name = "assign_local_field_with_preview"
+kind = "analyzer"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+fn main() {
+    let p = P;
+    p.x = 3;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global P: Point
+
+main -> unit:
+  .bb1:
+    p#1: Point = load P
+    #2: u8 = copy 3
+    p#3: Point = write p#1.x = #2
+    return
+"""
+
+[[case]]
+name = "nested_field_access_local_without_preview"
+kind = "analyzer"
+source = """
+struct Inner { x: u8 }
+struct Outer { inner: Inner }
+global O: Outer;
+fn main() {
+    let o = O;
+    let v: u8 = o.inner.x;
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview local-field-access @ [113:114]",
+    "Preview feature error: use --preview local-field-access @ [115:120]",
+]
+
+[[case]]
+name = "field_access_global_without_preview_ok"
+kind = "analyzer"
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+fn main() {
+    let v: u8 = P.x;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global P: Point
+
+main -> unit:
+  .bb1:
+    v#1: u8 = load P.x
+    return
+"""
+
+[[case]]
+name = "field_access_local_in_const_decl_without_preview_ok"
+kind = "analyzer"
+source = """
+struct Point { x: u8, y: u8 }
+const A: u8 = {
+    let p: Point = Point { x: 7, y: 9 };
+    yield p.x;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [7]
+
+main -> unit:
+  .bb1:
+    return
+"""

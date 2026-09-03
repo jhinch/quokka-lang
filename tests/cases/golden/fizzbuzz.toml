@@ -181,7 +181,6 @@ Eof:
 [[case]]
 name = "parse"
 kind = "parser"
-preview_features = ["function-call", "loop", "if-else", "array"]
 source.file = "fizzbuzz.q"
 expected_ast = """
 Root(
@@ -811,7 +810,6 @@ Root(
 [[case]]
 name = "analyze"
 kind = "analyzer"
-preview_features = ["function-call", "loop", "if-else", "array"]
 source.file = "fizzbuzz.q"
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -915,7 +913,6 @@ main -> unit:
 [[case]]
 name = "optimize"
 kind = "analyzer"
-preview_features = ["function-call", "loop", "if-else", "array"]
 optimize = true
 source.file = "fizzbuzz.q"
 expected_mir = """
@@ -1020,7 +1017,6 @@ main -> unit:
 [[case]]
 name = "codegen"
 kind = "codegen"
-preview_features = ["function-call", "loop", "if-else", "array"]
 optimize = true
 source.file = "fizzbuzz.q"
 expected_lir = """
@@ -1242,7 +1238,6 @@ END_SECTION
 [[case]]
 name = "allocate_registers"
 kind = "codegen"
-preview_features = ["function-call", "loop", "if-else", "array"]
 optimize = true
 allocate_registers = true
 source.file = "fizzbuzz.q"

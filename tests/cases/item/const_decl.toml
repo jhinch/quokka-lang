@@ -269,7 +269,6 @@ expected_errors = [
 [[case]]
 name = "if_in_const"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = if 1 then 2 else 3;
 fn main() {}
@@ -286,7 +285,6 @@ main -> unit:
 [[case]]
 name = "if_else_false_in_const"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = if 0 then 2 else 3;
 fn main() {}
@@ -303,7 +301,6 @@ main -> unit:
 [[case]]
 name = "if_unit_in_const"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = {
     let a: u8 = 1;
@@ -326,7 +323,6 @@ main -> unit:
 [[case]]
 name = "if_else_unit_assigns_local_in_const"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = {
     let a: u8 = 1;
@@ -351,7 +347,6 @@ main -> unit:
 [[case]]
 name = "nested_if_in_const"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = if 1 then if 0 then 10 else 20 else 30;
 fn main() {}
@@ -368,7 +363,6 @@ main -> unit:
 [[case]]
 name = "if_else_const_dependency"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 const A: u8 = 5;
 const B: u8 = if 1 then A else 0;
@@ -388,7 +382,6 @@ main -> unit:
 [[case]]
 name = "loop_in_const"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 const A: u8 = loop {
     break 1;
@@ -402,7 +395,6 @@ expected_errors = [
 [[case]]
 name = "loop_unit_in_const"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 const A: u8 = {
     loop {
@@ -419,7 +411,6 @@ expected_errors = [
 [[case]]
 name = "call_in_const"
 kind = "analyzer"
-preview_features = ["function-call"]
 source = """
 const A: u8 = one();
 fn one() -> u8 { return 1; }

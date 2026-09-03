@@ -1600,6 +1600,14 @@ impl Analyzer {
         for part in &place.projections {
             let (new_projected_ty, new_place_span, new_block, projection) = match part {
                 ast::PlaceProjection::Field(field) => {
+                    if matches!(place_id, PlaceId::Variable(_)) && scopes.const_decl_scope.is_none()
+                    {
+                        self.features.check_enabled(
+                            PreviewFeature::LocalFieldAccess,
+                            place_span,
+                            &mut self.result_builder,
+                        );
+                    }
                     let field_ty = type_solver.check_field_access(field, place_span, projected_ty);
                     (
                         field_ty,
@@ -1609,6 +1617,14 @@ impl Analyzer {
                     )
                 }
                 ast::PlaceProjection::Index(index) => {
+                    if matches!(place_id, PlaceId::Variable(_)) && scopes.const_decl_scope.is_none()
+                    {
+                        self.features.check_enabled(
+                            PreviewFeature::LocalArray,
+                            place_span,
+                            &mut self.result_builder,
+                        );
+                    }
                     let (block, index_expr_ty, target) =
                         self.analyze_expr(index, block, mir, type_solver, scopes);
                     let item_ty = type_solver.check_array_index(

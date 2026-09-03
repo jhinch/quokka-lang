@@ -1,7 +1,6 @@
 [[case]]
 name = "field_access_on_global_ok"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Point {
     x: u8,
@@ -25,7 +24,6 @@ main -> unit:
 [[case]]
 name = "field_on_global_not_defined"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Point {
     x: u8,
@@ -42,7 +40,6 @@ expected_errors = [
 [[case]]
 name = "field_access_on_global_on_non_struct"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 global A: u8;
 fn main() {
@@ -56,7 +53,6 @@ expected_errors = [
 [[case]]
 name = "field_access_on_global_wrong_type_annotation"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Point {
     x: u8,
@@ -73,7 +69,7 @@ expected_errors = [
 [[case]]
 name = "field_access_on_local_ok"
 kind = "analyzer"
-preview_features = ["field-access"]
+preview_features = ["local-field-access"]
 source = """
 struct Point {
     x: u8,
@@ -99,7 +95,7 @@ main -> unit:
 [[case]]
 name = "field_on_local_not_defined"
 kind = "analyzer"
-preview_features = ["field-access"]
+preview_features = ["local-field-access"]
 source = """
 struct Point {
     x: u8,
@@ -117,7 +113,7 @@ expected_errors = [
 [[case]]
 name = "field_access_on_local_on_non_struct"
 kind = "analyzer"
-preview_features = ["field-access"]
+preview_features = ["local-field-access"]
 source = """
 fn main() {
     let a: u8 = 1;
@@ -131,7 +127,6 @@ expected_errors = [
 [[case]]
 name = "field_access_on_local_wrong_type_annotation"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Point {
     x: u8,

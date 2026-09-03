@@ -57,7 +57,6 @@ main -> unit:
 [[case]]
 name = "array_of_u2_requires_narrow_int_even_with_array_enabled"
 kind = "analyzer"
-preview_features = [ "array" ]
 source = """
 global A: [u2; 3];
 fn main() {}

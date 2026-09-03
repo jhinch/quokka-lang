@@ -1,47 +1,11 @@
 [[case]]
-name = "without_preview"
+name = "array_field"
 kind = "parser"
 source = """
 struct Name {
     field: [u8; 3],
 }
 """
-expected_errors = [
-    "Preview feature error: use --preview array @ [25:32]",
-]
-expected_ast = """
-Root(
-  items: [
-    Item(
-      data: StructDecl(StructDecl(
-        name: ("Name", (7, 4)),
-        fields: [
-          FieldDecl(
-            name: ("field", (18, 5)),
-            ty: TyRef(
-              span: (25, 7),
-              data: Array(TyRef(
-                span: (26, 2),
-                data: Simple(("u8", (26, 2))),
-              ), 3),
-            ),
-          ),
-        ],
-      )),
-    ),
-  ],
-)
-"""
-
-[[case]]
-name = "with_preview"
-kind = "parser"
-source = """
-struct Name {
-    field: [u8; 3],
-}
-"""
-preview_features = [ "array" ]
 expected_ast = """
 Root(
   items: [
@@ -74,7 +38,6 @@ struct Name {
     field: [[u8; 8]; 16],
 }
 """
-preview_features = [ "array" ]
 expected_ast = """
 Root(
   items: [

@@ -7,16 +7,10 @@ use std::fmt;
 pub enum PreviewFeature {
     /// example preview feature only used for tests. Provides no meaningful functionally
     ExamplePreview,
-    /// enable use of arrays in types and expressions
-    Array,
-    /// enable use of fields in expressions
-    FieldAccess,
-    /// enable function calls in expressions
-    FunctionCall,
-    /// enable loop block expressions
-    Loop,
-    /// enable if else expressions
-    IfElse,
+    /// enable use of array types and index access expressions on local variables at runtime.
+    LocalArray,
+    /// enable use of field access expressions on local variables at runtime.
+    LocalFieldAccess,
     /// enable ASM block expressions
     InlineAsm,
     /// enable custom entrypoint attribute support
@@ -201,22 +195,28 @@ mod tests {
 
     #[test]
     fn from_iter_enables_all_features() {
-        let set: PreviewFeatureSet = [PreviewFeature::Array, PreviewFeature::FieldAccess]
-            .into_iter()
-            .collect();
-        assert!(set.is_enabled(PreviewFeature::Array));
-        assert!(set.is_enabled(PreviewFeature::FieldAccess));
-        assert!(!set.is_enabled(PreviewFeature::Loop));
+        let set: PreviewFeatureSet = [
+            PreviewFeature::ExamplePreview,
+            PreviewFeature::NoStartupCode,
+        ]
+        .into_iter()
+        .collect();
+        assert!(set.is_enabled(PreviewFeature::ExamplePreview));
+        assert!(set.is_enabled(PreviewFeature::NoStartupCode));
+        assert!(!set.is_enabled(PreviewFeature::CustomEntrypoint));
     }
 
     #[test]
     fn extend_adds_features_without_duplicates() {
         let mut set = PreviewFeatureSet::default();
-        set.enable(PreviewFeature::Array);
-        set.extend([PreviewFeature::Array, PreviewFeature::Loop]);
+        set.enable(PreviewFeature::ExamplePreview);
+        set.extend([
+            PreviewFeature::ExamplePreview,
+            PreviewFeature::NoStartupCode,
+        ]);
         assert_eq!(set.features.len(), 2);
-        assert!(set.is_enabled(PreviewFeature::Array));
-        assert!(set.is_enabled(PreviewFeature::Loop));
+        assert!(set.is_enabled(PreviewFeature::ExamplePreview));
+        assert!(set.is_enabled(PreviewFeature::NoStartupCode));
     }
 
     #[test]

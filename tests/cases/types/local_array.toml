@@ -1,0 +1,139 @@
+# Tests for the `local-array` preview feature gate.
+#
+# Array types and array index expressions are full language features when used
+# on globals or inside a const decl. Indexing a *local* variable at runtime
+# (outside a const decl) additionally requires the `local-array` preview
+# feature.
+
+[[case]]
+name = "index_local_without_preview"
+kind = "analyzer"
+source = """
+global A: [u8; 2];
+fn main() {
+    let a = A;
+    let v: u8 = a[0];
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview local-array @ [62:63]",
+]
+
+[[case]]
+name = "index_local_with_preview"
+kind = "analyzer"
+preview_features = ["local-array"]
+source = """
+global A: [u8; 2];
+fn main() {
+    let a = A;
+    let v: u8 = a[0];
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: [u8; 2]
+
+main -> unit:
+  .bb1:
+    a#1: [u8; 2] = load A
+    #2: u16 = copy 0
+    v#3: u8 = read a#1[#2]
+    return
+"""
+
+[[case]]
+name = "assign_local_index_without_preview"
+kind = "analyzer"
+source = """
+global A: [u8; 2];
+fn main() {
+    let a = A;
+    a[0] = 5;
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview local-array @ [50:51]",
+]
+
+[[case]]
+name = "assign_local_index_with_preview"
+kind = "analyzer"
+preview_features = ["local-array"]
+source = """
+global A: [u8; 2];
+fn main() {
+    let a = A;
+    a[0] = 5;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: [u8; 2]
+
+main -> unit:
+  .bb1:
+    a#1: [u8; 2] = load A
+    #2: u16 = copy 0
+    #3: u8 = copy 5
+    a#4: [u8; 2] = write a#1[#2] = #3
+    return
+"""
+
+[[case]]
+name = "index_global_without_preview_ok"
+kind = "analyzer"
+source = """
+global A: [u8; 2];
+fn main() {
+    let v: u8 = A[0];
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: [u8; 2]
+
+main -> unit:
+  .bb1:
+    #1: u16 = copy 0
+    v#2: u8 = load A[#1]
+    return
+"""
+
+[[case]]
+name = "index_local_in_const_decl_without_preview_ok"
+kind = "analyzer"
+source = """
+const A: u8 = {
+    let a: [u8; 2] = [1, 2];
+    yield a[1];
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [2]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "array_typed_local_without_index_ok"
+kind = "analyzer"
+source = """
+global A: [u8; 2];
+fn main() {
+    let a: [u8; 2] = A;
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global A: [u8; 2]
+
+main -> unit:
+  .bb1:
+    a#1: [u8; 2] = load A
+    return
+"""

@@ -2,7 +2,6 @@
 name = "empty_if"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then {
 }
@@ -33,7 +32,6 @@ Expr(
 name = "empty_if_else"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then {
 } else {
@@ -71,7 +69,6 @@ Expr(
 name = "let_if_else"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then 2 else 3
 """
@@ -105,7 +102,6 @@ Expr(
 name = "if_without_block_no_else"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then 2
 """
@@ -134,7 +130,6 @@ Expr(
 name = "nested_if_in_condition"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if if 1 then 2 else 3 then 4 else 5
 """
@@ -185,7 +180,6 @@ Expr(
 name = "mixed_block_and_without_block_branches"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then 2 else { yield 3; }
 """
@@ -232,7 +226,6 @@ Expr(
 name = "if_with_block_statements"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 then {
     let x = 1;
@@ -310,7 +303,6 @@ Expr(
 name = "if_as_statement_without_semicolon"
 kind = "parser"
 entrypoint = "item"
-preview_features = ["if-else"]
 source = """
 fn main() {
     if 1 then {
@@ -367,7 +359,6 @@ Item(
 name = "expr_statement_proceeding_if_block"
 kind = "parser"
 entrypoint = "item"
-preview_features = ["if-else"]
 source = """
 fn main() {
     if 1 then {
@@ -441,7 +432,6 @@ Item(
 name = "missing_then_keyword"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if 1 {
 }
@@ -454,7 +444,6 @@ expected_errors = [
 name = "missing_condition"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["if-else"]
 source = """
 if then 1
 """
@@ -463,45 +452,8 @@ expected_errors = [
 ]
 
 [[case]]
-name = "if_without_preview"
-kind = "parser"
-entrypoint = "expr"
-source = """
-if 1 then 2 else 3
-"""
-expected_errors = [
-    "Preview feature error: use --preview if-else @ [0:2]",
-]
-expected_ast = """
-Expr(
-  span: (0, 18),
-  data: If(If(
-    condition: Expr(
-      span: (3, 1),
-      data: Integer(IntegerLiteral(
-        value: 1,
-      )),
-    ),
-    true_block: Expr(
-      span: (10, 1),
-      data: Integer(IntegerLiteral(
-        value: 2,
-      )),
-    ),
-    false_block: Some(Expr(
-      span: (17, 1),
-      data: Integer(IntegerLiteral(
-        value: 3,
-      )),
-    )),
-  )),
-)
-"""
-
-[[case]]
 name = "true_branch_returns_no_else"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -559,7 +511,6 @@ main -> unit:
 [[case]]
 name = "true_branch_returns_with_else_fallthrough"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -622,7 +573,6 @@ main -> unit:
 [[case]]
 name = "both_branches_return"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -681,7 +631,6 @@ main -> unit:
 [[case]]
 name = "value_producing_if_true_branch_returns"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -746,7 +695,6 @@ main -> unit:
 [[case]]
 name = "value_producing_if_false_branch_returns"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -811,7 +759,6 @@ main -> unit:
 [[case]]
 name = "nested_if_inner_diverges"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -880,7 +827,6 @@ main -> unit:
 [[case]]
 name = "yield_of_phi_shares_local_with_never_sibling_wrong_type"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 
@@ -943,7 +889,6 @@ main -> unit:
 [[case]]
 name = "yield_of_nested_if_expr"
 kind = "analyzer"
-preview_features = ["if-else"]
 source = """
 global N: u8;
 

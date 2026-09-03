@@ -68,22 +68,25 @@ mod tests {
 
     #[test]
     fn parses_single_preview_feature_short_flag() {
-        let cmd = parse(&["-p", "array", "file.q"]).unwrap();
-        assert_eq!(cmd.preview_features, vec![PreviewFeature::Array]);
+        let cmd = parse(&["-p", "example-preview", "file.q"]).unwrap();
+        assert_eq!(cmd.preview_features, vec![PreviewFeature::ExamplePreview]);
     }
 
     #[test]
     fn parses_single_preview_feature_long_flag() {
-        let cmd = parse(&["--preview", "loop", "file.q"]).unwrap();
-        assert_eq!(cmd.preview_features, vec![PreviewFeature::Loop]);
+        let cmd = parse(&["--preview", "example-preview", "file.q"]).unwrap();
+        assert_eq!(cmd.preview_features, vec![PreviewFeature::ExamplePreview]);
     }
 
     #[test]
     fn parses_multiple_preview_features_via_repeated_flag() {
-        let cmd = parse(&["-p", "array", "-p", "loop", "file.q"]).unwrap();
+        let cmd = parse(&["-p", "example-preview", "-p", "no-startup-code", "file.q"]).unwrap();
         assert_eq!(
             cmd.preview_features,
-            vec![PreviewFeature::Array, PreviewFeature::Loop]
+            vec![
+                PreviewFeature::ExamplePreview,
+                PreviewFeature::NoStartupCode
+            ]
         );
     }
 
@@ -94,8 +97,8 @@ mod tests {
 
     #[test]
     fn preview_feature_value_is_kebab_case() {
-        let cmd = parse(&["-p", "field-access", "file.q"]).unwrap();
-        assert_eq!(cmd.preview_features, vec![PreviewFeature::FieldAccess]);
+        let cmd = parse(&["-p", "example-preview", "file.q"]).unwrap();
+        assert_eq!(cmd.preview_features, vec![PreviewFeature::ExamplePreview]);
     }
 
     #[test]

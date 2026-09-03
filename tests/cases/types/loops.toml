@@ -1,7 +1,6 @@
 [[case]]
 name = "infinite_loop_as_fn_body_satisfies_non_unit_return_ty"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn foo() -> u8 {
     loop {
@@ -19,7 +18,6 @@ foo -> u8:
 [[case]]
 name = "code_after_infinite_loop_statement_is_unreachable"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     loop {
@@ -34,7 +32,6 @@ expected_errors = [
 [[case]]
 name = "loop_with_break_value_used_by_let"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     let x: u8 = 1;
@@ -59,7 +56,6 @@ main -> unit:
 [[case]]
 name = "loop_break_type_mismatch_across_multiple_breaks"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 fn main() {
     let x: u8 = 1;
@@ -79,7 +75,6 @@ expected_errors = [
 [[case]]
 name = "nested_loop_break_targets_innermost_loop"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     let x: u8 = 1;
@@ -116,7 +111,6 @@ main -> unit:
 [[case]]
 name = "loop_without_break_used_as_value_is_never"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     let r: u8 = loop {

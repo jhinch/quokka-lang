@@ -513,7 +513,6 @@ expected_errors = [
 name = "struct_expr_as_field_access_target"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 Foo { a: 1 }.a
 """
@@ -820,7 +819,6 @@ main -> unit:
 [[case]]
 name = "const_struct_field_write_and_read_valid"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Point {
     x: u8,
@@ -845,7 +843,6 @@ main -> unit:
 [[case]]
 name = "const_nested_struct_field_write_and_read_valid"
 kind = "analyzer"
-preview_features = ["field-access"]
 source = """
 struct Inner {
     value: u8,

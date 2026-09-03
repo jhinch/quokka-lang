@@ -49,7 +49,6 @@ expected_errors = [
 [[case]]
 name = "break_with_value_from_unit_loop"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     loop {

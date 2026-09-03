@@ -2,7 +2,6 @@
 name = "if_with_block_no_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 if 1 then {
 } else {
@@ -45,7 +44,6 @@ Statement(
 name = "if_with_block_optional_trailing_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 if 1 then {
 } else {
@@ -59,7 +57,6 @@ expected_errors = [
 name = "if_with_block_no_else_no_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 if 1 then {
 }
@@ -95,7 +92,6 @@ Statement(
 name = "if_without_block_requires_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 if 1 then 2 else 3
 """
@@ -107,7 +103,6 @@ expected_errors = [
 name = "loop_no_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["loop"]
 source = """
 loop {
 }
@@ -133,7 +128,6 @@ Statement(
 name = "loop_with_optional_trailing_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["loop"]
 source = """
 loop {
 };
@@ -146,7 +140,6 @@ expected_errors = [
 name = "if_statement_followed_by_another_statement_without_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else", "loop"]
 source = """
 loop {
     if 1 then {
@@ -230,7 +223,6 @@ Statement(
 name = "loop_statement_followed_by_another_statement_without_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else", "loop"]
 source = """
 if 1 then {
     loop {
@@ -313,7 +305,6 @@ Statement(
 name = "if_statement_followed_by_loop_statement_without_semicolons"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else", "loop"]
 source = """
 loop {
     if 1 then {
@@ -400,7 +391,6 @@ Statement(
 name = "nested_loop_inside_if_block_followed_by_statement_without_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else", "loop"]
 source = """
 if 1 then {
     loop {
@@ -465,7 +455,6 @@ Statement(
 name = "expr_statement_still_requires_semicolon_when_not_ending_in_block"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 if 1 then {
     1 + 2

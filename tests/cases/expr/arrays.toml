@@ -600,30 +600,16 @@ expected_errors = [
 name = "array_literal_indexed"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
 source = """
 [1, 2, 3][0]
 """
 expected_errors = [
-    "Syntax error: array index requires array @ [9:12]",
-]
-
-[[case]]
-name = "array_literal_index_without_preview_feature"
-kind = "parser"
-entrypoint = "expr"
-source = """
-[1, 2, 3][0]
-"""
-expected_errors = [
-    "Preview feature error: use --preview array @ [9:12]",
     "Syntax error: array index requires array @ [9:12]",
 ]
 
 [[case]]
 name = "analyzer_array_expr_with_all_type_annotations"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let a: u8 = 1;
@@ -642,7 +628,6 @@ main -> unit:
 [[case]]
 name = "analyzer_array_expr_inferred_item"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let a: [u8; 1] = [1];
@@ -660,7 +645,6 @@ main -> unit:
 [[case]]
 name = "analyzer_array_expr_inferred_ty"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let a: u8 = 1;
@@ -679,7 +663,6 @@ main -> unit:
 [[case]]
 name = "analyzer_array_expr_size_mismatch"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let a: u8 = 1;
@@ -693,7 +676,6 @@ expected_errors = [
 [[case]]
 name = "analyzer_array_expr_size_mismatch_with_inferred_item_ty"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let b: [u8; 2] = [1];
@@ -706,7 +688,6 @@ expected_errors = [
 [[case]]
 name = "analyzer_repeat_expr_size_mismatch"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let a: u8 = 1;
@@ -720,7 +701,6 @@ expected_errors = [
 [[case]]
 name = "analyzer_repeat_expr_size_mismatch_with_inferred_item_ty"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 fn main() {
     let b: [u8; 2] = [1; 1];
@@ -733,7 +713,6 @@ expected_errors = [
 [[case]]
 name = "analyzer_array_expr_in_const_decl"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 const A: [u8; 4] = [1, 2, 3, 4];
 fn main() {}
@@ -750,7 +729,6 @@ main -> unit:
 [[case]]
 name = "analyzer_array_expr_in_const_decl_with_inferred_local"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 const A: [u8; 3] = {
     yield [1, 2, 3];
@@ -769,7 +747,6 @@ main -> unit:
 [[case]]
 name = "analyzer_repeat_expr_in_const_decl"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 const A: [u8; 4] = [1; 4];
 fn main() {}
@@ -786,7 +763,6 @@ main -> unit:
 [[case]]
 name = "analyzer_repeat_expr_in_const_decl_with_inferred_local"
 kind = "analyzer"
-preview_features = ["array"]
 source = """
 const A: [u8; 3] = {
     yield [2; 3];

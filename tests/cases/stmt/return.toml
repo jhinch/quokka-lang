@@ -73,7 +73,6 @@ Statement(
 name = "if_without_block_value"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 return if 1 then 2 else 3;
 """
@@ -112,7 +111,6 @@ Statement(
 name = "if_with_block_value_still_requires_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 return if 1 then {
     yield 2;
@@ -181,7 +179,6 @@ Statement(
 name = "loop_value_still_requires_semicolon"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["loop"]
 source = """
 return loop {
     break 1;

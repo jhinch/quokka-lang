@@ -142,7 +142,6 @@ Expr(
 name = "unary_before_field_access"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["field-access"]
 source = """
 -a.b
 """
@@ -169,7 +168,6 @@ Expr(
 name = "unary_before_function_call"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["function-call"]
 source = """
 -a()
 """
@@ -195,7 +193,6 @@ Expr(
 name = "unary_before_array_index"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["array"]
 source = """
 -a[0]
 """

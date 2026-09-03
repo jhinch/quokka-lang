@@ -128,7 +128,6 @@ Root(
 [[case]]
 name = "fn_with_attribute"
 kind = "parser"
-preview_features = ["if-else", "loop"]
 source = """
 #[no_startup_code]
 fn main() -> never {
@@ -181,7 +180,6 @@ Root(
 [[case]]
 name = "fn_with_multiple_attributes"
 kind = "parser"
-preview_features = ["loop"]
 source = """
 #[no_startup_code]
 #[entrypoint]
@@ -239,7 +237,6 @@ Root(
 [[case]]
 name = "fn_with_top_level_yield"
 kind = "analyzer"
-preview_features = ["function-call"]
 source = """
 fn get_one() -> u8 {
     yield 1;
@@ -268,7 +265,6 @@ expected_errors = [
 [[case]]
 name = "fn_with_top_level_break_with_expr"
 kind = "analyzer"
-preview_features = ["function-call"]
 source = """
 fn get_one() -> u8 {
     break 1;

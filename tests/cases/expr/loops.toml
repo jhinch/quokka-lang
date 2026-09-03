@@ -2,7 +2,6 @@
 name = "empty_loop"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {}
 """
@@ -22,7 +21,6 @@ Expr(
 name = "loop_with_break"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {
     break;
@@ -49,7 +47,6 @@ Expr(
 name = "loop_with_break_value"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {
     break 1;
@@ -83,7 +80,6 @@ Expr(
 name = "loop_with_continue"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {
     continue;
@@ -110,7 +106,6 @@ Expr(
 name = "loop_with_yield"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {
     yield 1;
@@ -143,7 +138,6 @@ Expr(
 [[case]]
 name = "loop_with_yield_fails_analysis"
 kind = "analyzer"
-preview_features = ["loop"]
 source = """
 fn main() {
     loop {
@@ -159,7 +153,6 @@ expected_errors = [
 name = "nested_loop"
 kind = "parser"
 entrypoint = "expr"
-preview_features = ["loop"]
 source = """
 loop {
     loop {
@@ -211,31 +204,8 @@ expected_errors = [
 ]
 
 [[case]]
-name = "loop_without_preview"
-kind = "parser"
-entrypoint = "expr"
-source = """
-loop {}
-"""
-expected_errors = [
-    "Preview feature error: use --preview loop @ [0:4]",
-]
-expected_ast = """
-Expr(
-  span: (0, 7),
-  data: Loop(Loop(
-    body: Block(
-      span: (5, 2),
-      statements: [],
-    ),
-  )),
-)
-"""
-
-[[case]]
 name = "loop_break_via_if_no_else"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -279,7 +249,6 @@ f -> u8:
 [[case]]
 name = "loop_multiple_phi_vars_break_via_if"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -328,7 +297,6 @@ f -> u8:
 [[case]]
 name = "loop_if_else_both_diverge"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -371,7 +339,6 @@ f -> u8:
 [[case]]
 name = "loop_continue_via_if_no_else"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -429,7 +396,6 @@ f -> u8:
 [[case]]
 name = "loop_return_via_if_no_else"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -470,7 +436,6 @@ f -> u8:
 [[case]]
 name = "loop_break_with_value_via_if"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 
@@ -515,7 +480,6 @@ f -> u8:
 [[case]]
 name = "nested_loop_inner_break_via_if"
 kind = "analyzer"
-preview_features = ["loop", "if-else"]
 source = """
 global N: u8;
 

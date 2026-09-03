@@ -145,7 +145,6 @@ Statement(
 name = "function_call"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["function-call"]
 source = """
 foo();
 """
@@ -170,7 +169,6 @@ Statement(
 name = "field_access"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["field-access"]
 source = """
 a.b;
 """
@@ -196,7 +194,6 @@ Statement(
 name = "array_index"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["array"]
 source = """
 a[0];
 """

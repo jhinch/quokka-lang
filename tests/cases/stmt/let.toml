@@ -170,7 +170,6 @@ Statement(
 name = "if_without_block_value"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 let x = if 1 then 2 else 3;
 """
@@ -210,7 +209,6 @@ Statement(
 name = "if_with_block_value"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["if-else"]
 source = """
 let x = if 1 then {
     yield 2;
@@ -280,7 +278,6 @@ Statement(
 name = "loop_value"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["loop"]
 source = """
 let x = loop {
     break 1;
@@ -320,7 +317,6 @@ Statement(
 name = "function_call_value"
 kind = "parser"
 entrypoint = "statement"
-preview_features = ["function-call"]
 source = """
 let x = foo();
 """
