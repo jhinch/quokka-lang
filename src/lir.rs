@@ -1019,7 +1019,7 @@ pub enum Instr {
     /// Virtual instruction to load an 16-bit return value for a function call.
     ///
     /// The calling convention is for an 16-bit return value is to store the return value
-    /// in the `HL` register. This instruction assists the register allocator have the correct
+    /// in the `BC` register. This instruction assists the register allocator have the correct
     /// live range for the virtual register.
     LdReturn16 { target: R16Id },
 }
@@ -3836,7 +3836,7 @@ impl CodeSectionBuilder {
 
     #[must_use]
     pub fn insert_ld_return_16(&mut self, block: BlockId) -> R16Id {
-        let target = self.new_hl().0;
+        let target = self.new_bc();
         self.insert_instr(block, Instr::LdReturn16 { target });
         target
     }

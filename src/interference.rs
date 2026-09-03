@@ -764,9 +764,9 @@ fn restrict_from_instruction(
             low,
             source: r16,
         } => {
-            graph.constrain_colors_to(VirtualReg::from(*low), Color::r8());
-            graph.constrain_colors_to(VirtualReg::from(*high), Color::r8());
-            graph.constrain_colors_to(VirtualReg::from(*r16), Color::r16());
+            graph.constrain_colors_to(VirtualReg::from(*low), Color::r8_low());
+            graph.constrain_colors_to(VirtualReg::from(*high), Color::r8_high());
+            graph.constrain_colors_to(VirtualReg::from(*r16), Color::r16_stack());
         }
         Instr::MoveZero { z, z_in } => {
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
@@ -776,7 +776,7 @@ fn restrict_from_instruction(
             graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
         }
         Instr::LdReturn16 { target } => {
-            graph.constrain_colors_to(VirtualReg::from(*target), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*target), ColorSet::just(Color::BC));
         }
     }
 }

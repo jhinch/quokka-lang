@@ -655,10 +655,10 @@ main::
   JP .bb3
 
 .bb9:
-  LD HL, RETURN
-  (high_out=H;low_out=L;in=HL)
-  LD r8#77, L
-  LD r8#78, H
+  LD BC, RETURN
+  (high_out=B;low_out=C;in=BC)
+  LD r8#77, C
+  LD r8#78, B
   LD r8#79, r8#77
   LD r8#80, r8#78
   LD HL, RESULT+$0000
@@ -771,9 +771,9 @@ main::
 
 .bb9:
   LD HL, RESULT+$0000
-  LD A, L
+  LD A, C
   LD [HL++], A
-  LD [HL], H
+  LD [HL], B
   RET
 
 END_SECTION

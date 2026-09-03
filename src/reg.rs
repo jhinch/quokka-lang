@@ -49,19 +49,20 @@ impl TryFrom<u16> for Reg {
 #[repr(u16)]
 pub enum Color {
     A = 1 << 0,
-    B = 1 << 1,
-    C = 1 << 2,
-    D = 1 << 3,
-    E = 1 << 4,
-    H = 1 << 5,
-    L = 1 << 6,
-    AF = 1 << 7,
-    BC = 1 << 8,
-    DE = 1 << 9,
-    HL = 1 << 10,
-    SP = 1 << 11,
-    Fz = 1 << 12,
-    Fc = 1 << 13,
+    F = 1 << 1,
+    B = 1 << 2,
+    C = 1 << 3,
+    D = 1 << 4,
+    E = 1 << 5,
+    H = 1 << 6,
+    L = 1 << 7,
+    AF = 1 << 8,
+    BC = 1 << 9,
+    DE = 1 << 10,
+    HL = 1 << 11,
+    SP = 1 << 12,
+    Fz = 1 << 13,
+    Fc = 1 << 14,
 }
 
 impl TryFrom<u16> for Color {
@@ -73,19 +74,20 @@ impl TryFrom<u16> for Color {
         }
         Ok(match value.trailing_zeros() {
             0 => Color::A,
-            1 => Color::B,
-            2 => Color::C,
-            3 => Color::D,
-            4 => Color::E,
-            5 => Color::H,
-            6 => Color::L,
-            7 => Color::AF,
-            8 => Color::BC,
-            9 => Color::DE,
-            10 => Color::HL,
-            11 => Color::SP,
-            12 => Color::Fz,
-            13 => Color::Fc,
+            1 => Color::F,
+            2 => Color::B,
+            3 => Color::C,
+            4 => Color::D,
+            5 => Color::E,
+            6 => Color::H,
+            7 => Color::L,
+            8 => Color::AF,
+            9 => Color::BC,
+            10 => Color::DE,
+            11 => Color::HL,
+            12 => Color::SP,
+            13 => Color::Fz,
+            14 => Color::Fc,
             _ => return Err(()),
         })
     }
@@ -116,6 +118,7 @@ impl Color {
     #[must_use]
     pub const fn r8_low() -> ColorSet {
         let mut set = ColorSet::empty();
+        set.insert(Color::F);
         set.insert(Color::C);
         set.insert(Color::E);
         set.insert(Color::L);
@@ -126,6 +129,7 @@ impl Color {
     #[must_use]
     pub const fn r8_high() -> ColorSet {
         let mut set = ColorSet::empty();
+        set.insert(Color::A);
         set.insert(Color::B);
         set.insert(Color::D);
         set.insert(Color::H);
@@ -202,6 +206,12 @@ impl Color {
     pub const fn regs(self) -> RegSet {
         match self {
             Color::A => RegSet::just(Reg::A),
+            Color::F => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::Fz);
+                set.insert(Reg::Fc);
+                set
+            }
             Color::B => RegSet::just(Reg::B),
             Color::C => RegSet::just(Reg::C),
             Color::D => RegSet::just(Reg::D),
