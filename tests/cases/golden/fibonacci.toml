@@ -1019,25 +1019,30 @@ main::
 .bb4:
   LD B, $01
   ADD A, B; z, c
-  LD A, $00
-  LD A, $01
-  LD A, $02
+  LD B, A
+  LD C, $00
+  LD E, $01
+  LD D, $02
   JP .bb5
 
 .bb5:
-  LD B, A
-  CP A, B; z, c
-  LD B, A
+  LD H, B
+  LD A, D
+  CP A, H; z, c
+  LD A, C
+  LD C, E
   JP nc, .bb6; else=.bb7
 
 .bb6:
   JP .bb8
 
 .bb7:
-  ADD A, B; z, c
-  LD C, $01
   ADD A, C; z, c
-  LD A, B
+  LD E, A
+  LD H, $01
+  LD A, D
+  ADD A, H; z, c
+  LD D, A
   JP .bb5
 
 .bb8:
@@ -1086,11 +1091,12 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, B; z, z
   LD E, A
-  LD B, A
+  LD B, C
   LD C, $01
   LD A, D
   ADD A, C; z, c

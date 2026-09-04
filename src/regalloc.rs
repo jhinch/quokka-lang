@@ -239,7 +239,7 @@ impl RegAllocator {
         let permitted_b = self.graph.permitted_colors(b);
         let merged = permitted_a & permitted_b;
 
-        if self.george_test(a, b, &merged) || self.briggs_test(a, b, &merged) {
+        if !merged.is_empty() && (self.george_test(a, b) || self.briggs_test(a, b, &merged)) {
             self.coalesced_moves.insert(mv);
             self.combine(a, b);
             self.add_back_to_simplify_if_within_capacity(a);
@@ -426,14 +426,22 @@ impl RegAllocator {
         }
     }
 
-    fn george_test(&self, a: VirtualReg, b: VirtualReg, merged: &ColorSet) -> bool {
-        self.graph.is_precolored(a)
-            && !merged.is_empty()
-            && self.get_edges_ignoring_processed(b).iter().all(|&t| {
-                self.graph.pressure_of(t) < self.graph.capacity_of(t)
-                    || self.graph.is_precolored(t)
-                    || self.graph.has_edge(t, a)
-            })
+    fn george_test(&self, a: VirtualReg, b: VirtualReg) -> bool {
+        let Some(color) = self.graph.precolor(a) else {
+            return false;
+        };
+        self.get_edges_ignoring_processed(b).iter().all(|&t| {
+            self.graph.pressure_of(t) < self.graph.capacity_of(t)
+                || self.is_precolored_without_conflict(t, color)
+                || self.graph.has_edge(t, a)
+        })
+    }
+
+    fn is_precolored_without_conflict(&self, t: VirtualReg, color: Color) -> bool {
+        self.graph
+            .precolor(self.get_alias(t))
+            .map(|t_color| !t_color.conflicts(color))
+            .unwrap_or(false)
     }
 
     fn briggs_test(&self, a: VirtualReg, b: VirtualReg, merged: &ColorSet) -> bool {
@@ -816,11 +824,12 @@ fn rewrite_block_with_spills(
             }
         }
 
-        let defs_requiring_stores = instruction
-            .register_defs()
+        let defs = instruction.register_defs().collect::<Vec<_>>();
+        let defs_requiring_stores = defs
+            .iter()
+            .copied()
             .filter(|reg| spills.contains(reg))
             .collect::<Vec<_>>();
-        let defs = instruction.register_defs().collect::<Vec<_>>();
 
         let index = new_instructions.len();
         new_instructions.push(rewrite_instruction(instruction, &use_substitutions));

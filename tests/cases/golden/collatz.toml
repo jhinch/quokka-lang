@@ -814,14 +814,13 @@ END_SECTION
 START_SECTION ROM0
 collatz_steps::
 .bb1:
+  ADD SP -4; z, c
   LD HL, N+$0000
   LD A, [HL++]
-  LD C, [HL]
-  LD B, $00
-  LD E, $00
-  LD D, A
-  LD A, B
-  LD B, E
+  LD E, [HL]
+  LD C, $00
+  LD D, $00
+  LD B, A
   JP .bb3
 
 main::
@@ -834,72 +833,124 @@ main::
   CALL collatz_steps; return=.bb10
 
 .bb3:
-  LD A, D
-  LD D, C
-  LD C, $00
+  LD HL SP+3; c
+  LD [HL], B
+  LD A, E
+  LD HL SP+1; c
+  LD [HL], A
+  LD A, $00
   LD E, $01
-  LD A, D
+  LD B, A
+  LD HL SP+1; c
+  LD A, [HL]
   SUB A, E; z, c
-  SBC A, C; z, z
-  LD C, A
-  LD H, B
+  LD HL SP+3; c
+  LD A, [HL]
+  SBC A, B; z, z
+  LD A, C
+  LD HL SP+2; c
+  LD [HL], A
+  LD A, D
+  LD HL SP+0; c
+  LD [HL], A
   JP z, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
 
 .bb5:
-  LD E, $00
-  LD B, $01
-  AND A, E; z, c
-  LD A, D
-  AND A, B; z, c
+  LD C, $00
+  LD A, $01
   LD B, A
+  LD HL SP+3; c
+  LD A, [HL]
+  AND A, C; z, c
+  LD C, A
+  LD HL SP+1; c
+  LD A, [HL]
+  AND A, B; z, c
+  LD B, C
+  LD C, $00
+  LD D, $00
+  SUB A, D; z, c
   LD A, B
-  LD B, $00
-  LD E, $00
-  SUB A, E; z, c
-  SBC A, B; z, z
+  SBC A, C; z, z
   JP z, .bb7; else=.bb8
 
 .bb6:
-  LD B, H
-  LD A, C
+  LD HL SP+0; c
+  LD A, [HL]
+  LD HL SP+2; c
+  LD B, [HL]
+  ADD SP 4; z, c
   RET
 
 .bb7:
-  SRL B(in=D); z, c
+  LD HL SP+1; c
+  LD A, [HL]
+  SRL B(in=A); z, c
+  LD HL SP+3; c
+  LD A, [HL]
   RR A; z, z
+  LD D, A
+  LD E, B
   JP .bb9
 
 .bb8:
-  ADD A, A; z, c
-  LD A, D
-  ADC A, D; z, z
-  ADD A, A; z, c
-  ADC A, D; z, z
-  LD D, $00
-  LD B, $01
-  ADD A, D; z, c
+  LD HL SP+3; c
+  LD A, [HL]
+  LD HL SP+3; c
+  LD B, [HL]
+  ADD A, B; z, c
+  LD B, A
+  LD HL SP+1; c
+  LD A, [HL]
+  LD HL SP+1; c
+  LD C, [HL]
+  ADC A, C; z, z
+  LD C, A
+  LD A, B
+  LD HL SP+3; c
+  LD B, [HL]
+  ADD A, B; z, c
+  LD D, A
+  LD A, C
+  LD HL SP+1; c
+  LD B, [HL]
   ADC A, B; z, z
   LD B, A
+  LD C, $00
+  LD E, $01
+  LD A, D
+  ADD A, C; z, c
+  LD C, A
+  LD A, B
+  ADC A, E; z, z
+  LD D, C
+  LD E, A
   JP .bb9
 
 .bb9:
-  LD D, $00
-  LD L, $01
-  LD E, D
-  LD D, L
-  LD L, C
-  LD L, H
-  LD A, C
-  ADD A, E; z, c
-  LD A, H
-  ADC A, D; z, z
-  LD E, A
-  LD D, A
-  LD C, B
-  LD B, E
+  LD A, $00
+  LD C, $01
+  LD B, A
+  LD HL SP+0; c
+  LD A, [HL]
+  LD HL SP+2; c
+  LD H, [HL]
+  LD HL SP+2; c
+  LD A, [HL]
+  ADD A, B; z, c
+  LD B, A
+  LD HL SP+0; c
+  LD A, [HL]
+  ADC A, C; z, z
+  LD C, A
+  LD A, B
+  LD H, C
+  LD B, D
+  LD C, A
+  LD D, H
   JP .bb3
 
 .bb10:

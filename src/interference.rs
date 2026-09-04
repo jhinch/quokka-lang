@@ -42,6 +42,10 @@ impl InterferenceGraph {
     }
 
     pub fn constrain_colors_to(&mut self, a: VirtualReg, set: ColorSet) {
+        assert!(
+            !set.is_empty(),
+            "cannot constrain {a:?} to {set:?} as that would make it uncolorable"
+        );
         let data = self.node_to_data.entry(a).or_default();
         assert!(
             data.precolored
@@ -50,8 +54,15 @@ impl InterferenceGraph {
             "cannot constrain {a:?} to {set:?} as it is already precolored as {:?}",
             data.precolored
         );
-        data.permitted_colors = Some(match data.permitted_colors.take() {
-            Some(existing) => existing & set,
+        data.permitted_colors = Some(match data.permitted_colors.clone() {
+            Some(existing) => {
+                let merged = existing.clone() & set.clone();
+                assert!(
+                    !merged.is_empty(),
+                    "cannot constrain {a:?} to {set:?} as that would make it uncolorable as it is already constrained to {existing:?}"
+                );
+                merged
+            }
             None => set,
         });
     }

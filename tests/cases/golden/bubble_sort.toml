@@ -1652,26 +1652,32 @@ main::
   JP .bb6
 
 .bb5:
-  LD A, $00
+  LD C, $00
   LD A, $08
   LD HL SP+9; c
-  LD C, [HL]
-  SUB A, C; z, c
+  LD D, [HL]
+  SUB A, D; z, c
+  LD D, A
+  LD A, C
   LD HL SP+8; c
   LD C, [HL]
   SBC A, C; z, z
-  LD C, $00
-  LD D, $01
-  SUB A, D; z, c
-  SBC A, C; z, z
+  LD E, A
+  LD A, D
+  LD D, $00
+  LD C, $01
+  SUB A, C; z, c
+  LD C, A
+  LD A, E
+  SBC A, D; z, z
   LD HL SP+6; c
   LD [HL], A
+  LD A, C
   LD HL SP+7; c
   LD [HL], A
-  LD A, $00
   LD D, $00
+  LD A, $00
   LD C, B
-  LD B, D
   JP .bb7
 
 .bb6:
@@ -1681,9 +1687,9 @@ main::
 
 .bb7:
   LD HL SP+0; c
-  LD [HL], A
+  LD [HL], D
   LD HL SP+1; c
-  LD [HL], B
+  LD [HL], A
   LD HL SP+7; c
   LD A, [HL]
   LD HL SP+6; c
@@ -1723,10 +1729,10 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, B; z, z
-  LD C, A
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD A, [HL]
@@ -1748,10 +1754,11 @@ main::
   LD HL SP+8; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+9; c
   LD A, [HL]
   ADC A, B; z, z
-  LD B, A
+  LD B, C
   LD C, E
   JP .bb3
 
@@ -1770,10 +1777,10 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, B; z, z
-  LD C, A
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD A, [HL]
@@ -1790,10 +1797,10 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, B; z, z
-  LD C, A
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], D
@@ -1804,9 +1811,9 @@ main::
   JP .bb12
 
 .bb12:
-  LD A, $00
-  LD C, $01
-  LD B, A
+  LD B, $00
+  LD A, $01
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   LD HL SP+0; c
@@ -1814,10 +1821,13 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, B; z, c
+  LD B, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, C; z, z
-  LD B, A
+  LD C, A
+  LD A, B
+  LD B, C
   LD HL SP+5; c
   LD C, [HL]
   LD HL SP+4; c
@@ -1827,6 +1837,8 @@ main::
   LD D, [HL]
   LD HL SP+2; c
   LD E, [HL]
+  LD D, A
+  LD A, B
   JP .bb7
 
 .bb13:

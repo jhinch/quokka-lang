@@ -1307,23 +1307,28 @@ main::
   RET
 
 .bb8:
-  LD B, $05
+  LD B, A
+  LD A, $05
   LD HL, MOD_y+$0000
-  LD [HL], B
+  LD [HL], A
   CALL x_mod_y; return=.bb9
 
 .bb9:
-  LD B, $00
-  CP A, B; z, c
+  LD C, A
+  LD D, $00
+  LD A, B
+  CP A, D; z, c
   JP z, .bb10; else=.bb11
 
 .bb10:
   LD B, $00
+  LD A, C
   CP A, B; z, c
   JP z, .bb12; else=.bb13
 
 .bb11:
   LD B, $00
+  LD A, C
   CP A, B; z, c
   JP z, .bb14; else=.bb15
 
@@ -1386,11 +1391,12 @@ main::
   LD HL SP+0; c
   LD A, [HL]
   ADD A, C; z, c
+  LD C, A
   LD HL SP+1; c
   LD A, [HL]
   ADC A, B; z, z
   LD E, A
-  LD B, A
+  LD B, C
   LD C, $01
   LD A, D
   ADD A, C; z, c
