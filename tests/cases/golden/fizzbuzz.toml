@@ -1282,10 +1282,10 @@ fizzbuzz::
 
 main::
 .bb3:
-  ADD SP -2; z, c
   LD B, $00
-  LD A, $00
-  LD C, $01
+  LD E, $00
+  LD A, $01
+  LD D, A
   JP .bb16
 
 .bb4:
@@ -1307,29 +1307,29 @@ main::
   RET
 
 .bb8:
-  LD B, A
+  LD C, A
   LD A, $05
   LD HL, MOD_y+$0000
   LD [HL], A
   CALL x_mod_y; return=.bb9
 
 .bb9:
-  LD C, A
+  LD B, A
   LD D, $00
-  LD A, B
+  LD A, C
   CP A, D; z, c
   JP z, .bb10; else=.bb11
 
 .bb10:
-  LD B, $00
-  LD A, C
-  CP A, B; z, c
+  LD C, $00
+  LD A, B
+  CP A, C; z, c
   JP z, .bb12; else=.bb13
 
 .bb11:
-  LD B, $00
-  LD A, C
-  CP A, B; z, c
+  LD C, $00
+  LD A, B
+  CP A, C; z, c
   JP z, .bb14; else=.bb15
 
 .bb12:
@@ -1349,20 +1349,14 @@ main::
   RET
 
 .bb16:
-  LD HL SP+0; c
-  LD [HL], B
-  LD HL SP+1; c
-  LD [HL], A
-  LD A, $00
-  LD D, $0f
-  LD B, A
-  LD HL SP+1; c
-  LD A, [HL]
-  SUB A, D; z, c
-  LD HL SP+0; c
-  LD A, [HL]
-  SBC A, B; z, z
-  LD D, C
+  LD C, B
+  LD B, E
+  LD E, $00
+  LD H, $0f
+  LD A, B
+  SUB A, H; z, c
+  LD A, C
+  SBC A, E; z, z
   JP z#11, .bb17; else=.bb18
 
 .bb17:
@@ -1374,34 +1368,25 @@ main::
   CALL fizzbuzz; return=.bb20
 
 .bb19:
-  ADD SP 2; z, c
   RET
 
 .bb20:
-  LD HL SP+0; c
-  LD C, [HL]
-  LD HL SP+1; c
-  LD B, [HL]
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD A, $01
-  LD B, A
-  LD HL SP+0; c
-  LD A, [HL]
-  ADD A, C; z, c
+  LD H, $00
+  LD E, $01
+  LD A, C
+  ADD A, H; z, c
   LD C, A
-  LD HL SP+1; c
-  LD A, [HL]
-  ADC A, B; z, z
+  LD A, B
+  ADC A, E; z, z
   LD E, A
   LD B, C
   LD C, $01
   LD A, D
   ADD A, C; z, c
-  LD C, A
-  LD A, E
+  LD D, A
   JP .bb16
 
 END_SECTION

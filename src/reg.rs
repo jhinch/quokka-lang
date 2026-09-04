@@ -48,6 +48,7 @@ impl TryFrom<u16> for Reg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u16)]
 pub enum Color {
+    // the order dictates color selection priority order
     A = 1 << 0,
     F = 1 << 1,
     B = 1 << 2,
@@ -63,6 +64,12 @@ pub enum Color {
     SP = 1 << 12,
     Fz = 1 << 13,
     Fc = 1 << 14,
+}
+
+impl From<Color> for u16 {
+    fn from(value: Color) -> Self {
+        value as u16
+    }
 }
 
 impl TryFrom<u16> for Color {
@@ -382,7 +389,6 @@ macro_rules! bit_set_impl {
                 let value = u16::try_from(1 << self.0.bits.trailing_zeros()).ok()?;
                 let value = $item_struct_name::try_from(value).ok()?;
                 self.0.remove(value);
-                // tracing::debug!("{:?} {:b} {:b}", value, value as u16, self.0.bits);
                 Some(value)
             }
         }
@@ -460,7 +466,7 @@ mod tests {
     #[test]
     fn color_try_from_u16_round_trips() {
         for color in ALL_COLORS {
-            assert_eq!(Color::try_from(color as u16), Ok(color), "{color:?}");
+            assert_eq!(Color::try_from(u16::from(color)), Ok(color), "{color:?}");
         }
     }
 

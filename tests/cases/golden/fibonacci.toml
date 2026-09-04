@@ -1006,10 +1006,10 @@ fibonacci::
 
 main::
 .bb2:
-  ADD SP -2; z, c
   LD B, $00
+  LD E, $00
   LD A, $00
-  LD C, $00
+  LD D, A
   JP .bb9
 
 .bb3:
@@ -1021,16 +1021,16 @@ main::
   ADD A, B; z, c
   LD B, A
   LD C, $00
-  LD E, $01
-  LD D, $02
+  LD D, $01
+  LD E, $02
   JP .bb5
 
 .bb5:
   LD H, B
-  LD A, D
+  LD A, E
   CP A, H; z, c
   LD A, C
-  LD C, E
+  LD C, D
   JP nc, .bb6; else=.bb7
 
 .bb6:
@@ -1038,31 +1038,25 @@ main::
 
 .bb7:
   ADD A, C; z, c
-  LD E, A
-  LD H, $01
-  LD A, D
-  ADD A, H; z, c
   LD D, A
+  LD H, $01
+  LD A, E
+  ADD A, H; z, c
+  LD E, A
   JP .bb5
 
 .bb8:
   RET
 
 .bb9:
-  LD HL SP+0; c
-  LD [HL], B
-  LD HL SP+1; c
-  LD [HL], A
-  LD A, $00
-  LD D, $0a
-  LD B, A
-  LD HL SP+1; c
-  LD A, [HL]
-  SUB A, D; z, c
-  LD HL SP+0; c
-  LD A, [HL]
-  SBC A, B; z, z
-  LD D, C
+  LD C, B
+  LD B, E
+  LD E, $00
+  LD H, $0a
+  LD A, B
+  SUB A, H; z, c
+  LD A, C
+  SBC A, E; z, z
   JP z#9, .bb10; else=.bb11
 
 .bb10:
@@ -1074,34 +1068,25 @@ main::
   CALL fibonacci; return=.bb13
 
 .bb12:
-  ADD SP 2; z, c
   RET
 
 .bb13:
-  LD HL SP+0; c
-  LD C, [HL]
-  LD HL SP+1; c
-  LD B, [HL]
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD A, $01
-  LD B, A
-  LD HL SP+0; c
-  LD A, [HL]
-  ADD A, C; z, c
+  LD H, $00
+  LD E, $01
+  LD A, C
+  ADD A, H; z, c
   LD C, A
-  LD HL SP+1; c
-  LD A, [HL]
-  ADC A, B; z, z
+  LD A, B
+  ADC A, E; z, z
   LD E, A
   LD B, C
   LD C, $01
   LD A, D
   ADD A, C; z, c
-  LD C, A
-  LD A, E
+  LD D, A
   JP .bb9
 
 END_SECTION

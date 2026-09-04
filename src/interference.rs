@@ -235,6 +235,9 @@ pub fn build_interference_graph(
         }
         for (index, instruction) in block.instructions.iter().enumerate().rev() {
             if let Some((target, source)) = instruction.as_move() {
+                // temporarily remove the source from the live set so that an edge is
+                // not created between the source and target as this would prevent coalescing.
+                // it will be added back into the live set end of the loop block
                 live.swap_remove(&source);
                 graph
                     .node_to_data
@@ -249,6 +252,15 @@ pub fn build_interference_graph(
                     .moves
                     .insert((block_id, index));
                 moves.insert((block_id, index));
+            } else if matches!(instruction, Instr::Join { .. } | Instr::Split { .. }) {
+                // it is completely fine for the split registers or the joined registers
+                // as they represent the same register pair and same value stored on it.
+                // as a result, we remove the sources from the live set to prevent edges
+                // being added between them. The uses will be added back into the live set
+                // at the end of the loop block
+                for reg in instruction.register_uses() {
+                    live.swap_remove(&reg);
+                }
             }
 
             // its possible the register was never used, so we need

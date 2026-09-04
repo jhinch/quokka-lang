@@ -574,6 +574,16 @@ impl RegAllocator {
                         constrain_to_color(VirtualReg::R8(*low_in), low_color);
                         constrain_to_color(VirtualReg::R8(*high_in), high_color);
                     }
+                    Instr::Rl { source, .. }
+                    | Instr::Rlc { source, .. }
+                    | Instr::Rr { source, .. }
+                    | Instr::Rrc { source, .. }
+                    | Instr::Sla { source, .. }
+                    | Instr::Sra { source, .. }
+                    | Instr::Srl { source, .. }
+                    | Instr::Swap { source, .. } => {
+                        constrain_to_color(VirtualReg::R8(*source), color);
+                    }
                     _ => {}
                 }
             }
@@ -627,6 +637,16 @@ impl RegAllocator {
                         };
                         constrain_to_color(VirtualReg::R8(*low), low_color);
                         constrain_to_color(VirtualReg::R8(*high), high_color);
+                    }
+                    Instr::Rl { target, .. }
+                    | Instr::Rlc { target, .. }
+                    | Instr::Rr { target, .. }
+                    | Instr::Rrc { target, .. }
+                    | Instr::Sla { target, .. }
+                    | Instr::Sra { target, .. }
+                    | Instr::Srl { target, .. }
+                    | Instr::Swap { target, .. } => {
+                        constrain_to_color(VirtualReg::R8(*target), color);
                     }
                     _ => {}
                 }
