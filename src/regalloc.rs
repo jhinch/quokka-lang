@@ -518,129 +518,118 @@ impl RegAllocator {
         reg_defs: &IndexMap<VirtualReg, Vec<&Instr>>,
         reg_uses: &IndexMap<VirtualReg, Vec<&Instr>>,
     ) {
-        for instruction in reg_defs
-            .get(&reg)
-            .map(|defs| defs.iter().copied())
-            .into_iter()
-            .flatten()
-        {
-            match instruction {
-                Instr::Split { high, low, source } if VirtualReg::R8(*low) == reg => {
-                    let (high_color, source_color) = match color {
-                        Color::F => (Color::A, Color::AF),
-                        Color::C => (Color::B, Color::BC),
-                        Color::E => (Color::D, Color::DE),
-                        Color::L => (Color::H, Color::HL),
-                        unexpected => {
-                            panic!("Bad coloring constraint. low cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*high), ColorSet::just(high_color));
-                    self.graph.constrain_colors_to(
-                        VirtualReg::R16(*source),
-                        ColorSet::just(source_color),
-                    );
+        let mut queue = VecDeque::new();
+        queue.push_back((reg, color));
+        while let Some((reg, color)) = queue.pop_front() {
+            let mut constrain_to_color = |reg: VirtualReg, color: Color| {
+                if self.graph.constrain_colors_to(reg, ColorSet::just(color)) {
+                    queue.push_back((reg, color));
                 }
-                Instr::Split { high, low, source } if VirtualReg::R8(*high) == reg => {
-                    let (low_color, source_color) = match color {
-                        Color::A => (Color::F, Color::AF),
-                        Color::B => (Color::C, Color::BC),
-                        Color::D => (Color::E, Color::DE),
-                        Color::H => (Color::L, Color::HL),
-                        unexpected => {
-                            panic!("Bad coloring constraint. high cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*low), ColorSet::just(low_color));
-                    self.graph.constrain_colors_to(
-                        VirtualReg::R16(*source),
-                        ColorSet::just(source_color),
-                    );
+            };
+            for instruction in reg_defs
+                .get(&reg)
+                .map(|defs| defs.iter().copied())
+                .into_iter()
+                .flatten()
+            {
+                match instruction {
+                    Instr::Split { high, low, source } if VirtualReg::R8(*low) == reg => {
+                        let (high_color, source_color) = match color {
+                            Color::F => (Color::A, Color::AF),
+                            Color::C => (Color::B, Color::BC),
+                            Color::E => (Color::D, Color::DE),
+                            Color::L => (Color::H, Color::HL),
+                            unexpected => {
+                                panic!("Bad coloring constraint. low cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*high), high_color);
+                        constrain_to_color(VirtualReg::R16(*source), source_color);
+                    }
+                    Instr::Split { high, low, source } if VirtualReg::R8(*high) == reg => {
+                        let (low_color, source_color) = match color {
+                            Color::A => (Color::F, Color::AF),
+                            Color::B => (Color::C, Color::BC),
+                            Color::D => (Color::E, Color::DE),
+                            Color::H => (Color::L, Color::HL),
+                            unexpected => {
+                                panic!("Bad coloring constraint. high cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*low), low_color);
+                        constrain_to_color(VirtualReg::R16(*source), source_color);
+                    }
+                    Instr::Join {
+                        high_in, low_in, ..
+                    } => {
+                        let (high_color, low_color) = match color {
+                            Color::AF => (Color::A, Color::F),
+                            Color::BC => (Color::B, Color::C),
+                            Color::DE => (Color::D, Color::E),
+                            Color::HL => (Color::H, Color::L),
+                            unexpected => {
+                                panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*low_in), low_color);
+                        constrain_to_color(VirtualReg::R8(*high_in), high_color);
+                    }
+                    _ => {}
                 }
-                Instr::Join {
-                    high_in, low_in, ..
-                } => {
-                    let (high_color, low_color) = match color {
-                        Color::AF => (Color::A, Color::F),
-                        Color::BC => (Color::B, Color::C),
-                        Color::DE => (Color::D, Color::E),
-                        Color::HL => (Color::H, Color::L),
-                        unexpected => {
-                            panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*low_in), ColorSet::just(low_color));
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*high_in), ColorSet::just(high_color));
-                }
-                _ => {}
             }
-        }
-        for instruction in reg_uses
-            .get(&reg)
-            .map(|defs| defs.iter().copied())
-            .into_iter()
-            .flatten()
-        {
-            match instruction {
-                Instr::Join {
-                    high_in,
-                    low_in,
-                    target,
-                } if VirtualReg::R8(*low_in) == reg => {
-                    let (high_color, target_color) = match color {
-                        Color::C => (Color::B, Color::BC),
-                        Color::E => (Color::D, Color::DE),
-                        Color::L => (Color::H, Color::HL),
-                        unexpected => {
-                            panic!("Bad coloring constraint. low cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*high_in), ColorSet::just(high_color));
-                    self.graph.constrain_colors_to(
-                        VirtualReg::R16(*target),
-                        ColorSet::just(target_color),
-                    );
+            for instruction in reg_uses
+                .get(&reg)
+                .map(|defs| defs.iter().copied())
+                .into_iter()
+                .flatten()
+            {
+                match instruction {
+                    Instr::Join {
+                        high_in,
+                        low_in,
+                        target,
+                    } if VirtualReg::R8(*low_in) == reg => {
+                        let (high_color, target_color) = match color {
+                            Color::C => (Color::B, Color::BC),
+                            Color::E => (Color::D, Color::DE),
+                            Color::L => (Color::H, Color::HL),
+                            unexpected => {
+                                panic!("Bad coloring constraint. low cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*high_in), high_color);
+                        constrain_to_color(VirtualReg::R16(*target), target_color);
+                    }
+                    Instr::Join {
+                        high_in,
+                        low_in,
+                        target,
+                    } if VirtualReg::R8(*high_in) == reg => {
+                        let (low_color, target_color) = match color {
+                            Color::B => (Color::C, Color::BC),
+                            Color::D => (Color::E, Color::DE),
+                            Color::H => (Color::L, Color::HL),
+                            unexpected => {
+                                panic!("Bad coloring constraint. high cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*low_in), low_color);
+                        constrain_to_color(VirtualReg::R16(*target), target_color);
+                    }
+                    Instr::Split { high, low, .. } => {
+                        let (high_color, low_color) = match color {
+                            Color::BC => (Color::B, Color::C),
+                            Color::DE => (Color::D, Color::E),
+                            Color::HL => (Color::H, Color::L),
+                            unexpected => {
+                                panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
+                            }
+                        };
+                        constrain_to_color(VirtualReg::R8(*low), low_color);
+                        constrain_to_color(VirtualReg::R8(*high), high_color);
+                    }
+                    _ => {}
                 }
-                Instr::Join {
-                    high_in,
-                    low_in,
-                    target,
-                } if VirtualReg::R8(*high_in) == reg => {
-                    let (low_color, target_color) = match color {
-                        Color::B => (Color::C, Color::BC),
-                        Color::D => (Color::E, Color::DE),
-                        Color::H => (Color::L, Color::HL),
-                        unexpected => {
-                            panic!("Bad coloring constraint. high cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*low_in), ColorSet::just(low_color));
-                    self.graph.constrain_colors_to(
-                        VirtualReg::R16(*target),
-                        ColorSet::just(target_color),
-                    );
-                }
-                Instr::Split { high, low, .. } => {
-                    let (high_color, low_color) = match color {
-                        Color::BC => (Color::B, Color::C),
-                        Color::DE => (Color::D, Color::E),
-                        Color::HL => (Color::H, Color::L),
-                        unexpected => {
-                            panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
-                        }
-                    };
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*low), ColorSet::just(low_color));
-                    self.graph
-                        .constrain_colors_to(VirtualReg::R8(*high), ColorSet::just(high_color));
-                }
-                _ => {}
             }
         }
     }
