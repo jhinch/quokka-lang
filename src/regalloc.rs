@@ -1,3 +1,4 @@
+use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
@@ -12,76 +13,97 @@ use slotmap::SparseSecondaryMap;
 use std::collections::{HashMap, VecDeque};
 use tracing::instrument;
 
-#[instrument(skip_all)]
-pub fn allocate_registers(lir: &mut Lir) {
-    for section in lir.sections.values_mut() {
-        if let SectionData::Code(code) = &mut section.data {
-            let colors = allocate_registers_for_code(code);
-            for (reg, color) in colors {
-                match reg {
-                    VirtualReg::R8(reg) => code.r8_registers[reg].color = Some(color),
-                    VirtualReg::R16(reg) => code.r16_registers[reg].color = Some(color),
-                    VirtualReg::Zero(reg) => code.zero_registers[reg].color = Some(color),
-                    VirtualReg::Carry(reg) => code.carry_registers[reg].color = Some(color),
+/// Drives register allocation for a whole [`Lir`], across all of its code sections.
+#[derive(Default)]
+pub struct RegAllocator {
+    features: PreviewFeatureSet,
+}
+
+impl RegAllocator {
+    pub fn enable_feature(&mut self, feature: PreviewFeature) {
+        self.features.enable(feature);
+    }
+
+    pub fn enable_features(&mut self, features: PreviewFeatureSet) {
+        self.features.extend(features);
+    }
+
+    #[instrument(skip_all)]
+    pub fn allocate(&self, lir: &mut Lir) {
+        for section in lir.sections.values_mut() {
+            if let SectionData::Code(code) = &mut section.data {
+                let colors = self.allocate_registers_for_code(code);
+                for (reg, color) in colors {
+                    match reg {
+                        VirtualReg::R8(reg) => code.r8_registers[reg].color = Some(color),
+                        VirtualReg::R16(reg) => code.r16_registers[reg].color = Some(color),
+                        VirtualReg::Zero(reg) => code.zero_registers[reg].color = Some(color),
+                        VirtualReg::Carry(reg) => code.carry_registers[reg].color = Some(color),
+                    }
+                }
+                cleanup_redundant_instructions(code);
+            }
+        }
+    }
+
+    #[instrument(skip_all)]
+    fn allocate_registers_for_code(
+        &self,
+        code: &mut CodeSectionData,
+    ) -> HashMap<VirtualReg, Color> {
+        let mut spill_slots = SpillSlots::default();
+        let max_iterations = code.r8_registers.len()
+            + code.r16_registers.len()
+            + code.zero_registers.len()
+            + code.carry_registers.len()
+            + 100;
+        let mut previous_spills = IndexSet::new();
+        for i in 0..max_iterations {
+            match self.allocate_registers_round(i, code, &mut spill_slots) {
+                Ok(colors) => return colors,
+                Err(spills) if spills == previous_spills => panic!(
+                    "Failed to allocate registers after {i} previous iterations due to successive spills for same registers {spills:?}"
+                ),
+                Err(spills) => {
+                    previous_spills = spills;
                 }
             }
-            cleanup_redundant_instructions(code);
         }
+        panic!("Failed to allocate registers after {max_iterations} iterations")
     }
-}
 
-#[instrument(skip_all)]
-fn allocate_registers_for_code(code: &mut CodeSectionData) -> HashMap<VirtualReg, Color> {
-    let mut spill_slots = SpillSlots::default();
-    let max_iterations = code.r8_registers.len()
-        + code.r16_registers.len()
-        + code.zero_registers.len()
-        + code.carry_registers.len()
-        + 100;
-    let mut previous_spills = IndexSet::new();
-    for i in 0..max_iterations {
-        match allocate_registers_round(i, code, &mut spill_slots) {
-            Ok(colors) => return colors,
-            Err(spills) if spills == previous_spills => panic!(
-                "Failed to allocate registers after {i} previous iterations due to successive spills for same registers {spills:?}"
-            ),
-            Err(spills) => {
-                previous_spills = spills;
+    #[instrument(skip_all, fields(i = %i))]
+    fn allocate_registers_round(
+        &self,
+        i: usize,
+        code: &mut CodeSectionData,
+        spill_slots: &mut SpillSlots,
+    ) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
+        let block_liveness = calculate_block_liveness(code);
+        match self.try_allocate_registers(code, &block_liveness) {
+            Ok(colors) => Ok(colors),
+            Err(failure) => {
+                let spills = failure.spills.clone();
+                rewrite_code(code, spill_slots, failure);
+                Err(spills)
             }
         }
     }
-    panic!("Failed to allocate registers after {max_iterations} iterations")
-}
 
-#[instrument(skip_all, fields(i = %i))]
-fn allocate_registers_round(
-    i: usize,
-    code: &mut CodeSectionData,
-    spill_slots: &mut SpillSlots,
-) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
-    let block_liveness = calculate_block_liveness(code);
-    match try_allocate_registers(code, &block_liveness) {
-        Ok(colors) => Ok(colors),
-        Err(failure) => {
-            let spills = failure.spills.clone();
-            rewrite_code(code, spill_slots, failure);
-            Err(spills)
-        }
+    #[instrument(skip_all)]
+    fn try_allocate_registers(
+        &self,
+        code: &CodeSectionData,
+        block_liveness: &BlockLiveness,
+    ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
+        let (graph, moves) = build_interference_graph(code, block_liveness);
+        let allocator = Colorer {
+            graph,
+            worklist_moves: moves,
+            ..Default::default()
+        };
+        allocator.run(code)
     }
-}
-
-#[instrument(skip_all)]
-fn try_allocate_registers(
-    code: &CodeSectionData,
-    block_liveness: &BlockLiveness,
-) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
-    let (graph, moves) = build_interference_graph(code, block_liveness);
-    let allocator = RegAllocator {
-        graph,
-        worklist_moves: moves,
-        ..Default::default()
-    };
-    allocator.run(code)
 }
 
 fn calculate_function_blocks(code: &CodeSectionData) -> FunctionBlocks {
@@ -110,8 +132,12 @@ fn calculate_function_blocks(code: &CodeSectionData) -> FunctionBlocks {
     result
 }
 
+/// Performs iterated register coalescing (George/Appel) graph coloring for a single round over
+/// a single [`CodeSectionData`]. It only decides colors (and which registers must spill); it
+/// does not rewrite code — spilled registers are rewritten by [`rewrite_code`], and the whole
+/// process is retried in a fresh round until allocation succeeds, all driven by [`RegAllocator`].
 #[derive(Default)]
-pub struct RegAllocator {
+struct Colorer {
     graph: InterferenceGraph,
 
     // A virtual reg is to be in only one worklist at a time
@@ -144,8 +170,8 @@ pub struct RegAllocator {
     alias: HashMap<VirtualReg, VirtualReg>,
 }
 
-impl RegAllocator {
-    pub fn run(
+impl Colorer {
+    fn run(
         mut self,
         code: &CodeSectionData,
     ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {

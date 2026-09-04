@@ -7,7 +7,7 @@ use crate::mir::Mir;
 use crate::multi::MultiError;
 use crate::optimize::Optimizer;
 use crate::parse::Parser;
-use crate::regalloc::allocate_registers;
+use crate::regalloc::RegAllocator;
 use crate::ty::TyRegistry;
 
 #[derive(Default)]
@@ -137,7 +137,6 @@ impl AnalyzerOutput {
 }
 
 pub struct CodegenOutput {
-    #[allow(dead_code)]
     config: PipelineConfig,
     lir: Lir,
 }
@@ -155,7 +154,9 @@ impl CodegenOutput {
 
     #[must_use]
     pub fn allocate(mut self) -> AllocateOutput {
-        allocate_registers(&mut self.lir);
+        let mut allocator = RegAllocator::default();
+        allocator.enable_features(self.config.features.clone());
+        allocator.allocate(&mut self.lir);
         AllocateOutput {
             config: self.config,
             lir: self.lir,
