@@ -380,6 +380,16 @@ macro_rules! bit_set_impl {
             }
         }
 
+        impl FromIterator<$item_struct_name> for $struct_name {
+            fn from_iter<T: IntoIterator<Item = $item_struct_name>>(iter: T) -> Self {
+                let mut set = Self::empty();
+                for item in iter {
+                    set.insert(item);
+                }
+                set
+            }
+        }
+
         pub struct $iter_struct_name($struct_name);
 
         impl Iterator for $iter_struct_name {

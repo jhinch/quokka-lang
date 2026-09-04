@@ -1357,7 +1357,7 @@ main::
   SUB A, H; z, c
   LD A, C
   SBC A, E; z, z
-  JP z#11, .bb17; else=.bb18
+  JP z, .bb17; else=.bb18
 
 .bb17:
   JP .bb19

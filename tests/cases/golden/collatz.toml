@@ -833,8 +833,9 @@ main::
   CALL collatz_steps; return=.bb10
 
 .bb3:
+  LD A, B
   LD HL SP+3; c
-  LD [HL], B
+  LD [HL], A
   LD A, E
   LD HL SP+1; c
   LD [HL], A
@@ -887,8 +888,8 @@ main::
 
 .bb7:
   LD HL SP+1; c
-  LD A, [HL]
-  SRL B(in=A); z, c
+  LD B, [HL]
+  SRL B; z, c
   LD HL SP+3; c
   LD A, [HL]
   RR A; z, z
@@ -913,27 +914,27 @@ main::
   LD HL SP+3; c
   LD B, [HL]
   ADD A, B; z, c
-  LD D, A
+  LD B, A
   LD A, C
   LD HL SP+1; c
-  LD B, [HL]
-  ADC A, B; z, z
-  LD B, A
-  LD C, $00
-  LD E, $01
-  LD A, D
-  ADD A, C; z, c
+  LD C, [HL]
+  ADC A, C; z, z
   LD C, A
+  LD E, $00
+  LD D, $01
   LD A, B
-  ADC A, E; z, z
-  LD D, C
+  ADD A, E; z, c
+  LD B, A
+  LD A, C
+  ADC A, D; z, z
+  LD D, B
   LD E, A
   JP .bb9
 
 .bb9:
-  LD A, $00
-  LD C, $01
-  LD B, A
+  LD B, $00
+  LD A, $01
+  LD C, A
   LD HL SP+0; c
   LD A, [HL]
   LD HL SP+2; c

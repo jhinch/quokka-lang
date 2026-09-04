@@ -1320,9 +1320,9 @@ START_SECTION ROM0
 binary_search::
 .bb1:
   ADD SP -2; z, c
-  LD D, $00
-  LD B, $00
   LD A, $00
+  LD B, $00
+  LD D, $00
   LD C, $07
   JP .bb3
 
@@ -1382,10 +1382,10 @@ main::
   CALL binary_search; return=.bb11
 
 .bb3:
-  LD E, A
-  LD A, C
+  LD E, D
   LD HL SP+0; c
-  LD [HL], A
+  LD [HL], C
+  LD D, A
   LD A, B
   LD HL SP+1; c
   LD [HL], A
@@ -1413,13 +1413,18 @@ main::
   LD HL SP+0; c
   LD C, [HL]
   ADC A, C; z, z
-  LD HL SP+0; c
+  LD HL SP+1; c
   LD [HL], B
-  SRL B(in=A); z, c
+  SRL A; z, c
   LD HL SP+0; c
+  LD [HL], A
+  LD HL SP+1; c
   LD A, [HL]
   RR A; z, z
   LD C, A
+  LD HL SP+0; c
+  LD A, [HL]
+  LD B, A
   LD HL, SORTED+$0000
   ADD HL, BC; c
   LD A, [HL]
@@ -1470,7 +1475,8 @@ main::
   JP .bb10
 
 .bb10:
-  LD D, B
+  LD D, A
+  LD A, B
   LD B, E
   JP .bb3
 

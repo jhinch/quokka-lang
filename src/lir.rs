@@ -457,6 +457,31 @@ impl From<HLId> for VirtualReg {
     }
 }
 
+impl VirtualReg {
+    #[must_use]
+    pub fn allowed_color(self, color: Color) -> bool {
+        match self {
+            VirtualReg::R8(_) => matches!(
+                color,
+                Color::A
+                    | Color::F
+                    | Color::B
+                    | Color::C
+                    | Color::D
+                    | Color::E
+                    | Color::H
+                    | Color::L
+            ),
+            VirtualReg::R16(_) => matches!(
+                color,
+                Color::AF | Color::BC | Color::DE | Color::HL | Color::SP
+            ),
+            VirtualReg::Zero(_) => color == Color::Fz,
+            VirtualReg::Carry(_) => color == Color::Fc,
+        }
+    }
+}
+
 pub const ZERO_FLAG_BIT: u8 = 7;
 pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
 pub const CARRY_FLAG_BIT: u8 = 4;

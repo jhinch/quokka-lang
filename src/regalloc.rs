@@ -2,8 +2,8 @@ use crate::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
 use crate::lir::{
-    AId, Addr, Block, BlockId, CarryId, CodeSectionData, HLId, HighAddr, Instr, Lir, Operand8,
-    R8Id, R16Id, Register, SectionData, Terminator, VirtualReg, ZeroId,
+    AId, Addr, Block, BlockId, CarryId, CodeSectionData, FlagId, HLId, HighAddr, Instr, Lir,
+    Operand8, R8Id, R16Id, Register, SectionData, Terminator, VirtualReg, ZeroId,
 };
 use crate::reg::{Color, ColorSet};
 use indexmap::{IndexMap, IndexSet};
@@ -172,6 +172,8 @@ impl RegAllocator {
             .keys()
             .map(VirtualReg::R8)
             .chain(code.r16_registers.keys().map(VirtualReg::R16))
+            .chain(code.zero_registers.keys().map(VirtualReg::Zero))
+            .chain(code.carry_registers.keys().map(VirtualReg::Carry))
         {
             if self.graph.is_precolored(reg) {
                 continue;
@@ -317,20 +319,7 @@ impl RegAllocator {
             }
         }
 
-        let mut reg_defs = IndexMap::<VirtualReg, Vec<&Instr>>::new();
-        let mut reg_uses = IndexMap::<VirtualReg, Vec<&Instr>>::new();
-        for block in code.blocks.values() {
-            for instruction in block.instructions.iter() {
-                for reg in instruction.register_defs() {
-                    reg_defs.entry(reg).or_default().push(instruction);
-                }
-                for reg in instruction.register_uses() {
-                    reg_uses.entry(reg).or_default().push(instruction);
-                }
-            }
-        }
-
-        while let Some(reg) = self.select_stack.pop_front() {
+        'selection: while let Some(reg) = self.select_stack.pop_front() {
             let mut candidates = self.graph.permitted_colors(reg);
             for neighbor in self.graph.get_edges(reg) {
                 let neighbor = self.get_alias(neighbor);
@@ -338,18 +327,28 @@ impl RegAllocator {
                     candidates.retain(|candidate| !candidate.conflicts(color));
                 }
             }
-            match candidates.into_iter().next() {
-                Some(color) => {
-                    colors.insert(reg, color);
-                    self.colored_nodes.insert(reg);
-                    self.propagate_dependent_constraints(reg, color, &reg_defs, &reg_uses);
+
+            for color in candidates {
+                if self
+                    .graph
+                    .calculate_propagated_permitted_colors(reg, ColorSet::just(color))
+                    .values()
+                    .any(|set| set.is_empty())
+                {
+                    // the candidate will result in another register becoming uncolorable due to
+                    // constraint propagation so we will need to try and different one
+                    continue;
                 }
-                None => {
-                    self.spilled_nodes.insert(reg);
-                }
+                colors.insert(reg, color);
+                self.colored_nodes.insert(reg);
+                // this commits the propagated permitted colors. Unfortunately we will
+                // need to do the calculation twice
+                self.graph.constrain_colors_to(reg, ColorSet::just(color));
+                continue 'selection;
             }
+            self.spilled_nodes.insert(reg);
         }
-        for reg in self.coalesced_nodes.iter().copied() {
+        for reg in self.coalesced_nodes.iter().copied().collect::<Vec<_>>() {
             let a = self.get_alias(reg);
             if let Some(&c) = colors.get(&a) {
                 colors.insert(reg, c);
@@ -473,6 +472,8 @@ impl RegAllocator {
         bound < merged.len()
     }
 
+    /// combine `b` an into `a`, constraining `a` to the permitted colors of `b` and adding
+    /// all `b`'s dependent nodes to `a` (including the inverse
     fn combine(&mut self, a: VirtualReg, b: VirtualReg) {
         if self.freeze_worklist.contains(&b) {
             self.freeze_worklist.swap_remove(&b);
@@ -489,6 +490,11 @@ impl RegAllocator {
 
         self.graph
             .constrain_colors_to(a, self.graph.permitted_colors(b));
+        if let Some(constraints) = self.graph.constraints(b).cloned() {
+            for (other, kind) in constraints {
+                self.graph.add_constraint(a, other, kind);
+            }
+        }
 
         let mut pressure_a = 0usize;
         for neighbor in self.get_edges_ignoring_processed(a) {
@@ -510,149 +516,6 @@ impl RegAllocator {
             self.spill_worklist.insert(a);
         }
     }
-
-    fn propagate_dependent_constraints(
-        &mut self,
-        reg: VirtualReg,
-        color: Color,
-        reg_defs: &IndexMap<VirtualReg, Vec<&Instr>>,
-        reg_uses: &IndexMap<VirtualReg, Vec<&Instr>>,
-    ) {
-        let mut queue = VecDeque::new();
-        queue.push_back((reg, color));
-        while let Some((reg, color)) = queue.pop_front() {
-            let mut constrain_to_color = |reg: VirtualReg, color: Color| {
-                if self.graph.constrain_colors_to(reg, ColorSet::just(color)) {
-                    queue.push_back((reg, color));
-                }
-            };
-            for instruction in reg_defs
-                .get(&reg)
-                .map(|defs| defs.iter().copied())
-                .into_iter()
-                .flatten()
-            {
-                match instruction {
-                    Instr::Split { high, low, source } if VirtualReg::R8(*low) == reg => {
-                        let (high_color, source_color) = match color {
-                            Color::F => (Color::A, Color::AF),
-                            Color::C => (Color::B, Color::BC),
-                            Color::E => (Color::D, Color::DE),
-                            Color::L => (Color::H, Color::HL),
-                            unexpected => {
-                                panic!("Bad coloring constraint. low cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*high), high_color);
-                        constrain_to_color(VirtualReg::R16(*source), source_color);
-                    }
-                    Instr::Split { high, low, source } if VirtualReg::R8(*high) == reg => {
-                        let (low_color, source_color) = match color {
-                            Color::A => (Color::F, Color::AF),
-                            Color::B => (Color::C, Color::BC),
-                            Color::D => (Color::E, Color::DE),
-                            Color::H => (Color::L, Color::HL),
-                            unexpected => {
-                                panic!("Bad coloring constraint. high cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*low), low_color);
-                        constrain_to_color(VirtualReg::R16(*source), source_color);
-                    }
-                    Instr::Join {
-                        high_in, low_in, ..
-                    } => {
-                        let (high_color, low_color) = match color {
-                            Color::AF => (Color::A, Color::F),
-                            Color::BC => (Color::B, Color::C),
-                            Color::DE => (Color::D, Color::E),
-                            Color::HL => (Color::H, Color::L),
-                            unexpected => {
-                                panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*low_in), low_color);
-                        constrain_to_color(VirtualReg::R8(*high_in), high_color);
-                    }
-                    Instr::Rl { source, .. }
-                    | Instr::Rlc { source, .. }
-                    | Instr::Rr { source, .. }
-                    | Instr::Rrc { source, .. }
-                    | Instr::Sla { source, .. }
-                    | Instr::Sra { source, .. }
-                    | Instr::Srl { source, .. }
-                    | Instr::Swap { source, .. } => {
-                        constrain_to_color(VirtualReg::R8(*source), color);
-                    }
-                    _ => {}
-                }
-            }
-            for instruction in reg_uses
-                .get(&reg)
-                .map(|defs| defs.iter().copied())
-                .into_iter()
-                .flatten()
-            {
-                match instruction {
-                    Instr::Join {
-                        high_in,
-                        low_in,
-                        target,
-                    } if VirtualReg::R8(*low_in) == reg => {
-                        let (high_color, target_color) = match color {
-                            Color::C => (Color::B, Color::BC),
-                            Color::E => (Color::D, Color::DE),
-                            Color::L => (Color::H, Color::HL),
-                            unexpected => {
-                                panic!("Bad coloring constraint. low cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*high_in), high_color);
-                        constrain_to_color(VirtualReg::R16(*target), target_color);
-                    }
-                    Instr::Join {
-                        high_in,
-                        low_in,
-                        target,
-                    } if VirtualReg::R8(*high_in) == reg => {
-                        let (low_color, target_color) = match color {
-                            Color::B => (Color::C, Color::BC),
-                            Color::D => (Color::E, Color::DE),
-                            Color::H => (Color::L, Color::HL),
-                            unexpected => {
-                                panic!("Bad coloring constraint. high cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*low_in), low_color);
-                        constrain_to_color(VirtualReg::R16(*target), target_color);
-                    }
-                    Instr::Split { high, low, .. } => {
-                        let (high_color, low_color) = match color {
-                            Color::BC => (Color::B, Color::C),
-                            Color::DE => (Color::D, Color::E),
-                            Color::HL => (Color::H, Color::L),
-                            unexpected => {
-                                panic!("Bad coloring constraint. 16-bit cannot be {unexpected:?}")
-                            }
-                        };
-                        constrain_to_color(VirtualReg::R8(*low), low_color);
-                        constrain_to_color(VirtualReg::R8(*high), high_color);
-                    }
-                    Instr::Rl { target, .. }
-                    | Instr::Rlc { target, .. }
-                    | Instr::Rr { target, .. }
-                    | Instr::Rrc { target, .. }
-                    | Instr::Sla { target, .. }
-                    | Instr::Sra { target, .. }
-                    | Instr::Srl { target, .. }
-                    | Instr::Swap { target, .. } => {
-                        constrain_to_color(VirtualReg::R8(*target), color);
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -665,7 +528,7 @@ pub struct AllocationFailure {
 fn rewrite_code(
     code: &mut CodeSectionData,
     spill_slots: &mut SpillSlots,
-    mut failure: Box<AllocationFailure>,
+    failure: Box<AllocationFailure>,
 ) {
     tracing::debug!(spills = ?failure.spills, "rewrite_code");
     if cfg!(debug_assertions) {
@@ -692,15 +555,14 @@ fn rewrite_code(
         .filter(|reg| matches!(reg, VirtualReg::Zero(_) | VirtualReg::Carry(_)))
         .map(|flag| (flag, code.r8_registers.insert(Register::default())))
         .collect::<IndexMap<_, _>>();
-    failure
-        .spills
-        .retain(|reg| !flag_spill_r8s.contains_key(reg));
+    let mut non_flag_spills = failure.spills.clone();
+    non_flag_spills.retain(|reg| !flag_spill_r8s.contains_key(reg));
 
     let functions_blocks = calculate_function_blocks(code);
     allocate_spill_slots(
         code,
         spill_slots,
-        &failure.spills,
+        &non_flag_spills,
         &failure.graph,
         &functions_blocks,
     );
@@ -879,7 +741,25 @@ fn rewrite_block_with_spills(
         }
     }
 
+    let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
+
+    let old_terminator = std::mem::replace(&mut code.blocks[block_id].terminator, Terminator::Ret);
+    for reg in old_terminator.register_uses() {
+        if spills.contains(&reg) & !use_substitutions.contains_key(&reg) {
+            let fresh = load_spill_slot(
+                code,
+                block_id,
+                &mut new_instructions,
+                reg,
+                spill_slots,
+                flag_spill_r8s,
+            );
+            use_substitutions.insert(reg, fresh);
+        }
+    }
+
     code.blocks[block_id].instructions = new_instructions;
+    code.blocks[block_id].terminator = rewrite_terminator(old_terminator, &use_substitutions);
 }
 
 fn patch_reg_defined(code: &mut CodeSectionData, reg: VirtualReg, block_id: BlockId, index: usize) {
@@ -1201,12 +1081,12 @@ fn store_spill_slot(
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
+                    defined: SparseSecondaryMap::new(), // dangling
                 })
                 .downcast_to_a_without_move();
             let c_in = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
+                defined: SparseSecondaryMap::new(), // dangling
             });
             instructions.push(Instr::PushAF {
                 source: a,
@@ -1255,12 +1135,12 @@ fn store_spill_slot(
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
+                    defined: SparseSecondaryMap::new(), // dangling
                 })
                 .downcast_to_a_without_move();
             let a2 = code.r8_registers.insert(Register {
                 color: Some(Color::A),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
+                defined: SparseSecondaryMap::new(), // dangling
             });
             let source = code
                 .r8_registers
@@ -1299,12 +1179,12 @@ fn store_spill_slot(
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
+                    defined: SparseSecondaryMap::new(), // dangling
                 })
                 .downcast_to_a_without_move();
             let a2 = code.r8_registers.insert(Register {
                 color: Some(Color::A),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
+                defined: SparseSecondaryMap::new(), // dangling
             });
             let source = code
                 .r8_registers
@@ -1545,6 +1425,55 @@ fn rewrite_instruction(
         }
     }
     instruction
+}
+
+fn rewrite_terminator(
+    mut terminator: Terminator,
+    use_substitutions: &HashMap<VirtualReg, VirtualReg>,
+) -> Terminator {
+    if use_substitutions.is_empty() {
+        return terminator;
+    }
+    let sub_zero = |z: ZeroId| {
+        use_substitutions
+            .get(&VirtualReg::Zero(z))
+            .map(|sub| {
+                let VirtualReg::Zero(z) = sub else {
+                    panic!("{z:?} substitutes to non-zero {sub:?}")
+                };
+                *z
+            })
+            .unwrap_or(z)
+    };
+    let sub_carry = |c: CarryId| {
+        use_substitutions
+            .get(&VirtualReg::Carry(c))
+            .map(|sub| {
+                let VirtualReg::Carry(c) = sub else {
+                    panic!("{c:?} substitutes to non-carry {sub:?}")
+                };
+                *c
+            })
+            .unwrap_or(c)
+    };
+    match &mut terminator {
+        Terminator::Call { .. }
+        | Terminator::CallR16 { .. }
+        | Terminator::Jp { .. }
+        | Terminator::Ret
+        | Terminator::Halt { .. } => {}
+        Terminator::CallIf { source, .. }
+        | Terminator::JpIf { source, .. }
+        | Terminator::RetIf { source, .. } => match source {
+            FlagId::Zero(source) => {
+                *source = sub_zero(*source);
+            }
+            FlagId::Carry(source) => {
+                *source = sub_carry(*source);
+            }
+        },
+    }
+    terminator
 }
 
 fn rewrite_functions_with_frames(

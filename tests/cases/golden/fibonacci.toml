@@ -1057,7 +1057,7 @@ main::
   SUB A, H; z, c
   LD A, C
   SBC A, E; z, z
-  JP z#9, .bb10; else=.bb11
+  JP z, .bb10; else=.bb11
 
 .bb10:
   JP .bb12

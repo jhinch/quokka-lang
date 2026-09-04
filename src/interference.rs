@@ -1,8 +1,9 @@
 use crate::lir::{Addr, BlockId, CodeSectionData, HighAddr, Instr, Operand8, VirtualReg};
 use crate::reg::{Color, ColorSet};
-use indexmap::IndexSet;
+use indexmap::map::Entry;
+use indexmap::{IndexMap, IndexSet};
 use slotmap::SecondaryMap;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use tracing::instrument;
 
 #[derive(Debug, Default)]
@@ -16,13 +17,18 @@ pub struct InterferenceGraph {
 pub struct NodeData {
     pressure: usize,
     moves: IndexSet<(BlockId, usize)>,
+    constraints: IndexMap<VirtualReg, ConstraintKind>,
     precolored: Option<Color>,
     permitted_colors: Option<ColorSet>,
 }
 
 impl InterferenceGraph {
     fn set_precolored(&mut self, a: VirtualReg, color: Color) {
-        let data = self.node_to_data.entry(a).or_default();
+        assert!(
+            a.allowed_color(color),
+            "{a:?} cannot be precolored {color:?}",
+        );
+        let mut data = self.node_to_data.entry(a).or_default();
         assert!(
             data.precolored.is_none(),
             "{a:?} is already precolored {:?}",
@@ -36,6 +42,10 @@ impl InterferenceGraph {
             "cannot precolor {a:?} to {color:?} as it is only permitted to be {:?}",
             data.permitted_colors
         );
+        if !data.constraints.is_empty() {
+            self.set_permitted_colors_and_propagate_constraints(a, ColorSet::just(color));
+            data = self.node_to_data.entry(a).or_default();
+        }
         data.precolored = Some(color);
         data.pressure = usize::MAX;
         data.permitted_colors = None;
@@ -49,6 +59,16 @@ impl InterferenceGraph {
             !set.is_empty(),
             "cannot constrain {a:?} to {set:?} as that would make it uncolorable"
         );
+        let disallowed_colors = set
+            .clone()
+            .into_iter()
+            .filter(|&color| !a.allowed_color(color))
+            .collect::<ColorSet>();
+        assert!(
+            disallowed_colors.is_empty(),
+            "cannot constrain {a:?} to {set:?} as it cannot be colored {disallowed_colors:?}"
+        );
+
         let data = self.node_to_data.entry(a).or_default();
         if let Some(color) = data.precolored {
             assert!(
@@ -57,7 +77,7 @@ impl InterferenceGraph {
             );
             return false;
         }
-        data.permitted_colors = Some(match data.permitted_colors.clone() {
+        let new_set = match data.permitted_colors.clone() {
             Some(existing) => {
                 let merged = existing.clone() & set.clone();
                 if merged == existing {
@@ -70,7 +90,12 @@ impl InterferenceGraph {
                 merged
             }
             None => set,
-        });
+        };
+        if data.constraints.is_empty() {
+            data.permitted_colors = Some(new_set);
+        } else {
+            self.set_permitted_colors_and_propagate_constraints(a, new_set);
+        }
         true
     }
 
@@ -211,6 +236,215 @@ impl InterferenceGraph {
     pub fn has_edge(&self, a: VirtualReg, b: VirtualReg) -> bool {
         self.edges.contains(&(a, b))
     }
+
+    #[must_use]
+    pub fn constraints(&self, a: VirtualReg) -> Option<&IndexMap<VirtualReg, ConstraintKind>> {
+        self.node_to_data
+            .get(&a)
+            .map(|data| &data.constraints)
+            .filter(|&constraints| !constraints.is_empty())
+    }
+
+    pub fn add_constraint(&mut self, a: VirtualReg, b: VirtualReg, kind: ConstraintKind) {
+        match self.node_to_data.entry(a).or_default().constraints.entry(b) {
+            Entry::Occupied(entry) => {
+                assert_eq!(
+                    entry.get(),
+                    &kind,
+                    "Cannot constraint {a:?} and {b:?} to both {:?} and {:?}",
+                    entry.get(),
+                    kind
+                );
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(kind);
+            }
+        }
+        let kind = kind.inverse();
+        match self.node_to_data.entry(b).or_default().constraints.entry(a) {
+            Entry::Occupied(entry) => {
+                assert_eq!(
+                    entry.get(),
+                    &kind,
+                    "Cannot constraint {a:?} and {b:?} to both {:?} and {:?}",
+                    entry.get(),
+                    kind
+                );
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(kind);
+            }
+        }
+        self.set_permitted_colors_and_propagate_constraints(a, self.permitted_colors(a));
+    }
+
+    fn set_permitted_colors_and_propagate_constraints(
+        &mut self,
+        reg: VirtualReg,
+        original_set: ColorSet,
+    ) {
+        let pending_updates = self.calculate_propagated_permitted_colors(reg, original_set.clone());
+        let uncolorable_regs = pending_updates
+            .iter()
+            .filter_map(|(&reg, set)| if set.is_empty() { Some(reg) } else { None })
+            .collect::<Vec<_>>();
+        if !uncolorable_regs.is_empty() {
+            let existing_colors = uncolorable_regs
+                .iter()
+                .copied()
+                .map(|reg| (reg, self.permitted_colors(reg)))
+                .collect::<IndexMap<_, _>>();
+            panic!(
+                "cannot constrain {reg:?} to {original_set:?} as that would make it the following registers uncolorable via constraints: {uncolorable_regs:?}. Existing colors = {existing_colors:?}, constraints = {:?}",
+                self.constraints(reg)
+            );
+        }
+        assert!(
+            uncolorable_regs.is_empty(),
+            "cannot constrain {reg:?} to {original_set:?} as that would make it the following registers uncolorable via constraints {uncolorable_regs:?}"
+        );
+        for (reg, set) in pending_updates {
+            let data = self.node_to_data.entry(reg).or_default();
+            if let Some(color) = data.precolored {
+                assert_eq!(ColorSet::just(color), set);
+            } else {
+                data.permitted_colors = Some(set);
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn calculate_propagated_permitted_colors(
+        &self,
+        reg: VirtualReg,
+        set: ColorSet,
+    ) -> IndexMap<VirtualReg, ColorSet> {
+        let mut propagated_updates = IndexMap::new();
+        propagated_updates.insert(reg, set);
+        let mut queue = VecDeque::new();
+        queue.push_back(reg);
+        while let Some(reg) = queue.pop_front() {
+            let set = propagated_updates[&reg].clone();
+            let Some(constraints) = self.constraints(reg) else {
+                continue;
+            };
+            for (&dependent_reg, &kind) in constraints {
+                let existing = propagated_updates
+                    .get(&dependent_reg)
+                    .cloned()
+                    .unwrap_or_else(|| self.permitted_colors(dependent_reg));
+                if existing.is_empty() {
+                    continue;
+                }
+                let updated = match kind {
+                    ConstraintKind::Equal => existing.clone() & set.clone(),
+                    ConstraintKind::HighToR16 => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::A => Some(Color::AF),
+                                Color::B => Some(Color::BC),
+                                Color::D => Some(Color::DE),
+                                Color::H => Some(Color::HL),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::LowToR16 => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::F => Some(Color::AF),
+                                Color::C => Some(Color::BC),
+                                Color::E => Some(Color::DE),
+                                Color::L => Some(Color::HL),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::R16ToHigh => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::AF => Some(Color::A),
+                                Color::BC => Some(Color::B),
+                                Color::DE => Some(Color::D),
+                                Color::HL => Some(Color::H),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::R16ToLow => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::AF => Some(Color::F),
+                                Color::BC => Some(Color::C),
+                                Color::DE => Some(Color::E),
+                                Color::HL => Some(Color::L),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::HighToLow => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::A => Some(Color::F),
+                                Color::B => Some(Color::C),
+                                Color::D => Some(Color::E),
+                                Color::H => Some(Color::L),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::LowToHigh => {
+                        let new_set = set
+                            .clone()
+                            .into_iter()
+                            .filter_map(|color| match color {
+                                Color::F => Some(Color::A),
+                                Color::C => Some(Color::B),
+                                Color::E => Some(Color::D),
+                                Color::L => Some(Color::H),
+                                _ => None,
+                            })
+                            .collect::<ColorSet>();
+                        existing.clone() & new_set
+                    }
+                    ConstraintKind::R16OrHLToAOrR8 => {
+                        if !set.contains(Color::HL) {
+                            existing.clone() & ColorSet::just(Color::A)
+                        } else {
+                            existing.clone()
+                        }
+                    }
+                    ConstraintKind::R8OrAToHLOrR16 => {
+                        if !set.contains(Color::A) {
+                            existing.clone() & ColorSet::just(Color::HL)
+                        } else {
+                            existing.clone()
+                        }
+                    }
+                };
+                if updated != existing {
+                    propagated_updates.insert(dependent_reg, updated);
+                    queue.push_back(dependent_reg);
+                }
+            }
+        }
+        propagated_updates
+    }
 }
 
 /// Returns the calculated interference graph + any moves detected
@@ -221,6 +455,31 @@ pub fn build_interference_graph(
     BlockLiveness { live_out, .. }: &BlockLiveness,
 ) -> (InterferenceGraph, IndexSet<(BlockId, usize)>) {
     let mut graph = InterferenceGraph::default();
+    for (reg, data) in code
+        .r8_registers
+        .iter()
+        .map(|(reg, data)| (VirtualReg::from(reg), data))
+        .chain(
+            code.r16_registers
+                .iter()
+                .map(|(reg, data)| (VirtualReg::from(reg), data)),
+        )
+        .chain(
+            code.zero_registers
+                .iter()
+                .map(|(reg, data)| (VirtualReg::from(reg), data)),
+        )
+        .chain(
+            code.carry_registers
+                .iter()
+                .map(|(reg, data)| (VirtualReg::from(reg), data)),
+        )
+    {
+        if let Some(color) = data.color {
+            graph.set_precolored(reg, color);
+        }
+    }
+
     for block in code.blocks.values() {
         for instruction in &block.instructions {
             restrict_from_instruction(code, instruction, &mut graph);
@@ -374,16 +633,11 @@ fn restrict_from_instruction(
     instruction: &Instr,
     graph: &mut InterferenceGraph,
 ) {
-    for reg in instruction.register_defs() {
-        if let Some(color) = match reg {
-            VirtualReg::R8(reg) => code.r8_registers[reg].color,
-            VirtualReg::R16(reg) => code.r16_registers[reg].color,
-            VirtualReg::Zero(reg) => code.zero_registers[reg].color,
-            VirtualReg::Carry(reg) => code.carry_registers[reg].color,
-        } {
-            graph.set_precolored(reg, color);
-        }
-    }
+    // ideally we would set the precolored here, however we can end up with dandling
+    // register uses, so we have to enumerate all the registers from the slot map rather
+    // than set if from instruction.register_defs();
+    // Currently set in build_interference_graph()
+
     // constrain all registers, even the precolored ones, as we expect a panic
     // if we attempt to constrain to a color-set which does not contain the precolor
     // and that would indicate a bug in the code
@@ -416,10 +670,15 @@ fn restrict_from_instruction(
             } else {
                 (Color::acc(), Color::r16())
             };
-            graph.constrain_colors_to(VirtualReg::from(*target), target_set);
             if let Addr::Reg(source_addr) = source_addr {
+                graph.add_constraint(
+                    VirtualReg::from(*target),
+                    VirtualReg::from(*source_addr),
+                    ConstraintKind::R8OrAToHLOrR16,
+                );
                 graph.constrain_colors_to(VirtualReg::from(*source_addr), source_set);
             }
+            graph.constrain_colors_to(VirtualReg::from(*target), target_set);
         }
         Instr::Ld8HighPtr {
             target,
@@ -467,6 +726,11 @@ fn restrict_from_instruction(
                 (Color::r16(), Color::acc())
             };
             if let Addr::Reg(target_addr) = target_addr {
+                graph.add_constraint(
+                    VirtualReg::from(*target_addr),
+                    VirtualReg::from(*source),
+                    ConstraintKind::R16OrHLToAOrR8,
+                );
                 graph.constrain_colors_to(VirtualReg::from(*target_addr), target_set);
             }
             graph.constrain_colors_to(VirtualReg::from(*source), source_set);
@@ -601,6 +865,11 @@ fn restrict_from_instruction(
         Instr::Dec { target, z, source } | Instr::Inc { target, z, source } => {
             // `DEC r8`
             // `INC r8`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
@@ -651,6 +920,11 @@ fn restrict_from_instruction(
             // `RLA`
             // `RR r8`
             // `RRA`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
@@ -709,6 +983,11 @@ fn restrict_from_instruction(
             // `SRA r8`
             // `SRL r8`
             // `SWAP r8`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
@@ -764,6 +1043,11 @@ fn restrict_from_instruction(
         Instr::Dec16 { target, source } | Instr::Inc16 { target, source } => {
             // `DEC r16`
             // `INC r16`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r16());
             graph.constrain_colors_to(VirtualReg::from(*source), Color::r16());
         }
@@ -794,6 +1078,21 @@ fn restrict_from_instruction(
             low,
             source: r16,
         } => {
+            graph.add_constraint(
+                VirtualReg::from(*high),
+                VirtualReg::from(*low),
+                ConstraintKind::HighToLow,
+            );
+            graph.add_constraint(
+                VirtualReg::from(*high),
+                VirtualReg::from(*r16),
+                ConstraintKind::HighToR16,
+            );
+            graph.add_constraint(
+                VirtualReg::from(*low),
+                VirtualReg::from(*r16),
+                ConstraintKind::LowToR16,
+            );
             graph.constrain_colors_to(VirtualReg::from(*low), Color::r8_low());
             graph.constrain_colors_to(VirtualReg::from(*high), Color::r8_high());
             graph.constrain_colors_to(VirtualReg::from(*r16), Color::r16_stack());
@@ -820,5 +1119,35 @@ fn restrict_from_operand(right: &Operand8, graph: &mut InterferenceGraph) {
             graph.constrain_colors_to(VirtualReg::from(*right), Color::r8());
         }
         Operand8::Literal(_) => {}
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConstraintKind {
+    Equal,
+    HighToR16,
+    LowToR16,
+    R16ToHigh,
+    R16ToLow,
+    HighToLow,
+    LowToHigh,
+    R16OrHLToAOrR8,
+    R8OrAToHLOrR16,
+}
+
+impl ConstraintKind {
+    #[must_use]
+    pub fn inverse(self) -> Self {
+        match self {
+            ConstraintKind::Equal => ConstraintKind::Equal,
+            ConstraintKind::HighToR16 => ConstraintKind::R16ToHigh,
+            ConstraintKind::LowToR16 => ConstraintKind::R16ToLow,
+            ConstraintKind::R16ToHigh => ConstraintKind::HighToR16,
+            ConstraintKind::R16ToLow => ConstraintKind::LowToR16,
+            ConstraintKind::HighToLow => ConstraintKind::LowToHigh,
+            ConstraintKind::LowToHigh => ConstraintKind::HighToLow,
+            ConstraintKind::R16OrHLToAOrR8 => ConstraintKind::R8OrAToHLOrR16,
+            ConstraintKind::R8OrAToHLOrR16 => ConstraintKind::R16OrHLToAOrR8,
+        }
     }
 }
