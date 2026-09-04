@@ -817,45 +817,52 @@ fn rewrite_block_with_spills(
     let mut new_instructions = Vec::with_capacity(old_instructions.len());
 
     for instruction in old_instructions {
-        let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
-
-        for reg in instruction.register_uses() {
-            if spills.contains(&reg) && !use_substitutions.contains_key(&reg) {
-                let fresh = load_spill_slot(
+        let defs_requiring_stores = instruction
+            .register_defs()
+            .filter(|reg| spills.contains(reg))
+            .collect::<Vec<_>>();
+        match &instruction {
+            Instr::Split {
+                high, low, source, ..
+            } if spills.contains(&VirtualReg::from(*source)) => {
+                // if we have a split for which the source requires a spill, we just load directly
+                // into the target registers rather than loading and joining only to immediately
+                // split. This allows for more flexibility of the targets registers and allows
+                // them to be spilled next time instead.
+                load_r16_spill_into_high_low(
                     code,
                     block_id,
                     &mut new_instructions,
-                    reg,
+                    *source,
                     spill_slots,
-                    flag_spill_r8s,
+                    *high,
+                    *low,
                 );
-                use_substitutions.insert(reg, fresh);
             }
-        }
+            _ => {
+                let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
 
-        let defs = instruction.register_defs().collect::<Vec<_>>();
-        let defs_requiring_stores = defs
-            .iter()
-            .copied()
-            .filter(|reg| spills.contains(reg))
-            .collect::<Vec<_>>();
+                for reg in instruction.register_uses() {
+                    if spills.contains(&reg) & !use_substitutions.contains_key(&reg) {
+                        let fresh = load_spill_slot(
+                            code,
+                            block_id,
+                            &mut new_instructions,
+                            reg,
+                            spill_slots,
+                            flag_spill_r8s,
+                        );
+                        use_substitutions.insert(reg, fresh);
+                    }
+                }
 
-        let index = new_instructions.len();
-        new_instructions.push(rewrite_instruction(instruction, &use_substitutions));
-        // as we are inserting new instructions, we need to update the defined index to match
-        for reg in defs {
-            match reg {
-                VirtualReg::R8(reg) => {
-                    code.r8_registers[reg].defined.insert(block_id, index);
-                }
-                VirtualReg::R16(reg) => {
-                    code.r16_registers[reg].defined.insert(block_id, index);
-                }
-                VirtualReg::Zero(reg) => {
-                    code.zero_registers[reg].defined.insert(block_id, index);
-                }
-                VirtualReg::Carry(reg) => {
-                    code.carry_registers[reg].defined.insert(block_id, index);
+                let defs = instruction.register_defs().collect::<Vec<_>>();
+                let index = new_instructions.len();
+                new_instructions.push(rewrite_instruction(instruction, &use_substitutions));
+                for reg in defs {
+                    // additional instructions are added due to spills, so the index changes
+                    // and as a result the defined needs to be patched
+                    patch_reg_defined(code, reg, block_id, index);
                 }
             }
         }
@@ -873,6 +880,23 @@ fn rewrite_block_with_spills(
     }
 
     code.blocks[block_id].instructions = new_instructions;
+}
+
+fn patch_reg_defined(code: &mut CodeSectionData, reg: VirtualReg, block_id: BlockId, index: usize) {
+    match reg {
+        VirtualReg::R8(reg) => {
+            code.r8_registers[reg].defined.insert(block_id, index);
+        }
+        VirtualReg::R16(reg) => {
+            code.r16_registers[reg].defined.insert(block_id, index);
+        }
+        VirtualReg::Zero(reg) => {
+            code.zero_registers[reg].defined.insert(block_id, index);
+        }
+        VirtualReg::Carry(reg) => {
+            code.carry_registers[reg].defined.insert(block_id, index);
+        }
+    }
 }
 
 fn load_spill_slot(
@@ -913,58 +937,17 @@ fn load_spill_slot(
             VirtualReg::R8(target)
         }
         VirtualReg::R16(r16) => {
-            let slot = spill_slots.r16_to_slot[r16];
-            let source_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
-            let c = code.carry_registers.insert(Register {
-                color: Some(Color::Fc),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::LdSPE8 {
-                target: source_addr,
-                c,
-                right: slot,
-            });
-            let a = code
-                .r8_registers
-                .insert(Register {
-                    color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_a_without_move();
-            let revised_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
-            instructions.push(Instr::Ld8Inc {
-                target: a,
-                revised_addr,
-                source_addr,
-            });
-            let low_in = code.r8_registers.insert(Register {
-                color: None,
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::Ld8 {
-                target: low_in,
-                source: a.upcast_to_r8_without_move(),
-            });
-            let high_in = code.r8_registers.insert(Register {
-                color: None,
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::Ld8Ptr {
-                target: high_in,
-                source_addr: Addr::Reg(revised_addr.upcast_to_r16_without_move()),
-            });
+            let low_in = code.r8_registers.insert(Register::default());
+            let high_in = code.r8_registers.insert(Register::default());
+            load_r16_spill_into_high_low(
+                code,
+                block_id,
+                instructions,
+                r16,
+                spill_slots,
+                high_in,
+                low_in,
+            );
             let target = code.r16_registers.insert(Register {
                 color: None,
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -1052,6 +1035,67 @@ fn load_spill_slot(
             VirtualReg::Carry(c)
         }
     }
+}
+
+fn load_r16_spill_into_high_low(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    instructions: &mut Vec<Instr>,
+    r16: R16Id,
+    spill_slots: &SpillSlots,
+    high: R8Id,
+    low: R8Id,
+) {
+    let slot = spill_slots.r16_to_slot[r16];
+    let source_addr = code
+        .r16_registers
+        .insert(Register {
+            color: Some(Color::HL),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        })
+        .downcast_to_hl_without_move();
+    let c = code.carry_registers.insert(Register {
+        color: Some(Color::Fc),
+        defined: [(block_id, instructions.len())].into_iter().collect(),
+    });
+    instructions.push(Instr::LdSPE8 {
+        target: source_addr,
+        c,
+        right: slot,
+    });
+    let a = code
+        .r8_registers
+        .insert(Register {
+            color: Some(Color::A),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        })
+        .downcast_to_a_without_move();
+    let revised_addr = code
+        .r16_registers
+        .insert(Register {
+            color: Some(Color::HL),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        })
+        .downcast_to_hl_without_move();
+    instructions.push(Instr::Ld8Inc {
+        target: a,
+        revised_addr,
+        source_addr,
+    });
+    code.r8_registers[low]
+        .defined
+        .insert(block_id, instructions.len());
+    instructions.push(Instr::Ld8 {
+        target: low,
+        source: a.upcast_to_r8_without_move(),
+    });
+    code.r8_registers[high]
+        .defined
+        .insert(block_id, instructions.len());
+    instructions.push(Instr::Ld8Ptr {
+        target: high,
+        source_addr: Addr::Reg(revised_addr.upcast_to_r16_without_move()),
+    });
 }
 
 fn store_spill_slot(

@@ -1299,7 +1299,6 @@ name = "allocate_registers"
 kind = "codegen"
 optimize = true
 allocate_registers = true
-ignored = "Currently fails to allocate registers due to there being too many 16 bit locals. Need to improve the spilling code to fix"
 source.file = "binary_search.q"
 expected_lir = """
 START_SECTION WRAM0[0]
@@ -1320,7 +1319,7 @@ END_SECTION
 START_SECTION ROM0
 binary_search::
 .bb1:
-  ADD SP -3; z, c
+  ADD SP -2; z, c
   LD D, $00
   LD B, $00
   LD A, $00
@@ -1385,14 +1384,14 @@ main::
 .bb3:
   LD E, A
   LD A, C
-  LD HL SP+1; c
+  LD HL SP+0; c
   LD [HL], A
   LD A, B
-  LD HL SP+2; c
-  LD [HL], A
   LD HL SP+1; c
+  LD [HL], A
+  LD HL SP+0; c
   LD A, [HL]
-  LD HL SP+2; c
+  LD HL SP+1; c
   LD B, [HL]
   SUB A, B; z, c
   LD A, E
@@ -1402,71 +1401,71 @@ main::
 .bb4:
   LD B, $00
   LD A, $ff
-  ADD SP 3; z, c
+  ADD SP 2; z, c
   RET
 
 .bb5:
   LD A, D
   ADD A, E; z, c
-  LD HL SP+2; c
-  LD A, [HL]
+  LD B, A
   LD HL SP+1; c
-  LD B, [HL]
-  ADC A, B; z, z
-  SRL B(in=A); z, c
-  RR A; z, z
-  LD HL SP+0; c
-  LD [HL], A
-  LD A, B
+  LD A, [HL]
   LD HL SP+0; c
   LD C, [HL]
+  ADC A, C; z, z
+  LD HL SP+0; c
+  LD [HL], B
+  SRL B(in=A); z, c
+  LD HL SP+0; c
+  LD A, [HL]
+  RR A; z, z
+  LD C, A
   LD HL, SORTED+$0000
   ADD HL, BC; c
   LD A, [HL]
   LD HL, TARGET+$0000
-  LD B, [HL]
-  CP A, B; z, c
+  LD H, [HL]
+  CP A, H; z, c
   JP z, .bb6; else=.bb7
 
 .bb6:
-  LD HL SP+0; c
-  LD B, [HL]
-  ADD SP 3; z, c
+  LD A, C
+  ADD SP 2; z, c
   RET
 
 .bb7:
   LD HL, TARGET+$0000
-  LD B, [HL]
-  CP A, B; z, c
+  LD H, [HL]
+  CP A, H; z, c
   JP c, .bb8; else=.bb9
 
 .bb8:
-  LD C, $00
-  LD B, $01
-  LD HL SP+0; c
-  LD A, [HL]
-  ADD A, C; z, c
-  ADC A, B; z, z
+  LD H, $00
+  LD D, $01
+  LD A, C
+  ADD A, H; z, c
   LD C, A
-  LD B, A
-  LD D, C
+  LD A, B
+  ADC A, D; z, z
+  LD B, C
+  LD D, A
   LD A, E
-  LD HL SP+1; c
+  LD HL SP+0; c
   LD C, [HL]
   LD E, D
   JP .bb10
 
 .bb9:
-  LD B, $00
-  LD C, $01
-  SUB A, C; z, c
-  LD HL SP+0; c
-  LD A, [HL]
-  SBC A, B; z, z
+  LD E, $00
+  LD H, $01
+  LD A, B
+  SUB A, H; z, c
   LD B, A
+  LD A, C
+  SBC A, E; z, z
   LD C, B
   LD B, D
-  LD HL SP+2; c
+  LD HL SP+1; c
   LD E, [HL]
   JP .bb10
 
@@ -1477,9 +1476,9 @@ main::
 
 .bb11:
   LD HL, FOUND_INDEX+$0000
-  LD A, L
+  LD A, C
   LD [HL++], A
-  LD [HL], H
+  LD [HL], B
   RET
 
 END_SECTION
