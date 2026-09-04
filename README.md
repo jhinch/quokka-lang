@@ -17,10 +17,10 @@ The compilation goes through following phases:
 - Parsing (Syntactic analysis)
 - Analysis (Semantic analysis / type checking)
 - Lowering (lowering AST to MIR / conversion to static single assignment form. Happens concurrently with analysis)
-- Optimization (dead code elimination, inlining, etc. Currently, not implemented)
+- Optimization
 - Code gen (lowering MIR to LIR)
 - Phi elimination (Happens concurrently with code gen)
-- Register allocation (Currently, not implemented)
+- Register allocation
 - Object file creation (Currently, not implemented)
 - Linking (Currently, not implemented)
 
@@ -112,6 +112,9 @@ name = "case_name"
 kind = "analyzer"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
+# optimize (optional) enables optimization on MIR. Defaults to false.
+# Individual optimizations may still require preview_features if still in preview
+optimize = true
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
 # source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
@@ -142,6 +145,11 @@ name = "case_name"
 kind = "codegen"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
+# optimize (optional) enables optimization on MIR. Defaults to false.
+# Individual optimizations may still require preview_features if still in preview
+optimize = true
+# allocate_registers (optional) enables register allocation on LIR. Defaults to false.
+allocate_registers = true
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
 # source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
