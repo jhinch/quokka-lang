@@ -1166,7 +1166,7 @@ main::
   LD A, r8#22
   SUB A, r8#24; z, c
   LD A, r8#21
-  SBC A, r8#23; z, z
+  SBC A, r8#23; z, c
   (out=c#3,in=c)
   JP c#3, .bb4; else=.bb5
 
@@ -1188,12 +1188,12 @@ main::
   ADD A, r8#21; z, c
   LD r8#41, A
   LD A, r8#24
-  ADC A, r8#22; z, z
+  ADC A, r8#22; z, c
   LD r8#44, A
   LD r8#45, r8#41
   LD r8#46, r8#44
   SRL (out=r8#47,in=r8#46); z, c
-  RR (out=r8#48,in=r8#45); z, z
+  RR (out=r8#48,in=r8#45); z, c
   LD r8#49, r8#48
   LD r8#50, r8#47
   (out=r16#1;high_in=r8#50;low_in=r8#49)
@@ -1236,7 +1236,7 @@ main::
   ADD A, r8#67; z, c
   LD r8#71, A
   LD A, r8#50
-  ADC A, r8#68; z, z
+  ADC A, r8#68; z, c
   LD r8#74, A
   LD r8#75, r8#71
   LD r8#76, r8#74
@@ -1257,7 +1257,7 @@ main::
   SUB A, r8#82; z, c
   LD r8#85, A
   LD A, r8#49
-  SBC A, r8#81; z, z
+  SBC A, r8#81; z, c
   LD r8#88, A
   LD r8#89, r8#88
   LD r8#90, r8#85
@@ -1395,7 +1395,7 @@ main::
   LD B, [HL]
   SUB A, B; z, c
   LD A, E
-  SBC A, D; z, z
+  SBC A, D; z, c
   JP c, .bb4; else=.bb5
 
 .bb4:
@@ -1412,7 +1412,7 @@ main::
   LD A, [HL]
   LD HL SP+0; c
   LD C, [HL]
-  ADC A, C; z, z
+  ADC A, C; z, c
   LD HL SP+1; c
   LD [HL], B
   SRL A; z, c
@@ -1420,7 +1420,7 @@ main::
   LD [HL], A
   LD HL SP+1; c
   LD A, [HL]
-  RR A; z, z
+  RR A; z, c
   LD C, A
   LD HL SP+0; c
   LD A, [HL]
@@ -1451,7 +1451,7 @@ main::
   ADD A, H; z, c
   LD C, A
   LD A, B
-  ADC A, D; z, z
+  ADC A, D; z, c
   LD B, C
   LD D, A
   LD A, E
@@ -1467,7 +1467,7 @@ main::
   SUB A, H; z, c
   LD B, A
   LD A, C
-  SBC A, E; z, z
+  SBC A, E; z, c
   LD C, B
   LD B, D
   LD HL SP+1; c

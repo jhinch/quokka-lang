@@ -588,7 +588,7 @@ main::
   LD A, r8#20
   SUB A, r8#26; z, c
   LD A, r8#19
-  SBC A, r8#25; z, z
+  SBC A, r8#25; z, c
   (out=z#3,in=z)
   LD r8#31, r8#3
   LD r8#32, r8#4
@@ -605,7 +605,7 @@ main::
   LD A, r8#20
   SUB A, r8#32; z, c
   LD A, r8#19
-  SBC A, r8#31; z, z
+  SBC A, r8#31; z, c
   (out=c#5,in=c)
   JP c#5, .bb6; else=.bb7
 
@@ -614,7 +614,7 @@ main::
   SUB A, r8#20; z, c
   LD r8#43, A
   LD A, r8#31
-  SBC A, r8#19; z, z
+  SBC A, r8#19; z, c
   LD r8#46, A
   LD r8#47, r8#46
   LD r8#48, r8#43
@@ -629,7 +629,7 @@ main::
   SUB A, r8#32; z, c
   LD r8#51, A
   LD A, r8#19
-  SBC A, r8#31; z, z
+  SBC A, r8#31; z, c
   LD r8#54, A
   LD r8#55, r8#54
   LD r8#56, r8#51
@@ -725,7 +725,7 @@ main::
   LD A, C
   SUB A, L; z, c
   LD A, H
-  SBC A, E; z, z
+  SBC A, E; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
@@ -737,7 +737,7 @@ main::
   LD A, C
   SUB A, B; z, c
   LD A, H
-  SBC A, D; z, z
+  SBC A, D; z, c
   JP c, .bb6; else=.bb7
 
 .bb6:
@@ -745,7 +745,7 @@ main::
   SUB A, C; z, c
   LD B, A
   LD A, D
-  SBC A, H; z, z
+  SBC A, H; z, c
   LD D, A
   LD A, H
   JP .bb8
@@ -755,7 +755,7 @@ main::
   SUB A, B; z, c
   LD C, A
   LD A, H
-  SBC A, D; z, z
+  SBC A, D; z, c
   JP .bb8
 
 .bb8:

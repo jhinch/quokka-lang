@@ -283,7 +283,7 @@ impl CarryId {
                 code.carry_registers[flag_out].color,
                 code.carry_registers[flag_in].color,
             ) {
-                (Some(Color::Fc), Some(Color::Fc)) => write!(f, "z"),
+                (Some(Color::Fc), Some(Color::Fc)) => write!(f, "c"),
                 (Some(Color::Fc), _) => {
                     write!(f, "c(in={})", flag_in.display(lir, section))
                 }

@@ -1327,7 +1327,7 @@ main::
   LD A, r8#17
   SUB A, r8#23; z, c
   LD A, r8#16
-  SBC A, r8#22; z, z
+  SBC A, r8#22; z, c
   (out=c#3,in=c)
   LD r8#28, r8#3
   JP nc#3, .bb4; else=.bb5
@@ -1346,7 +1346,7 @@ main::
   SUB A, r8#17; z, c
   LD r8#37, A
   LD A, r8#33
-  SBC A, r8#16; z, z
+  SBC A, r8#16; z, c
   LD r8#40, A
   LD r8#41, r8#40
   LD r8#42, r8#37
@@ -1360,7 +1360,7 @@ main::
   SUB A, r8#48; z, c
   LD r8#51, A
   LD A, r8#41
-  SBC A, r8#47; z, z
+  SBC A, r8#47; z, c
   LD r8#54, A
   LD r8#55, r8#54
   LD r8#56, r8#51
@@ -1390,7 +1390,7 @@ main::
   LD A, r8#66
   SUB A, r8#70; z, c
   LD A, r8#65
-  SBC A, r8#69; z, z
+  SBC A, r8#69; z, c
   (out=c#10,in=c)
   LD r8#75, r8#6
   LD r8#76, r8#17
@@ -1413,7 +1413,7 @@ main::
   ADD A, r8#84; z, c
   LD r8#88, A
   LD A, r8#66
-  ADC A, r8#85; z, z
+  ADC A, r8#85; z, c
   LD r8#91, A
   LD r8#92, r8#88
   LD r8#93, r8#91
@@ -1444,7 +1444,7 @@ main::
   ADD A, r8#103; z, c
   LD r8#107, A
   LD A, r8#17
-  ADC A, r8#104; z, z
+  ADC A, r8#104; z, c
   LD r8#110, A
   LD r8#111, r8#107
   LD r8#112, r8#110
@@ -1469,7 +1469,7 @@ main::
   ADD A, r8#119; z, c
   LD r8#123, A
   LD A, r8#66
-  ADC A, r8#120; z, z
+  ADC A, r8#120; z, c
   LD r8#126, A
   LD r8#127, r8#123
   LD r8#128, r8#126
@@ -1492,7 +1492,7 @@ main::
   ADD A, r8#135; z, c
   LD r8#139, A
   LD A, r8#66
-  ADC A, r8#136; z, z
+  ADC A, r8#136; z, c
   LD r8#142, A
   LD r8#143, r8#139
   LD r8#144, r8#142
@@ -1524,7 +1524,7 @@ main::
   ADD A, r8#155; z, c
   LD r8#163, A
   LD A, r8#66
-  ADC A, r8#156; z, z
+  ADC A, r8#156; z, c
   LD r8#166, A
   LD r8#167, r8#163
   LD r8#168, r8#166
@@ -1646,7 +1646,7 @@ main::
   SUB A, B; z, c
   LD HL SP+8; c
   LD A, [HL]
-  SBC A, C; z, z
+  SBC A, C; z, c
   JP nc, .bb4; else=.bb5
 
 .bb4:
@@ -1663,7 +1663,7 @@ main::
   LD A, B
   LD HL SP+8; c
   LD B, [HL]
-  SBC A, B; z, z
+  SBC A, B; z, c
   LD D, A
   LD A, C
   LD B, $00
@@ -1671,7 +1671,7 @@ main::
   SUB A, C; z, c
   LD C, A
   LD A, D
-  SBC A, B; z, z
+  SBC A, B; z, c
   LD HL SP+6; c
   LD [HL], A
   LD B, C
@@ -1716,8 +1716,8 @@ main::
   LD A, [HL]
   LD HL SP+4; c
   LD B, [HL]
-  SBC A, B; z, z
-  SBC A, A; z, z
+  SBC A, B; z, c
+  SBC A, A; z, c
   LD D, A
   LD HL SP+1; c
   LD B, [HL]
@@ -1749,7 +1749,7 @@ main::
   LD E, A
   LD HL SP+6; c
   LD A, [HL]
-  ADC A, C; z, z
+  ADC A, C; z, c
   LD D, A
   LD HL, DATA+$0000
   ADD HL, DE; c
@@ -1762,7 +1762,7 @@ main::
   ADD HL, BC; c
   LD B, [HL]
   CP A, B; z, c
-  SBC A, A; z, z
+  SBC A, A; z, c
   LD C, A
   LD HL SP+1; c
   LD B, [HL]
@@ -1781,7 +1781,7 @@ main::
   LD B, A
   LD HL SP+9; c
   LD A, [HL]
-  ADC A, C; z, z
+  ADC A, C; z, c
   LD C, A
   LD HL SP+1; c
   LD D, [HL]
@@ -1808,7 +1808,7 @@ main::
   LD E, A
   LD HL SP+6; c
   LD A, [HL]
-  ADC A, C; z, z
+  ADC A, C; z, c
   LD D, A
   LD HL, DATA+$0000
   ADD HL, DE; c
@@ -1841,7 +1841,7 @@ main::
   LD E, A
   LD HL SP+6; c
   LD A, [HL]
-  ADC A, C; z, z
+  ADC A, C; z, c
   LD D, A
   LD HL, DATA+$0000
   ADD HL, DE; c
@@ -1872,7 +1872,7 @@ main::
   LD B, A
   LD HL SP+6; c
   LD A, [HL]
-  ADC A, E; z, z
+  ADC A, E; z, c
   LD HL SP+0; c
   LD [HL], B
   LD E, A
