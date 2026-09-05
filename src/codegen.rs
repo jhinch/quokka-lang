@@ -1,8 +1,8 @@
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
-    BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, HLId, Ld16Source, Lir,
-    LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK, SectionId,
-    Terminator, ZeroId,
+    BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, FnAddr, HLId, Ld16Source, Lir,
+    LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK,
+    SectionAddr, SectionId, Terminator, ZeroId,
 };
 use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
@@ -45,13 +45,19 @@ impl CodeGen {
         let mut functions = SecondaryMap::new();
         for (function_id, function) in &mir.functions {
             let block = code_section.new_function(function.name.clone());
-            functions.insert(function_id, (None, block));
+            functions.insert(
+                function_id,
+                FnAddr {
+                    section: None,
+                    entry_block: block,
+                },
+            );
         }
         for (function_id, function) in &mir.functions {
             self.generate_from_function(
                 mir,
                 function,
-                functions[function_id].1,
+                functions[function_id].entry_block,
                 &globals,
                 &functions,
                 &mut code_section,
@@ -95,7 +101,7 @@ impl CodeGen {
         function: &mir::Function,
         start_block: BlockId,
         globals: &SecondaryMap<mir::GlobalId, SectionId>,
-        functions: &SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
+        functions: &SecondaryMap<mir::FunctionId, FnAddr>,
         lir: &mut CodeSectionBuilder,
     ) {
         let mut blocks = SecondaryMap::new();
@@ -400,13 +406,12 @@ impl CodeGen {
                 callee: mir::Callee::FnPtr(callee),
                 return_block: mir_return_block,
             } => {
-                let (callee_section, callee_block) = ctx.functions[*callee];
+                let callee = ctx.functions[*callee];
                 let return_block = ctx.blocks[*mir_return_block];
                 lir.set_terminator(
                     block,
                     Terminator::Call {
-                        callee_section,
-                        callee_block,
+                        callee,
                         return_block,
                     },
                 );
@@ -435,7 +440,7 @@ impl CodeGen {
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
                 let source = self.r1_to_flag(source, block, lir);
-                let (callee_section, callee_block) = ctx.functions[*callee];
+                let callee = ctx.functions[*callee];
                 let return_block = ctx.blocks[*mir_return_block];
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
@@ -443,8 +448,7 @@ impl CodeGen {
                     Terminator::CallIf {
                         source,
                         negate: *mir_condition != condition,
-                        callee_section,
-                        callee_block,
+                        callee,
                         return_block,
                         else_block,
                     },
@@ -1113,14 +1117,8 @@ impl CodeGen {
                 let (high, low) = match source {
                     mir::Operand::Local(source) => locals.r16s[*source],
                     mir::Operand::FnPtr(source) => {
-                        let (section, target_block) = ctx.functions[*source];
-                        let r16 = lir.insert_ld16(
-                            block,
-                            Ld16Source::FnAddr {
-                                section,
-                                block: target_block,
-                            },
-                        );
+                        let fn_addr = ctx.functions[*source];
+                        let r16 = lir.insert_ld16(block, Ld16Source::FnAddr(fn_addr));
                         lir.insert_split(block, r16)
                     }
                     mir::Operand::Literal(source) => {
@@ -1332,14 +1330,8 @@ impl CodeGen {
                 (high, low)
             }
             mir::Operand::FnPtr(function) => {
-                let (section, target_block) = ctx.functions[*function];
-                let r16 = lir.insert_ld16(
-                    block,
-                    Ld16Source::FnAddr {
-                        section,
-                        block: target_block,
-                    },
-                );
+                let fn_addr = ctx.functions[*function];
+                let r16 = lir.insert_ld16(block, Ld16Source::FnAddr(fn_addr));
                 lir.insert_split(block, r16)
             }
         }
@@ -1471,10 +1463,10 @@ impl CodeGen {
                         }
                         None => lir.insert_ld_hl(
                             block,
-                            Ld16Source::SectionAddr {
+                            Ld16Source::SectionAddr(SectionAddr {
                                 section: ctx.globals[global],
                                 offset: byte_offset,
-                            },
+                            }),
                         ),
                     };
                     ty = self.ty_registry.array_ty_data(ty).item_ty;
@@ -1504,10 +1496,10 @@ impl CodeGen {
             }
             None => lir.insert_ld_hl(
                 block,
-                Ld16Source::SectionAddr {
+                Ld16Source::SectionAddr(SectionAddr {
                     section: ctx.globals[global],
                     offset: byte_offset,
-                },
+                }),
             ),
         };
         (source, bit_offset)
@@ -1563,7 +1555,7 @@ struct InstrCtx<'a> {
     mir: &'a mir::Mir,
     function: &'a mir::Function,
     globals: &'a SecondaryMap<mir::GlobalId, SectionId>,
-    functions: &'a SecondaryMap<mir::FunctionId, (Option<SectionId>, BlockId)>,
+    functions: &'a SecondaryMap<mir::FunctionId, FnAddr>,
     blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
 }
 

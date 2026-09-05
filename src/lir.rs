@@ -2427,16 +2427,14 @@ impl Instr {
 pub enum Terminator {
     /// `CALL n16`
     Call {
-        callee_section: Option<SectionId>,
-        callee_block: BlockId,
+        callee: FnAddr,
         return_block: BlockId,
     },
     /// `CALL cc,n16`
     CallIf {
         source: FlagId,
         negate: bool,
-        callee_section: Option<SectionId>,
-        callee_block: BlockId,
+        callee: FnAddr,
         return_block: BlockId,
         else_block: BlockId,
     },
@@ -2541,22 +2539,19 @@ impl Terminator {
     pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
             Terminator::Call {
-                callee_section,
-                callee_block,
+                callee,
                 return_block,
             } => {
-                let section = callee_section.as_ref().copied().unwrap_or(section);
-                let name = match &lir.sections[section].data {
-                    SectionData::Code(data) => &data.functions[*callee_block],
-                    _ => unimplemented!("expected code section"),
-                };
-                write!(f, "CALL {name}; return={return_block}")
+                write!(
+                    f,
+                    "CALL {}; return={return_block}",
+                    callee.display(lir, section)
+                )
             }
             Terminator::CallIf {
                 source,
                 negate,
-                callee_section,
-                callee_block,
+                callee,
                 return_block,
                 else_block,
             } => {
@@ -2564,13 +2559,12 @@ impl Terminator {
                 if *negate {
                     write!(f, "n")?;
                 }
-                write!(f, "{}", source.display(lir, section))?;
-                let section = callee_section.as_ref().copied().unwrap_or(section);
-                let name = match &lir.sections[section].data {
-                    SectionData::Code(data) => &data.functions[*callee_block],
-                    _ => unimplemented!("expected code section"),
-                };
-                write!(f, ", {name}; return={return_block}, else={else_block}")
+                write!(
+                    f,
+                    "{}, {}; return={return_block}, else={else_block}",
+                    source.display(lir, section),
+                    callee.display(lir, section)
+                )
             }
             Terminator::CallR16 {
                 callee,
@@ -2675,17 +2669,44 @@ impl HighAddr {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct FnAddr {
+    pub section: Option<SectionId>,
+    pub entry_block: BlockId,
+}
+
+impl FnAddr {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| {
+            let section = self.section.as_ref().copied().unwrap_or(section);
+            let name = match &lir.sections[section].data {
+                SectionData::Code(data) => &data.functions[self.entry_block],
+                _ => unimplemented!("expected code section"),
+            };
+            write!(f, "{name}")
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SectionAddr {
+    pub section: SectionId,
+    pub offset: u16,
+}
+
+impl SectionAddr {
+    #[must_use]
+    pub fn display<'a>(&'a self, lir: &'a Lir) -> impl fmt::Display + 'a {
+        fmt::from_fn(move |f| write!(f, "{}+${:04x}", self.section.display(lir), self.offset))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Ld16Source {
     Literal(u16),
-    FnAddr {
-        section: Option<SectionId>,
-        block: BlockId,
-    },
-    SectionAddr {
-        section: SectionId,
-        offset: u16,
-    },
+    FnAddr(FnAddr),
+    SectionAddr(SectionAddr),
 }
 
 impl Ld16Source {
@@ -2693,19 +2714,9 @@ impl Ld16Source {
     pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
             Ld16Source::Literal(value) => write!(f, "${value:04x}"),
-            Ld16Source::FnAddr {
-                section: section_id,
-                block,
-            } => {
-                let section = section_id.as_ref().copied().unwrap_or(section);
-                let name = match &lir.sections[section].data {
-                    SectionData::Code(data) => &data.functions[*block],
-                    _ => unimplemented!("expected code section"),
-                };
-                write!(f, "{name}")
-            }
-            Ld16Source::SectionAddr { section, offset } => {
-                write!(f, "{}+${offset:04x}", section.display(lir))
+            Ld16Source::FnAddr(addr) => write!(f, "{}", addr.display(lir, section)),
+            Ld16Source::SectionAddr(addr) => {
+                write!(f, "{}", addr.display(lir))
             }
         })
     }
