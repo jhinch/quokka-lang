@@ -344,7 +344,7 @@ impl CodeGen {
                     locals.r16s.insert(target, (high, low));
                 }
             }
-            ty if ty.is_struct() || ty.is_array() => match instruction {
+            ty if ty.is_struct() || ty.is_array() || ty.is_fn_ptr() => match instruction {
                 mir::Instr::Alloc { .. }
                 | mir::Instr::ReturnValue { .. }
                 | mir::Instr::Phi { .. }
@@ -373,11 +373,11 @@ impl CodeGen {
                         }
                     }
                     _ => unimplemented!(
-                        "Valid MIR should never produce structs or arrays which are not 8 or 16-bit"
+                        "Valid MIR should never produce structs, arrays or fn ptrs which are not 8 or 16-bit"
                     ),
                 },
                 _ => unimplemented!(
-                    "Only alloc, equality, reads and writes are supported on arrays and structs"
+                    "Only alloc, equality, reads and writes are supported on structs, arrays and fn ptrs"
                 ),
             },
             ty => unimplemented!("{ty:?}"),

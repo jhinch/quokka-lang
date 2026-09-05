@@ -1,0 +1,202 @@
+[[case]]
+name = "bit8_struct"
+kind = "codegen"
+allocate_registers = true
+source = """
+struct Value {
+    value: u8,
+}
+
+global IN: Value;
+global OUT: Value;
+
+fn foo() {
+    let v = IN;
+    OUT = v;
+}
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[0]
+IN::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+OUT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+foo::
+.bb1:
+  LD HL, IN+$0000
+  LD A, [HL]
+  LD HL, OUT+$0000
+  LD [HL], A
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "bit8_u1_struct"
+kind = "codegen"
+allocate_registers = true
+source = """
+struct Value {
+    value: u1,
+}
+
+global IN: Value;
+global OUT: Value;
+
+fn foo() {
+    let v = IN;
+    OUT = v;
+}
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[0]
+IN::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+OUT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+foo::
+.bb1:
+  LD HL, IN+$0000
+  LD A, [HL]
+  LD HL, OUT+$0000
+  LD [HL], A
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "bit16_struct"
+kind = "codegen"
+allocate_registers = true
+source = """
+struct OptionalInt {
+    is_some: u1,
+    value: u8,
+}
+
+global IN: OptionalInt;
+global OUT: OptionalInt;
+
+fn foo() {
+    let v = IN;
+    OUT = v;
+}
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[0]
+IN::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+OUT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+foo::
+.bb1:
+  LD HL, IN+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL, OUT+$0000
+  LD [HL++], A
+  LD [HL], B
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "fn_ptr"
+kind = "codegen"
+allocate_registers = true
+source = """
+global CHOICE: u1;
+
+fn ping_or_pong() {
+    let f = if CHOICE then ping else pong;
+    f();
+}
+
+fn ping() {}
+
+fn pong() {}
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[0]
+CHOICE::
+alloc 1 x bit
+END_SECTION
+
+START_SECTION ROM0
+ping_or_pong::
+.bb1:
+  LD HL, CHOICE+$0000
+  LD A, [HL]
+  BIT 0, A; z
+  JP z, .bb5; else=.bb6
+
+ping::
+.bb2:
+  LD BC, ping
+  RET
+
+pong::
+.bb3:
+  LD BC, pong
+  RET
+
+main::
+.bb4:
+  RET
+
+.bb5:
+  LD L, C
+  LD H, B
+  JP .bb7
+
+.bb6:
+  LD L, C
+  LD H, B
+  JP .bb7
+
+.bb7:
+  CALL HL; return=.bb8
+
+.bb8:
+  RET
+
+END_SECTION
+"""
