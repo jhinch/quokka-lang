@@ -5,7 +5,7 @@ source = """
 fn helper() {}
 """
 expected_errors = [
-    "no entrypoint function found",
+    "no main function found",
 ]
 
 [[case]]

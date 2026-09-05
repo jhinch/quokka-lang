@@ -375,6 +375,6 @@ pub struct MultipleEntrypointsError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("no entrypoint function found")]
+#[error("no main function found")]
 #[diagnostic()]
 pub struct MissingEntrypointError;
