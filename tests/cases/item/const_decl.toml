@@ -389,7 +389,7 @@ const A: u8 = loop {
 fn main() {}
 """
 expected_errors = [
-    "loops are not support in constant declarations @ [14:35]",
+    "Preview feature error: use --preview const-loop @ [14:35]",
 ]
 
 [[case]]
@@ -405,8 +405,77 @@ const A: u8 = {
 fn main() {}
 """
 expected_errors = [
-    "loops are not support in constant declarations @ [20:47]",
+    "Preview feature error: use --preview const-loop @ [20:47]",
 ]
+
+[[case]]
+name = "loop_in_const_with_preview_feature"
+kind = "analyzer"
+preview_features = ["const-loop"]
+source = """
+const A: u8 = loop {
+    break 1;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "loop_unit_in_const_with_preview_feature"
+kind = "analyzer"
+preview_features = ["const-loop"]
+source = """
+const A: u8 = {
+    loop {
+        break;
+    }
+    yield 1;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [1]
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "loop_accumulator_in_const_with_preview_feature"
+kind = "analyzer"
+preview_features = ["const-loop"]
+source = """
+const A: u8 = {
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == 5 then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    yield sum;
+};
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const A: u8 = [10]
+
+main -> unit:
+  .bb1:
+    return
+"""
 
 [[case]]
 name = "call_in_const"

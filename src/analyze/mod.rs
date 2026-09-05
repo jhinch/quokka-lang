@@ -834,8 +834,11 @@ impl Analyzer {
             }
             ast::ExprData::Loop(loop_expr) => {
                 if scopes.const_decl_scope().is_some() {
-                    self.result_builder
-                        .add_error(LoopNotSupportInConstDeclError { span: expr.span });
+                    self.features.check_enabled(
+                        PreviewFeature::ConstLoop,
+                        expr.span,
+                        &mut self.result_builder,
+                    );
                 }
                 let start_block = mir.new_block();
                 let end_block = mir.new_block();
@@ -1416,9 +1419,12 @@ impl Analyzer {
                 (end_block, ty, local)
             }
             ast::ExprData::Loop(loop_expr) => {
-                if scopes.const_decl_scope().is_some() {
-                    self.result_builder
-                        .add_error(LoopNotSupportInConstDeclError { span: expr.span });
+                if scopes.const_decl_scope().is_some()
+                    && let Err(err) = self
+                        .features
+                        .require_enabled(PreviewFeature::ConstLoop, expr.span)
+                {
+                    self.result_builder.add_error(err);
                     let target = mir.new_local(Ty::ERROR);
                     mir.push_instr(block, Instr::Undefined { target });
                     return (block, InferredTy::Concrete(Ty::ERROR), target);

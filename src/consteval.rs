@@ -1017,11 +1017,10 @@ mod tests {
 
     // --- loop evaluation, as a `const` declaration's initializer would need ---
     //
-    // `loop` is currently rejected unconditionally inside a `const` declaration
-    // (`LoopNotSupportInConstDeclError`, raised in `analyze/mod.rs` regardless of any preview
-    // feature), so there is no way to exercise this through real source yet. These tests build
+    // `loop` inside a `const` declaration requires the `const-loop` preview feature (see
+    // `tests/cases/item/const_decl.toml` for coverage through real source). These tests build
     // the MIR shape a real `const X: u8 = { let i = 0; let sum = 0; loop { if i == LIMIT { break; }
-    // sum = sum + i; i = i + 1; } sum };` would compile to (phi-headed loop, `JumpIf` exit test,
+    // sum = sum + i; i = i + 1; } yield sum; };` compiles to (phi-headed loop, `JumpIf` exit test,
     // back edge) directly, and evaluate it exactly like a real constant initializer would: no
     // globals at all, since a `const` can only depend on other already-resolved constants.
     //

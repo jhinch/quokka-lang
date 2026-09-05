@@ -290,14 +290,6 @@ pub struct CallNotSupportInConstDeclError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-#[error("loops are not support in constant declarations")]
-#[diagnostic()]
-pub struct LoopNotSupportInConstDeclError {
-    #[label("not permitted")]
-    pub span: SourceSpan,
-}
-
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("cannot reference global `{name}` in constant declaration")]
 #[diagnostic()]
 pub struct GlobalReferencedInConstDeclError {

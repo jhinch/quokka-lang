@@ -19,6 +19,8 @@ pub enum PreviewFeature {
     NoStartupCode,
     /// enable use of the sub-byte unsigned integer types (u2, u4)
     NarrowInt,
+    /// enable use of `loop` expressions inside constant declarations
+    ConstLoop,
     /// enable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     Adce,
     /// enable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
