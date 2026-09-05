@@ -1,0 +1,276 @@
+# There are only 2 physical flag registers (Z and C). Keeping 3 comparison results
+# (`u1`/bool-typed locals, which live in a zero- or carry-flag virtual register) simultaneously
+# live forces `RegAllocator` down the flag-spill path (`PushAF`/`Rlc`/`Sbc` dance in
+# `store_spill_slot`/`load_spill_slot` for `VirtualReg::Zero`/`VirtualReg::Carry`), which has no
+# other coverage in this suite.
+
+[[case]]
+name = "flag_pressure_forces_spill_codegen"
+kind = "codegen"
+optimize = true
+source.file = "flag_pressure.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+B::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+C::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+D::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 24 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  LD HL, A+$0000
+  LD r8#1, [HL]
+  LD r8#2, r8#1
+  LD HL, B+$0000
+  LD r8#3, [HL]
+  LD r8#4, r8#3
+  LD A, r8#2
+  CP A, r8#4; z, c
+  (out=z#2,in=z)
+  LD HL, B+$0000
+  LD r8#6, [HL]
+  LD r8#7, r8#6
+  LD HL, C+$0000
+  LD r8#8, [HL]
+  LD r8#9, r8#8
+  LD A, r8#7
+  CP A, r8#9; z, c
+  (out=z#4,in=z)
+  LD HL, C+$0000
+  LD r8#11, [HL]
+  LD r8#12, r8#11
+  LD HL, D+$0000
+  LD r8#13, [HL]
+  LD r8#14, r8#13
+  LD A, r8#12
+  CP A, r8#14; z, c
+  (out=z#6,in=z)
+  LD r8#16, $00
+  LD r8#17, $00
+  LD r8#18, r8#17
+  LD r8#19, r8#16
+  LD r8#20, r8#19
+  LD r8#21, r8#18
+  (out=r16#7;high_in=r8#21;low_in=r8#20)
+  LD HL, RESULT+$0000
+  ADD HL, r16#7; c
+  PUSH AF(high_in=A, z_in=z#2, c_in=c)
+  POP r16#10
+  (high_out=r8#24;low_out=r8#23;in=r16#10)
+  RLC (out=r8#25,in=r8#23); z, c
+  SBC A, A; z, c
+  LD r8#29, A
+  LD r8#30, [HL]
+  LD A, r8#30
+  AND A, $fe; z, c
+  OR A, r8#29; z, c
+  LD r8#34, A
+  LD [HL], r8#34
+  LD r8#35, $00
+  LD r8#36, $01
+  LD r8#37, r8#36
+  LD r8#38, r8#35
+  LD r8#39, r8#38
+  LD r8#40, r8#37
+  (out=r16#11;high_in=r8#40;low_in=r8#39)
+  LD HL, RESULT+$0000
+  ADD HL, r16#11; c
+  PUSH AF(high_in=A, z_in=z#4, c_in=c)
+  POP r16#14
+  (high_out=r8#43;low_out=r8#42;in=r16#14)
+  RLC (out=r8#44,in=r8#42); z, c
+  SBC A, A; z, c
+  LD r8#48, A
+  LD r8#49, [HL]
+  LD A, r8#49
+  AND A, $fe; z, c
+  OR A, r8#48; z, c
+  LD r8#53, A
+  LD [HL], r8#53
+  LD r8#54, $00
+  LD r8#55, $02
+  LD r8#56, r8#55
+  LD r8#57, r8#54
+  LD r8#58, r8#57
+  LD r8#59, r8#56
+  (out=r16#15;high_in=r8#59;low_in=r8#58)
+  LD HL, RESULT+$0000
+  ADD HL, r16#15; c
+  PUSH AF(high_in=A, z_in=z#6, c_in=c)
+  POP r16#18
+  (high_out=r8#62;low_out=r8#61;in=r16#18)
+  RLC (out=r8#63,in=r8#61); z, c
+  SBC A, A; z, c
+  LD r8#67, A
+  LD r8#68, [HL]
+  LD A, r8#68
+  AND A, $fe; z, c
+  OR A, r8#67; z, c
+  LD r8#72, A
+  LD [HL], r8#72
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "flag_pressure_forces_spill_allocate_registers"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source.file = "flag_pressure.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+B::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+C::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+D::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 24 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  ADD SP -1; z, c
+  LD HL, A+$0000
+  LD B, [HL]
+  LD C, B
+  LD HL, B+$0000
+  LD B, [HL]
+  LD A, C
+  CP A, B; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD D, A
+  LD HL, B+$0000
+  LD B, [HL]
+  LD C, B
+  LD HL, C+$0000
+  LD B, [HL]
+  LD A, C
+  CP A, B; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD HL SP+0; c
+  LD [HL], A
+  LD HL, C+$0000
+  LD B, [HL]
+  LD C, B
+  LD HL, D+$0000
+  LD B, [HL]
+  LD A, C
+  CP A, B; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD E, A
+  LD C, $00
+  LD B, $00
+  LD HL, RESULT+$0000
+  ADD HL, BC; c
+  LD A, $ff
+  XOR A, D; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD B, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  OR A, B; z, c
+  LD [HL], A
+  LD C, $00
+  LD B, $01
+  LD D, B
+  LD B, C
+  LD C, B
+  LD B, D
+  LD HL SP+0; c
+  LD [HL], B
+  LD HL SP+0; c
+  LD B, [HL]
+  LD HL, RESULT+$0000
+  ADD HL, BC; c
+  LD A, $ff
+  LD HL SP+0; c
+  LD B, [HL]
+  XOR A, B; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD B, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  OR A, B; z, c
+  LD [HL], A
+  LD C, $00
+  LD B, $02
+  LD HL, RESULT+$0000
+  ADD HL, BC; c
+  LD A, $ff
+  XOR A, E; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  RLC C; z, c
+  SBC A, A; z, c
+  LD B, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  OR A, B; z, c
+  LD [HL], A
+  ADD SP 1; z, c
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""

@@ -1,0 +1,75 @@
+# A straight-line chain of pure copies (`a` -> `b` -> `c`) has no register pressure at all, so
+# every `LD` move between them should coalesce away during allocation, leaving a single physical
+# register carrying the value from load to store. This exercises `Colorer::coalesce`/`combine`
+# (George's/Briggs's tests) on the "should always succeed" end of the spectrum, which the
+# pressure-focused cases in `spilling.toml`/`flags.toml` don't cover.
+
+[[case]]
+name = "copy_chain_codegen"
+kind = "codegen"
+optimize = true
+source.file = "coalescing.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  LD HL, A+$0000
+  LD r8#1, [HL]
+  LD r8#2, r8#1
+  LD r8#3, r8#2
+  LD r8#4, r8#3
+  LD r8#5, r8#4
+  LD r8#6, r8#5
+  LD HL, RESULT+$0000
+  LD [HL], r8#6
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""
+
+[[case]]
+name = "copy_chain_allocate_registers"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source.file = "coalescing.q"
+expected_lir = """
+START_SECTION WRAM0[0]
+A::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[0]
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  LD HL, A+$0000
+  LD A, [HL]
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+"""

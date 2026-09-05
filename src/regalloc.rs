@@ -657,7 +657,11 @@ fn allocate_spill_slots(
                         slot - 1
                     }
                 };
+                // an r16 spill occupies two consecutive bytes (`slot` and `slot + 1`), so both
+                // must be recorded as occupied or a later spill could be placed on top of the
+                // high byte, silently clobbering it.
                 frame.occupants[slot].push(VirtualReg::R16(*reg));
+                frame.occupants[slot + 1].push(VirtualReg::R16(*reg));
                 spill_slots.r16_to_slot.insert(
                     *reg,
                     i8::try_from(slot).expect("More than 127 slots required"),
@@ -1445,12 +1449,25 @@ fn rewrite_terminator(
             })
             .unwrap_or(c)
     };
+    let sub_r16 = |r16: R16Id| {
+        use_substitutions
+            .get(&VirtualReg::R16(r16))
+            .map(|sub| {
+                let VirtualReg::R16(r16) = sub else {
+                    panic!("{r16:?} substitutes to non-r16 {sub:?}")
+                };
+                *r16
+            })
+            .unwrap_or(r16)
+    };
     match &mut terminator {
         Terminator::Call { .. }
-        | Terminator::CallR16 { .. }
         | Terminator::Jp { .. }
         | Terminator::Ret
         | Terminator::Halt { .. } => {}
+        Terminator::CallR16 { callee, .. } => {
+            *callee = sub_r16(*callee);
+        }
         Terminator::CallIf { source, .. }
         | Terminator::JpIf { source, .. }
         | Terminator::RetIf { source, .. } => match source {
@@ -1625,4 +1642,115 @@ struct SpillSlots {
 struct FunctionBlocks {
     block_to_function: SparseSecondaryMap<BlockId, BlockId>,
     function_to_exits: SparseSecondaryMap<BlockId, StableSparseSlotKeySet<BlockId>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::Identifier;
+    use crate::interference::build_interference_graph;
+    use crate::lir::Ld16Source;
+    use slotmap::SlotMap;
+
+    /// Builds a single-block, single-function [`CodeSectionData`] containing two `r16`
+    /// registers (`x`, `y`) which are defined and then both used together by a later
+    /// instruction (`PushR16` each, with `x`'s use ordered after `y`'s definition), so that
+    /// a real interference edge is established between them via [`build_interference_graph`]
+    /// exactly as it would be for genuinely simultaneously-live locals.
+    fn two_interfering_r16_regs() -> (CodeSectionData, R16Id, R16Id) {
+        let mut code = CodeSectionData {
+            region: None,
+            addr: None,
+            functions: SparseSecondaryMap::new(),
+            blocks: SlotMap::with_key(),
+            zero_registers: SlotMap::with_key(),
+            carry_registers: SlotMap::with_key(),
+            r8_registers: SlotMap::with_key(),
+            r16_registers: SlotMap::with_key(),
+        };
+        let x = code.r16_registers.insert(Register::default());
+        let y = code.r16_registers.insert(Register::default());
+        let block = code.blocks.insert(Block {
+            instructions: Vec::new(),
+            terminator: Terminator::Ret,
+            previous: Vec::new(),
+        });
+        code.functions.insert(block, Identifier::from("f"));
+        code.blocks[block].instructions = vec![
+            Instr::Ld16 {
+                target: x,
+                source: Ld16Source::Literal(0),
+            },
+            Instr::Ld16 {
+                target: y,
+                source: Ld16Source::Literal(0),
+            },
+            Instr::PushR16 { source: x },
+            Instr::PushR16 { source: y },
+        ];
+        code.r16_registers[x].defined.insert(block, 0);
+        code.r16_registers[y].defined.insert(block, 1);
+        (code, x, y)
+    }
+
+    #[test]
+    fn allocate_spill_slots_gives_interfering_r16_regs_disjoint_byte_ranges() {
+        let (code, x, y) = two_interfering_r16_regs();
+        let liveness = calculate_block_liveness(&code);
+        let (graph, _moves) = build_interference_graph(&code, &liveness);
+        assert!(
+            graph.has_edge(VirtualReg::R16(x), VirtualReg::R16(y)),
+            "test setup should make x and y interfere"
+        );
+
+        let functions_blocks = calculate_function_blocks(&code);
+        let mut spill_slots = SpillSlots::default();
+        let new_spills = [VirtualReg::R16(x), VirtualReg::R16(y)]
+            .into_iter()
+            .collect::<IndexSet<_>>();
+        let mut code = code;
+        allocate_spill_slots(
+            &mut code,
+            &mut spill_slots,
+            &new_spills,
+            &graph,
+            &functions_blocks,
+        );
+
+        let x_slot = spill_slots.r16_to_slot[x];
+        let y_slot = spill_slots.r16_to_slot[y];
+        // each r16 spill occupies two consecutive bytes (`slot`, `slot + 1`); interfering
+        // registers must never share a byte, or one's spill store/load will silently
+        // clobber the other's.
+        let x_range = x_slot..=(x_slot + 1);
+        let y_range = y_slot..=(y_slot + 1);
+        assert!(
+            !x_range.contains(&y_slot) && !x_range.contains(&(y_slot + 1)),
+            "x's slot range {x_range:?} overlaps y's byte range {y_range:?} for interfering r16 regs"
+        );
+    }
+
+    #[test]
+    fn rewrite_terminator_substitutes_call_r16_callee() {
+        // regression test: `rewrite_terminator` previously had no `CallR16` arm at all, so a
+        // spilled callee register would be left referring to the old (now-dead) virtual
+        // register instead of the freshly reloaded one.
+        let mut builder = crate::lir::CodeSectionBuilder::default();
+        let entry = builder.new_function(Identifier::from("f"));
+        let old = builder.insert_ld16(entry, crate::lir::Ld16Source::Literal(0));
+        let new = builder.insert_ld16(entry, crate::lir::Ld16Source::Literal(0));
+
+        let mut use_substitutions = HashMap::new();
+        use_substitutions.insert(VirtualReg::R16(old), VirtualReg::R16(new));
+
+        let terminator = Terminator::CallR16 {
+            callee: old,
+            return_block: entry,
+        };
+        let rewritten = rewrite_terminator(terminator, &use_substitutions);
+        assert!(
+            matches!(rewritten, Terminator::CallR16 { callee, .. } if callee == new),
+            "{rewritten:?} should have substituted callee {old:?} for {new:?}"
+        );
+    }
 }

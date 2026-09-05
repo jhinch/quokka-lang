@@ -1,4 +1,6 @@
-use crate::lir::{Addr, BlockId, CodeSectionData, HighAddr, Instr, Operand8, VirtualReg};
+use crate::lir::{
+    Addr, BlockId, CodeSectionData, FlagId, HighAddr, Instr, Operand8, Terminator, VirtualReg,
+};
 use crate::reg::{Color, ColorSet};
 use indexmap::map::Entry;
 use indexmap::{IndexMap, IndexSet};
@@ -484,6 +486,7 @@ pub fn build_interference_graph(
         for instruction in &block.instructions {
             restrict_from_instruction(code, instruction, &mut graph);
         }
+        restrict_from_terminator(&block.terminator, &mut graph);
     }
 
     let mut moves = IndexSet::new();
@@ -1119,6 +1122,31 @@ fn restrict_from_operand(right: &Operand8, graph: &mut InterferenceGraph) {
             graph.constrain_colors_to(VirtualReg::from(*right), Color::r8());
         }
         Operand8::Literal(_) => {}
+    }
+}
+
+fn restrict_from_terminator(terminator: &Terminator, graph: &mut InterferenceGraph) {
+    match terminator {
+        Terminator::CallIf { source, .. }
+        | Terminator::JpIf { source, .. }
+        | Terminator::RetIf { source, .. } => {
+            match source {
+                FlagId::Zero(flag) => {
+                    graph.constrain_colors_to(VirtualReg::from(*flag), Color::z())
+                }
+                FlagId::Carry(flag) => {
+                    graph.constrain_colors_to(VirtualReg::from(*flag), Color::c())
+                }
+            };
+        }
+        Terminator::CallR16 { callee, .. } => {
+            // `CallR16` is always emitted as `JP HL`, so its callee register must be HL exactly.
+            graph.constrain_colors_to(VirtualReg::from(*callee), Color::r16_ptr());
+        }
+        Terminator::Call { .. }
+        | Terminator::Jp { .. }
+        | Terminator::Ret
+        | Terminator::Halt { .. } => {}
     }
 }
 

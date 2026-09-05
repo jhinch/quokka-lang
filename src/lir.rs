@@ -2483,8 +2483,8 @@ impl Terminator {
                 FlagId::Zero(flag) => VirtualReg::from(*flag),
                 FlagId::Carry(flag) => VirtualReg::from(*flag),
             }),
+            Terminator::CallR16 { callee, .. } => Some(VirtualReg::from(*callee)),
             Terminator::Call { .. }
-            | Terminator::CallR16 { .. }
             | Terminator::Jp { .. }
             | Terminator::Ret
             | Terminator::Halt { .. } => None,
