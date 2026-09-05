@@ -34,12 +34,7 @@ impl RegAllocator {
             if let SectionData::Code(code) = &mut section.data {
                 let colors = self.allocate_registers_for_code(code);
                 for (reg, color) in colors {
-                    match reg {
-                        VirtualReg::R8(reg) => code.r8_registers[reg].color = Some(color),
-                        VirtualReg::R16(reg) => code.r16_registers[reg].color = Some(color),
-                        VirtualReg::Zero(reg) => code.zero_registers[reg].color = Some(color),
-                        VirtualReg::Carry(reg) => code.carry_registers[reg].color = Some(color),
-                    }
+                    code.register_data_mut(reg).color = Some(color);
                 }
                 cleanup_redundant_instructions(code);
             }
@@ -193,14 +188,7 @@ impl Colorer {
     }
 
     fn initialize_work(&mut self, code: &CodeSectionData) {
-        for reg in code
-            .r8_registers
-            .keys()
-            .map(VirtualReg::R8)
-            .chain(code.r16_registers.keys().map(VirtualReg::R16))
-            .chain(code.zero_registers.keys().map(VirtualReg::Zero))
-            .chain(code.carry_registers.keys().map(VirtualReg::Carry))
-        {
+        for reg in code.registers() {
             if self.graph.is_precolored(reg) {
                 continue;
             }
@@ -332,14 +320,7 @@ impl Colorer {
         code: &CodeSectionData,
     ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
         let mut colors = HashMap::<VirtualReg, Color>::new();
-        for reg in code
-            .r8_registers
-            .keys()
-            .map(VirtualReg::R8)
-            .chain(code.r16_registers.keys().map(VirtualReg::R16))
-            .chain(code.zero_registers.keys().map(VirtualReg::Zero))
-            .chain(code.carry_registers.keys().map(VirtualReg::Carry))
-        {
+        for reg in code.registers() {
             if let Some(color) = self.graph.precolor(reg) {
                 colors.insert(reg, color);
             }
@@ -561,12 +542,7 @@ fn rewrite_code(
         let precolored_spills = failure
             .spills
             .iter()
-            .filter(|&&reg| match reg {
-                VirtualReg::R8(reg) => code.r8_registers[reg].color.is_some(),
-                VirtualReg::R16(reg) => code.r16_registers[reg].color.is_some(),
-                VirtualReg::Zero(reg) => code.zero_registers[reg].color.is_some(),
-                VirtualReg::Carry(reg) => code.carry_registers[reg].color.is_some(),
-            })
+            .filter(|&&reg| code.register_data(reg).color.is_some())
             .collect::<Vec<_>>();
         debug_assert!(
             precolored_spills.is_empty(),
@@ -789,20 +765,7 @@ fn rewrite_block_with_spills(
 }
 
 fn patch_reg_defined(code: &mut CodeSectionData, reg: VirtualReg, block_id: BlockId, index: usize) {
-    match reg {
-        VirtualReg::R8(reg) => {
-            code.r8_registers[reg].defined.insert(block_id, index);
-        }
-        VirtualReg::R16(reg) => {
-            code.r16_registers[reg].defined.insert(block_id, index);
-        }
-        VirtualReg::Zero(reg) => {
-            code.zero_registers[reg].defined.insert(block_id, index);
-        }
-        VirtualReg::Carry(reg) => {
-            code.carry_registers[reg].defined.insert(block_id, index);
-        }
-    }
+    code.register_data_mut(reg).defined.insert(block_id, index);
 }
 
 fn load_spill_slot(
@@ -1616,20 +1579,16 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
             if retain {
                 let index = block.instructions.len();
                 for reg in instruction.register_defs() {
+                    // unfortunately this cannot use code.register_data_mut() as it conflicts
+                    // with code.blocks.iter_mut() above
                     match reg {
-                        VirtualReg::R8(reg) => {
-                            code.r8_registers[reg].defined.insert(block_id, index)
-                        }
-                        VirtualReg::R16(reg) => {
-                            code.r16_registers[reg].defined.insert(block_id, index)
-                        }
-                        VirtualReg::Zero(reg) => {
-                            code.zero_registers[reg].defined.insert(block_id, index)
-                        }
-                        VirtualReg::Carry(reg) => {
-                            code.carry_registers[reg].defined.insert(block_id, index)
-                        }
-                    };
+                        VirtualReg::R8(reg) => &mut code.r8_registers[reg],
+                        VirtualReg::R16(reg) => &mut code.r16_registers[reg],
+                        VirtualReg::Zero(reg) => &mut code.zero_registers[reg],
+                        VirtualReg::Carry(reg) => &mut code.carry_registers[reg],
+                    }
+                    .defined
+                    .insert(block_id, index);
                 }
                 block.instructions.push(instruction);
             } else {
@@ -1637,13 +1596,13 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
                     // we don't want to remove the register as we are not updating the
                     // uses of the register. Instead, we just clean up the definition pointer
                     match reg {
-                        VirtualReg::R8(reg) => code.r8_registers[reg].defined.remove(block_id),
-                        VirtualReg::R16(reg) => code.r16_registers[reg].defined.remove(block_id),
-                        VirtualReg::Zero(reg) => code.zero_registers[reg].defined.remove(block_id),
-                        VirtualReg::Carry(reg) => {
-                            code.carry_registers[reg].defined.remove(block_id)
-                        }
-                    };
+                        VirtualReg::R8(reg) => &mut code.r8_registers[reg],
+                        VirtualReg::R16(reg) => &mut code.r16_registers[reg],
+                        VirtualReg::Zero(reg) => &mut code.zero_registers[reg],
+                        VirtualReg::Carry(reg) => &mut code.carry_registers[reg],
+                    }
+                    .defined
+                    .remove(block_id);
                 }
             }
         }

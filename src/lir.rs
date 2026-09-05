@@ -627,6 +627,37 @@ pub struct CodeSectionData {
     pub r16_registers: SlotMap<R16Id, Register>,
 }
 
+impl CodeSectionData {
+    pub fn registers(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        self.r8_registers
+            .keys()
+            .map(VirtualReg::R8)
+            .chain(self.r16_registers.keys().map(VirtualReg::R16))
+            .chain(self.zero_registers.keys().map(VirtualReg::Zero))
+            .chain(self.carry_registers.keys().map(VirtualReg::Carry))
+    }
+
+    #[must_use]
+    pub fn register_data(&self, reg: VirtualReg) -> &Register {
+        match reg {
+            VirtualReg::R8(reg) => &self.r8_registers[reg],
+            VirtualReg::R16(reg) => &self.r16_registers[reg],
+            VirtualReg::Zero(reg) => &self.zero_registers[reg],
+            VirtualReg::Carry(reg) => &self.carry_registers[reg],
+        }
+    }
+
+    #[must_use]
+    pub fn register_data_mut(&mut self, reg: VirtualReg) -> &mut Register {
+        match reg {
+            VirtualReg::R8(reg) => &mut self.r8_registers[reg],
+            VirtualReg::R16(reg) => &mut self.r16_registers[reg],
+            VirtualReg::Zero(reg) => &mut self.zero_registers[reg],
+            VirtualReg::Carry(reg) => &mut self.carry_registers[reg],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub enum RomRegionKind {
     #[default]
