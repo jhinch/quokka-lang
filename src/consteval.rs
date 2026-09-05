@@ -31,13 +31,13 @@ pub fn evaluate(
                 }
                 Instr::Alloc { target } => {
                     let source = Value::zeros(function.locals[*target].ty, ty_registry);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Phi { target, sources } => {
                     let source = sources
                         [previous_block.expect("phi cannot be resolved when no previous block")];
                     let source = local_slots[source].check_init(source, function).clone();
-                    local_slots[*target].init_or_update(source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Load {
                     target,
@@ -48,7 +48,7 @@ pub fn evaluate(
                     let source = Value::from_bytes(global_ty, ty_registry, source);
                     let source =
                         read_projections(source, projections, &local_slots, function, ty_registry);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Read {
                     target,
@@ -58,7 +58,7 @@ pub fn evaluate(
                     let source = local_slots[*source].check_init(*source, function).clone();
                     let source =
                         read_projections(source, projections, &local_slots, function, ty_registry);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Write {
                     target,
@@ -81,7 +81,7 @@ pub fn evaluate(
                     );
                     let source =
                         Value::from_bytes(function.locals[*target].ty, ty_registry, &new_bytes);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Copy { target, source } => {
                     let source = Value::from_operand(
@@ -91,7 +91,7 @@ pub fn evaluate(
                         ty_registry,
                         source,
                     );
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Not { target, source } => {
                     let mut source = Value::from_operand(
@@ -102,7 +102,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = !source;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Neg { target, source } => {
                     let mut source = Value::from_operand(
@@ -113,7 +113,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = -source;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::RotateLeft { target, source } => {
                     let mut source = Value::from_operand(
@@ -124,7 +124,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.rotate_left_one();
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::RotateRight { target, source } => {
                     let mut source = Value::from_operand(
@@ -135,7 +135,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.rotate_right_one();
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::ShiftLeft { target, source } => {
                     let mut source = Value::from_operand(
@@ -146,7 +146,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.shift_left_one();
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::ShiftRight { target, source } => {
                     let mut source = Value::from_operand(
@@ -157,7 +157,7 @@ pub fn evaluate(
                         &Operand::Local(*source),
                     );
                     source = source.shift_right_one();
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Eq {
                     target,
@@ -169,87 +169,67 @@ pub fn evaluate(
                     let right =
                         Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left == &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Ne {
                     target,
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left != &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Lt {
                     target,
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left < &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Le {
                     target,
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left <= &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Ge {
                     target,
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left >= &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Gt {
                     target,
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left > &right);
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::BitAnd {
                     target,
@@ -266,7 +246,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source &= right;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::BitOr {
                     target,
@@ -283,7 +263,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source |= right;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::BitXor {
                     target,
@@ -300,7 +280,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source ^= right;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Add {
                     target,
@@ -317,7 +297,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source += right;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
                 Instr::Sub {
                     target,
@@ -334,7 +314,7 @@ pub fn evaluate(
                     );
                     let mut source = left.clone();
                     source -= right;
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].set(source);
                 }
             }
         }
@@ -808,10 +788,10 @@ impl SubAssign for Value {
 }
 
 trait Slot {
+    /// return the current value. Panics if uninitialized
     fn check_init(&self, id: LocalId, function: &mir::Function) -> &Value;
-    fn init(&mut self, id: LocalId, function: &mir::Function, value: Value);
-
-    fn init_or_update(&mut self, value: Value);
+    /// sets the slot to the specified value
+    fn set(&mut self, value: Value);
 }
 
 impl Slot for Option<Value> {
@@ -820,16 +800,7 @@ impl Slot for Option<Value> {
             .unwrap_or_else(|| panic!("{} not initialized", id.display(function)))
     }
 
-    fn init(&mut self, id: LocalId, function: &mir::Function, value: Value) {
-        assert!(
-            self.is_none(),
-            "{} already initialized",
-            id.display(function)
-        );
-        *self = Some(value);
-    }
-
-    fn init_or_update(&mut self, value: Value) {
+    fn set(&mut self, value: Value) {
         *self = Some(value);
     }
 }
@@ -924,8 +895,11 @@ mod tests {
         assert_eq!(eval(&function), vec![1]);
     }
 
-    #[test]
-    fn comparison_against_a_literal_right_operand() {
+    fn eval_comparison(
+        left_value: u32,
+        make_instr: impl FnOnce(LocalId, LocalId, Operand) -> Instr,
+        right_literal: u32,
+    ) -> Vec<u8> {
         let mut fb = new_builder(Ty::U1);
         let block = fb.new_block();
         let ret = fb.create_return_local(Ty::U1);
@@ -934,22 +908,262 @@ mod tests {
             block,
             Instr::Copy {
                 target: left,
-                source: Operand::Literal(IntegerLiteral::from(0)),
+                source: Operand::Literal(IntegerLiteral::from(left_value)),
             },
         );
         fb.push_instr(
             block,
-            Instr::Eq {
-                target: ret,
+            make_instr(
+                ret,
                 left,
-                right: Operand::Literal(IntegerLiteral::from(0)),
-            },
+                Operand::Literal(IntegerLiteral::from(right_literal)),
+            ),
         );
         fb.set_terminator(block, Terminator::Return);
         fb.seal_block(block);
         let function = fb.build();
+        eval(&function)
+    }
 
-        // 0u8 == 0 must be true ([1]); today it evaluates to [0].
-        assert_eq!(eval(&function), vec![1]);
+    #[test]
+    fn eq_against_a_literal_right_operand() {
+        // 0u8 == 0 must be true ([1]).
+        let result = eval_comparison(
+            0,
+            |target, left, right| Instr::Eq {
+                target,
+                left,
+                right,
+            },
+            0,
+        );
+        assert_eq!(result, vec![1]);
+    }
+
+    #[test]
+    fn ne_against_a_literal_right_operand() {
+        // 5u8 != 5 must be false ([0]).
+        let result = eval_comparison(
+            5,
+            |target, left, right| Instr::Ne {
+                target,
+                left,
+                right,
+            },
+            5,
+        );
+        assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn lt_against_a_literal_right_operand() {
+        // 3u8 < 5 must be true ([1]).
+        let result = eval_comparison(
+            3,
+            |target, left, right| Instr::Lt {
+                target,
+                left,
+                right,
+            },
+            5,
+        );
+        assert_eq!(result, vec![1]);
+    }
+
+    #[test]
+    fn le_against_a_literal_right_operand() {
+        // 5u8 <= 5 must be true ([1]).
+        let result = eval_comparison(
+            5,
+            |target, left, right| Instr::Le {
+                target,
+                left,
+                right,
+            },
+            5,
+        );
+        assert_eq!(result, vec![1]);
+    }
+
+    #[test]
+    fn ge_against_a_literal_right_operand() {
+        // 5u8 >= 5 must be true ([1]).
+        let result = eval_comparison(
+            5,
+            |target, left, right| Instr::Ge {
+                target,
+                left,
+                right,
+            },
+            5,
+        );
+        assert_eq!(result, vec![1]);
+    }
+
+    #[test]
+    fn gt_against_a_literal_right_operand() {
+        // 7u8 > 5 must be true ([1]).
+        let result = eval_comparison(
+            7,
+            |target, left, right| Instr::Gt {
+                target,
+                left,
+                right,
+            },
+            5,
+        );
+        assert_eq!(result, vec![1]);
+    }
+
+    // --- loop evaluation, as a `const` declaration's initializer would need ---
+    //
+    // `loop` is currently rejected unconditionally inside a `const` declaration
+    // (`LoopNotSupportInConstDeclError`, raised in `analyze/mod.rs` regardless of any preview
+    // feature), so there is no way to exercise this through real source yet. These tests build
+    // the MIR shape a real `const X: u8 = { let i = 0; let sum = 0; loop { if i == LIMIT { break; }
+    // sum = sum + i; i = i + 1; } sum };` would compile to (phi-headed loop, `JumpIf` exit test,
+    // back edge) directly, and evaluate it exactly like a real constant initializer would: no
+    // globals at all, since a `const` can only depend on other already-resolved constants.
+    //
+    // sum(0..limit) via a loop, mirroring the sum-accumulator pattern used throughout this
+    // codebase's own loop examples (e.g. `tests/cases/golden/collatz.q`).
+    fn build_const_sum_loop(limit: u32) -> mir::Function {
+        let mut fb = new_builder(Ty::U8);
+        let entry = fb.new_block();
+        let header = fb.new_block();
+        let body = fb.new_block();
+        let exit_block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+
+        let i0 = fb.new_local(Ty::U8);
+        let sum0 = fb.new_local(Ty::U8);
+        fb.push_instr(
+            entry,
+            Instr::Copy {
+                target: i0,
+                source: Operand::Literal(IntegerLiteral::from(0)),
+            },
+        );
+        fb.push_instr(
+            entry,
+            Instr::Copy {
+                target: sum0,
+                source: Operand::Literal(IntegerLiteral::from(0)),
+            },
+        );
+        fb.set_terminator(
+            entry,
+            Terminator::Jump {
+                target_block: header,
+            },
+        );
+
+        // allocated now, defined later in `body` - LocalId creation doesn't require the
+        // defining instruction to exist yet, only the phi's back-edge source entry.
+        let i_next = fb.new_local(Ty::U8);
+        let sum_next = fb.new_local(Ty::U8);
+
+        let i_phi = fb.new_local(Ty::U8);
+        let mut i_sources = SparseSecondaryMap::new();
+        i_sources.insert(entry, i0);
+        i_sources.insert(body, i_next);
+        fb.push_instr(
+            header,
+            Instr::Phi {
+                target: i_phi,
+                sources: i_sources,
+            },
+        );
+
+        let sum_phi = fb.new_local(Ty::U8);
+        let mut sum_sources = SparseSecondaryMap::new();
+        sum_sources.insert(entry, sum0);
+        sum_sources.insert(body, sum_next);
+        fb.push_instr(
+            header,
+            Instr::Phi {
+                target: sum_phi,
+                sources: sum_sources,
+            },
+        );
+
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(
+            header,
+            Instr::Eq {
+                target: cond,
+                left: i_phi,
+                right: Operand::Literal(IntegerLiteral::from(limit)),
+            },
+        );
+        fb.set_terminator(
+            header,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: exit_block,
+                else_block: body,
+            },
+        );
+
+        fb.push_instr(
+            body,
+            Instr::Add {
+                target: sum_next,
+                left: sum_phi,
+                right: Operand::Local(i_phi),
+            },
+        );
+        fb.push_instr(
+            body,
+            Instr::Add {
+                target: i_next,
+                left: i_phi,
+                right: Operand::Literal(IntegerLiteral::from(1)),
+            },
+        );
+        fb.set_terminator(
+            body,
+            Terminator::Jump {
+                target_block: header,
+            },
+        );
+
+        fb.push_instr(
+            exit_block,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(sum_phi),
+            },
+        );
+        fb.set_terminator(exit_block, Terminator::Return);
+
+        fb.seal_block(entry);
+        fb.seal_block(body);
+        fb.seal_block(header);
+        fb.seal_block(exit_block);
+        fb.build()
+    }
+
+    fn triangular_number(limit: u32) -> u8 {
+        (0..limit).fold(0u8, |acc, i| acc.wrapping_add(u8::try_from(i).unwrap()))
+    }
+
+    #[test]
+    fn const_loop_with_zero_iterations_evaluates_correctly() {
+        let function = build_const_sum_loop(0);
+        assert_eq!(eval(&function), vec![triangular_number(0)]);
+    }
+
+    #[test]
+    fn const_loop_with_one_iteration_evaluates_correctly() {
+        let function = build_const_sum_loop(1);
+        assert_eq!(eval(&function), vec![triangular_number(1)]);
+    }
+
+    #[test]
+    fn const_loop_with_several_iterations_evaluates_correctly() {
+        let function = build_const_sum_loop(5);
+        assert_eq!(eval(&function), vec![triangular_number(5)]);
     }
 }

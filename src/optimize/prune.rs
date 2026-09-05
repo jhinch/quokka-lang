@@ -106,7 +106,10 @@ impl Optimize for Prune {
                                 let Instr::Phi { target, sources } = instruction else {
                                     continue;
                                 };
-                                sources[block_id] = phi_sources[&*target];
+                                let Some(&new_source) = phi_sources.get(&*target) else {
+                                    continue;
+                                };
+                                sources[block_id] = new_source;
                             }
                         } else {
                             FunctionMutator::from(&mut *function).replace_next_block(
@@ -168,6 +171,13 @@ mod tests {
 
     fn instr_count(function: &Function) -> usize {
         function.blocks.values().map(|b| b.instructions.len()).sum()
+    }
+
+    fn literal(target: crate::mir::LocalId, value: u32) -> Instr {
+        Instr::Copy {
+            target,
+            source: Operand::Literal(IntegerLiteral::from(value)),
+        }
     }
 
     // --- Nop removal + local re-indexing ---
@@ -411,5 +421,111 @@ mod tests {
             "b1 should jumps to b3"
         );
         function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn empty_block_feeding_two_phis_with_mixed_triviality_does_not_panic() {
+        let mut fb = new_builder();
+        let entry = fb.new_block(); // defines w, used only by the non-trivial phi
+        let mid1 = fb.new_block(); // non-empty, one of p's two real predecessors
+        let mid2 = fb.new_block(); // non-empty, the other of p's two real predecessors
+        let p = fb.new_block(); // previous_block_id: defines p_local, used by the trivial phi
+        let b = fb.new_block(); // block_id: empty passthrough to t
+        let a = fb.new_block(); // t's other predecessor
+        let t = fb.new_block(); // has two phis merging the b/a edges
+
+        let ret = fb.create_return_local(Ty::U8);
+        let w = fb.new_local(Ty::U8);
+        fb.push_instr(entry, literal(w, 100));
+        let branch_cond = fb.new_local(Ty::U1);
+        fb.push_instr(entry, literal(branch_cond, 0));
+        fb.set_terminator(
+            entry,
+            Terminator::JumpIf {
+                source: branch_cond,
+                condition: Condition::NotZero,
+                then_block: mid1,
+                else_block: mid2,
+            },
+        );
+
+        // mid1/mid2 are non-empty (so Prune can't fold them away as trivial pass-throughs) and
+        // give p two real, permanent predecessors, so p (and therefore p_local) can never be
+        // merged elsewhere - unlike w's defining block, which must stay genuinely distinct from
+        // p for this scenario to actually exercise the mixed-triviality path.
+        let junk1 = fb.new_local(Ty::U8);
+        fb.push_instr(mid1, literal(junk1, 5));
+        fb.set_terminator(mid1, Terminator::Jump { target_block: p });
+        let junk2 = fb.new_local(Ty::U8);
+        fb.push_instr(mid2, literal(junk2, 6));
+        fb.set_terminator(mid2, Terminator::Jump { target_block: p });
+
+        let p_local = fb.new_local(Ty::U8);
+        fb.push_instr(p, literal(p_local, 2));
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(p, literal(cond, 0));
+        fb.set_terminator(
+            p,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b,
+                else_block: a,
+            },
+        );
+
+        fb.set_terminator(b, Terminator::Jump { target_block: t });
+
+        let y_from_a = fb.new_local(Ty::U8);
+        fb.push_instr(a, literal(y_from_a, 50));
+        let z_from_a = fb.new_local(Ty::U8);
+        fb.push_instr(a, literal(z_from_a, 60));
+        fb.set_terminator(a, Terminator::Jump { target_block: t });
+
+        let y = fb.new_local(Ty::U8);
+        let mut y_sources = SparseSecondaryMap::new();
+        // trivial: p_local is already defined in p (previous_block_id for b's edge)
+        y_sources.insert(b, p_local);
+        y_sources.insert(a, y_from_a);
+        fb.push_instr(
+            t,
+            Instr::Phi {
+                target: y,
+                sources: y_sources,
+            },
+        );
+        let z = fb.new_local(Ty::U8);
+        let mut z_sources = SparseSecondaryMap::new();
+        // non-trivial: w is defined in entry, not in p
+        z_sources.insert(b, w);
+        z_sources.insert(a, z_from_a);
+        fb.push_instr(
+            t,
+            Instr::Phi {
+                target: z,
+                sources: z_sources,
+            },
+        );
+        fb.push_instr(
+            t,
+            Instr::Add {
+                target: ret,
+                left: y,
+                right: Operand::Local(z),
+            },
+        );
+        fb.set_terminator(t, Terminator::Return);
+
+        fb.seal_block(entry);
+        fb.seal_block(mid1);
+        fb.seal_block(mid2);
+        fb.seal_block(p);
+        fb.seal_block(b);
+        fb.seal_block(a);
+        fb.seal_block(t);
+        let mut function = fb.build();
+        function.check_integrity().unwrap();
+
+        run_prune(&mut function);
     }
 }

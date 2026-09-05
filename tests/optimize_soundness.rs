@@ -197,6 +197,94 @@ fn main() {}
 }
 
 #[test]
+fn loop_that_never_iterates_is_optimized_soundly() {
+    // `consteval::evaluate` can only run this loop for N=0 - see the doc comment on
+    // `loop_with_accumulator_is_optimized_soundly` below for why. This at least confirms the
+    // optimizer + harness are fine for the one iteration count that's currently evaluable.
+    let source = r#"
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn main() {}
+"#;
+    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &[vec![0u8]]);
+}
+
+#[test]
+fn loop_with_accumulator_is_optimized_soundly() {
+    let source = r#"
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == n then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn main() {}
+"#;
+    // keep inputs small: this loop is O(n) in the interpreter and n=255 would run 255 times,
+    // which is unnecessary to prove the point
+    let inputs = [0u8, 1, 2, 3, 4, 10, 20]
+        .into_iter()
+        .map(|v| vec![v])
+        .collect::<Vec<_>>();
+    for &pass in ALL_PASSES {
+        assert_optimization_preserves_semantics(source, &[pass], "f", "N", &inputs);
+    }
+    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &inputs);
+}
+
+#[test]
+fn loop_with_early_return_is_optimized_soundly() {
+    let source = r#"
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    loop {
+        if i == n then {
+            return i;
+        }
+        if i == 5 then {
+            return 100;
+        }
+        i = i + 1;
+    }
+}
+
+fn main() {}
+"#;
+    let inputs = [0u8, 1, 3, 5, 6, 9]
+        .into_iter()
+        .map(|v| vec![v])
+        .collect::<Vec<_>>();
+    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &inputs);
+}
+
+#[test]
 fn narrow_int_wrapping_arithmetic_is_optimized_soundly() {
     let source = r#"
 global N: u2;
