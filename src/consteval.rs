@@ -164,14 +164,10 @@ pub fn evaluate(
                     left,
                     right,
                 } => {
+                    let operand_ty = function.locals[*left].ty;
                     let left = local_slots[*left].check_init(*left, function);
-                    let right = Value::from_operand(
-                        &local_slots,
-                        function,
-                        function.locals[*target].ty,
-                        ty_registry,
-                        right,
-                    );
+                    let right =
+                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left == &right);
                     local_slots[*target].init(*target, function, source);
                 }
@@ -829,5 +825,125 @@ impl Slot for Option<Value> {
             id.display(function)
         );
         *self = Some(value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Identifier, IntegerLiteral};
+    use crate::mir::FunctionBuilder;
+
+    fn new_builder(return_ty: Ty) -> FunctionBuilder {
+        FunctionBuilder::new(Identifier::from("f"), return_ty)
+    }
+
+    fn eval(function: &mir::Function) -> Vec<u8> {
+        evaluate(function, &SparseSecondaryMap::new(), &TyRegistry::default())
+    }
+
+    #[test]
+    fn evaluates_straight_line_arithmetic() {
+        let mut fb = new_builder(Ty::U8);
+        let block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let a = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: a,
+                source: Operand::Literal(IntegerLiteral::from(3)),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Add {
+                target: ret,
+                left: a,
+                right: Operand::Literal(IntegerLiteral::from(4)),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let function = fb.build();
+
+        assert_eq!(eval(&function), vec![7]);
+    }
+
+    #[test]
+    fn evaluates_jumpif_branch_selection() {
+        let mut fb = new_builder(Ty::U8);
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(
+            b1,
+            Instr::Copy {
+                target: cond,
+                source: Operand::Literal(IntegerLiteral::from(1)),
+            },
+        );
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        fb.push_instr(
+            b2,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Literal(IntegerLiteral::from(1)),
+            },
+        );
+        fb.set_terminator(b2, Terminator::Return);
+        fb.push_instr(
+            b3,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Literal(IntegerLiteral::from(2)),
+            },
+        );
+        fb.set_terminator(b3, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        let function = fb.build();
+
+        assert_eq!(eval(&function), vec![1]);
+    }
+
+    #[test]
+    fn comparison_against_a_literal_right_operand() {
+        let mut fb = new_builder(Ty::U1);
+        let block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U1);
+        let left = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: left,
+                source: Operand::Literal(IntegerLiteral::from(0)),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Eq {
+                target: ret,
+                left,
+                right: Operand::Literal(IntegerLiteral::from(0)),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let function = fb.build();
+
+        // 0u8 == 0 must be true ([1]); today it evaluates to [0].
+        assert_eq!(eval(&function), vec![1]);
     }
 }

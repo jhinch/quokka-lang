@@ -599,15 +599,21 @@ impl Sccp {
                         )
                     {
                         let mut bytes = value.clone().into_vec();
-                        bytes.resize(4, 0);
-                        let bytes = *bytes.as_array::<4>().unwrap();
-                        *instruction = Instr::Copy {
-                            target,
-                            source: Operand::Literal(IntegerLiteral::from(u32::from_le_bytes(
-                                bytes,
-                            ))),
-                        };
-                        outcome = Outcome::Modified;
+                        // in practice, you can never have bytes > 2 as runtime
+                        // local variables are constrained to at most 2 bytes
+                        // and const declarations are not run through an optimization
+                        // pass. We check for 4 as currently IntegerLiteral uses u32 (4 bytes)
+                        if bytes.len() <= 4 {
+                            bytes.resize(4, 0);
+                            let bytes = *bytes.as_array::<4>().unwrap();
+                            *instruction = Instr::Copy {
+                                target,
+                                source: Operand::Literal(IntegerLiteral::from(u32::from_le_bytes(
+                                    bytes,
+                                ))),
+                            };
+                            outcome = Outcome::Modified;
+                        }
                     }
                 }
                 match instruction {
@@ -739,5 +745,251 @@ impl ResolvedValue {
             (ResolvedValue::Value(lhs), ResolvedValue::Value(rhs)) if lhs == rhs => self,
             _ => &ResolvedValue::Bottom,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Identifier, SpannedIdentifier};
+    use crate::attr::GlobalDeclAttributes;
+    use crate::mir::{FunctionBuilder, GlobalAttributes};
+    use miette::SourceSpan;
+
+    fn new_builder(return_ty: Ty) -> FunctionBuilder {
+        FunctionBuilder::new(Identifier::from("f"), return_ty)
+    }
+
+    fn run_sccp(
+        function: &mut Function,
+        globals: &SlotMap<GlobalId, Global>,
+        ty_registry: &TyRegistry,
+    ) -> Outcome {
+        Sccp.optimize_function(function, globals, ty_registry)
+    }
+
+    fn literal(target: LocalId, value: u32) -> Instr {
+        Instr::Copy {
+            target,
+            source: Operand::Literal(IntegerLiteral::from(value)),
+        }
+    }
+
+    fn ident(name: &str) -> SpannedIdentifier {
+        SpannedIdentifier::new(name, SourceSpan::new(0.into(), 0))
+    }
+
+    // --- straight-line constant folding ---
+
+    #[test]
+    fn folds_constant_addition_into_a_literal_copy() {
+        let mut fb = new_builder(Ty::U8);
+        let block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let a = fb.new_local(Ty::U8);
+        let b = fb.new_local(Ty::U8);
+        fb.push_instr(block, literal(a, 3));
+        fb.push_instr(block, literal(b, 4));
+        fb.push_instr(
+            block,
+            Instr::Add {
+                target: ret,
+                left: a,
+                right: Operand::Local(b),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let mut function = fb.build();
+        let globals = SlotMap::with_key();
+        let ty_registry = TyRegistry::default();
+
+        let outcome = run_sccp(&mut function, &globals, &ty_registry);
+
+        assert_eq!(outcome, Outcome::Modified);
+        assert!(matches!(
+            function.blocks[block].instructions[2],
+            Instr::Copy {
+                source: Operand::Literal(IntegerLiteral { value: 7 }),
+                ..
+            }
+        ));
+        function.check_integrity().unwrap();
+    }
+
+    // --- branch pruning once the condition resolves to a compile-time constant ---
+
+    #[test]
+    fn constant_condition_prunes_the_unreachable_edge() {
+        let mut fb = new_builder(Ty::U8);
+        let b1 = fb.new_block();
+        let b2 = fb.new_block(); // taken (cond is always true)
+        let b3 = fb.new_block(); // unreachable
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(b1, literal(cond, 1));
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        fb.push_instr(b2, literal(ret, 1));
+        fb.set_terminator(b2, Terminator::Return);
+        fb.push_instr(b3, literal(ret, 2));
+        fb.set_terminator(b3, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        let mut function = fb.build();
+        let globals = SlotMap::with_key();
+        let ty_registry = TyRegistry::default();
+
+        let outcome = run_sccp(&mut function, &globals, &ty_registry);
+
+        assert_eq!(outcome, Outcome::Modified);
+        assert!(
+            matches!(
+                function.blocks[b1].terminator,
+                Terminator::Jump { target_block } if target_block == b2
+            ),
+            "cond is always true, so b1 must become an unconditional jump to b2"
+        );
+        assert!(
+            !function.blocks.contains_key(b3),
+            "the unreachable else arm must be dropped"
+        );
+        function.check_integrity().unwrap();
+    }
+
+    // --- phi meet lattice ---
+
+    #[test]
+    fn phi_folds_to_a_literal_when_every_reachable_arm_agrees() {
+        let mut fb = new_builder(Ty::U8);
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let b4 = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(b1, literal(cond, 0));
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        let x2 = fb.new_local(Ty::U8);
+        fb.push_instr(b2, literal(x2, 5));
+        fb.set_terminator(b2, Terminator::Jump { target_block: b4 });
+        let x3 = fb.new_local(Ty::U8);
+        fb.push_instr(b3, literal(x3, 5));
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        let mut sources = SparseSecondaryMap::new();
+        sources.insert(b2, x2);
+        sources.insert(b3, x3);
+        fb.push_instr(
+            b4,
+            Instr::Phi {
+                target: ret,
+                sources,
+            },
+        );
+        fb.set_terminator(b4, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        fb.seal_block(b4);
+        let mut function = fb.build();
+        let globals = SlotMap::with_key();
+        let ty_registry = TyRegistry::default();
+
+        run_sccp(&mut function, &globals, &ty_registry);
+
+        assert!(
+            matches!(
+                function.blocks[b4].instructions[0],
+                Instr::Copy {
+                    source: Operand::Literal(IntegerLiteral { value: 5 }),
+                    ..
+                }
+            ),
+            "both arms agree on 5, so the phi should fold to a literal"
+        );
+    }
+
+    #[test]
+    fn phi_stays_unresolved_when_reachable_arms_disagree() {
+        let mut globals = SlotMap::with_key();
+        let cond_global = globals.insert(Global {
+            ty: Ty::U1,
+            name: ident("COND"),
+            attrs: GlobalAttributes::Ram(GlobalDeclAttributes::default()),
+            value: Vec::new(),
+        });
+
+        let mut fb = new_builder(Ty::U8);
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let b4 = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        // condition is loaded from a *mutable* global, so SCCP cannot resolve it to a
+        // compile-time constant and both arms stay reachable
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(
+            b1,
+            Instr::Load {
+                target: cond,
+                source: cond_global,
+                projections: Vec::new(),
+            },
+        );
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        let x2 = fb.new_local(Ty::U8);
+        fb.push_instr(b2, literal(x2, 5));
+        fb.set_terminator(b2, Terminator::Jump { target_block: b4 });
+        let x3 = fb.new_local(Ty::U8);
+        fb.push_instr(b3, literal(x3, 6));
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        let mut sources = SparseSecondaryMap::new();
+        sources.insert(b2, x2);
+        sources.insert(b3, x3);
+        fb.push_instr(
+            b4,
+            Instr::Phi {
+                target: ret,
+                sources,
+            },
+        );
+        fb.set_terminator(b4, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        fb.seal_block(b4);
+        let mut function = fb.build();
+        let ty_registry = TyRegistry::default();
+
+        run_sccp(&mut function, &globals, &ty_registry);
+
+        assert!(
+            matches!(function.blocks[b4].instructions[0], Instr::Phi { .. }),
+            "since cond isn't itself constant, both 5 and 6 are reachable, so the phi cannot fold"
+        );
     }
 }

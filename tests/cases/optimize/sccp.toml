@@ -1,0 +1,153 @@
+[[case]]
+name = "folds_constant_arithmetic_into_a_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["sccp"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let a = 3;
+    let b = 4;
+    let n = N;
+    return n + (a + b);
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = copy 3
+    b#3: u8 = copy 4
+    n#4: u8 = load N
+    #5: u8 = copy 7
+    #6: u8 = add n#4, 7
+    #RET: u8 = copy #6
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "folds_comparison_against_an_immutable_const_and_prunes_the_branch"
+kind = "analyzer"
+optimize = true
+preview_features = ["sccp"]
+source = """
+const K: u8 = 5;
+
+fn f() -> u8 {
+    if K == 5 then {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+
+fn main() {}
+"""
+expected_mir = """
+@ConstDeclAttributes { section: Auto }
+const K: u8 = [5]
+
+f -> u8:
+  .bb1:
+    #2: u8 = copy 5
+    #3: u8 = copy 5
+    #4: u1 = copy 1
+    jump .bb2
+  .bb2:
+    #5: u8 = copy 1
+    #RET: u8 = copy 1
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "phi_folds_to_a_literal_when_every_arm_agrees"
+kind = "analyzer"
+optimize = true
+preview_features = ["sccp"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = 0;
+    if n == 0 then {
+        x = 5;
+    } else {
+        x = 5;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    x#3: u8 = copy 0
+    #4: u8 = copy 0
+    #5: u1 = eq n#2, 0
+    jumpif #5 != 0, .bb2, .bb3
+  .bb2:
+    x#6: u8 = copy 5
+    jump .bb4
+  .bb3:
+    x#7: u8 = copy 5
+    jump .bb4
+  .bb4:
+    x#8: u8 = copy 5
+    #RET: u8 = copy 5
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "rewrites_a_comparisons_literal_operand_directly_into_the_instruction"
+kind = "analyzer"
+optimize = true
+preview_features = ["sccp"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 0;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, 0
+    #RET: u1 = copy #4
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""

@@ -1,0 +1,125 @@
+[[case]]
+name = "prune_alone_does_not_touch_ordinary_compiled_mir"
+kind = "analyzer"
+optimize = true
+preview_features = ["prune"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    if n == 0 then {
+        n = 1;
+    } else {
+        n = 2;
+    }
+    return n;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    n#5: u8 = copy 1
+    jump .bb4
+  .bb3:
+    n#6: u8 = copy 2
+    jump .bb4
+  .bb4:
+    n#7: u8 = phi n#5 <- .bb2, n#6 <- .bb3
+    #RET: u8 = copy n#7
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "adce_then_prune_fully_removes_a_dead_branch_in_one_round"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce", "prune"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        x = 1;
+    } else {
+        x = 2;
+    }
+    return n;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #RET: u8 = copy n#2
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "diamond_blocks_with_empty_branch_trims_empty_block"
+kind = "analyzer"
+optimize = true
+preview_features = ["prune"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = 11;
+    if n == 0 then {
+    } else {
+        x = 22;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    x#3: u8 = copy 11
+    #4: u8 = copy 0
+    #5: u1 = eq n#2, #4
+    jumpif #5 != 0, .bb4, .bb3
+  .bb4:
+    x#7: u8 = phi x#3 <- .bb1, x#6 <- .bb3
+    #RET: u8 = copy x#7
+    return
+  .bb3:
+    x#6: u8 = copy 22
+    jump .bb4
+
+main -> unit:
+  .bb1:
+    return
+"""

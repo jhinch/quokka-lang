@@ -1806,7 +1806,7 @@ impl FunctionMutator<'_> {
                 *next_block = new_next_block;
             }
             terminator => {
-                panic!("old_next_block {old_next_block:?} is a next block for {terminator:?}")
+                panic!("old_next_block {old_next_block:?} is not a next block for {terminator:?}")
             }
         }
         self.function.blocks[old_next_block].previous.remove(block);

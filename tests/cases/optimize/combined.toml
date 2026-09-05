@@ -1,0 +1,148 @@
+[[case]]
+name = "all_three_passes_converge_on_a_branchy_function"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce", "sccp", "prune"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 1 + 1;
+    let dead = n + n - n;
+    let x = n;
+    if n == 0 then {
+        x = a;
+    } else {
+        x = a;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #RET: u8 = copy 2
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "all_three_passes_converge_on_a_loop"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce", "sccp", "prune"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    let dead = n + n;
+    loop {
+        if i == n then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    sum#4: u8 = copy 0
+    jump .bb2
+  .bb2:
+    i#6: u8 = phi i#3 <- .bb1, i#12 <- .bb5
+    n#7: u8 = copy n#2
+    #8: u1 = eq i#6, n#7
+    sum#9: u8 = phi sum#4 <- .bb1, sum#10 <- .bb5
+    jumpif #8 != 0, .bb3, .bb5
+  .bb3:
+    #RET: u8 = copy sum#9
+    return
+  .bb5:
+    sum#10: u8 = add sum#9, i#6
+    i#12: u8 = add i#6, 1
+    jump .bb2
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "unoptimized_baseline_for_the_loop_case"
+kind = "analyzer"
+optimize = false
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let i = 0;
+    let sum = 0;
+    let dead = n + n;
+    loop {
+        if i == n then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    i#3: u8 = copy 0
+    sum#4: u8 = copy 0
+    dead#5: u8 = add n#2, n#2
+    jump .bb2
+  .bb2:
+    i#6: u8 = phi i#3 <- .bb1, i#12 <- .bb5
+    n#7: u8 = copy n#2
+    #8: u1 = eq i#6, n#7
+    sum#9: u8 = phi sum#4 <- .bb1, sum#10 <- .bb5
+    jumpif #8 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    sum#10: u8 = add sum#9, i#6
+    #11: u8 = copy 1
+    i#12: u8 = add i#6, #11
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy sum#9
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""

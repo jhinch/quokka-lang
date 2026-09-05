@@ -1,0 +1,204 @@
+[[case]]
+name = "removes_dead_straight_line_computation"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let dead = n + n;
+    return n - 1;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    nop
+    #4: u8 = copy 1
+    #5: u8 = sub n#2, #4
+    #RET: u8 = copy #5
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "keeps_load_and_store_even_when_results_are_unused"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let unused = N;
+    M = 1;
+    return 0;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+@GlobalDeclAttributes { section: Auto }
+global M: u8
+
+f -> u8:
+  .bb1:
+    unused#2: u8 = load N
+    #3: u8 = copy 1
+    store M = #3
+    #4: u8 = copy 0
+    #RET: u8 = copy #4
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "collapses_branch_whose_result_is_discarded"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        x = 1;
+    } else {
+        x = 2;
+    }
+    return n;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    nop
+    nop
+    nop
+    jump .bb4
+  .bb4:
+    nop
+    #RET: u8 = copy n#2
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "preserves_branch_that_controls_the_return_value"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        x = 1;
+    } else {
+        x = 2;
+    }
+    return x;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    nop
+    #4: u8 = copy 0
+    #5: u1 = eq n#2, #4
+    jumpif #5 != 0, .bb2, .bb3
+  .bb2:
+    x#6: u8 = copy 1
+    jump .bb4
+  .bb3:
+    x#7: u8 = copy 2
+    jump .bb4
+  .bb4:
+    x#8: u8 = phi x#6 <- .bb2, x#7 <- .bb3
+    #RET: u8 = copy x#8
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "collapses_return_if_when_else_arm_is_dead"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    if n == 0 then {
+        return 1;
+    }
+    let dead = n + n;
+    return 2;
+}
+
+fn main() {}
+"""
+expected_mir = """
+@GlobalDeclAttributes { section: Auto }
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = eq n#2, #3
+    jumpif #4 != 0, .bb2, .bb3
+  .bb2:
+    #5: u8 = copy 1
+    #RET: u8 = copy #5
+    return
+  .bb3:
+    nop
+    #7: u8 = copy 2
+    #RET: u8 = copy #7
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""

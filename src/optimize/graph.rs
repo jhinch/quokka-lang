@@ -303,3 +303,358 @@ fn reachable(start: Node, forward_edges: &IndexMap<Node, IndexSet<Node>>) -> Ind
     }
     seen
 }
+
+/// Test-only helpers for building small [`Function`] control flow graphs of a given shape,
+/// without needing real Quokka source or the SSA-var machinery in [`FunctionBuilder`].
+///
+/// These build purely structural CFGs (a single `u1` local is reused as the condition for every
+/// branch): the graph algorithms under test only care about block topology, not instruction
+/// semantics.
+#[cfg(test)]
+mod graph_test_support {
+    use crate::ast::{Identifier, IntegerLiteral};
+    use crate::mir::{BlockId, Function, FunctionBuilder, Instr, Operand, Terminator};
+    use crate::ty::Ty;
+
+    pub fn new_builder() -> FunctionBuilder {
+        FunctionBuilder::new(Identifier::from("f"), Ty::UNIT)
+    }
+
+    /// Pushes a fresh `u1` local into `block`, initialized to a literal, for use as a branch
+    /// condition. The actual value is irrelevant to graph-shape tests.
+    pub fn cond_local(builder: &mut FunctionBuilder, block: BlockId) -> crate::mir::LocalId {
+        let local = builder.new_local(Ty::U1);
+        builder.push_instr(
+            block,
+            Instr::Copy {
+                target: local,
+                source: Operand::Literal(IntegerLiteral::from(0)),
+            },
+        );
+        local
+    }
+
+    pub fn seal_all(builder: &mut FunctionBuilder, blocks: &[BlockId]) {
+        for &block in blocks {
+            builder.seal_block(block);
+        }
+    }
+
+    /// `bb1 -> bb2 -> bb3 -> Return`
+    pub fn linear_chain() -> (Function, [BlockId; 3]) {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.set_terminator(b2, Terminator::Jump { target_block: b3 });
+        fb.set_terminator(b3, Terminator::Return);
+        seal_all(&mut fb, &[b1, b2, b3]);
+        (fb.build(), [b1, b2, b3])
+    }
+
+    /// ```text
+    ///      bb1
+    ///     /    \
+    ///   bb2    bb3
+    ///     \    /
+    ///      bb4
+    ///       |
+    ///     Return
+    /// ```
+    pub fn diamond() -> (Function, [BlockId; 4]) {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let b4 = fb.new_block();
+        let cond = cond_local(&mut fb, b1);
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: crate::mir::Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        fb.set_terminator(b2, Terminator::Jump { target_block: b4 });
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        fb.set_terminator(b4, Terminator::Return);
+        seal_all(&mut fb, &[b1, b2, b3, b4]);
+        (fb.build(), [b1, b2, b3, b4])
+    }
+
+    /// ```text
+    ///  bb1
+    ///   |
+    ///  bb2 <--+
+    ///  / \    |
+    /// bb4 bb3-+   (bb3 loops back to bb2, bb4 exits)
+    ///  |
+    /// Return
+    /// ```
+    pub fn loop_with_exit() -> (Function, [BlockId; 4]) {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let b4 = fb.new_block();
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        let cond = cond_local(&mut fb, b2);
+        fb.set_terminator(
+            b2,
+            Terminator::JumpIf {
+                source: cond,
+                condition: crate::mir::Condition::NotZero,
+                then_block: b3,
+                else_block: b4,
+            },
+        );
+        fb.set_terminator(b3, Terminator::Jump { target_block: b2 });
+        fb.set_terminator(b4, Terminator::Return);
+        // b2 has two predecessors (b1 and the b3 back edge) so it cannot be sealed until both
+        // are known; b3 depends on b2 being built first for its terminator to reference it.
+        seal_all(&mut fb, &[b1, b3, b4, b2]);
+        (fb.build(), [b1, b2, b3, b4])
+    }
+
+    /// `bb1 <-> bb2`, neither block can reach a `Return`.
+    pub fn infinite_loop() -> (Function, [BlockId; 2]) {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.set_terminator(b2, Terminator::Jump { target_block: b1 });
+        seal_all(&mut fb, &[b1, b2]);
+        // FunctionBuilder::build() calls remove_dangling(), which is fine here: both blocks
+        // are reachable from start_block (b1), just none of them reach a return.
+        (fb.build(), [b1, b2])
+    }
+
+    /// `bb1` branches straight to two separate `Return` blocks.
+    pub fn two_returns() -> (Function, [BlockId; 3]) {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let cond = cond_local(&mut fb, b1);
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: crate::mir::Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        fb.set_terminator(b2, Terminator::Return);
+        fb.set_terminator(b3, Terminator::Return);
+        seal_all(&mut fb, &[b1, b2, b3]);
+        (fb.build(), [b1, b2, b3])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::graph_test_support::*;
+    use super::*;
+
+    // --- postorder ---
+
+    #[test]
+    fn postorder_visits_every_reachable_node_exactly_once() {
+        let (function, [b1, b2, b3, b4]) = diamond();
+        let graph = Graph::from(&function);
+        let order = graph.postorder().collect::<Vec<_>>();
+        let mut sorted = order.clone();
+        sorted.sort();
+        let mut expected = vec![
+            Node::Block(b1),
+            Node::Block(b2),
+            Node::Block(b3),
+            Node::Block(b4),
+            Node::Exit,
+        ];
+        expected.sort();
+        assert_eq!(sorted, expected);
+    }
+
+    #[test]
+    fn postorder_visits_children_before_their_only_parent_in_a_chain() {
+        let (function, [b1, b2, b3]) = linear_chain();
+        let graph = Graph::from(&function);
+        let order = graph.postorder().collect::<Vec<_>>();
+        let position = |node: Node| order.iter().position(|&n| n == node).unwrap();
+        // in a linear chain each node has exactly one successor, so postorder must strictly
+        // descend from the sink back to the source
+        assert!(position(Node::Exit) < position(Node::Block(b3)));
+        assert!(position(Node::Block(b3)) < position(Node::Block(b2)));
+        assert!(position(Node::Block(b2)) < position(Node::Block(b1)));
+    }
+
+    #[test]
+    fn postorder_handles_cycles_without_looping_forever() {
+        let (function, [b1, b2, b3, b4]) = loop_with_exit();
+        let graph = Graph::from(&function);
+        let order = graph.postorder().collect::<Vec<_>>();
+        let mut sorted = order.clone();
+        sorted.sort();
+        let mut expected = vec![
+            Node::Block(b1),
+            Node::Block(b2),
+            Node::Block(b3),
+            Node::Block(b4),
+            Node::Exit,
+        ];
+        expected.sort();
+        assert_eq!(
+            sorted, expected,
+            "every node visited exactly once despite the back edge"
+        );
+    }
+
+    // --- synthetic Exit edges for non-terminating control flow ---
+
+    #[test]
+    fn infinite_loop_blocks_get_synthetic_exit_edges() {
+        let (function, [b1, b2]) = infinite_loop();
+        let graph = Graph::from(&function);
+        // both blocks are unable to reach a real Return, so Graph::from must give both of them
+        // an edge to the synthetic Exit node, or dominance over Exit could not be computed
+        let dominators = graph.calculate_immediate_dominators();
+        assert_eq!(dominators[&Node::Exit], Node::Block(b1));
+        assert_eq!(dominators[&Node::Block(b2)], Node::Block(b1));
+    }
+
+    // --- calculate_immediate_dominators (forward dominance) ---
+
+    #[test]
+    fn linear_chain_dominators_form_a_straight_line() {
+        let (function, [b1, b2, b3]) = linear_chain();
+        let graph = Graph::from(&function);
+        let dominators = graph.calculate_immediate_dominators();
+        assert_eq!(dominators[&Node::Block(b2)], Node::Block(b1));
+        assert_eq!(dominators[&Node::Block(b3)], Node::Block(b2));
+        assert_eq!(dominators[&Node::Exit], Node::Block(b3));
+        // the source has no immediate dominator
+        assert!(!dominators.contains_key(&Node::Block(b1)));
+    }
+
+    #[test]
+    fn diamond_merge_block_is_dominated_by_the_branch_block() {
+        let (function, [b1, b2, b3, b4]) = diamond();
+        let graph = Graph::from(&function);
+        let dominators = graph.calculate_immediate_dominators();
+        assert_eq!(dominators[&Node::Block(b2)], Node::Block(b1));
+        assert_eq!(dominators[&Node::Block(b3)], Node::Block(b1));
+        // b4 is reachable via either arm, so its immediate dominator is the branch block
+        // itself, not either arm
+        assert_eq!(dominators[&Node::Block(b4)], Node::Block(b1));
+    }
+
+    #[test]
+    fn loop_body_dominators_follow_the_single_entry_edge() {
+        let (function, [b1, b2, b3, b4]) = loop_with_exit();
+        let graph = Graph::from(&function);
+        let dominators = graph.calculate_immediate_dominators();
+        assert_eq!(dominators[&Node::Block(b2)], Node::Block(b1));
+        assert_eq!(dominators[&Node::Block(b3)], Node::Block(b2));
+        assert_eq!(dominators[&Node::Block(b4)], Node::Block(b2));
+    }
+
+    #[test]
+    fn two_return_blocks_share_the_branch_block_as_exits_dominator() {
+        let (function, [b1, _b2, _b3]) = two_returns();
+        let graph = Graph::from(&function);
+        let dominators = graph.calculate_immediate_dominators();
+        assert_eq!(dominators[&Node::Exit], Node::Block(b1));
+    }
+
+    // --- calculate_dominance_frontier ---
+
+    #[test]
+    fn diamond_arms_have_the_merge_block_in_their_dominance_frontier() {
+        let (function, [b1, b2, b3, b4]) = diamond();
+        let graph = Graph::from(&function);
+        let (frontier, _idom) = graph.calculate_dominance_frontier();
+        assert_eq!(
+            frontier.get(&Node::Block(b2)).cloned().unwrap_or_default(),
+            IndexSet::from([Node::Block(b4)])
+        );
+        assert_eq!(
+            frontier.get(&Node::Block(b3)).cloned().unwrap_or_default(),
+            IndexSet::from([Node::Block(b4)])
+        );
+        // b1 dominates b4 outright, so b4 is not in b1's frontier
+        assert!(
+            frontier
+                .get(&Node::Block(b1))
+                .is_none_or(|set| !set.contains(&Node::Block(b4)))
+        );
+    }
+
+    #[test]
+    fn loop_body_has_the_header_in_its_dominance_frontier() {
+        let (function, [_b1, b2, b3, _b4]) = loop_with_exit();
+        let graph = Graph::from(&function);
+        let (frontier, _idom) = graph.calculate_dominance_frontier();
+        // b3's back edge target (the loop header b2) is not strictly dominated by b3, but b3
+        // dominates a predecessor of b2 (itself), so b2 is in b3's frontier
+        assert_eq!(
+            frontier.get(&Node::Block(b3)).cloned().unwrap_or_default(),
+            IndexSet::from([Node::Block(b2)])
+        );
+    }
+
+    // --- reverse() (used to compute post-dominance) ---
+
+    #[test]
+    fn reverse_swaps_source_and_sink() {
+        let (function, _ids) = diamond();
+        let graph = Graph::from(&function);
+        let reversed = graph.reverse();
+        // reversing a Graph whose sink is always Node::Exit means the reversed graph's source
+        // is Exit
+        let (frontier, _idom) = reversed.calculate_dominance_frontier();
+        let _ = frontier; // just confirm this doesn't panic; source/sink are private
+        let doubly_reversed = reversed.reverse();
+        let original_frontier = Graph::from(&function).calculate_dominance_frontier().0;
+        let doubly_reversed_frontier = doubly_reversed.calculate_dominance_frontier().0;
+        for (node, set) in &original_frontier {
+            assert_eq!(doubly_reversed_frontier.get(node), Some(set));
+        }
+    }
+
+    #[test]
+    fn reverse_computes_post_dominance_for_a_diamond() {
+        let (function, [b1, b2, b3, b4]) = diamond();
+        let post_dom_graph = Graph::from(&function).reverse();
+        let post_dominators = post_dom_graph.calculate_immediate_dominators();
+        // every path out of b1 passes through b4 before reaching Exit, even though b1 has two
+        // immediate successors
+        assert_eq!(post_dominators[&Node::Block(b1)], Node::Block(b4));
+        assert_eq!(post_dominators[&Node::Block(b2)], Node::Block(b4));
+        assert_eq!(post_dominators[&Node::Block(b3)], Node::Block(b4));
+    }
+
+    #[test]
+    fn reverse_computes_post_dominance_for_a_loop() {
+        let (function, [b1, b2, b3, b4]) = loop_with_exit();
+        let post_dom_graph = Graph::from(&function).reverse();
+        let post_dominators = post_dom_graph.calculate_immediate_dominators();
+        // every path from b1 must pass through the loop header b2 before reaching the exit
+        assert_eq!(post_dominators[&Node::Block(b1)], Node::Block(b2));
+        // b3 always jumps straight back to b2
+        assert_eq!(post_dominators[&Node::Block(b3)], Node::Block(b2));
+        // b4 is the only way out, so it post-dominates b2 itself
+        assert_eq!(post_dominators[&Node::Block(b2)], Node::Block(b4));
+    }
+
+    #[test]
+    fn node_debug_formats_block_and_exit() {
+        let (_function, [b1, ..]) = diamond();
+        assert_eq!(format!("{:?}", Node::Block(b1)), format!("{b1}"));
+        assert_eq!(format!("{:?}", Node::Exit), "<exit>");
+    }
+}

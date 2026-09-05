@@ -242,3 +242,252 @@ enum WorkItem {
     LiveInstr(BlockId, usize),
     LiveBlock(BlockId),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{Identifier, IntegerLiteral, SpannedIdentifier};
+    use crate::attr::GlobalDeclAttributes;
+    use crate::mir::{Condition, FunctionBuilder, GlobalAttributes, LocalId, Operand};
+    use crate::ty::Ty;
+    use miette::SourceSpan;
+    use slotmap::SparseSecondaryMap;
+
+    fn new_builder() -> FunctionBuilder {
+        FunctionBuilder::new(Identifier::from("f"), Ty::U8)
+    }
+
+    fn run_adce(function: &mut Function, globals: &SlotMap<GlobalId, Global>) -> Outcome {
+        Adce.optimize_function(function, globals, &TyRegistry::default())
+    }
+
+    fn dummy_global(ty: Ty) -> (SlotMap<GlobalId, Global>, GlobalId) {
+        let mut globals = SlotMap::with_key();
+        let id = globals.insert(Global {
+            ty,
+            name: SpannedIdentifier::new("G", SourceSpan::new(0.into(), 0)),
+            attrs: GlobalAttributes::Ram(GlobalDeclAttributes::default()),
+            value: Vec::new(),
+        });
+        (globals, id)
+    }
+
+    fn literal(target: LocalId, value: u32) -> Instr {
+        Instr::Copy {
+            target,
+            source: Operand::Literal(IntegerLiteral::from(value)),
+        }
+    }
+
+    // --- dead code sweep ---
+
+    #[test]
+    fn dead_instruction_becomes_nop_and_its_local_is_removed() {
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let one = fb.new_local(Ty::U8);
+        fb.push_instr(block, literal(one, 1));
+        let dead = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Add {
+                target: dead,
+                left: one,
+                right: Operand::Local(one),
+            },
+        );
+        fb.push_instr(block, literal(ret, 0));
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let mut function = fb.build();
+        let (globals, _) = dummy_global(Ty::U8);
+
+        let outcome = run_adce(&mut function, &globals);
+
+        assert_eq!(outcome, Outcome::Modified);
+        assert!(matches!(function.blocks[block].instructions[1], Instr::Nop));
+        assert!(
+            !function.locals.contains_key(dead),
+            "the dead instruction's target local must be removed"
+        );
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn load_is_kept_alive_even_when_its_result_is_unused() {
+        let (globals, global_id) = dummy_global(Ty::U8);
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let unused = fb.new_local(Ty::U8);
+        fb.push_instr(
+            block,
+            Instr::Load {
+                target: unused,
+                source: global_id,
+                projections: Vec::new(),
+            },
+        );
+        fb.push_instr(block, literal(ret, 0));
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let mut function = fb.build();
+
+        let outcome = run_adce(&mut function, &globals);
+
+        assert_eq!(
+            outcome,
+            Outcome::Unmodified,
+            "Load is a root and must survive"
+        );
+        assert!(matches!(
+            function.blocks[block].instructions[0],
+            Instr::Load { .. }
+        ));
+    }
+
+    #[test]
+    fn store_is_kept_alive_even_though_it_has_no_target_local() {
+        let (globals, global_id) = dummy_global(Ty::U8);
+        let mut fb = new_builder();
+        let block = fb.new_block();
+        let value = fb.new_local(Ty::U8);
+        fb.push_instr(block, literal(value, 7));
+        fb.push_instr(
+            block,
+            Instr::Store {
+                target: global_id,
+                projections: Vec::new(),
+                source: Operand::Local(value),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        let mut function = fb.build();
+
+        let outcome = run_adce(&mut function, &globals);
+
+        assert_eq!(
+            outcome,
+            Outcome::Unmodified,
+            "Store is a root and must survive"
+        );
+        assert!(matches!(
+            function.blocks[block].instructions[1],
+            Instr::Store { .. }
+        ));
+    }
+
+    // --- branch liveness / redirection to the nearest required post-dominator ---
+
+    #[test]
+    fn branch_with_two_side_effect_free_arms_collapses_to_an_unconditional_jump() {
+        let mut fb = new_builder();
+        let b1 = fb.new_block(); // branch
+        let b2 = fb.new_block(); // then: empty
+        let b3 = fb.new_block(); // else: empty
+        let b4 = fb.new_block(); // merge: the only required block
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(b1, literal(cond, 0));
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        fb.set_terminator(b2, Terminator::Jump { target_block: b4 });
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        fb.push_instr(b4, literal(ret, 5));
+        fb.set_terminator(b4, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        fb.seal_block(b4);
+        let mut function = fb.build();
+        let (globals, _) = dummy_global(Ty::U8);
+
+        let outcome = run_adce(&mut function, &globals);
+
+        assert_eq!(outcome, Outcome::Modified);
+        assert!(
+            matches!(
+                function.blocks[b1].terminator,
+                Terminator::Jump { target_block } if target_block == b4
+            ),
+            "the branch determines nothing observable, so it must collapse to a plain jump \
+             straight to the merge block"
+        );
+        assert!(!function.blocks.contains_key(b2));
+        assert!(!function.blocks.contains_key(b3));
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn branch_whose_arms_produce_different_live_results_is_preserved() {
+        let mut fb = new_builder();
+        let b1 = fb.new_block();
+        let b2 = fb.new_block();
+        let b3 = fb.new_block();
+        let b4 = fb.new_block();
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        fb.push_instr(b1, literal(cond, 0));
+        fb.set_terminator(
+            b1,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b2,
+                else_block: b3,
+            },
+        );
+        let x2 = fb.new_local(Ty::U8);
+        fb.push_instr(b2, literal(x2, 1));
+        fb.set_terminator(b2, Terminator::Jump { target_block: b4 });
+        let x3 = fb.new_local(Ty::U8);
+        fb.push_instr(b3, literal(x3, 2));
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        let mut sources = SparseSecondaryMap::new();
+        sources.insert(b2, x2);
+        sources.insert(b3, x3);
+        let phi = fb.new_local(Ty::U8);
+        fb.push_instr(
+            b4,
+            Instr::Phi {
+                target: phi,
+                sources,
+            },
+        );
+        fb.push_instr(
+            b4,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(phi),
+            },
+        );
+        fb.set_terminator(b4, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        fb.seal_block(b3);
+        fb.seal_block(b4);
+        let mut function = fb.build();
+        let (globals, _) = dummy_global(Ty::U8);
+
+        let outcome = run_adce(&mut function, &globals);
+
+        assert_eq!(
+            outcome,
+            Outcome::Unmodified,
+            "the branch controls the returned value, so nothing should be pruned"
+        );
+        assert!(matches!(
+            function.blocks[b1].terminator,
+            Terminator::JumpIf { .. }
+        ));
+    }
+}
