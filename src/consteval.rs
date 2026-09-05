@@ -37,7 +37,7 @@ pub fn evaluate(
                     let source = sources
                         [previous_block.expect("phi cannot be resolved when no previous block")];
                     let source = local_slots[source].check_init(source, function).clone();
-                    local_slots[*target].init(*target, function, source);
+                    local_slots[*target].init_or_update(source);
                 }
                 Instr::Load {
                     target,
@@ -810,6 +810,8 @@ impl SubAssign for Value {
 trait Slot {
     fn check_init(&self, id: LocalId, function: &mir::Function) -> &Value;
     fn init(&mut self, id: LocalId, function: &mir::Function, value: Value);
+
+    fn init_or_update(&mut self, value: Value);
 }
 
 impl Slot for Option<Value> {
@@ -824,6 +826,10 @@ impl Slot for Option<Value> {
             "{} already initialized",
             id.display(function)
         );
+        *self = Some(value);
+    }
+
+    fn init_or_update(&mut self, value: Value) {
         *self = Some(value);
     }
 }
