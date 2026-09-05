@@ -365,3 +365,16 @@ pub struct OversizedArrayExprError {
     #[label("too many items")]
     pub span: SourceSpan,
 }
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("multiple functions annotated with `#[entrypoint]`")]
+#[diagnostic()]
+pub struct MultipleEntrypointsError {
+    #[label(collection, "this function")]
+    pub spans: Vec<SourceSpan>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("no entrypoint function found")]
+#[diagnostic()]
+pub struct MissingEntrypointError;

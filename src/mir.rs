@@ -78,6 +78,8 @@ pub struct Mir {
     pub globals: SlotMap<GlobalId, Global>,
     /// All functions defined by the program.
     pub functions: SlotMap<FunctionId, Function>,
+    /// The function resolved as the program's entrypoint (see `docs/src/reference/source-files.md`).
+    pub entrypoint: Option<FunctionId>,
 }
 
 impl Mir {
@@ -1292,6 +1294,10 @@ impl MirBuilder {
             existing.is_none(),
             "Function {function_id:?} already sealed"
         );
+    }
+
+    pub fn set_entrypoint(&mut self, function_id: FunctionId) {
+        self.mir.entrypoint = Some(function_id);
     }
 
     #[must_use]

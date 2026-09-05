@@ -31,6 +31,7 @@ f -> u8:
     #RET: u8 = copy 2
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -85,6 +86,7 @@ f -> u8:
     i#12: u8 = add i#6, 1
     jump .bb2
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -142,6 +144,7 @@ f -> u8:
     #RET: u8 = copy sum#9
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return

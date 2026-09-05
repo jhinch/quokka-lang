@@ -11,6 +11,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global A: [u8; 3]
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -87,6 +88,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global A: [u8; 3]
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u16 = copy 0

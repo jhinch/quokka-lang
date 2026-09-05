@@ -8,6 +8,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1
@@ -28,6 +29,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global x: u8
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u8 = copy 2
@@ -54,6 +56,7 @@ global A: Point
 @GlobalDeclAttributes { section: Auto }
 global B: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: Point = load B
@@ -81,6 +84,7 @@ global A: Point
 @GlobalDeclAttributes { section: Auto }
 global B: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: Point = load B
@@ -104,6 +108,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global A: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     b#1: Point = load A
@@ -137,6 +142,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1
@@ -158,6 +164,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global x: u8
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u8 = copy 1

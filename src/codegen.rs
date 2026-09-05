@@ -12,6 +12,10 @@ use indexmap::IndexMap;
 use indexmap::map::Entry;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
+/// The address the CPU jumps to immediately after the boot ROM hands off execution.
+/// See <https://gbdev.io/pandocs/Power_Up_Sequence.html#power-up-sequence>.
+const ENTRYPOINT_ADDR: u16 = 0x0100;
+
 pub struct CodeGen {
     ty_registry: TyRegistry,
     result_builder: MultiResultBuilder,
@@ -40,30 +44,51 @@ impl CodeGen {
         for (global_id, global) in &mir.globals {
             globals.insert(global_id, self.generate_from_global(global));
         }
+
+        let entrypoint = mir
+            .entrypoint
+            .expect("mir must have a resolved entrypoint function");
+
         let code_section_id = self.lir.reserve_code_section();
+        let entrypoint_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
+        let mut entrypoint_section = CodeSectionBuilder::default();
+        entrypoint_section.set_addr(RomRegionKind::Rom0, ENTRYPOINT_ADDR);
+
         let mut functions = SecondaryMap::new();
         for (function_id, function) in &mir.functions {
-            let block = code_section.new_function(function.name.clone());
+            let (section_id, section) = if function_id == entrypoint {
+                (entrypoint_section_id, &mut entrypoint_section)
+            } else {
+                (code_section_id, &mut code_section)
+            };
+            let block = section.new_function(function.name.clone());
             functions.insert(
                 function_id,
                 FnAddr {
-                    section: None,
+                    section: Some(section_id),
                     entry_block: block,
                 },
             );
         }
         for (function_id, function) in &mir.functions {
+            let section = if function_id == entrypoint {
+                &mut entrypoint_section
+            } else {
+                &mut code_section
+            };
             self.generate_from_function(
                 mir,
                 function,
                 functions[function_id].entry_block,
                 &globals,
                 &functions,
-                &mut code_section,
+                section,
             );
         }
         self.lir.seal_code_section(code_section_id, code_section);
+        self.lir
+            .seal_code_section(entrypoint_section_id, entrypoint_section);
     }
 
     fn generate_from_global(&mut self, global: &mir::Global) -> SectionId {

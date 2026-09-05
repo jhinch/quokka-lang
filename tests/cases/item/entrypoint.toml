@@ -1,0 +1,62 @@
+[[case]]
+name = "no_entrypoint_is_an_error"
+kind = "analyzer"
+source = """
+fn helper() {}
+"""
+expected_errors = [
+    "no entrypoint function found",
+]
+
+[[case]]
+name = "explicit_entrypoint_attribute_on_non_main_function"
+kind = "analyzer"
+source = """
+#[entrypoint]
+fn start() {}
+
+fn main() {}
+"""
+expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+start -> unit:
+  .bb1:
+    return
+
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "multiple_entrypoint_attributes_is_an_error"
+kind = "analyzer"
+source = """
+#[entrypoint]
+fn a() {}
+
+#[entrypoint]
+fn b() {}
+"""
+expected_errors = [
+    "multiple functions annotated with `#[entrypoint]` @ [42:43]",
+]
+
+[[case]]
+name = "custom_named_entrypoint_placed_at_gameboy_entry_address"
+kind = "codegen"
+source = """
+#[entrypoint]
+fn start() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+END_SECTION
+
+START_SECTION ROM0[256]
+start::
+.bb1:
+  RET
+
+END_SECTION
+"""

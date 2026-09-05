@@ -443,6 +443,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u16 = copy 1071
@@ -497,6 +498,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     #1: u16 = copy 1071
@@ -550,33 +552,9 @@ gcd::
   LD r8#2, r8#18
   LD r8#3, r8#12
   LD r8#4, r8#13
-  JP .bb3
+  JP .bb2
 
-main::
 .bb2:
-  LD r8#61, $04
-  LD r8#62, $2f
-  LD r8#63, r8#62
-  LD r8#64, r8#61
-  LD r8#65, r8#64
-  LD r8#66, r8#63
-  LD HL, A+$0000
-  LD A, r8#65
-  LD [HL++], A
-  LD [HL], r8#66
-  LD r8#68, $01
-  LD r8#69, $ce
-  LD r8#70, r8#69
-  LD r8#71, r8#68
-  LD r8#72, r8#71
-  LD r8#73, r8#70
-  LD HL, B+$0000
-  LD A, r8#72
-  LD [HL++], A
-  LD [HL], r8#73
-  CALL gcd; return=.bb9
-
-.bb3:
   LD r8#19, r8#1
   LD r8#20, r8#2
   LD r8#21, $00
@@ -592,24 +570,24 @@ main::
   (out=z#3,in=z)
   LD r8#31, r8#3
   LD r8#32, r8#4
-  JP z#3, .bb4; else=.bb5
+  JP z#3, .bb3; else=.bb4
 
-.bb4:
+.bb3:
   LD r8#33, r8#32
   LD r8#34, r8#31
   LD r8#35, r8#34
   LD r8#36, r8#33
   RET
 
-.bb5:
+.bb4:
   LD A, r8#20
   SUB A, r8#32; z, c
   LD A, r8#19
   SBC A, r8#31; z, c
   (out=c#5,in=c)
-  JP c#5, .bb6; else=.bb7
+  JP c#5, .bb5; else=.bb6
 
-.bb6:
+.bb5:
   LD A, r8#32
   SUB A, r8#20; z, c
   LD r8#43, A
@@ -622,9 +600,9 @@ main::
   LD r8#6, r8#20
   LD r8#7, r8#47
   LD r8#8, r8#48
-  JP .bb8
+  JP .bb7
 
-.bb7:
+.bb6:
   LD A, r8#20
   SUB A, r8#32; z, c
   LD r8#51, A
@@ -637,9 +615,9 @@ main::
   LD r8#6, r8#56
   LD r8#7, r8#31
   LD r8#8, r8#32
-  JP .bb8
+  JP .bb7
 
-.bb8:
+.bb7:
   LD r8#57, r8#5
   LD r8#58, r8#6
   LD r8#59, r8#7
@@ -648,19 +626,46 @@ main::
   LD r8#2, r8#58
   LD r8#3, r8#59
   LD r8#4, r8#60
-  JP .bb3
+  JP .bb2
 
-.bb9:
+END_SECTION
+
+START_SECTION ROM0[256]
+main::
+.bb1:
+  LD r8#1, $04
+  LD r8#2, $2f
+  LD r8#3, r8#2
+  LD r8#4, r8#1
+  LD r8#5, r8#4
+  LD r8#6, r8#3
+  LD HL, A+$0000
+  LD A, r8#5
+  LD [HL++], A
+  LD [HL], r8#6
+  LD r8#8, $01
+  LD r8#9, $ce
+  LD r8#10, r8#9
+  LD r8#11, r8#8
+  LD r8#12, r8#11
+  LD r8#13, r8#10
+  LD HL, B+$0000
+  LD A, r8#12
+  LD [HL++], A
+  LD [HL], r8#13
+  CALL gcd; return=.bb2
+
+.bb2:
   LD BC, RETURN
   (high_out=B;low_out=C;in=BC)
-  LD r8#77, C
-  LD r8#78, B
-  LD r8#79, r8#77
-  LD r8#80, r8#78
+  LD r8#17, C
+  LD r8#18, B
+  LD r8#19, r8#17
+  LD r8#20, r8#18
   LD HL, RESULT+$0000
-  LD A, r8#79
+  LD A, r8#19
   LD [HL++], A
-  LD [HL], r8#80
+  LD [HL], r8#20
   RET
 
 END_SECTION
@@ -698,12 +703,66 @@ gcd::
   LD HL, B+$0000
   LD A, [HL++]
   LD D, [HL]
+  LD H, A
   LD E, D
   LD D, C
-  JP .bb3
+  JP .bb2
 
-main::
 .bb2:
+  LD C, E
+  LD A, $00
+  LD L, $00
+  LD E, A
+  LD A, C
+  SUB A, L; z, c
+  LD A, H
+  SBC A, E; z, c
+  JP z, .bb3; else=.bb4
+
+.bb3:
+  LD A, B
+  LD B, D
+  RET
+
+.bb4:
+  LD A, C
+  SUB A, B; z, c
+  LD A, H
+  SBC A, D; z, c
+  JP c, .bb5; else=.bb6
+
+.bb5:
+  LD A, B
+  SUB A, C; z, c
+  LD B, A
+  LD A, D
+  SBC A, H; z, c
+  LD E, H
+  LD D, A
+  LD A, B
+  JP .bb7
+
+.bb6:
+  LD A, C
+  SUB A, B; z, c
+  LD C, A
+  LD A, H
+  SBC A, D; z, c
+  LD E, A
+  LD A, B
+  JP .bb7
+
+.bb7:
+  LD H, E
+  LD E, C
+  LD B, A
+  JP .bb2
+
+END_SECTION
+
+START_SECTION ROM0[256]
+main::
+.bb1:
   LD A, $04
   LD B, $2f
   LD HL, A+$0000
@@ -714,55 +773,9 @@ main::
   LD HL, B+$0000
   LD [HL++], A
   LD [HL], B
-  CALL gcd; return=.bb9
+  CALL gcd; return=.bb2
 
-.bb3:
-  LD H, A
-  LD C, E
-  LD A, $00
-  LD L, $00
-  LD E, A
-  LD A, C
-  SUB A, L; z, c
-  LD A, H
-  SBC A, E; z, c
-  JP z, .bb4; else=.bb5
-
-.bb4:
-  LD A, B
-  LD B, D
-  RET
-
-.bb5:
-  LD A, C
-  SUB A, B; z, c
-  LD A, H
-  SBC A, D; z, c
-  JP c, .bb6; else=.bb7
-
-.bb6:
-  LD A, B
-  SUB A, C; z, c
-  LD B, A
-  LD A, D
-  SBC A, H; z, c
-  LD D, A
-  LD A, H
-  JP .bb8
-
-.bb7:
-  LD A, C
-  SUB A, B; z, c
-  LD C, A
-  LD A, H
-  SBC A, D; z, c
-  JP .bb8
-
-.bb8:
-  LD E, C
-  JP .bb3
-
-.bb9:
+.bb2:
   LD HL, RESULT+$0000
   LD A, C
   LD [HL++], A

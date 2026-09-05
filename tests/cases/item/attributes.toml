@@ -113,7 +113,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: false, no_startup_code: true, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: true, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -127,7 +127,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Always }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Always }
 main -> unit:
   .bb1:
     return
@@ -141,7 +141,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Never }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Never }
 main -> unit:
   .bb1:
     return
@@ -155,7 +155,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Expect }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Expect }
 main -> unit:
   .bb1:
     return
@@ -211,6 +211,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: VRam }
 global A: u8
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -255,6 +256,7 @@ expected_mir = """
 @ConstDeclAttributes { section: Rom0 }
 const A: u8 = [1]
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return

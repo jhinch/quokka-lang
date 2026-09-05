@@ -34,8 +34,11 @@ f::
   LD [HL], r8#6
   RET
 
+END_SECTION
+
+START_SECTION ROM0[256]
 main::
-.bb2:
+.bb1:
   RET
 
 END_SECTION
@@ -67,8 +70,11 @@ f::
   LD [HL], A
   RET
 
+END_SECTION
+
+START_SECTION ROM0[256]
 main::
-.bb2:
+.bb1:
   RET
 
 END_SECTION

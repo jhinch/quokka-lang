@@ -6,6 +6,8 @@ fn foo() -> u8 {
     loop {
     }
 }
+
+fn main() {}
 """
 expected_mir = """
 foo -> u8:
@@ -13,6 +15,11 @@ foo -> u8:
     jump .bb2
   .bb2:
     jump .bb2
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -41,6 +48,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1
@@ -88,6 +96,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1

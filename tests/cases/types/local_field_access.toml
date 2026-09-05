@@ -36,6 +36,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global P: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     p#1: Point = load P
@@ -74,6 +75,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global P: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     p#1: Point = load P
@@ -113,6 +115,7 @@ expected_mir = """
 @GlobalDeclAttributes { section: Auto }
 global P: Point
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     v#1: u8 = load P.x
@@ -134,6 +137,7 @@ expected_mir = """
 @ConstDeclAttributes { section: Auto }
 const A: u8 = [7]
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return

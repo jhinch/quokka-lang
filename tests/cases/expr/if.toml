@@ -503,6 +503,7 @@ f -> u8:
     #RET: u8 = copy x#11
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -565,6 +566,7 @@ f -> u8:
     #RET: u8 = copy x#13
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -623,6 +625,7 @@ f -> u8:
     #RET: u8 = copy x#10
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -687,6 +690,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -751,6 +755,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -819,6 +824,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -881,6 +887,7 @@ f -> u8:
     #RET: u8 = copy x#13
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return
@@ -935,6 +942,7 @@ f -> u8:
     #RET: u8 = copy x#11
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return

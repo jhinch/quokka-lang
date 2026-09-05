@@ -53,9 +53,11 @@ impl Analyzer {
         self.check_errors()?;
         let AnalyzedGlobalScope {
             mut scopes,
-            fn_decls,
+            mut fn_decls,
             const_decls,
         } = self.define_global_scope(root);
+
+        let entrypoint = self.resolve_entrypoint(&mut fn_decls);
 
         let mut compiled_const_decls = IndexMap::new();
         for (const_decl_id, (const_decl, ty)) in const_decls {
@@ -68,7 +70,50 @@ impl Analyzer {
         self.check_errors()?;
         self.initialize_const_decls(compiled_const_decls);
         self.check_errors()?;
+        if let Some(entrypoint) = entrypoint {
+            self.mir_builder.set_entrypoint(entrypoint);
+        }
         Ok((self.mir_builder.build(), self.ty_registry))
+    }
+
+    /// Resolves the program's entrypoint function, per the steps documented in
+    /// `docs/src/reference/source-files.md`:
+    ///
+    /// 1. Find all functions annotated with `#[entrypoint]`.
+    /// 2. Error if more than one such function exists.
+    /// 3. Otherwise, fall back to a function named `main`, marking its attributes as the
+    ///    entrypoint so it is treated identically to an explicitly annotated function.
+    fn resolve_entrypoint(
+        &mut self,
+        fn_decls: &mut IndexMap<FunctionId, (&ast::FnDecl, Ty, FnDeclAttributes)>,
+    ) -> Option<FunctionId> {
+        let annotated = fn_decls
+            .iter()
+            .filter(|(_, (_, _, attrs))| attrs.entrypoint)
+            .map(|(&function_id, (decl, _, _))| (function_id, decl.signature.name.span))
+            .collect::<Vec<_>>();
+        if annotated.len() > 1 {
+            self.result_builder.add_error(MultipleEntrypointsError {
+                spans: annotated.into_iter().map(|(_, span)| span).collect(),
+            });
+            return None;
+        }
+        if let Some((function_id, _)) = annotated.into_iter().next() {
+            return Some(function_id);
+        }
+        let main = fn_decls
+            .iter_mut()
+            .find(|(_, (decl, _, _))| decl.signature.name.data == Identifier::from("main"));
+        match main {
+            Some((&function_id, (_, _, attrs))) => {
+                attrs.entrypoint = true;
+                Some(function_id)
+            }
+            None => {
+                self.result_builder.add_error(MissingEntrypointError);
+                None
+            }
+        }
     }
 
     fn check_errors(&mut self) -> Result<(), MultiError> {

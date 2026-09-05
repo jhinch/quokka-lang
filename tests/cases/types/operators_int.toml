@@ -9,6 +9,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1
@@ -41,6 +42,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u1 = copy 1
@@ -58,6 +60,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1
@@ -88,6 +91,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: i8 = copy 1
@@ -122,6 +126,7 @@ fn main() {
 }
 """
 expected_mir = """
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     x#1: u8 = copy 1

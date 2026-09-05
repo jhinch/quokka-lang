@@ -12,6 +12,7 @@ helper -> unit:
   .bb1:
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     call helper, .bb2
@@ -62,6 +63,7 @@ helper -> u8:
     #RET: u8 = copy #2
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     call helper, .bb2
@@ -108,6 +110,7 @@ get_a -> Point:
     #RET: Point = copy #2
     return
 
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
     return

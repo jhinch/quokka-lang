@@ -220,6 +220,8 @@ fn f() -> u8 {
     }
     return i;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -244,6 +246,11 @@ f -> u8:
   .bb3:
     #RET: u8 = copy i#4
     return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -265,6 +272,8 @@ fn f() -> u8 {
     }
     return sum;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -292,6 +301,11 @@ f -> u8:
   .bb3:
     #RET: u8 = copy sum#8
     return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -312,6 +326,8 @@ fn f() -> u8 {
     }
     return i;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -333,6 +349,11 @@ f -> u8:
     jump .bb2
   .bb3:
     #RET: u8 = copy i#3
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
     return
 """
 
@@ -358,6 +379,8 @@ fn f() -> u8 {
     }
     return sum;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -391,6 +414,11 @@ f -> u8:
   .bb9:
     sum#13: u8 = add sum#12, i#9
     jump .bb2
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -409,6 +437,8 @@ fn f() -> u8 {
         i += 1;
     }
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -431,6 +461,11 @@ f -> u8:
     #7: u8 = copy 1
     i#8: u8 = add i#4, #7
     jump .bb2
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
 
 [[case]]
@@ -450,6 +485,8 @@ fn f() -> u8 {
     };
     return result;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -474,6 +511,11 @@ f -> u8:
   .bb3:
     result#9: u8 = copy i#4
     #RET: u8 = copy result#9
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
     return
 """
 
@@ -503,6 +545,8 @@ fn f() -> u8 {
     }
     return total;
 }
+
+fn main() {}
 """
 expected_mir = """
 @GlobalDeclAttributes { section: Auto }
@@ -547,4 +591,9 @@ f -> u8:
     #18: u8 = copy 1
     i#20: u8 = add i#5, #18
     jump .bb2
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+main -> unit:
+  .bb1:
+    return
 """
