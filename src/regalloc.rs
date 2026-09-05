@@ -503,6 +503,7 @@ impl Colorer {
             }
         }
 
+        let pressure_a_before = self.graph.pressure_of(a);
         let mut pressure_a = 0usize;
         for neighbor in self.get_edges_ignoring_processed(a) {
             pressure_a = pressure_a.saturating_add(self.graph.blocked_colors_count(a, neighbor));
@@ -516,9 +517,19 @@ impl Colorer {
             self.decrease_pressure(neighbor, delta);
         }
 
-        if self.graph.pressure_of(a) >= self.graph.capacity_of(a)
-            && self.freeze_worklist.contains(&a)
-        {
+        let cap_a = self.graph.capacity_of(a);
+        if pressure_a_before >= cap_a && pressure_a < cap_a && self.spill_worklist.contains(&a) {
+            for adjacent in self.get_edges_ignoring_processed(a) {
+                self.enable_moves(adjacent);
+            }
+            self.enable_moves(a);
+            self.spill_worklist.swap_remove(&a);
+            if self.has_related_moves(a) {
+                self.freeze_worklist.insert(a);
+            } else {
+                self.simplify_worklist.insert(a);
+            }
+        } else if self.graph.pressure_of(a) >= cap_a && self.freeze_worklist.contains(&a) {
             self.freeze_worklist.swap_remove(&a);
             self.spill_worklist.insert(a);
         }

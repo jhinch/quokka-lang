@@ -1113,8 +1113,14 @@ impl CodeGen {
                 let (high, low) = match source {
                     mir::Operand::Local(source) => locals.r16s[*source],
                     mir::Operand::FnPtr(source) => {
-                        let (section, block) = ctx.functions[*source];
-                        let r16 = lir.insert_ld16(block, Ld16Source::FnAddr { section, block });
+                        let (section, target_block) = ctx.functions[*source];
+                        let r16 = lir.insert_ld16(
+                            block,
+                            Ld16Source::FnAddr {
+                                section,
+                                block: target_block,
+                            },
+                        );
                         lir.insert_split(block, r16)
                     }
                     mir::Operand::Literal(source) => {
@@ -1326,8 +1332,14 @@ impl CodeGen {
                 (high, low)
             }
             mir::Operand::FnPtr(function) => {
-                let (section, block) = ctx.functions[*function];
-                let r16 = lir.insert_ld16(block, Ld16Source::FnAddr { section, block });
+                let (section, target_block) = ctx.functions[*function];
+                let r16 = lir.insert_ld16(
+                    block,
+                    Ld16Source::FnAddr {
+                        section,
+                        block: target_block,
+                    },
+                );
                 lir.insert_split(block, r16)
             }
         }

@@ -170,12 +170,10 @@ ping_or_pong::
 
 ping::
 .bb2:
-  LD BC, ping
   RET
 
 pong::
 .bb3:
-  LD BC, pong
   RET
 
 main::
@@ -183,13 +181,11 @@ main::
   RET
 
 .bb5:
-  LD L, C
-  LD H, B
+  LD HL, ping
   JP .bb7
 
 .bb6:
-  LD L, C
-  LD H, B
+  LD HL, pong
   JP .bb7
 
 .bb7:
