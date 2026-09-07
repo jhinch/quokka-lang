@@ -11,47 +11,47 @@ kind = "codegen"
 optimize = true
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 C::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 D::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 E::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 F::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 G::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 H::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 64 x bit
 END_SECTION
@@ -170,6 +170,32 @@ main::
   RET
 
 END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
 """
 
 [[case]]
@@ -179,47 +205,47 @@ optimize = true
 allocate_registers = true
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 C::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 D::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 E::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 F::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 G::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 H::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 64 x bit
 END_SECTION
@@ -316,6 +342,32 @@ main::
   RET
 
 END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
 """
 
 [[case]]
@@ -324,32 +376,32 @@ kind = "codegen"
 optimize = true
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 C::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 D::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 E::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 80 x bit
 END_SECTION
@@ -459,6 +511,32 @@ main::
   RET
 
 END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
 """
 
 [[case]]
@@ -468,32 +546,32 @@ optimize = true
 allocate_registers = true
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 C::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 D::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 E::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 80 x bit
 END_SECTION
@@ -597,6 +675,32 @@ f::
 main::
 .bb2:
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """

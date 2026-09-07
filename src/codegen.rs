@@ -1,3 +1,4 @@
+use crate::ast::Identifier;
 use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
     BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, FnAddr, HLId, Ld16Source, Lir,
@@ -64,6 +65,85 @@ impl CodeGen {
             );
         }
         self.lir.seal_code_section(code_section_id, code_section);
+
+        self.generate_startup_code(mir, &functions, code_section_id);
+    }
+
+    /// Generates the startup code sections.
+    ///
+    /// This includes:
+    ///
+    /// * **Cartridge header code section** `ROM0[0x0100..=0x0103]` - Jumps to the bootstrap code
+    /// * **Cartridge header data section** `ROM0[0x0104..=0x014F]` - Zero'd out ROM data for the header data
+    /// * **Bootstrap code section** `ROM0[auto]` - Initializes SP, calls to entrypoint, then spins
+    fn generate_startup_code(
+        &mut self,
+        mir: &mir::Mir,
+        functions: &SecondaryMap<mir::FunctionId, FnAddr>,
+        code_section_id: SectionId,
+    ) {
+        const CART_HEADER_START_ADDR: u16 = 0x0100;
+        const CART_HEADER_DATA_START_ADDR: u16 = 0x0104;
+        const CART_HEADER_END_ADDR: u16 = 0x014F;
+        const CART_HEADER_DATA_LEN: usize =
+            CART_HEADER_END_ADDR as usize - CART_HEADER_DATA_START_ADDR as usize + 1;
+        let header_code_section_id = self.lir.reserve_code_section();
+
+        let _ = self.lir.insert_data_section(DataSectionData {
+            name: Identifier::from("@CART_HEADER_DATA"),
+            region: Some(RomRegionKind::Rom0),
+            addr: Some(CART_HEADER_DATA_START_ADDR),
+            data: vec![0; CART_HEADER_DATA_LEN],
+        });
+
+        let bootstrap_code_section_id = self.lir.reserve_code_section();
+        let mut bootstrap_code = CodeSectionBuilder::default();
+        bootstrap_code.set_region(RomRegionKind::Rom0);
+        let bootstrap_code_block = bootstrap_code.new_function(Identifier::from("@BOOTSTRAP"));
+
+        let mut header_code = CodeSectionBuilder::default();
+        header_code.set_region_and_addr(RomRegionKind::Rom0, CART_HEADER_START_ADDR);
+        let header_code_block = header_code.new_function(Identifier::from("@CART_HEADER_CODE"));
+        // 1 byte opcode for nop
+        header_code.insert_nop(header_code_block);
+        // 3 byte opcode for JP
+        header_code.set_terminator(
+            header_code_block,
+            Terminator::JpFn {
+                addr: FnAddr {
+                    section: Some(bootstrap_code_section_id),
+                    entry_block: bootstrap_code_block,
+                },
+            },
+        );
+        self.lir
+            .seal_code_section(header_code_section_id, header_code);
+
+        let entrypoint = mir
+            .entrypoint
+            .expect("mir must have a resolved entrypoint function");
+        let entrypoint_block = functions[entrypoint].entry_block;
+
+        bootstrap_code.insert_ld_sp_value(bootstrap_code_block, Ld16Source::Literal(0xFFFE));
+        let spin_block = bootstrap_code.new_block();
+        bootstrap_code.set_terminator(
+            bootstrap_code_block,
+            Terminator::Call {
+                callee: FnAddr {
+                    section: Some(code_section_id),
+                    entry_block: entrypoint_block,
+                },
+                return_block: spin_block,
+            },
+        );
+        bootstrap_code.set_terminator(
+            spin_block,
+            Terminator::Jp {
+                next_block: spin_block,
+            },
+        );
+        self.lir
+            .seal_code_section(bootstrap_code_section_id, bootstrap_code);
     }
 
     fn generate_from_global(&mut self, global: &mir::Global) -> SectionId {

@@ -1191,12 +1191,12 @@ kind = "codegen"
 optimize = true
 source.file = "bubble_sort.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 DATA::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 SWAP_COUNT::
 alloc 8 x bit
 END_SECTION
@@ -1553,6 +1553,32 @@ main::
   RET
 
 END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
 """
 
 [[case]]
@@ -1562,12 +1588,12 @@ optimize = true
 allocate_registers = true
 source.file = "bubble_sort.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 DATA::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 SWAP_COUNT::
 alloc 8 x bit
 END_SECTION
@@ -1902,6 +1928,32 @@ main::
   LD HL, SWAP_COUNT+$0000
   LD [HL], A
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """

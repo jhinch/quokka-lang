@@ -645,7 +645,7 @@ fn restrict_from_instruction(
     // if we attempt to constrain to a color-set which does not contain the precolor
     // and that would indicate a bug in the code
     match instruction {
-        Instr::Nop => {}
+        Instr::Nop | Instr::LdSPValue { .. } => {}
         Instr::Ld8 { target, source }
         | Instr::Res { target, source, .. }
         | Instr::Set { target, source, .. } => {
@@ -1145,6 +1145,7 @@ fn restrict_from_terminator(terminator: &Terminator, graph: &mut InterferenceGra
         }
         Terminator::Call { .. }
         | Terminator::Jp { .. }
+        | Terminator::JpFn { .. }
         | Terminator::Ret
         | Terminator::Halt { .. } => {}
     }

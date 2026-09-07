@@ -17,12 +17,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 IN::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 OUT::
 alloc 8 x bit
 END_SECTION
@@ -39,6 +39,32 @@ foo::
 main::
 .bb2:
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """
@@ -62,12 +88,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 IN::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 OUT::
 alloc 8 x bit
 END_SECTION
@@ -84,6 +110,32 @@ foo::
 main::
 .bb2:
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """
@@ -108,12 +160,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 IN::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 OUT::
 alloc 16 x bit
 END_SECTION
@@ -132,6 +184,32 @@ foo::
 main::
 .bb2:
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """
@@ -155,7 +233,7 @@ fn pong() {}
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 CHOICE::
 alloc 1 x bit
 END_SECTION
@@ -193,6 +271,32 @@ main::
 
 .bb8:
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """

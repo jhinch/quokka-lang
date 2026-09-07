@@ -32,6 +32,17 @@ impl RegAllocator {
     pub fn allocate(&self, lir: &mut Lir) {
         for section in lir.sections.values_mut() {
             if let SectionData::Code(code) = &mut section.data {
+                // Sections with no virtual registers are hand-emitted final machine
+                // code (e.g. the cartridge header stub pinned at `$0100`). There is
+                // nothing to allocate, and skipping `cleanup_redundant_instructions`
+                // preserves deliberate instructions such as the header's leading `NOP`.
+                if code.r8_registers.is_empty()
+                    && code.r16_registers.is_empty()
+                    && code.zero_registers.is_empty()
+                    && code.carry_registers.is_empty()
+                {
+                    continue;
+                }
                 let colors = self.allocate_registers_for_code(code);
                 for (reg, color) in colors {
                     code.register_data_mut(reg).color = Some(color);
@@ -1282,6 +1293,7 @@ fn rewrite_instruction(
         Instr::Nop
         | Instr::Ld8Value { .. }
         | Instr::Ld16 { .. }
+        | Instr::LdSPValue { .. }
         | Instr::Scf { .. }
         | Instr::AddSP { .. }
         | Instr::LdSPE8 { .. }
@@ -1474,6 +1486,7 @@ fn rewrite_terminator(
     match &mut terminator {
         Terminator::Call { .. }
         | Terminator::Jp { .. }
+        | Terminator::JpFn { .. }
         | Terminator::Ret
         | Terminator::Halt { .. } => {}
         Terminator::CallR16 { callee, .. } => {

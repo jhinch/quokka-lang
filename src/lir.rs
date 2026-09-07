@@ -555,7 +555,7 @@ impl Section {
         fmt::from_fn(move |f| {
             write!(f, "START_SECTION {}", self.region())?;
             if let Some(addr) = self.addr() {
-                write!(f, "[{addr}]")?;
+                write!(f, "[${addr:02x}]")?;
             }
             writeln!(f)?;
             match &self.data {
@@ -783,6 +783,8 @@ pub enum Instr {
     },
     /// `LD r16,n16`
     Ld16 { target: R16Id, source: Ld16Source },
+    /// `LD SP,n16`
+    LdSPValue { source: Ld16Source },
     /// `LD [HL],r8`
     /// `LD [r16],A`
     /// `LD [n16],A`
@@ -1160,6 +1162,7 @@ impl Instr {
                 },
                 Instr::Nop
                 | Instr::Ld16 { .. }
+                | Instr::LdSPValue { .. }
                 | Instr::Store { .. }
                 | Instr::StoreHigh { .. }
                 | Instr::StoreValue { .. }
@@ -1232,6 +1235,7 @@ impl Instr {
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
             | Instr::Ld8HighPtr { .. }
+            | Instr::LdSPValue { .. }
             | Instr::Adc { .. }
             | Instr::Add { .. }
             | Instr::Cp { .. }
@@ -1327,6 +1331,7 @@ impl Instr {
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
+            | Instr::LdSPValue { .. }
             | Instr::Store { .. }
             | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
@@ -1396,6 +1401,7 @@ impl Instr {
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
+            | Instr::LdSPValue { .. }
             | Instr::Store { .. }
             | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
@@ -1506,6 +1512,7 @@ impl Instr {
                 | Instr::Ld8Inc { .. }
                 | Instr::Ld8Dec { .. }
                 | Instr::Ld16 { .. }
+                | Instr::LdSPValue { .. }
                 | Instr::StoreValue { .. }
                 | Instr::DecPtr { .. }
                 | Instr::IncPtr { .. }
@@ -1614,6 +1621,7 @@ impl Instr {
                 | Instr::Ld8Value { .. }
                 | Instr::Ld8HighPtr { .. }
                 | Instr::Ld16 { .. }
+                | Instr::LdSPValue { .. }
                 | Instr::StoreValue { .. }
                 | Instr::StoreHigh { .. }
                 | Instr::Dec { .. }
@@ -1660,6 +1668,7 @@ impl Instr {
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
+            | Instr::LdSPValue { .. }
             | Instr::Store { .. }
             | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
@@ -1738,6 +1747,7 @@ impl Instr {
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::Ld16 { .. }
+            | Instr::LdSPValue { .. }
             | Instr::Store { .. }
             | Instr::StoreHigh { .. }
             | Instr::StoreValue { .. }
@@ -1853,6 +1863,9 @@ impl Instr {
                     target.display(lir, section),
                     source.display(lir, section)
                 )
+            }
+            Instr::LdSPValue { source } => {
+                write!(f, "LD SP, {}", source.display(lir, section))
             }
             Instr::Store {
                 target_addr,
@@ -2451,9 +2464,32 @@ pub enum Terminator {
         callee: R16Id,
         return_block: BlockId,
     },
+    /// Jump to next block
+    ///
+    /// Utilizes:
     /// `JP n16`
+    /// `JR n16`
+    ///
+    /// Which instruction is chosen (if any) it determined based on block placement and size
     Jp { next_block: BlockId },
+    /// Jump to a function
+    ///
+    /// Utilizes:
+    /// `JP n16`
+    ///
+    /// Will always use `JP` even if function is in this code section or even
+    /// immediately proceeding this block. Is conceptually similar (and from a CFG treated as)
+    /// a `CALL` to the function followed by an immediate `RET` but without the additional
+    /// instructions or stack usage
+    JpFn { addr: FnAddr },
+    /// Jump to then block if condition is met, else jump to else block.
+    ///
+    /// Utilizes:
     /// `JP cc,n16`
+    /// `JR cc,n16`
+    ///
+    /// Which instruction is chosen it determined based on block placement and size. Will also
+    /// insert an additional `JP` if else block cannot be placed directly after this block.
     JpIf {
         source: FlagId,
         negate: bool,
@@ -2484,6 +2520,7 @@ impl Terminator {
             Terminator::CallR16 { callee, .. } => Some(VirtualReg::from(*callee)),
             Terminator::Call { .. }
             | Terminator::Jp { .. }
+            | Terminator::JpFn { .. }
             | Terminator::Ret
             | Terminator::Halt { .. } => None,
         }
@@ -2528,6 +2565,7 @@ impl Terminator {
                     0 => Some(*next_block),
                     _ => None,
                 },
+                Terminator::JpFn { .. } => None,
                 Terminator::Ret => None,
             }?;
             next += 1;
@@ -2578,6 +2616,9 @@ impl Terminator {
             }
             Terminator::Jp { next_block: block } => {
                 write!(f, "JP {block}")
+            }
+            Terminator::JpFn { addr } => {
+                write!(f, "JP {}", addr.display(lir, section))
             }
             Terminator::JpIf {
                 source,
@@ -2833,13 +2874,31 @@ impl CodeSectionBuilder {
         })
     }
 
+    /// Pin this section to a fixed region and address so the linker places it
+    /// exactly (e.g. the cartridge header stub at `ROM0[$0100]`).
+    pub fn set_region_and_addr(&mut self, region: RomRegionKind, addr: u16) {
+        self.data.region = Some(region);
+        self.data.addr = Some(addr);
+    }
+
+    /// Pins this section to a region, but at a floating address
+    pub fn set_region(&mut self, region: RomRegionKind) {
+        self.data.region = Some(region);
+        self.data.addr = None;
+    }
+
+    /// `NOP`
+    pub fn insert_nop(&mut self, block: BlockId) {
+        self.insert_instr(block, Instr::Nop);
+    }
+
     pub fn set_terminator(&mut self, block: BlockId, terminator: Terminator) {
         debug_assert!(
             !self.terminated_blocks.contains(block),
             "block {block:?} is already terminated"
         );
         match &terminator {
-            Terminator::Ret => {}
+            Terminator::Ret | Terminator::JpFn { .. } => {}
             Terminator::Call { return_block, .. }
             | Terminator::CallR16 { return_block, .. }
             | Terminator::Jp {
@@ -2900,9 +2959,9 @@ impl CodeSectionBuilder {
         }))
     }
 
-    fn new_bc(&mut self) -> R16Id {
+    fn new_r16_precolored(&mut self, color: Color) -> R16Id {
         self.data.r16_registers.insert(Register {
-            color: Some(Color::BC),
+            color: Some(color),
             ..Default::default()
         })
     }
@@ -3115,6 +3174,11 @@ impl CodeSectionBuilder {
         let target = self.new_r16();
         self.insert_instr(block, Instr::Ld16 { target, source });
         target
+    }
+
+    /// `LD SP,n16`
+    pub fn insert_ld_sp_value(&mut self, block: BlockId, source: Ld16Source) {
+        self.insert_instr(block, Instr::LdSPValue { source });
     }
 
     /// `LD HL,n16`
@@ -3826,8 +3890,8 @@ impl CodeSectionBuilder {
             self.data.r8_registers[high_in].color,
             self.data.r8_registers[low_in].color,
         ) {
-            (Some(Color::H), Some(Color::L)) => self.new_hl().0,
-            (Some(Color::B), Some(Color::C)) => self.new_bc(),
+            (Some(Color::H), Some(Color::L)) => self.new_r16_precolored(Color::HL),
+            (Some(Color::B), Some(Color::C)) => self.new_r16_precolored(Color::BC),
             _ => self.new_r16(),
         };
         self.insert_instr(
@@ -3903,7 +3967,7 @@ impl CodeSectionBuilder {
 
     #[must_use]
     pub fn insert_ld_return_16(&mut self, block: BlockId) -> R16Id {
-        let target = self.new_bc();
+        let target = self.new_r16_precolored(Color::BC);
         self.insert_instr(block, Instr::LdReturn16 { target });
         target
     }

@@ -518,17 +518,17 @@ kind = "codegen"
 optimize = true
 source.file = "gcd.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 16 x bit
 END_SECTION
@@ -666,6 +666,32 @@ main::
   RET
 
 END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
 """
 
 [[case]]
@@ -675,17 +701,17 @@ optimize = true
 allocate_registers = true
 source.file = "gcd.q"
 expected_lir = """
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[0]
+START_SECTION WRAM0[$00]
 RESULT::
 alloc 16 x bit
 END_SECTION
@@ -770,6 +796,32 @@ main::
   LD [HL++], A
   LD [HL], B
   RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
 
 END_SECTION
 """
