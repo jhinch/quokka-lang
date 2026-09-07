@@ -922,7 +922,6 @@ pub enum Instr {
     /// `SET u3,[HL]`
     SetPtr { bit: u3, addr: HLId },
     /// `RL r8`
-    /// `RLA`
     Rl {
         target: R8Id,
         z: ZeroId,
@@ -938,7 +937,6 @@ pub enum Instr {
         c_in: CarryId,
     },
     /// `RLC r8`
-    /// `RLCA`
     Rlc {
         target: R8Id,
         z: ZeroId,
@@ -948,7 +946,6 @@ pub enum Instr {
     /// `RLC [HL]`
     RlcPtr { z: ZeroId, c: CarryId, addr: HLId },
     /// `RR r8`
-    /// `RRA`
     Rr {
         target: R8Id,
         z: ZeroId,
@@ -964,7 +961,6 @@ pub enum Instr {
         c_in: CarryId,
     },
     /// `RRC r8`
-    /// `RRCA`
     Rrc {
         target: R8Id,
         z: ZeroId,
@@ -973,6 +969,46 @@ pub enum Instr {
     },
     /// `RRC [HL]`
     RrcPtr { z: ZeroId, c: CarryId, addr: HLId },
+    /// `RLA`
+    ///
+    /// The accumulator rotates always clear `Z` (also `N` and `H`); the `z`
+    /// output therefore models a hard clear to `0` rather than `result == 0`. It
+    /// is still tracked so register allocation sees that `Fz` is written here.
+    Rla {
+        target: AId,
+        z: ZeroId,
+        c: CarryId,
+        source: AId,
+        c_in: CarryId,
+    },
+    /// `RLCA`
+    ///
+    /// See [`Instr::Rla`] for how the `z` output is modeled.
+    Rlca {
+        target: AId,
+        z: ZeroId,
+        c: CarryId,
+        source: AId,
+    },
+    /// `RRA`
+    ///
+    /// See [`Instr::Rla`] for how the `z` output is modeled.
+    Rra {
+        target: AId,
+        z: ZeroId,
+        c: CarryId,
+        source: AId,
+        c_in: CarryId,
+    },
+    /// `RRCA`
+    ///
+    /// See [`Instr::Rla`] for how the `z` output is modeled.
+    Rrca {
+        target: AId,
+        z: ZeroId,
+        c: CarryId,
+        source: AId,
+    },
     /// `SLA r8`
     Sla {
         target: R8Id,
@@ -1155,6 +1191,10 @@ impl Instr {
                 | Instr::Cpl { target, .. }
                 | Instr::Or { target, .. }
                 | Instr::Xor { target, .. }
+                | Instr::Rla { target, .. }
+                | Instr::Rlca { target, .. }
+                | Instr::Rra { target, .. }
+                | Instr::Rrca { target, .. }
                 | Instr::PopAF { target, .. }
                 | Instr::LdReturn8 { target, .. } => match next {
                     0 => Some(target.0),
@@ -1253,6 +1293,10 @@ impl Instr {
             | Instr::Rlc { .. }
             | Instr::Rr { .. }
             | Instr::Rrc { .. }
+            | Instr::Rla { .. }
+            | Instr::Rlca { .. }
+            | Instr::Rra { .. }
+            | Instr::Rrca { .. }
             | Instr::Sla { .. }
             | Instr::Sra { .. }
             | Instr::Srl { .. }
@@ -1312,6 +1356,10 @@ impl Instr {
             | Instr::RrPtr { z, .. }
             | Instr::Rrc { z, .. }
             | Instr::RrcPtr { z, .. }
+            | Instr::Rla { z, .. }
+            | Instr::Rlca { z, .. }
+            | Instr::Rra { z, .. }
+            | Instr::Rrca { z, .. }
             | Instr::Sla { z, .. }
             | Instr::SlaPtr { z, .. }
             | Instr::Sra { z, .. }
@@ -1378,6 +1426,10 @@ impl Instr {
             | Instr::RrPtr { c, .. }
             | Instr::Rrc { c, .. }
             | Instr::RrcPtr { c, .. }
+            | Instr::Rla { c, .. }
+            | Instr::Rlca { c, .. }
+            | Instr::Rra { c, .. }
+            | Instr::Rrca { c, .. }
             | Instr::Sla { c, .. }
             | Instr::SlaPtr { c, .. }
             | Instr::Sra { c, .. }
@@ -1501,6 +1553,10 @@ impl Instr {
                 Instr::StoreInc { source, .. }
                 | Instr::StoreDec { source, .. }
                 | Instr::Cpl { source, .. }
+                | Instr::Rla { source, .. }
+                | Instr::Rlca { source, .. }
+                | Instr::Rra { source, .. }
+                | Instr::Rrca { source, .. }
                 | Instr::PushAF { source, .. } => match next {
                     0 => Some(source.0),
                     _ => None,
@@ -1634,6 +1690,10 @@ impl Instr {
                 | Instr::Rlc { .. }
                 | Instr::Rr { .. }
                 | Instr::Rrc { .. }
+                | Instr::Rla { .. }
+                | Instr::Rlca { .. }
+                | Instr::Rra { .. }
+                | Instr::Rrca { .. }
                 | Instr::Sla { .. }
                 | Instr::Sra { .. }
                 | Instr::Srl { .. }
@@ -1701,6 +1761,10 @@ impl Instr {
             | Instr::RrPtr { .. }
             | Instr::Rrc { .. }
             | Instr::RrcPtr { .. }
+            | Instr::Rla { .. }
+            | Instr::Rlca { .. }
+            | Instr::Rra { .. }
+            | Instr::Rrca { .. }
             | Instr::Sla { .. }
             | Instr::SlaPtr { .. }
             | Instr::Sra { .. }
@@ -1736,6 +1800,8 @@ impl Instr {
             | Instr::RlPtr { c_in, .. }
             | Instr::Rr { c_in, .. }
             | Instr::RrPtr { c_in, .. }
+            | Instr::Rla { c_in, .. }
+            | Instr::Rra { c_in, .. }
             | Instr::Ccf { c_in, .. }
             | Instr::MoveCarry { c_in, .. }
             | Instr::PushAF { c_in, .. } => Some(*c_in),
@@ -1774,6 +1840,8 @@ impl Instr {
             | Instr::RlcPtr { .. }
             | Instr::Rrc { .. }
             | Instr::RrcPtr { .. }
+            | Instr::Rlca { .. }
+            | Instr::Rrca { .. }
             | Instr::Sla { .. }
             | Instr::SlaPtr { .. }
             | Instr::Sra { .. }
@@ -2214,6 +2282,64 @@ impl Instr {
                     f,
                     "RRC [{}]; {}, {}",
                     addr.display(lir, section),
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section)
+                )
+            }
+            Instr::Rla {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "RLA {}; {}, {}",
+                    AId::display_revised_a(*target, *source, lir, section),
+                    z.display_zero(lir, section),
+                    CarryId::display_revised_carry(*c, *c_in, lir, section)
+                )
+            }
+            Instr::Rlca {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(
+                    f,
+                    "RLCA {}; {}, {}",
+                    AId::display_revised_a(*target, *source, lir, section),
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section)
+                )
+            }
+            Instr::Rra {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            } => {
+                write!(
+                    f,
+                    "RRA {}; {}, {}",
+                    AId::display_revised_a(*target, *source, lir, section),
+                    z.display_zero(lir, section),
+                    CarryId::display_revised_carry(*c, *c_in, lir, section)
+                )
+            }
+            Instr::Rrca {
+                target,
+                z,
+                c,
+                source,
+            } => {
+                write!(
+                    f,
+                    "RRCA {}; {}, {}",
+                    AId::display_revised_a(*target, *source, lir, section),
                     z.display_zero(lir, section),
                     c.display_carry(lir, section)
                 )
@@ -3568,7 +3694,6 @@ impl CodeSectionBuilder {
     }
 
     /// `RL r8`
-    /// `RLA`
     #[must_use]
     pub fn insert_rl(
         &mut self,
@@ -3582,6 +3707,30 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::Rl {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            },
+        );
+        (target, z, c)
+    }
+
+    /// `RLA`
+    #[must_use]
+    pub fn insert_rla(
+        &mut self,
+        block: BlockId,
+        source: AId,
+        c_in: CarryId,
+    ) -> (AId, ZeroId, CarryId) {
+        let target = self.new_a();
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        self.insert_instr(
+            block,
+            Instr::Rla {
                 target,
                 z,
                 c,
@@ -3607,7 +3756,6 @@ impl CodeSectionBuilder {
     }
 
     /// `RLC r8`
-    /// `RLCA`
     #[must_use]
     pub fn insert_rlc(&mut self, block: BlockId, source: R8Id) -> (R8Id, ZeroId, CarryId) {
         let target = self.new_r8();
@@ -3616,6 +3764,24 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::Rlc {
+                target,
+                z,
+                c,
+                source,
+            },
+        );
+        (target, z, c)
+    }
+
+    /// `RLCA`
+    #[must_use]
+    pub fn insert_rlca(&mut self, block: BlockId, source: AId) -> (AId, ZeroId, CarryId) {
+        let target = self.new_a();
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        self.insert_instr(
+            block,
+            Instr::Rlca {
                 target,
                 z,
                 c,
@@ -3634,7 +3800,6 @@ impl CodeSectionBuilder {
         (z, c)
     }
     /// `RR r8`
-    /// `RRA`
     #[must_use]
     pub fn insert_rr(
         &mut self,
@@ -3648,6 +3813,30 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::Rr {
+                target,
+                z,
+                c,
+                source,
+                c_in,
+            },
+        );
+        (target, z, c)
+    }
+
+    /// `RRA`
+    #[must_use]
+    pub fn insert_rra(
+        &mut self,
+        block: BlockId,
+        source: AId,
+        c_in: CarryId,
+    ) -> (AId, ZeroId, CarryId) {
+        let target = self.new_a();
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        self.insert_instr(
+            block,
+            Instr::Rra {
                 target,
                 z,
                 c,
@@ -3673,7 +3862,6 @@ impl CodeSectionBuilder {
     }
 
     /// `RRC r8`
-    /// `RRCA`
     #[must_use]
     pub fn insert_rrc(&mut self, block: BlockId, source: R8Id) -> (R8Id, ZeroId, CarryId) {
         let target = self.new_r8();
@@ -3682,6 +3870,24 @@ impl CodeSectionBuilder {
         self.insert_instr(
             block,
             Instr::Rrc {
+                target,
+                z,
+                c,
+                source,
+            },
+        );
+        (target, z, c)
+    }
+
+    /// `RRCA`
+    #[must_use]
+    pub fn insert_rrca(&mut self, block: BlockId, source: AId) -> (AId, ZeroId, CarryId) {
+        let target = self.new_a();
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        self.insert_instr(
+            block,
+            Instr::Rrca {
                 target,
                 z,
                 c,

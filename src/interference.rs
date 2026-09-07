@@ -920,9 +920,7 @@ fn restrict_from_instruction(
             c_in,
         } => {
             // `RL r8`
-            // `RLA`
             // `RR r8`
-            // `RRA`
             graph.add_constraint(
                 VirtualReg::from(*target),
                 VirtualReg::from(*source),
@@ -941,6 +939,57 @@ fn restrict_from_instruction(
             graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
             graph.constrain_colors_to(VirtualReg::from(*addr), Color::r16_ptr());
             graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
+        }
+        Instr::Rla {
+            target,
+            z,
+            c,
+            source,
+            c_in,
+        }
+        | Instr::Rra {
+            target,
+            z,
+            c,
+            source,
+            c_in,
+        } => {
+            // `RLA`
+            // `RRA`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
+        }
+        Instr::Rlca {
+            target,
+            z,
+            c,
+            source,
+        }
+        | Instr::Rrca {
+            target,
+            z,
+            c,
+            source,
+        } => {
+            // `RLCA`
+            // `RRCA`
+            graph.add_constraint(
+                VirtualReg::from(*target),
+                VirtualReg::from(*source),
+                ConstraintKind::Equal,
+            );
+            graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::acc());
         }
         Instr::Rlc {
             target,
@@ -979,9 +1028,7 @@ fn restrict_from_instruction(
             source,
         } => {
             // `RLC r8`
-            // `RLCA`
             // `RRC r8`
-            // `RRCA`
             // `SLA r8`
             // `SRA r8`
             // `SRL r8`

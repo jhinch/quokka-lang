@@ -48,6 +48,7 @@ impl RegAllocator {
                     code.register_data_mut(reg).color = Some(color);
                 }
                 cleanup_redundant_instructions(code);
+                specialize_accumulator_rotates(code);
             }
         }
     }
@@ -1408,6 +1409,13 @@ fn rewrite_instruction(
             *source = sub_r8(*source);
             *c_in = sub_carry(*c_in);
         }
+        Instr::Rla { source, c_in, .. } | Instr::Rra { source, c_in, .. } => {
+            *source = sub_a(*source);
+            *c_in = sub_carry(*c_in);
+        }
+        Instr::Rlca { source, .. } | Instr::Rrca { source, .. } => {
+            *source = sub_a(*source);
+        }
         Instr::RlPtr { addr, c_in, .. } | Instr::RrPtr { addr, c_in, .. } => {
             *addr = sub_hl(*addr);
             *c_in = sub_carry(*c_in);
@@ -1650,6 +1658,97 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
     }
 }
 
+/// Rewrites CB-prefixed rotates whose `target`/`source` were colored to `A` into
+/// the 1-byte accumulator forms (`RLA`/`RLCA`/`RRA`/`RRCA`).
+///
+/// The accumulator forms are a byte shorter and idiomatic, but they hard-clear
+/// `Z` instead of setting it to `result == 0`, so this only fires when the
+/// rotate's `z` output is dead (nothing reads it, e.g. via a following
+/// `jumpif z` / `RetIf` / `JpIf`). The `z` register is kept on the rewritten
+/// instruction — it still models the write to `Fz` for interference.
+fn specialize_accumulator_rotates(code: &mut CodeSectionData) {
+    let mut used_zero: IndexSet<ZeroId> = IndexSet::new();
+    for (_, block) in code.blocks.iter() {
+        for instruction in &block.instructions {
+            for reg in instruction.register_uses() {
+                if let VirtualReg::Zero(z) = reg {
+                    used_zero.insert(z);
+                }
+            }
+        }
+        for reg in block.terminator.register_uses() {
+            if let VirtualReg::Zero(z) = reg {
+                used_zero.insert(z);
+            }
+        }
+    }
+
+    for (_, block) in code.blocks.iter_mut() {
+        for instruction in &mut block.instructions {
+            let is_a = |r8: R8Id| code.r8_registers[r8].color == Some(Color::A);
+            match instruction {
+                Instr::Rl {
+                    target,
+                    z,
+                    c,
+                    source,
+                    c_in,
+                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                    *instruction = Instr::Rla {
+                        target: target.downcast_to_a_without_move(),
+                        z: *z,
+                        c: *c,
+                        source: source.downcast_to_a_without_move(),
+                        c_in: *c_in,
+                    };
+                }
+                Instr::Rlc {
+                    target,
+                    z,
+                    c,
+                    source,
+                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                    *instruction = Instr::Rlca {
+                        target: target.downcast_to_a_without_move(),
+                        z: *z,
+                        c: *c,
+                        source: source.downcast_to_a_without_move(),
+                    };
+                }
+                Instr::Rr {
+                    target,
+                    z,
+                    c,
+                    source,
+                    c_in,
+                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                    *instruction = Instr::Rra {
+                        target: target.downcast_to_a_without_move(),
+                        z: *z,
+                        c: *c,
+                        source: source.downcast_to_a_without_move(),
+                        c_in: *c_in,
+                    };
+                }
+                Instr::Rrc {
+                    target,
+                    z,
+                    c,
+                    source,
+                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                    *instruction = Instr::Rrca {
+                        target: target.downcast_to_a_without_move(),
+                        z: *z,
+                        c: *c,
+                        source: source.downcast_to_a_without_move(),
+                    };
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 struct Frame {
     occupants: Vec<Vec<VirtualReg>>,
@@ -1751,6 +1850,95 @@ mod tests {
         assert!(
             !x_range.contains(&y_slot) && !x_range.contains(&(y_slot + 1)),
             "x's slot range {x_range:?} overlaps y's byte range {y_range:?} for interfering r16 regs"
+        );
+    }
+
+    /// Builds a one-block function whose sole instruction is `RLC target` (with
+    /// `source == target`), coloring `target`/`source` with `rotate_color`. The
+    /// block's terminator is a bare `RET`; callers that want the rotate's `z`
+    /// flag to be live overwrite it.
+    fn code_with_single_rlc(rotate_color: Option<Color>) -> (CodeSectionData, BlockId, ZeroId) {
+        let mut code = CodeSectionData {
+            region: None,
+            addr: None,
+            functions: SparseSecondaryMap::new(),
+            blocks: SlotMap::with_key(),
+            zero_registers: SlotMap::with_key(),
+            carry_registers: SlotMap::with_key(),
+            r8_registers: SlotMap::with_key(),
+            r16_registers: SlotMap::with_key(),
+        };
+        let r8 = code.r8_registers.insert(Register {
+            color: rotate_color,
+            ..Register::default()
+        });
+        let z = code.zero_registers.insert(Register {
+            color: Some(Color::Fz),
+            ..Register::default()
+        });
+        let c = code.carry_registers.insert(Register {
+            color: Some(Color::Fc),
+            ..Register::default()
+        });
+        let block = code.blocks.insert(Block {
+            instructions: vec![Instr::Rlc {
+                target: r8,
+                z,
+                c,
+                source: r8,
+            }],
+            terminator: Terminator::Ret,
+            previous: Vec::new(),
+        });
+        code.functions.insert(block, Identifier::from("f"));
+        code.r8_registers[r8].defined.insert(block, 0);
+        code.zero_registers[z].defined.insert(block, 0);
+        code.carry_registers[c].defined.insert(block, 0);
+        (code, block, z)
+    }
+
+    #[test]
+    fn specialize_accumulator_rotates_rewrites_dead_zero_a_rotate() {
+        let (mut code, block, z) = code_with_single_rlc(Some(Color::A));
+        specialize_accumulator_rotates(&mut code);
+        assert!(
+            matches!(
+                code.blocks[block].instructions[0],
+                Instr::Rlca { z: rewritten_z, .. } if rewritten_z == z
+            ),
+            "an A-colored RLC with a dead zero should become RLCA, keeping its z, got {:?}",
+            code.blocks[block].instructions[0]
+        );
+        assert!(
+            code.zero_registers[z].defined.contains_key(block),
+            "the retained zero flag still models the write to Fz and keeps its definition"
+        );
+    }
+
+    #[test]
+    fn specialize_accumulator_rotates_keeps_cb_form_when_zero_is_live() {
+        let (mut code, block, z) = code_with_single_rlc(Some(Color::A));
+        code.blocks[block].terminator = Terminator::RetIf {
+            source: FlagId::Zero(z),
+            negate: false,
+            else_block: block,
+        };
+        specialize_accumulator_rotates(&mut code);
+        assert!(
+            matches!(code.blocks[block].instructions[0], Instr::Rlc { .. }),
+            "an RLC whose zero flag feeds a RetIf must keep the CB form, got {:?}",
+            code.blocks[block].instructions[0]
+        );
+    }
+
+    #[test]
+    fn specialize_accumulator_rotates_keeps_cb_form_for_non_a_register() {
+        let (mut code, block, _z) = code_with_single_rlc(Some(Color::B));
+        specialize_accumulator_rotates(&mut code);
+        assert!(
+            matches!(code.blocks[block].instructions[0], Instr::Rlc { .. }),
+            "a non-A-colored RLC must keep the CB form, got {:?}",
+            code.blocks[block].instructions[0]
         );
     }
 

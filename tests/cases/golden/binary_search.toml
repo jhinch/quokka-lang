@@ -1448,7 +1448,7 @@ main::
   LD [HL], A
   LD HL SP+1; c
   LD A, [HL]
-  RR A; z, c
+  RRA A; z, c
   LD C, A
   LD HL SP+0; c
   LD A, [HL]

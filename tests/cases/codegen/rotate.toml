@@ -1,0 +1,158 @@
+# `RLA`/`RLCA`/`RRA`/`RRCA` are 1-byte accumulator-only rotates whose `Z` flag is
+# hard-cleared by the hardware, unlike the CB-prefixed `RL`/`RLC`/`RR`/`RRC` forms
+# which set `Z = (result == 0)`. `RegAllocator::specialize_accumulator_rotates`
+# rewrites a CB rotate into its accumulator alias only when the value was colored
+# to `A` *and* the rotate's zero output is dead, so a rotate whose result stays in
+# another register keeps the CB form (and its meaningful `z`).
+
+[[case]]
+name = "accumulator_rotate_uses_1byte_alias"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn f() {
+    RESULT = X <%;
+}
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[$00]
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[$00]
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  RLCA A; z, c
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "non_accumulator_rotate_keeps_cb_form_with_zero"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global Y: u8;
+global RESULT: u8;
+
+fn f() {
+    RESULT = (X <%) + (Y >%);
+}
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[$00]
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[$00]
+Y::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0[$00]
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  RLCA A; z, c
+  LD HL, Y+$0000
+  LD B, [HL]
+  RRC B; z, c
+  ADD A, B; z, c
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+# The through-carry accumulator forms (`RLA`/`RRA`) are exercised by the signed
+# 16-bit `>>` lowering in the `collatz` and `binary_search` golden tests, whose
+# high half is colored to `A` with a dead zero and so emits `RRA A; c`.
