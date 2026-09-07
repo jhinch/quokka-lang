@@ -1,0 +1,464 @@
+[[case]]
+name = "single_u8_const"
+kind = "codegen"
+source = """
+const A: u8 = 42;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $2a
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "multiple_consts_each_get_a_section"
+kind = "codegen"
+source = """
+const A: u8 = 1;
+const B: u8 = 2;
+const C: u8 = 3;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $01
+END_SECTION
+
+START_SECTION ROM0
+B::
+data $02
+END_SECTION
+
+START_SECTION ROM0
+C::
+data $03
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "u16_const_is_little_endian"
+kind = "codegen"
+source = """
+const A: u16 = 0x1234;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $34, $12
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_value_is_const_evaluated"
+kind = "codegen"
+source = """
+const A: u8 = 1 + 2;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $03
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_value_from_if_else_is_const_evaluated"
+kind = "codegen"
+source = """
+const A: u8 = if 1 then 20 else 30;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $14
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_section_rom0"
+kind = "codegen"
+source = """
+#[section = rom0]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $01
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_section_romx"
+kind = "codegen"
+source = """
+#[section = romx]
+const A: u8 = 1;
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROMX
+A::
+data $01
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_is_addressable_from_code"
+kind = "codegen"
+source = """
+global OUT: u8;
+const A: u8 = 7;
+
+fn store() {
+    OUT = A;
+}
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION WRAM0[$00]
+OUT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+A::
+data $07
+END_SECTION
+
+START_SECTION ROM0
+store::
+.bb1:
+  LD HL, A+$0000
+  LD r8#1, [HL]
+  LD r8#2, r8#1
+  LD HL, OUT+$0000
+  LD [HL], r8#2
+  RET
+
+main::
+.bb2:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "const_array_is_flattened_into_data"
+kind = "codegen"
+source = """
+const A: [u8; 4] = [10, 20, 30, 40];
+
+fn main() {}
+"""
+expected_lir = """
+START_SECTION ROM0
+A::
+data $0a, $14, $1e, $28
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
