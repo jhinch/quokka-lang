@@ -130,11 +130,8 @@ f::
   LD [HL], r8#72
   RET
 
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
-.bb1:
+.bb2:
   RET
 
 END_SECTION
@@ -271,11 +268,8 @@ f::
   ADD SP 1; z, c
   RET
 
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
-.bb1:
+.bb2:
   RET
 
 END_SECTION

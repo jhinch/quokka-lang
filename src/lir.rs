@@ -2813,13 +2813,6 @@ impl CodeSectionBuilder {
 }
 
 impl CodeSectionBuilder {
-    pub fn set_addr(&mut self, region: RomRegionKind, addr: u16) {
-        self.data.region = Some(region);
-        self.data.addr = Some(addr);
-    }
-}
-
-impl CodeSectionBuilder {
     #[must_use]
     pub fn new_function(&mut self, name: Identifier) -> BlockId {
         let start_block = self.data.blocks.insert(Block {

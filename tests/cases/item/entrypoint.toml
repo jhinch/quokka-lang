@@ -51,9 +51,6 @@ fn start() {}
 """
 expected_lir = """
 START_SECTION ROM0
-END_SECTION
-
-START_SECTION ROM0[256]
 start::
 .bb1:
   RET

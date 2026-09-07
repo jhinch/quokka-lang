@@ -52,9 +52,6 @@ optimize = true
 source.file = "empty_main.q"
 expected_lir = """
 START_SECTION ROM0
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
 .bb1:
   RET
@@ -69,9 +66,6 @@ optimize = true
 source.file = "empty_main.q"
 expected_lir = """
 START_SECTION ROM0
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
 .bb1:
   RET
@@ -87,9 +81,6 @@ allocate_registers = true
 source.file = "empty_main.q"
 expected_lir = """
 START_SECTION ROM0
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
 .bb1:
   RET

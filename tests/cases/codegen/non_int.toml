@@ -36,11 +36,8 @@ foo::
   LD [HL], A
   RET
 
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
-.bb1:
+.bb2:
   RET
 
 END_SECTION
@@ -84,11 +81,8 @@ foo::
   LD [HL], A
   RET
 
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
-.bb1:
+.bb2:
   RET
 
 END_SECTION
@@ -135,11 +129,8 @@ foo::
   LD [HL], B
   RET
 
-END_SECTION
-
-START_SECTION ROM0[256]
 main::
-.bb1:
+.bb2:
   RET
 
 END_SECTION
@@ -175,7 +166,7 @@ ping_or_pong::
   LD HL, CHOICE+$0000
   LD A, [HL]
   BIT 0, A; z
-  JP z, .bb4; else=.bb5
+  JP z, .bb5; else=.bb6
 
 ping::
 .bb2:
@@ -185,25 +176,22 @@ pong::
 .bb3:
   RET
 
+main::
 .bb4:
-  LD HL, ping
-  JP .bb6
-
-.bb5:
-  LD HL, pong
-  JP .bb6
-
-.bb6:
-  CALL HL; return=.bb7
-
-.bb7:
   RET
 
-END_SECTION
+.bb5:
+  LD HL, ping
+  JP .bb7
 
-START_SECTION ROM0[256]
-main::
-.bb1:
+.bb6:
+  LD HL, pong
+  JP .bb7
+
+.bb7:
+  CALL HL; return=.bb8
+
+.bb8:
   RET
 
 END_SECTION

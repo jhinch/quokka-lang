@@ -637,9 +637,23 @@ collatz_steps::
   LD r8#2, r8#11
   LD r8#3, r8#16
   LD r8#4, r8#17
-  JP .bb2
+  JP .bb3
 
+main::
 .bb2:
+  LD r8#114, $00
+  LD r8#115, $1b
+  LD r8#116, r8#115
+  LD r8#117, r8#114
+  LD r8#118, r8#117
+  LD r8#119, r8#116
+  LD HL, N+$0000
+  LD A, r8#118
+  LD [HL++], A
+  LD [HL], r8#119
+  CALL collatz_steps; return=.bb10
+
+.bb3:
   LD r8#18, r8#1
   LD r8#19, r8#2
   LD r8#20, $00
@@ -655,12 +669,12 @@ collatz_steps::
   (out=z#3,in=z)
   LD r8#30, r8#3
   LD r8#31, r8#4
-  JP z#3, .bb3; else=.bb4
-
-.bb3:
-  JP .bb5
+  JP z#3, .bb4; else=.bb5
 
 .bb4:
+  JP .bb6
+
+.bb5:
   LD r8#32, $00
   LD r8#33, $01
   LD r8#34, r8#33
@@ -686,25 +700,25 @@ collatz_steps::
   LD A, r8#44
   SBC A, r8#50; z, c
   (out=z#8,in=z)
-  JP z#8, .bb6; else=.bb7
+  JP z#8, .bb7; else=.bb8
 
-.bb5:
+.bb6:
   LD r8#56, r8#31
   LD r8#57, r8#30
   LD r8#58, r8#57
   LD r8#59, r8#56
   RET
 
-.bb6:
+.bb7:
   SRL (out=r8#60,in=r8#19); z, c
   RR (out=r8#61,in=r8#18); z, c
   LD r8#62, r8#61
   LD r8#63, r8#60
   LD r8#5, r8#62
   LD r8#6, r8#63
-  JP .bb8
+  JP .bb9
 
-.bb7:
+.bb8:
   LD A, r8#18
   ADD A, r8#18; z, c
   LD r8#66, A
@@ -737,9 +751,9 @@ collatz_steps::
   LD r8#93, r8#91
   LD r8#5, r8#92
   LD r8#6, r8#93
-  JP .bb8
+  JP .bb9
 
-.bb8:
+.bb9:
   LD r8#94, $00
   LD r8#95, $01
   LD r8#96, r8#95
@@ -764,36 +778,19 @@ collatz_steps::
   LD r8#2, r8#113
   LD r8#3, r8#110
   LD r8#4, r8#111
-  JP .bb2
+  JP .bb3
 
-END_SECTION
-
-START_SECTION ROM0[256]
-main::
-.bb1:
-  LD r8#1, $00
-  LD r8#2, $1b
-  LD r8#3, r8#2
-  LD r8#4, r8#1
-  LD r8#5, r8#4
-  LD r8#6, r8#3
-  LD HL, N+$0000
-  LD A, r8#5
-  LD [HL++], A
-  LD [HL], r8#6
-  CALL collatz_steps; return=.bb2
-
-.bb2:
+.bb10:
   LD BC, RETURN
   (high_out=B;low_out=C;in=BC)
-  LD r8#10, C
-  LD r8#11, B
-  LD r8#12, r8#10
-  LD r8#13, r8#11
+  LD r8#123, C
+  LD r8#124, B
+  LD r8#125, r8#123
+  LD r8#126, r8#124
   LD HL, RESULT+$0000
-  LD A, r8#12
+  LD A, r8#125
   LD [HL++], A
-  LD [HL], r8#13
+  LD [HL], r8#126
   RET
 
 END_SECTION
@@ -826,11 +823,21 @@ collatz_steps::
   LD C, $00
   LD D, $00
   LD B, A
-  JP .bb2
+  JP .bb3
 
+main::
 .bb2:
-  LD HL SP+3; c
+  LD A, $00
+  LD B, $1b
+  LD HL, N+$0000
+  LD [HL++], A
   LD [HL], B
+  CALL collatz_steps; return=.bb10
+
+.bb3:
+  LD A, B
+  LD HL SP+3; c
+  LD [HL], A
   LD A, E
   LD HL SP+1; c
   LD [HL], A
@@ -849,12 +856,12 @@ collatz_steps::
   LD A, D
   LD HL SP+0; c
   LD [HL], A
-  JP z, .bb3; else=.bb4
-
-.bb3:
-  JP .bb5
+  JP z, .bb4; else=.bb5
 
 .bb4:
+  JP .bb6
+
+.bb5:
   LD C, $00
   LD A, $01
   LD B, A
@@ -871,9 +878,9 @@ collatz_steps::
   SUB A, D; z, c
   LD A, B
   SBC A, C; z, c
-  JP z, .bb6; else=.bb7
+  JP z, .bb7; else=.bb8
 
-.bb5:
+.bb6:
   LD HL SP+0; c
   LD A, [HL]
   LD HL SP+2; c
@@ -881,18 +888,18 @@ collatz_steps::
   ADD SP 4; z, c
   RET
 
-.bb6:
-  LD HL SP+1; c
-  LD A, [HL]
-  SRL A; z, c
-  LD HL SP+3; c
-  LD B, [HL]
-  RR B; z, c
-  LD D, B
-  LD E, A
-  JP .bb8
-
 .bb7:
+  LD HL SP+1; c
+  LD B, [HL]
+  SRL B; z, c
+  LD HL SP+3; c
+  LD A, [HL]
+  RR A; z, c
+  LD D, A
+  LD E, B
+  JP .bb9
+
+.bb8:
   LD HL SP+3; c
   LD A, [HL]
   LD HL SP+3; c
@@ -924,12 +931,12 @@ collatz_steps::
   ADC A, D; z, c
   LD D, B
   LD E, A
-  JP .bb8
+  JP .bb9
 
-.bb8:
-  LD A, $00
-  LD C, $01
-  LD B, A
+.bb9:
+  LD B, $00
+  LD A, $01
+  LD C, A
   LD HL SP+0; c
   LD A, [HL]
   LD HL SP+2; c
@@ -947,21 +954,9 @@ collatz_steps::
   LD B, D
   LD C, A
   LD D, H
-  JP .bb2
+  JP .bb3
 
-END_SECTION
-
-START_SECTION ROM0[256]
-main::
-.bb1:
-  LD A, $00
-  LD B, $1b
-  LD HL, N+$0000
-  LD [HL++], A
-  LD [HL], B
-  CALL collatz_steps; return=.bb2
-
-.bb2:
+.bb10:
   LD HL, RESULT+$0000
   LD A, C
   LD [HL++], A
