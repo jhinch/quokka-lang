@@ -10,6 +10,7 @@ pub mod adce;
 pub mod graph;
 pub mod prune;
 pub mod sccp;
+pub mod tree_shake;
 
 pub struct Optimizer {
     features: PreviewFeatureSet,
@@ -41,6 +42,9 @@ impl Optimizer {
         }
         if self.features.is_enabled(PreviewFeature::Sccp) {
             optimizations.push(Box::new(sccp::Sccp));
+        }
+        if self.features.is_enabled(PreviewFeature::TreeShake) {
+            optimizations.push(Box::new(tree_shake::TreeShake));
         }
         if self.features.is_enabled(PreviewFeature::Prune) {
             optimizations.push(Box::new(prune::Prune));

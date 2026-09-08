@@ -5,7 +5,13 @@ use indexmap::IndexMap;
 use slotmap::SlotMap;
 use tracing::instrument;
 
-/// remove nop instructions and join empty blocks
+/// Prune unnecessary structures within MIR functions
+///
+/// This includes:
+///
+/// - Removing `Nop` instructions produced by other optimization rounds
+/// - Joining sequential basic blocks
+/// - Removing unnecessary empty basic blocks
 pub struct Prune;
 
 impl Optimize for Prune {

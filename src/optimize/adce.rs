@@ -9,6 +9,9 @@ use tracing::instrument;
 
 /// Aggressive Dead Code Elimination (ADCE)
 ///
+/// ADCE eliminates dead code within each function. See [`super::tree_shake`] for
+/// elimination of dead functions and globals.
+///
 /// Algorithm pseudocode is
 /// from ( "Engineering a Compiler", 2004)
 /// Figure 10.3

@@ -27,6 +27,8 @@ pub enum PreviewFeature {
     Sccp,
     /// enable prune (nop and basic block) optimization pass on MIR
     Prune,
+    /// enable tree shake (functions and globals) optimization pass on MIR
+    TreeShake,
 }
 
 impl fmt::Display for PreviewFeature {

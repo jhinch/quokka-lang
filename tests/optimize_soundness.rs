@@ -106,6 +106,7 @@ const ALL_PASSES: &[PreviewFeature] = &[
     PreviewFeature::Adce,
     PreviewFeature::Sccp,
     PreviewFeature::Prune,
+    PreviewFeature::TreeShake,
 ];
 
 #[test]
@@ -120,7 +121,10 @@ fn f() -> u8 {
     return x;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     for &pass in ALL_PASSES {
         assert_optimization_preserves_semantics(source, &[pass], "f", "N", &u8_values());
@@ -144,7 +148,10 @@ fn f() -> u8 {
     return n;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     for &pass in ALL_PASSES {
         assert_optimization_preserves_semantics(source, &[pass], "f", "N", &u8_values());
@@ -168,7 +175,10 @@ fn f() -> u8 {
     return x;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
 }
@@ -191,7 +201,10 @@ fn f() -> u8 {
     }
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
 }
@@ -218,7 +231,10 @@ fn f() -> u8 {
     return sum;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &[vec![0u8]]);
 }
@@ -242,7 +258,10 @@ fn f() -> u8 {
     return sum;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     // keep inputs small: this loop is O(n) in the interpreter and n=255 would run 255 times,
     // which is unnecessary to prove the point
@@ -275,7 +294,10 @@ fn f() -> u8 {
     }
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     let inputs = [0u8, 1, 3, 5, 6, 9]
         .into_iter()
