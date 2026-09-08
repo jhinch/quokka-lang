@@ -524,8 +524,8 @@ impl Section {
     pub fn addr(&self) -> Option<u16> {
         match &self.data {
             SectionData::Code(CodeSectionData { addr, .. })
-            | SectionData::Data(DataSectionData { addr, .. }) => *addr,
-            SectionData::Ram(RamSectionData { addr, .. }) => Some(*addr),
+            | SectionData::Data(DataSectionData { addr, .. })
+            | SectionData::Ram(RamSectionData { addr, .. }) => *addr,
         }
     }
 
@@ -543,7 +543,8 @@ impl Section {
                 | RamRegionKind::VRam
                 | RamRegionKind::HRam
                 | RamRegionKind::SRam
-                | RamRegionKind::Oam => None,
+                | RamRegionKind::Oam
+                | RamRegionKind::IO => None,
             },
         }
     }
@@ -687,7 +688,7 @@ pub struct DataSectionData {
 pub struct RamSectionData {
     pub name: Identifier,
     pub region: RamRegionKind,
-    pub addr: u16,
+    pub addr: Option<u16>,
     pub size: BitCount,
 }
 
@@ -700,6 +701,7 @@ pub enum RamRegionKind {
     WRamX(Option<NonZeroU16>),
     SRam,
     Oam,
+    IO,
 }
 
 impl fmt::Display for RamRegionKind {
@@ -712,6 +714,7 @@ impl fmt::Display for RamRegionKind {
             RamRegionKind::HRam => write!(f, "HRAM"),
             RamRegionKind::SRam => write!(f, "SRAM"),
             RamRegionKind::Oam => write!(f, "OAM"),
+            RamRegionKind::IO => write!(f, "IO"),
         }
     }
 }

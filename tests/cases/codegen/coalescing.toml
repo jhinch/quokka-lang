@@ -10,12 +10,12 @@ kind = "codegen"
 optimize = true
 source.file = "coalescing.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 A::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 8 x bit
 END_SECTION
@@ -74,12 +74,12 @@ optimize = true
 allocate_registers = true
 source.file = "coalescing.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 A::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 8 x bit
 END_SECTION

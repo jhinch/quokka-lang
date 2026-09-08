@@ -21,12 +21,12 @@ fn f() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 X::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 8 x bit
 END_SECTION
@@ -91,17 +91,17 @@ fn f() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 X::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 Y::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 8 x bit
 END_SECTION

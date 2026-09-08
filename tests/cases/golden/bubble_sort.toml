@@ -973,9 +973,9 @@ name = "analyze"
 kind = "analyzer"
 source.file = "bubble_sort.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global DATA: [u8; 8]
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global SWAP_COUNT: u8
 
 bubble_sort -> u8:
@@ -1082,9 +1082,9 @@ kind = "analyzer"
 optimize = true
 source.file = "bubble_sort.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global DATA: [u8; 8]
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global SWAP_COUNT: u8
 
 bubble_sort -> u8:
@@ -1191,12 +1191,12 @@ kind = "codegen"
 optimize = true
 source.file = "bubble_sort.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 DATA::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 SWAP_COUNT::
 alloc 8 x bit
 END_SECTION
@@ -1588,12 +1588,12 @@ optimize = true
 allocate_registers = true
 source.file = "bubble_sort.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 DATA::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 SWAP_COUNT::
 alloc 8 x bit
 END_SECTION

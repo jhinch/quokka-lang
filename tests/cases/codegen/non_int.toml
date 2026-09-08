@@ -17,12 +17,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 IN::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 OUT::
 alloc 8 x bit
 END_SECTION
@@ -88,12 +88,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 IN::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 OUT::
 alloc 8 x bit
 END_SECTION
@@ -160,12 +160,12 @@ fn foo() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 IN::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 OUT::
 alloc 16 x bit
 END_SECTION
@@ -233,7 +233,7 @@ fn pong() {}
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 CHOICE::
 alloc 1 x bit
 END_SECTION

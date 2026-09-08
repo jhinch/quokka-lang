@@ -1,16 +1,16 @@
 use crate::ast::Identifier;
-use crate::attr::{RamSectionKind, RomSectionKind};
 use crate::lir::{
     BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, FnAddr, HLId, Ld16Source, Lir,
     LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK,
     SectionAddr, SectionId, Terminator, ZeroId,
 };
-use crate::mir;
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::{BitCount, u3};
 use crate::ty::{Ty, TyRegistry};
+use crate::{attr, mir};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
+use miette::SourceSpan;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
 pub struct CodeGen {
@@ -150,28 +150,63 @@ impl CodeGen {
         match &global.attrs {
             mir::GlobalAttributes::Rom(attrs) => self.lir.insert_data_section(DataSectionData {
                 name: global.name.data.clone(),
-                region: match attrs.section {
-                    RomSectionKind::Auto => None,
-                    RomSectionKind::RomX => Some(RomRegionKind::RomX(None)),
-                    RomSectionKind::Rom0 => Some(RomRegionKind::Rom0),
+                region: match attrs.region {
+                    attr::RomRegionKind::Auto => None,
+                    attr::RomRegionKind::RomX => Some(RomRegionKind::RomX(None)),
+                    attr::RomRegionKind::Rom0 => Some(RomRegionKind::Rom0),
                 },
-                addr: None,
+                addr: attrs.address,
                 data: global.value.clone(),
             }),
-            mir::GlobalAttributes::Ram(attrs) => self.lir.insert_ram_section(RamSectionData {
-                name: global.name.data.clone(),
-                size: global.ty.bit_size(&self.ty_registry),
-                region: match attrs.section {
-                    RamSectionKind::Auto => RamRegionKind::default(),
-                    RamSectionKind::WRam0 => RamRegionKind::WRam0,
-                    RamSectionKind::VRam => RamRegionKind::VRam,
-                    RamSectionKind::HRam => RamRegionKind::HRam,
-                    RamSectionKind::WRamX => RamRegionKind::WRamX(None),
-                    RamSectionKind::SRam => RamRegionKind::SRam,
-                    RamSectionKind::Oam => RamRegionKind::Oam,
-                },
-                addr: 0,
-            }),
+            mir::GlobalAttributes::Ram(attrs) => {
+                let region = match attrs.region {
+                    attr::RamRegionKind::Auto => {
+                        if let Some(addr) = attrs.address {
+                            match addr {
+                                // https://gbdev.io/pandocs/Memory_Map.html
+                                0x8000..=0x9FFF => RamRegionKind::VRam,
+                                0xA000..=0xBFFF => RamRegionKind::SRam,
+                                0xC000..=0xCFFF => RamRegionKind::WRam0,
+                                0xD000..=0xDFFF => RamRegionKind::WRamX(None),
+                                0xFE00..=0xFE9F => RamRegionKind::Oam,
+                                0xFF00..=0xFF7F | 0xFFFF => RamRegionKind::IO,
+                                0xFF80..=0xFFFE => RamRegionKind::HRam,
+                                _ => RamRegionKind::default(),
+                            }
+                        } else {
+                            RamRegionKind::default()
+                        }
+                    }
+                    attr::RamRegionKind::WRam0 => RamRegionKind::WRam0,
+                    attr::RamRegionKind::VRam => RamRegionKind::VRam,
+                    attr::RamRegionKind::HRam => RamRegionKind::HRam,
+                    attr::RamRegionKind::WRamX => RamRegionKind::WRamX(None),
+                    attr::RamRegionKind::SRam => RamRegionKind::SRam,
+                    attr::RamRegionKind::Oam => RamRegionKind::Oam,
+                };
+                if let Some(addr) = attrs.address {
+                    match (region, addr) {
+                        (RamRegionKind::VRam, 0x8000..=0x9FFF) => {}
+                        (RamRegionKind::SRam, 0xA000..=0xBFFF) => {}
+                        (RamRegionKind::WRam0, 0xC000..=0xCFFF) => {}
+                        (RamRegionKind::WRamX(_), 0xD000..=0xDFFF) => {}
+                        (RamRegionKind::Oam, 0xFE00..=0xFE9F) => {}
+                        (RamRegionKind::IO, 0xFF00..=0xFF7F | 0xFFFF) => {}
+                        (RamRegionKind::HRam, 0xFF80..=0xFFFE) => {}
+                        _ => self.result_builder.add_error(BadRamAddrError {
+                            span: global.name.span,
+                            name: global.name.data.clone(),
+                            addr,
+                        }),
+                    }
+                }
+                self.lir.insert_ram_section(RamSectionData {
+                    name: global.name.data.clone(),
+                    size: global.ty.bit_size(&self.ty_registry),
+                    region,
+                    addr: attrs.address,
+                })
+            }
         }
     }
 
@@ -1662,4 +1697,14 @@ enum R1 {
     R8(R8Id),
     /// R1 represented by a bit set in a register
     Bit(R8Id, u3),
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`{name}` cannot be placed at address ${addr:04x}")]
+#[diagnostic()]
+pub struct BadRamAddrError {
+    #[label("bad address here")]
+    pub span: SourceSpan,
+    pub name: Identifier,
+    pub addr: u16,
 }

@@ -792,7 +792,7 @@ const A: Point = Point { x: 1, y: 2 };
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { region: Auto, address: None }
 const A: Point = [1, 2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -815,7 +815,7 @@ const A: Wrapper = Wrapper { inner: Inner { value: 5 } };
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { region: Auto, address: None }
 const A: Wrapper = [5]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -840,7 +840,7 @@ const A: u8 = {
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [5]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -867,7 +867,7 @@ const A: u8 = {
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [9]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }

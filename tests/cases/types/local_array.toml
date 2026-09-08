@@ -31,7 +31,7 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -69,7 +69,7 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -92,7 +92,7 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -114,7 +114,7 @@ const A: u8 = {
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Auto }
+@ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -133,7 +133,7 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 2]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }

@@ -251,10 +251,10 @@ END_SECTION
 """
 
 [[case]]
-name = "const_section_rom0"
+name = "const_region_rom0"
 kind = "codegen"
 source = """
-#[section = rom0]
+#[region = rom0]
 const A: u8 = 1;
 
 fn main() {}
@@ -300,10 +300,10 @@ END_SECTION
 """
 
 [[case]]
-name = "const_section_romx"
+name = "const_region_romx"
 kind = "codegen"
 source = """
-#[section = romx]
+#[region = romx]
 const A: u8 = 1;
 
 fn main() {}
@@ -362,7 +362,7 @@ fn store() {
 fn main() {}
 """
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 OUT::
 alloc 8 x bit
 END_SECTION

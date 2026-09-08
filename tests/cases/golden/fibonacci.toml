@@ -668,9 +668,9 @@ name = "analyze"
 kind = "analyzer"
 source.file = "fibonacci.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global FIBONACCI_N: u8
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 10]
 
 fibonacci -> u8:
@@ -743,9 +743,9 @@ kind = "analyzer"
 optimize = true
 source.file = "fibonacci.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global FIBONACCI_N: u8
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 10]
 
 fibonacci -> u8:
@@ -818,12 +818,12 @@ kind = "codegen"
 optimize = true
 source.file = "fibonacci.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 FIBONACCI_N::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULTS::
 alloc 80 x bit
 END_SECTION
@@ -1013,12 +1013,12 @@ optimize = true
 allocate_registers = true
 source.file = "fibonacci.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 FIBONACCI_N::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULTS::
 alloc 80 x bit
 END_SECTION

@@ -408,11 +408,11 @@ name = "analyze"
 kind = "analyzer"
 source.file = "gcd.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global B: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 gcd -> u16:
@@ -463,11 +463,11 @@ kind = "analyzer"
 optimize = true
 source.file = "gcd.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global B: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 gcd -> u16:
@@ -518,17 +518,17 @@ kind = "codegen"
 optimize = true
 source.file = "gcd.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 16 x bit
 END_SECTION
@@ -701,17 +701,17 @@ optimize = true
 allocate_registers = true
 source.file = "gcd.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 A::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 B::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 16 x bit
 END_SECTION

@@ -31,12 +31,14 @@ pub enum InlineKind {
 #[serde(deny_unknown_fields)]
 pub struct ConstDeclAttributes {
     #[serde(default)]
-    pub section: RomSectionKind,
+    pub region: RomRegionKind,
+    #[serde(default)]
+    pub address: Option<u16>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RomSectionKind {
+pub enum RomRegionKind {
     #[default]
     Auto,
     RomX,
@@ -47,12 +49,14 @@ pub enum RomSectionKind {
 #[serde(deny_unknown_fields)]
 pub struct GlobalDeclAttributes {
     #[serde(default)]
-    pub section: RamSectionKind,
+    pub region: RamRegionKind,
+    #[serde(default)]
+    pub address: Option<u16>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum RamSectionKind {
+pub enum RamRegionKind {
     #[default]
     Auto,
     WRam0,
@@ -385,6 +389,17 @@ impl<'de> serde::Deserializer<'de> for AttrValueDeserializer<'de> {
         }
     }
 
+    fn deserialize_option<V: serde::de::Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
+        // this reads weird but always treat self.attribute.value.is_none() as an absent
+        // value (a unit). If the field type is defined as an option, it is to indicate that
+        // the attribute is optional. When a value missing, the attribute field should be handling
+        // this as a bool.
+        visitor.visit_some(self)
+    }
+
     fn deserialize_enum<V: serde::de::Visitor<'de>>(
         self,
         _: &'static str,
@@ -396,7 +411,7 @@ impl<'de> serde::Deserializer<'de> for AttrValueDeserializer<'de> {
 
     serde::forward_to_deserialize_any! {
         i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
+        bytes byte_buf unit unit_struct newtype_struct seq tuple
         tuple_struct map struct identifier ignored_any
     }
 }

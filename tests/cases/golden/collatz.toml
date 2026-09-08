@@ -486,9 +486,9 @@ name = "analyze"
 kind = "analyzer"
 source.file = "collatz.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global N: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 collatz_steps -> u16:
@@ -547,9 +547,9 @@ kind = "analyzer"
 optimize = true
 source.file = "collatz.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global N: u16
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 collatz_steps -> u16:
@@ -608,12 +608,12 @@ kind = "codegen"
 optimize = true
 source.file = "collatz.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 N::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 16 x bit
 END_SECTION
@@ -829,12 +829,12 @@ optimize = true
 allocate_registers = true
 source.file = "collatz.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 N::
 alloc 16 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 RESULT::
 alloc 16 x bit
 END_SECTION

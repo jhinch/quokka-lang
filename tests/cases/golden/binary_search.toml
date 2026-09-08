@@ -840,11 +840,11 @@ name = "analyze"
 kind = "analyzer"
 source.file = "binary_search.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global SORTED: [u8; 8]
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global TARGET: u8
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global FOUND_INDEX: u16
 
 binary_search -> u16:
@@ -930,11 +930,11 @@ kind = "analyzer"
 optimize = true
 source.file = "binary_search.q"
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global SORTED: [u8; 8]
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global TARGET: u8
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global FOUND_INDEX: u16
 
 binary_search -> u16:
@@ -1020,17 +1020,17 @@ kind = "codegen"
 optimize = true
 source.file = "binary_search.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 SORTED::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 TARGET::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 FOUND_INDEX::
 alloc 16 x bit
 END_SECTION
@@ -1329,17 +1329,17 @@ optimize = true
 allocate_registers = true
 source.file = "binary_search.q"
 expected_lir = """
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 SORTED::
 alloc 64 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 TARGET::
 alloc 8 x bit
 END_SECTION
 
-START_SECTION WRAM0[$00]
+START_SECTION WRAM0
 FOUND_INDEX::
 alloc 16 x bit
 END_SECTION

@@ -199,16 +199,16 @@ expected_errors = [
 ]
 
 [[case]]
-name = "section_on_global_decl"
+name = "region_on_global_decl"
 kind = "analyzer"
 source = """
-#[section = vram]
+#[region = vram]
 global A: u8;
 
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: VRam }
+@GlobalDeclAttributes { region: VRam, address: None }
 global A: u8
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -218,10 +218,10 @@ main -> unit:
 """
 
 [[case]]
-name = "section_missing_value_on_global_decl"
+name = "region_missing_value_on_global_decl"
 kind = "analyzer"
 source = """
-#[section]
+#[region]
 global A: u8;
 
 fn main() {}
@@ -231,10 +231,10 @@ expected_errors = [
 ]
 
 [[case]]
-name = "section_rom0_on_global_decl"
+name = "region_rom0_on_global_decl"
 kind = "analyzer"
 source = """
-#[section = rom0]
+#[region = rom0]
 global A: u8;
 
 fn main() {}
@@ -244,16 +244,16 @@ expected_errors = [
 ]
 
 [[case]]
-name = "section_on_const_decl"
+name = "region_on_const_decl"
 kind = "analyzer"
 source = """
-#[section = rom0]
+#[region = rom0]
 const A: u8 = 1;
 
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { section: Rom0 }
+@ConstDeclAttributes { region: Rom0, address: None }
 const A: u8 = [1]
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
@@ -263,10 +263,10 @@ main -> unit:
 """
 
 [[case]]
-name = "section_missing_value_on_const_decl"
+name = "region_missing_value_on_const_decl"
 kind = "analyzer"
 source = """
-#[section]
+#[region]
 const A: u8 = 1;
 
 fn main() {}
@@ -276,10 +276,10 @@ expected_errors = [
 ]
 
 [[case]]
-name = "section_hram_on_const_decl"
+name = "region_hram_on_const_decl"
 kind = "analyzer"
 source = """
-#[section = hram]
+#[region = hram]
 const A: u8 = 1;
 
 fn main() {}

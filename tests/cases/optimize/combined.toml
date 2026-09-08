@@ -22,7 +22,7 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -63,7 +63,7 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -117,7 +117,7 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:

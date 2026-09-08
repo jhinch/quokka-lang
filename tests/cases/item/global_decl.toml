@@ -76,7 +76,7 @@ global A: u8;
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: u8
 
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }

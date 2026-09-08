@@ -101,7 +101,7 @@ fn get_a() -> Point {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { section: Auto }
+@GlobalDeclAttributes { region: Auto, address: None }
 global A: Point
 
 get_a -> Point:
