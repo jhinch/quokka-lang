@@ -120,7 +120,9 @@ struct Sprite {
     flags: u8,
 }
 
-fn main() {}
+fn main() {
+    SPRITES[0].y = 3;
+}
 """
 expected_lir = """
 START_SECTION OAM
@@ -131,6 +133,21 @@ END_SECTION
 START_SECTION ROM0
 main::
 .bb1:
+  LD r8#1, $00
+  LD r8#2, $00
+  LD r8#3, r8#2
+  LD r8#4, r8#1
+  LD r8#5, r8#4
+  LD r8#6, r8#3
+  LD r8#7, $03
+  LD r8#8, r8#7
+  (out=r16#1;high_in=r8#6;low_in=r8#5)
+  LD HL, SPRITES+$0000
+  ADD HL, r16#1; c
+  ADD HL, r16#1; c
+  ADD HL, r16#1; c
+  ADD HL, r16#1; c
+  LD [HL], r8#8
   RET
 
 END_SECTION
@@ -169,17 +186,18 @@ source = """
 #[address = 0xFF00]
 global JOYPAD: u8;
 
-fn main() {}
+fn main() {
+    JOYPAD = 0x70;
+}
 """
 expected_lir = """
-START_SECTION IO[$ff00]
-JOYPAD::
-alloc 8 x bit
-END_SECTION
-
 START_SECTION ROM0
 main::
 .bb1:
+  LD r8#1, $70
+  LD r8#2, r8#1
+  LD HL, $ff00
+  LD [HL], r8#2
   RET
 
 END_SECTION

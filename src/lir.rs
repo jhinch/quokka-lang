@@ -543,8 +543,7 @@ impl Section {
                 | RamRegionKind::VRam
                 | RamRegionKind::HRam
                 | RamRegionKind::SRam
-                | RamRegionKind::Oam
-                | RamRegionKind::IO => None,
+                | RamRegionKind::Oam => None,
             },
         }
     }
@@ -701,7 +700,6 @@ pub enum RamRegionKind {
     WRamX(Option<NonZeroU16>),
     SRam,
     Oam,
-    IO,
 }
 
 impl fmt::Display for RamRegionKind {
@@ -714,7 +712,6 @@ impl fmt::Display for RamRegionKind {
             RamRegionKind::HRam => write!(f, "HRAM"),
             RamRegionKind::SRam => write!(f, "SRAM"),
             RamRegionKind::Oam => write!(f, "OAM"),
-            RamRegionKind::IO => write!(f, "IO"),
         }
     }
 }

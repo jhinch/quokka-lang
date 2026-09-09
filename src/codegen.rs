@@ -41,6 +41,7 @@ impl CodeGen {
         for (global_id, global) in &mir.globals {
             globals.insert(global_id, self.generate_from_global(global));
         }
+
         let code_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
         let mut functions = SecondaryMap::new();
@@ -146,18 +147,20 @@ impl CodeGen {
             .seal_code_section(bootstrap_code_section_id, bootstrap_code);
     }
 
-    fn generate_from_global(&mut self, global: &mir::Global) -> SectionId {
+    fn generate_from_global(&mut self, global: &mir::Global) -> LoweredGlobal {
         match &global.attrs {
-            mir::GlobalAttributes::Rom(attrs) => self.lir.insert_data_section(DataSectionData {
-                name: global.name.data.clone(),
-                region: match attrs.region {
-                    attr::RomRegionKind::Auto => None,
-                    attr::RomRegionKind::RomX => Some(RomRegionKind::RomX(None)),
-                    attr::RomRegionKind::Rom0 => Some(RomRegionKind::Rom0),
-                },
-                addr: attrs.address,
-                data: global.value.clone(),
-            }),
+            mir::GlobalAttributes::Rom(attrs) => {
+                LoweredGlobal::Section(self.lir.insert_data_section(DataSectionData {
+                    name: global.name.data.clone(),
+                    region: match attrs.region {
+                        attr::RomRegionKind::Auto => None,
+                        attr::RomRegionKind::RomX => Some(RomRegionKind::RomX(None)),
+                        attr::RomRegionKind::Rom0 => Some(RomRegionKind::Rom0),
+                    },
+                    addr: attrs.address,
+                    data: global.value.clone(),
+                }))
+            }
             mir::GlobalAttributes::Ram(attrs) => {
                 let region = match attrs.region {
                     attr::RamRegionKind::Auto => {
@@ -169,7 +172,7 @@ impl CodeGen {
                                 0xC000..=0xCFFF => RamRegionKind::WRam0,
                                 0xD000..=0xDFFF => RamRegionKind::WRamX(None),
                                 0xFE00..=0xFE9F => RamRegionKind::Oam,
-                                0xFF00..=0xFF7F | 0xFFFF => RamRegionKind::IO,
+                                0xFF00..=0xFF7F | 0xFFFF => return LoweredGlobal::Addr(addr),
                                 0xFF80..=0xFFFE => RamRegionKind::HRam,
                                 _ => RamRegionKind::default(),
                             }
@@ -191,7 +194,6 @@ impl CodeGen {
                         (RamRegionKind::WRam0, 0xC000..=0xCFFF) => {}
                         (RamRegionKind::WRamX(_), 0xD000..=0xDFFF) => {}
                         (RamRegionKind::Oam, 0xFE00..=0xFE9F) => {}
-                        (RamRegionKind::IO, 0xFF00..=0xFF7F | 0xFFFF) => {}
                         (RamRegionKind::HRam, 0xFF80..=0xFFFE) => {}
                         _ => self.result_builder.add_error(BadRamAddrError {
                             span: global.name.span,
@@ -200,12 +202,12 @@ impl CodeGen {
                         }),
                     }
                 }
-                self.lir.insert_ram_section(RamSectionData {
+                LoweredGlobal::Section(self.lir.insert_ram_section(RamSectionData {
                     name: global.name.data.clone(),
                     size: global.ty.bit_size(&self.ty_registry),
                     region,
                     addr: attrs.address,
-                })
+                }))
             }
         }
     }
@@ -215,7 +217,7 @@ impl CodeGen {
         mir: &mir::Mir,
         function: &mir::Function,
         start_block: BlockId,
-        globals: &SecondaryMap<mir::GlobalId, SectionId>,
+        globals: &SecondaryMap<mir::GlobalId, LoweredGlobal>,
         functions: &SecondaryMap<mir::FunctionId, FnAddr>,
         lir: &mut CodeSectionBuilder,
     ) {
@@ -1576,13 +1578,7 @@ impl CodeGen {
                             let (r16, _c) = lir.insert_add16(block, r16, offset);
                             r16
                         }
-                        None => lir.insert_ld_hl(
-                            block,
-                            Ld16Source::SectionAddr(SectionAddr {
-                                section: ctx.globals[global],
-                                offset: byte_offset,
-                            }),
-                        ),
+                        None => self.offset_global_to_hl(global, byte_offset, block, lir, ctx),
                     };
                     ty = self.ty_registry.array_ty_data(ty).item_ty;
                     let item_byte_size = ty.bit_size(&self.ty_registry).padded_bytes();
@@ -1609,15 +1605,32 @@ impl CodeGen {
                     hl
                 }
             }
-            None => lir.insert_ld_hl(
-                block,
-                Ld16Source::SectionAddr(SectionAddr {
-                    section: ctx.globals[global],
-                    offset: byte_offset,
-                }),
-            ),
+            None => self.offset_global_to_hl(global, byte_offset, block, lir, ctx),
         };
         (source, bit_offset)
+    }
+
+    fn offset_global_to_hl(
+        &self,
+        global: mir::GlobalId,
+        byte_offset: u16,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx,
+    ) -> HLId {
+        lir.insert_ld_hl(
+            block,
+            match &ctx.globals[global] {
+                LoweredGlobal::Section(section) => Ld16Source::SectionAddr(SectionAddr {
+                    section: *section,
+                    offset: byte_offset,
+                }),
+                LoweredGlobal::Addr(addr) => Ld16Source::Literal(
+                    addr.checked_add(byte_offset)
+                        .expect("projection offset overflowed addr"),
+                ),
+            },
+        )
     }
 
     fn projected_local_to_r8(
@@ -1669,7 +1682,7 @@ impl CodeGen {
 struct InstrCtx<'a> {
     mir: &'a mir::Mir,
     function: &'a mir::Function,
-    globals: &'a SecondaryMap<mir::GlobalId, SectionId>,
+    globals: &'a SecondaryMap<mir::GlobalId, LoweredGlobal>,
     functions: &'a SecondaryMap<mir::FunctionId, FnAddr>,
     blocks: &'a SecondaryMap<mir::BlockId, BlockId>,
 }
@@ -1697,6 +1710,11 @@ enum R1 {
     R8(R8Id),
     /// R1 represented by a bit set in a register
     Bit(R8Id, u3),
+}
+
+enum LoweredGlobal {
+    Section(SectionId),
+    Addr(u16),
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
