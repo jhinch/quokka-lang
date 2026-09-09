@@ -167,6 +167,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION
@@ -339,6 +342,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION
@@ -508,6 +514,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION
@@ -674,6 +683,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION

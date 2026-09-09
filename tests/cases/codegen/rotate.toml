@@ -1,10 +1,3 @@
-# `RLA`/`RLCA`/`RRA`/`RRCA` are 1-byte accumulator-only rotates whose `Z` flag is
-# hard-cleared by the hardware, unlike the CB-prefixed `RL`/`RLC`/`RR`/`RRC` forms
-# which set `Z = (result == 0)`. `RegAllocator::specialize_accumulator_rotates`
-# rewrites a CB rotate into its accumulator alias only when the value was colored
-# to `A` *and* the rotate's zero output is dead, so a rotate whose result stays in
-# another register keeps the CB form (and its meaningful `z`).
-
 [[case]]
 name = "accumulator_rotate_uses_1byte_alias"
 kind = "codegen"
@@ -18,7 +11,9 @@ fn f() {
     RESULT = X <%;
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_lir = """
 START_SECTION WRAM0
@@ -43,6 +38,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION
@@ -88,7 +86,9 @@ fn f() {
     RESULT = (X <%) + (Y >%);
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_lir = """
 START_SECTION WRAM0
@@ -122,6 +122,9 @@ f::
 
 main::
 .bb2:
+  CALL f; return=.bb3
+
+.bb3:
   RET
 
 END_SECTION
@@ -152,7 +155,3 @@ START_SECTION ROM0
 
 END_SECTION
 """
-
-# The through-carry accumulator forms (`RLA`/`RRA`) are exercised by the signed
-# 16-bit `>>` lowering in the `collatz` and `binary_search` golden tests, whose
-# high half is colored to `A` with a dead zero and so emits `RRA A; c`.

@@ -27,4 +27,6 @@ fn f() {
     RESULT[7] = i;
 }
 
-fn main() {}
+fn main() {
+    f();
+}

@@ -13,4 +13,6 @@ fn f() {
     RESULT[2] = r;
 }
 
-fn main() {}
+fn main() {
+    f();
+}

@@ -13,7 +13,9 @@ fn f() -> u8 {
     return n + (a + b);
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_mir = """
 @GlobalDeclAttributes { region: Auto, address: None }
@@ -32,6 +34,8 @@ f -> u8:
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
+    call f, .bb2
+  .bb2:
     return
 """
 
@@ -51,12 +55,11 @@ fn f() -> u8 {
     }
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_mir = """
-@ConstDeclAttributes { region: Auto, address: None }
-const K: u8 = [5]
-
 f -> u8:
   .bb1:
     #2: u8 = copy 5
@@ -71,6 +74,8 @@ f -> u8:
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
+    call f, .bb2
+  .bb2:
     return
 """
 
@@ -93,7 +98,9 @@ fn f() -> u8 {
     return x;
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_mir = """
 @GlobalDeclAttributes { region: Auto, address: None }
@@ -120,6 +127,8 @@ f -> u8:
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
+    call f, .bb2
+  .bb2:
     return
 """
 
@@ -136,7 +145,9 @@ fn f() -> u1 {
     return n == 0;
 }
 
-fn main() {}
+fn main() {
+    f();
+}
 """
 expected_mir = """
 @GlobalDeclAttributes { region: Auto, address: None }
@@ -153,5 +164,7 @@ f -> u1:
 @FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
 main -> unit:
   .bb1:
+    call f, .bb2
+  .bb2:
     return
 """

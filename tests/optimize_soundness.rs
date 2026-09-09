@@ -106,8 +106,9 @@ const ALL_PASSES: &[PreviewFeature] = &[
     PreviewFeature::Adce,
     PreviewFeature::Sccp,
     PreviewFeature::Prune,
-    PreviewFeature::TreeShake,
 ];
+
+const DISABLE_PASSES: &[PreviewFeature] = &[PreviewFeature::NoTreeShake];
 
 #[test]
 fn straight_line_dead_code_is_eliminated_soundly() {
@@ -128,6 +129,9 @@ fn main() {
 "#;
     for &pass in ALL_PASSES {
         assert_optimization_preserves_semantics(source, &[pass], "f", "N", &u8_values());
+    }
+    for &pass_off in DISABLE_PASSES {
+        assert_optimization_preserves_semantics(source, &[pass_off], "f", "N", &u8_values());
     }
     assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
 }
@@ -318,7 +322,10 @@ fn f() -> u2 {
     return y;
 }
 
-fn main() {}
+fn main() {
+    N = 1;
+    f();
+}
 "#;
     let features = [
         PreviewFeature::NarrowInt,

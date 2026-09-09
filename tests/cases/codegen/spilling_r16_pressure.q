@@ -18,4 +18,6 @@ fn f() {
     RESULT[4] = e;
 }
 
-fn main() {}
+fn main() {
+    f();
+}

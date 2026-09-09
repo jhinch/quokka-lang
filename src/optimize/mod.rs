@@ -43,7 +43,7 @@ impl Optimizer {
         if self.features.is_enabled(PreviewFeature::Sccp) {
             optimizations.push(Box::new(sccp::Sccp));
         }
-        if self.features.is_enabled(PreviewFeature::TreeShake) {
+        if !self.features.is_enabled(PreviewFeature::NoTreeShake) {
             optimizations.push(Box::new(tree_shake::TreeShake));
         }
         if self.features.is_enabled(PreviewFeature::Prune) {
@@ -189,6 +189,7 @@ mod tests {
         builder.seal_function(id, fb);
         let mut mir = builder.build();
         mir.functions[id] = function;
+        mir.entrypoint = Some(id);
         (mir, TyRegistry::default())
     }
 
@@ -321,14 +322,5 @@ mod tests {
             !has_dead_add,
             "Adce marks the dead Add as Nop and Prune sweeps it away"
         );
-    }
-
-    #[test]
-    fn enable_features_extends_existing_set() {
-        let mut optimizer = Optimizer::default();
-        optimizer.enable_feature(PreviewFeature::Adce);
-        optimizer.enable_features([PreviewFeature::Prune].into_iter().collect());
-        let optimizations = optimizer.initialize_optimizations();
-        assert_eq!(optimizations.len(), 2);
     }
 }

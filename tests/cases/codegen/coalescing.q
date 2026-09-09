@@ -8,4 +8,6 @@ fn f() {
     RESULT = c;
 }
 
-fn main() {}
+fn main() {
+    f();
+}
