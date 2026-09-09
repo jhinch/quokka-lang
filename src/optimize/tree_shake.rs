@@ -1,4 +1,7 @@
-use crate::mir::{Callee, FunctionId, GlobalId, Instr, Mir, Operand, PlaceProjection, Terminator};
+use crate::mir::{
+    Callee, FunctionId, GlobalAttributes, GlobalId, Instr, Mir, Operand, PlaceProjection,
+    Terminator,
+};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
 use quokka_lang_slotkeyset::SlotKeySet;
@@ -36,6 +39,14 @@ impl TreeShake {
     fn calculate_used(&self, mir: &Mir) -> (SlotKeySet<FunctionId>, SlotKeySet<GlobalId>) {
         let mut used_functions = SlotKeySet::new();
         let mut used_globals = SlotKeySet::new();
+
+        for (global_id, global) in &mir.globals {
+            if let GlobalAttributes::Rom(attrs) = &global.attrs
+                && attrs.address.is_some()
+            {
+                used_globals.insert(global_id);
+            }
+        }
 
         let mut queue = VecDeque::new();
         let Some(entrypoint) = mir.entrypoint else {
