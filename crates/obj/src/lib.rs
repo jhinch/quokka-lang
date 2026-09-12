@@ -391,6 +391,63 @@ mod tests {
     }
 
     #[test]
+    fn round_trips_assertions() {
+        let mut obj_file = empty_obj_file();
+        obj_file.source_nodes = vec![SourceNode {
+            parent: None,
+            parent_line_no: 0,
+            data: SourceNodeData::File {
+                name: "main.asm".to_string(),
+            },
+            quieted: false,
+        }];
+        obj_file.sections = vec![Section {
+            name: "Section".to_string(),
+            node: SourceNodeId(0),
+            line_no: 0,
+            data: SectionData::WRam0(RamSectionData { size: 4 }),
+            mode: LinkingMode::Normal,
+            address: None,
+            bank: None,
+            alignment: 0,
+            alignment_offset: 0,
+        }];
+        obj_file.assertions = vec![
+            Assertion {
+                node: SourceNodeId(0),
+                line_no: 1,
+                offset: 2,
+                pc_section_id: SectionId(0),
+                pc_offset: 3,
+                kind: AssertionKind::Warning,
+                instructions: all_patch_instructions(),
+                message: "some assertion message".to_string(),
+            },
+            Assertion {
+                node: SourceNodeId(0),
+                line_no: 4,
+                offset: 5,
+                pc_section_id: SectionId(0),
+                pc_offset: 6,
+                kind: AssertionKind::Error,
+                instructions: vec![PatchInstr::Int(1)],
+                message: String::new(),
+            },
+            Assertion {
+                node: SourceNodeId(0),
+                line_no: 7,
+                offset: 8,
+                pc_section_id: SectionId(0),
+                pc_offset: 9,
+                kind: AssertionKind::Fatal,
+                instructions: vec![],
+                message: "\u{1F600} \u{00E9}moji message".to_string(),
+            },
+        ];
+        assert_round_trips(&obj_file);
+    }
+
+    #[test]
     fn rejects_incorrect_magic_bytes() {
         let mut bytes = Vec::new();
         write(&mut bytes, &empty_obj_file()).unwrap();
@@ -423,6 +480,24 @@ mod tests {
         bytes.push(b'S');
         bytes.push(0); // null terminator
         bytes.push(0xFF); // invalid symbol type
+        let err = read(Cursor::new(bytes)).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn rejects_unexpected_assertion_type() {
+        let mut bytes = b"RGB9".to_vec();
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // revision
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // symbols_count
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // sections_count
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // nodes_count
+        bytes.extend_from_slice(&1u32.to_le_bytes()); // assertions_count
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // node
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // line_no
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // offset
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // pc_section_id
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // pc_offset
+        bytes.push(0xFF); // invalid assertion type
         let err = read(Cursor::new(bytes)).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidData);
     }
