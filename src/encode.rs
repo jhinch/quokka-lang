@@ -93,7 +93,7 @@ impl ObjFileEncoder {
         let offset = 0;
         self.file.insert_symbol(Symbol {
             name: data.name.to_string(),
-            data: SymbolData::Local(SymbolDefinition {
+            data: SymbolData::Exported(SymbolDefinition {
                 node,
                 line_no: 0, // fix me
                 section: Some(section),
@@ -132,7 +132,7 @@ impl ObjFileEncoder {
         let offset = 0;
         self.file.insert_symbol(Symbol {
             name: data.name.to_string(),
-            data: SymbolData::Local(SymbolDefinition {
+            data: SymbolData::Exported(SymbolDefinition {
                 node,
                 line_no: 0, // fix me
                 section: Some(section),
@@ -192,20 +192,23 @@ impl ObjFileEncoder {
 
         for block in code.blocks.keys() {
             let function = block_to_function.get(block).copied();
-            let name = match function {
-                Some(function) if function == block => code.functions[function].to_string(),
-                Some(function) => format!("{}{block}", &code.functions[function]),
-                None => format!("@DANGLING{block}"),
+            let (name, exported) = match function {
+                Some(function) if function == block => (code.functions[function].to_string(), true),
+                Some(function) => (format!("{}{block}", &code.functions[function]), false),
+                None => (format!("@DANGLING{block}"), false),
             };
-            let symbol_id = self.file.insert_symbol(Symbol {
-                name,
-                data: SymbolData::Local(SymbolDefinition {
-                    node,
-                    line_no: 0, // fix me
-                    section: Some(current_section_id),
-                    value: 0,
-                }),
-            });
+            let definition = SymbolDefinition {
+                node,
+                line_no: 0, // fix me
+                section: Some(current_section_id),
+                value: 0,
+            };
+            let data = if exported {
+                SymbolData::Exported(definition)
+            } else {
+                SymbolData::Local(definition)
+            };
+            let symbol_id = self.file.insert_symbol(Symbol { name, data });
             self.fn_addr_to_symbol.insert(
                 lir::FnAddr {
                     section: Some(id),
