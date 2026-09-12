@@ -1,7 +1,7 @@
 use crate::{
-    LinkingMode, ObjFile, PatchInstr, RamSectionData, RomSectionData, Section, SectionData,
-    SectionId, SectionKind, SectionPatch, SectionPatchKind, SourceNode, SourceNodeData,
-    SourceNodeId, Symbol, SymbolData, SymbolDefinition, SymbolId,
+    Assertion, AssertionKind, LinkingMode, ObjFile, PatchInstr, RamSectionData, RomSectionData,
+    Section, SectionData, SectionId, SectionKind, SectionPatch, SectionPatchKind, SourceNode,
+    SourceNodeData, SourceNodeId, Symbol, SymbolData, SymbolDefinition, SymbolId,
 };
 use std::collections::VecDeque;
 use std::io;
@@ -138,11 +138,18 @@ trait ObjFileReader: io::BufRead {
             sections.push(self.read_section()?);
         }
 
+        let assertions_count = self.read_count()?;
+        let mut assertions = Vec::with_capacity(assertions_count);
+        for _ in 0..assertions_count {
+            assertions.push(self.read_assertion()?);
+        }
+
         Ok(ObjFile {
             revision,
             source_nodes,
             symbols,
             sections,
+            assertions,
         })
     }
 
@@ -389,6 +396,43 @@ trait ObjFileReader: io::BufRead {
                 ));
             }
         }))
+    }
+
+    fn read_assertion(&mut self) -> io::Result<Assertion> {
+        let node = self.read_node_id()?;
+        let line_no = self.read_long()?;
+        let offset = self.read_long()?;
+        let pc_section_id = self.read_section_id()?;
+        let pc_offset = self.read_long()?;
+        let kind_bits = self.read_byte()?;
+        let kind = match kind_bits {
+            0 => AssertionKind::Warning,
+            1 => AssertionKind::Error,
+            2 => AssertionKind::Fatal,
+            unexpected => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Unexpected assertion type {unexpected}"),
+                ));
+            }
+        };
+        let instructions_byte_count = self.read_count()?;
+        let mut instructions_read = self.take(instructions_byte_count as u64);
+        let mut instructions = Vec::new();
+        while let Some(instruction) = instructions_read.read_patch_instr()? {
+            instructions.push(instruction);
+        }
+        let message = self.read_string()?;
+        Ok(Assertion {
+            node,
+            line_no,
+            offset,
+            pc_section_id,
+            pc_offset,
+            kind,
+            instructions,
+            message,
+        })
     }
 }
 

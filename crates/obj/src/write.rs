@@ -1,6 +1,6 @@
 use crate::{
-    LinkingMode, ObjFile, PatchInstr, Section, SectionData, SectionKind, SectionPatch,
-    SectionPatchKind, SourceNode, SourceNodeData, Symbol, SymbolData,
+    Assertion, AssertionKind, LinkingMode, ObjFile, PatchInstr, Section, SectionData, SectionKind,
+    SectionPatch, SectionPatchKind, SourceNode, SourceNodeData, Symbol, SymbolData,
 };
 use std::io;
 use std::io::Write;
@@ -66,7 +66,10 @@ pub(crate) trait ObjFileWriter: Write {
         for section in &obj_file.sections {
             self.write_section(section)?;
         }
-        self.write_count(0)?; // assertions
+        self.write_count(obj_file.assertions.len())?;
+        for assertion in &obj_file.assertions {
+            self.write_assertion(assertion)?;
+        }
         Ok(())
     }
 
@@ -283,6 +286,30 @@ pub(crate) trait ObjFileWriter: Write {
                 self.write_long(*int)?;
             }
         }
+        Ok(())
+    }
+
+    fn write_assertion(&mut self, assertion: &Assertion) -> io::Result<()> {
+        self.write_long(assertion.node.0)?;
+        self.write_long(assertion.line_no)?;
+        self.write_long(assertion.offset)?;
+        self.write_long(assertion.pc_section_id.0)?;
+        self.write_long(assertion.pc_offset)?;
+        let type_bits = match assertion.kind {
+            AssertionKind::Warning => 0,
+            AssertionKind::Error => 1,
+            AssertionKind::Fatal => 2,
+        };
+        self.write_byte(type_bits)?;
+        // we have to buffer writes for instructions first as the size is serialized
+        // as the number of bytes, not the number of instructions
+        let mut instructions_bytes = Vec::<u8>::new();
+        for instruction in &assertion.instructions {
+            instructions_bytes.write_patch_instr(instruction)?;
+        }
+        self.write_count(instructions_bytes.len())?;
+        self.write_all(&instructions_bytes)?;
+        self.write_string(&assertion.message)?;
         Ok(())
     }
 }

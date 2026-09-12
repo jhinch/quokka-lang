@@ -4,6 +4,7 @@ pub struct ObjFile {
     pub source_nodes: Vec<SourceNode>,
     pub symbols: Vec<Symbol>,
     pub sections: Vec<Section>,
+    pub assertions: Vec<Assertion>,
 }
 
 impl Default for ObjFile {
@@ -13,6 +14,7 @@ impl Default for ObjFile {
             source_nodes: Vec::new(),
             symbols: Vec::new(),
             sections: Vec::new(),
+            assertions: Vec::new(),
         }
     }
 }
@@ -33,6 +35,12 @@ impl ObjFile {
     pub fn insert_section(&mut self, section: Section) -> SectionId {
         let id = SectionId(self.sections.len() as u32);
         self.sections.push(section);
+        id
+    }
+
+    pub fn insert_assertion(&mut self, assertion: Assertion) -> AssertionId {
+        let id = AssertionId(self.assertions.len() as u32);
+        self.assertions.push(assertion);
         id
     }
 }
@@ -287,4 +295,32 @@ pub enum PatchInstr {
     TrailingZeros,
     Int(u32),
     SymbolValue(SymbolId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AssertionId(pub(crate) u32);
+
+impl AssertionId {
+    pub fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assertion {
+    pub node: SourceNodeId,
+    pub line_no: u32,
+    pub offset: u32,
+    pub pc_section_id: SectionId,
+    pub pc_offset: u32,
+    pub kind: AssertionKind,
+    pub instructions: Vec<PatchInstr>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AssertionKind {
+    Warning,
+    Error,
+    Fatal,
 }

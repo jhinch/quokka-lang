@@ -32,6 +32,7 @@ mod tests {
             source_nodes: Vec::new(),
             symbols: Vec::new(),
             sections: Vec::new(),
+            assertions: Vec::new(),
         }
     }
 
