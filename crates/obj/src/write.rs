@@ -66,6 +66,7 @@ pub(crate) trait ObjFileWriter: Write {
         for section in &obj_file.sections {
             self.write_section(section)?;
         }
+        self.write_count(0)?; // assertions
         Ok(())
     }
 

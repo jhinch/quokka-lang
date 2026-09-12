@@ -1,6 +1,7 @@
 use crate::analyze::Analyzer;
 use crate::ast;
 use crate::codegen::CodeGen;
+use crate::encode::ObjFileEncoder;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::Lir;
 use crate::mir::Mir;
@@ -9,6 +10,7 @@ use crate::optimize::Optimizer;
 use crate::parse::Parser;
 use crate::regalloc::RegAllocator;
 use crate::ty::TyRegistry;
+use quokka_lang_obj::ObjFile;
 
 #[derive(Default)]
 pub struct PipelineConfig {
@@ -179,5 +181,12 @@ impl AllocateOutput {
     #[must_use]
     pub fn into_lir(self) -> Lir {
         self.lir
+    }
+
+    #[must_use]
+    pub fn encode(self) -> ObjFile {
+        let mut encoder = ObjFileEncoder::default();
+        encoder.enable_features(self.config.features.clone());
+        encoder.encode(&self.lir)
     }
 }

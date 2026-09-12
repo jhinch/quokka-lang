@@ -2818,6 +2818,14 @@ impl Addr {
             }
         })
     }
+
+    #[must_use]
+    pub fn into_r16(self) -> Option<R16Id> {
+        match self {
+            Addr::Reg(r16) => Some(r16),
+            Addr::Literal(_) | Addr::Section { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2834,9 +2842,17 @@ impl HighAddr {
             HighAddr::Literal(addr) => write!(f, "[$ff00 + {addr}]"),
         })
     }
+
+    #[must_use]
+    pub fn into_r8(self) -> Option<R8Id> {
+        match self {
+            HighAddr::Reg(r8) => Some(r8),
+            HighAddr::Literal(_) => None,
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FnAddr {
     pub section: Option<SectionId>,
     pub entry_block: BlockId,
@@ -2904,6 +2920,14 @@ impl Operand8 {
             Operand8::Reg(reg) => write!(f, "{}", reg.display(lir, section)),
             Operand8::Literal(value) => write!(f, "${value:02x}"),
         })
+    }
+
+    #[must_use]
+    pub fn into_r8(self) -> Option<R8Id> {
+        match self {
+            Operand8::Reg(r8) => Some(r8),
+            Operand8::Ptr(_) | Operand8::Literal(_) => None,
+        }
     }
 }
 

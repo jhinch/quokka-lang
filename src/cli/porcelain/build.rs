@@ -1,6 +1,9 @@
 use crate::cli::Execute;
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
 use tracing::instrument;
 
 #[derive(clap::Args)]
@@ -26,13 +29,34 @@ impl Execute for BuildCommand {
 
 impl BuildCommand {
     fn build(&self, file_contents: &str) -> miette::Result<()> {
-        let output = PipelineConfig::default()
+        let entrypoint_path = PathBuf::from(&self.filename);
+        let build_dir = entrypoint_path
+            .parent()
+            .ok_or_else(|| miette::miette!("Cannot determine parent directory"))?
+            .join("build");
+
+        if !build_dir.is_dir() {
+            std::fs::create_dir(&build_dir).map_err(|e| miette::miette!(e))?;
+        }
+
+        let entrypoint_stem = entrypoint_path
+            .file_stem()
+            .ok_or_else(|| miette::miette!("Cannot determine file stem"))?;
+        let obj_path = build_dir.join(format!("{}.obj", entrypoint_stem.display()));
+
+        let data = PipelineConfig::default()
             .with_features(self.preview_features.iter().cloned().collect())
             .start()
             .parse(file_contents)?
             .analyze()?
-            .optimize()?;
-        println!("{}", output.mir().display(output.ty_registry()));
+            .optimize()?
+            .codegen()?
+            .allocate()
+            .encode();
+
+        let mut obj_file = BufWriter::new(File::create(obj_path).map_err(|e| miette::miette!(e))?);
+        quokka_lang_obj::write(&mut obj_file, &data).map_err(|e| miette::miette!(e))?;
+        obj_file.flush().map_err(|e| miette::miette!(e))?;
         Ok(())
     }
 }

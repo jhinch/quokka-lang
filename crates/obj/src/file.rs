@@ -83,6 +83,22 @@ pub enum SymbolData {
     Exported(SymbolDefinition),
 }
 
+impl SymbolData {
+    pub fn as_definition(&self) -> Option<&SymbolDefinition> {
+        match self {
+            SymbolData::Local(definition) | SymbolData::Exported(definition) => Some(definition),
+            SymbolData::Import => None,
+        }
+    }
+
+    pub fn as_definition_mut(&mut self) -> Option<&mut SymbolDefinition> {
+        match self {
+            SymbolData::Local(definition) | SymbolData::Exported(definition) => Some(definition),
+            SymbolData::Import => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SymbolDefinition {
     pub node: SourceNodeId,
@@ -125,6 +141,54 @@ pub enum SectionData {
     Oam(RamSectionData),
 }
 
+impl SectionData {
+    pub fn as_ram_data(&self) -> Option<&RamSectionData> {
+        match self {
+            SectionData::WRam0(data)
+            | SectionData::VRam(data)
+            | SectionData::HRam(data)
+            | SectionData::WRamX(data)
+            | SectionData::SRam(data)
+            | SectionData::Oam(data) => Some(data),
+            SectionData::RomX(_) | SectionData::Rom0(_) => None,
+        }
+    }
+    pub fn as_ram_data_mut(&mut self) -> Option<&mut RamSectionData> {
+        match self {
+            SectionData::WRam0(data)
+            | SectionData::VRam(data)
+            | SectionData::HRam(data)
+            | SectionData::WRamX(data)
+            | SectionData::SRam(data)
+            | SectionData::Oam(data) => Some(data),
+            SectionData::RomX(_) | SectionData::Rom0(_) => None,
+        }
+    }
+
+    pub fn as_rom_data(&self) -> Option<&RomSectionData> {
+        match self {
+            SectionData::RomX(data) | SectionData::Rom0(data) => Some(data),
+            SectionData::WRam0(_)
+            | SectionData::VRam(_)
+            | SectionData::HRam(_)
+            | SectionData::WRamX(_)
+            | SectionData::SRam(_)
+            | SectionData::Oam(_) => None,
+        }
+    }
+    pub fn as_rom_data_mut(&mut self) -> Option<&mut RomSectionData> {
+        match self {
+            SectionData::RomX(data) | SectionData::Rom0(data) => Some(data),
+            SectionData::WRam0(_)
+            | SectionData::VRam(_)
+            | SectionData::HRam(_)
+            | SectionData::WRamX(_)
+            | SectionData::SRam(_)
+            | SectionData::Oam(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SectionKind {
     WRam0,
@@ -159,8 +223,16 @@ pub struct RamSectionData {
 pub struct SectionPatch {
     pub node: SourceNodeId,
     pub line_no: u32,
+    /// offset within the section to apply the patch
     pub offset: u32,
+    /// id of the section in which PC is located.
+    ///
+    /// Usually the current section, but can be another section for RAM code
     pub pc_section_id: SectionId,
+    /// offset within the section for which the instruction being patched is.
+    ///
+    /// Usually this will be 1 less than offset, or 2 less for CB prefixed
+    /// instructions.
     pub pc_offset: u32,
     pub kind: SectionPatchKind,
     pub instructions: Vec<PatchInstr>,
