@@ -54,9 +54,28 @@ impl BuildCommand {
             .allocate()
             .encode();
 
-        let mut obj_file = BufWriter::new(File::create(obj_path).map_err(|e| miette::miette!(e))?);
+        let mut obj_file = BufWriter::new(File::create(&obj_path).map_err(|e| miette::miette!(e))?);
         quokka_lang_obj::write(&mut obj_file, &data).map_err(|e| miette::miette!(e))?;
         obj_file.flush().map_err(|e| miette::miette!(e))?;
+
+        let gb_path = build_dir.join(format!("{}.gb", entrypoint_stem.display()));
+        std::process::Command::new("rgblink")
+            .arg("-o")
+            .arg(&gb_path)
+            .arg(&obj_path)
+            .stdin(std::process::Stdio::null())
+            .status()
+            .map_err(|e| miette::miette!(e))?;
+
+        std::process::Command::new("rgbfix")
+            .arg("-v")
+            .arg("-p")
+            .arg("0xFF")
+            .arg(&gb_path)
+            .stdin(std::process::Stdio::null())
+            .status()
+            .map_err(|e| miette::miette!(e))?;
+
         Ok(())
     }
 }
