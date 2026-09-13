@@ -59,9 +59,12 @@ impl BuildCommand {
         obj_file.flush().map_err(|e| miette::miette!(e))?;
 
         let gb_path = build_dir.join(format!("{}.gb", entrypoint_stem.display()));
+        let sym_path = build_dir.join(format!("{}.sym", entrypoint_stem.display()));
         std::process::Command::new("rgblink")
-            .arg("-o")
+            .arg("--output")
             .arg(&gb_path)
+            .arg("--sym")
+            .arg(&sym_path)
             .arg(&obj_path)
             .stdin(std::process::Stdio::null())
             .status()
