@@ -919,8 +919,8 @@ main::
 .bb9:
   LD r8#54, r8#43
   LD r8#55, r8#44
-  LD r8#56, $00
-  LD r8#57, $0a
+  LD r8#56, $0a
+  LD r8#57, $00
   LD r8#58, r8#57
   LD r8#59, r8#56
   LD r8#60, r8#59
@@ -952,8 +952,8 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
   LD [HL], r8#69
-  LD r8#70, $00
-  LD r8#71, $01
+  LD r8#70, $01
+  LD r8#71, $00
   LD r8#72, r8#71
   LD r8#73, r8#70
   LD r8#74, r8#73
@@ -1079,8 +1079,8 @@ main::
 .bb9:
   LD C, B
   LD B, E
-  LD E, $00
-  LD H, $0a
+  LD E, $0a
+  LD H, $00
   LD A, B
   SUB A, H; z, c
   LD A, C
@@ -1102,8 +1102,8 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD H, $00
-  LD E, $01
+  LD H, $01
+  LD E, $00
   LD A, C
   ADD A, H; z, c
   LD C, A

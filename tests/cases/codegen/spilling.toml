@@ -93,8 +93,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#9; c
   LD [HL], r8#2
-  LD r8#23, $00
-  LD r8#24, $01
+  LD r8#23, $01
+  LD r8#24, $00
   LD r8#25, r8#24
   LD r8#26, r8#23
   LD r8#27, r8#26
@@ -103,8 +103,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#12; c
   LD [HL], r8#4
-  LD r8#29, $00
-  LD r8#30, $02
+  LD r8#29, $02
+  LD r8#30, $00
   LD r8#31, r8#30
   LD r8#32, r8#29
   LD r8#33, r8#32
@@ -113,8 +113,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#15; c
   LD [HL], r8#6
-  LD r8#35, $00
-  LD r8#36, $03
+  LD r8#35, $03
+  LD r8#36, $00
   LD r8#37, r8#36
   LD r8#38, r8#35
   LD r8#39, r8#38
@@ -123,8 +123,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#18; c
   LD [HL], r8#8
-  LD r8#41, $00
-  LD r8#42, $04
+  LD r8#41, $04
+  LD r8#42, $00
   LD r8#43, r8#42
   LD r8#44, r8#41
   LD r8#45, r8#44
@@ -133,8 +133,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#21; c
   LD [HL], r8#10
-  LD r8#47, $00
-  LD r8#48, $05
+  LD r8#47, $05
+  LD r8#48, $00
   LD r8#49, r8#48
   LD r8#50, r8#47
   LD r8#51, r8#50
@@ -143,8 +143,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#24; c
   LD [HL], r8#12
-  LD r8#53, $00
-  LD r8#54, $06
+  LD r8#53, $06
+  LD r8#54, $00
   LD r8#55, r8#54
   LD r8#56, r8#53
   LD r8#57, r8#56
@@ -153,8 +153,8 @@ f::
   LD HL, RESULT+$0000
   ADD HL, r16#27; c
   LD [HL], r8#14
-  LD r8#59, $00
-  LD r8#60, $07
+  LD r8#59, $07
+  LD r8#60, $00
   LD r8#61, r8#60
   LD r8#62, r8#59
   LD r8#63, r8#62
@@ -292,46 +292,46 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $01
+  LD C, $01
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD [HL], D
-  LD C, $00
-  LD B, $02
+  LD C, $02
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD [HL], E
-  LD C, $00
-  LD B, $03
+  LD C, $03
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD HL SP+0; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $04
+  LD C, $04
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD HL SP+1; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $05
+  LD C, $05
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD HL SP+2; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $06
+  LD C, $06
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD HL SP+3; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $07
+  LD C, $07
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD HL SP+4; c
@@ -458,8 +458,8 @@ f::
   LD A, r8#4
   LD [HL++], A
   LD [HL], r8#5
-  LD r8#33, $00
-  LD r8#34, $01
+  LD r8#33, $01
+  LD r8#34, $00
   LD r8#35, r8#34
   LD r8#36, r8#33
   LD r8#37, r8#36
@@ -471,8 +471,8 @@ f::
   LD A, r8#9
   LD [HL++], A
   LD [HL], r8#10
-  LD r8#40, $00
-  LD r8#41, $02
+  LD r8#40, $02
+  LD r8#41, $00
   LD r8#42, r8#41
   LD r8#43, r8#40
   LD r8#44, r8#43
@@ -484,8 +484,8 @@ f::
   LD A, r8#14
   LD [HL++], A
   LD [HL], r8#15
-  LD r8#47, $00
-  LD r8#48, $03
+  LD r8#47, $03
+  LD r8#48, $00
   LD r8#49, r8#48
   LD r8#50, r8#47
   LD r8#51, r8#50
@@ -497,8 +497,8 @@ f::
   LD A, r8#19
   LD [HL++], A
   LD [HL], r8#20
-  LD r8#54, $00
-  LD r8#55, $04
+  LD r8#54, $04
+  LD r8#55, $00
   LD r8#56, r8#55
   LD r8#57, r8#54
   LD r8#58, r8#57
@@ -634,8 +634,8 @@ f::
   LD A, D
   LD [HL++], A
   LD [HL], E
-  LD C, $00
-  LD B, $01
+  LD C, $01
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
@@ -645,8 +645,8 @@ f::
   LD HL SP+1; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $02
+  LD C, $02
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
@@ -656,8 +656,8 @@ f::
   LD HL SP+3; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $03
+  LD C, $03
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
@@ -667,8 +667,8 @@ f::
   LD HL SP+5; c
   LD A, [HL]
   LD [HL], A
-  LD C, $00
-  LD B, $04
+  LD C, $04
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c

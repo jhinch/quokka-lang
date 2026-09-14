@@ -86,8 +86,8 @@ f::
   OR A, r8#29; z, c
   LD r8#34, A
   LD [HL], r8#34
-  LD r8#35, $00
-  LD r8#36, $01
+  LD r8#35, $01
+  LD r8#36, $00
   LD r8#37, r8#36
   LD r8#38, r8#35
   LD r8#39, r8#38
@@ -107,8 +107,8 @@ f::
   OR A, r8#48; z, c
   LD r8#53, A
   LD [HL], r8#53
-  LD r8#54, $00
-  LD r8#55, $02
+  LD r8#54, $02
+  LD r8#55, $00
   LD r8#56, r8#55
   LD r8#57, r8#54
   LD r8#58, r8#57
@@ -254,8 +254,8 @@ f::
   AND A, $fe; z, c
   OR A, B; z, c
   LD [HL], A
-  LD C, $00
-  LD B, $01
+  LD C, $01
+  LD B, $00
   LD D, B
   LD B, C
   LD C, B
@@ -279,8 +279,8 @@ f::
   AND A, $fe; z, c
   OR A, B; z, c
   LD [HL], A
-  LD C, $00
-  LD B, $02
+  LD C, $02
+  LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff

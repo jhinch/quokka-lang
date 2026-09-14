@@ -1231,8 +1231,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#19; c
   LD [HL], r8#185
-  LD r8#186, $00
-  LD r8#187, $01
+  LD r8#186, $01
+  LD r8#187, $00
   LD r8#188, r8#187
   LD r8#189, r8#186
   LD r8#190, r8#189
@@ -1243,8 +1243,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#22; c
   LD [HL], r8#193
-  LD r8#194, $00
-  LD r8#195, $02
+  LD r8#194, $02
+  LD r8#195, $00
   LD r8#196, r8#195
   LD r8#197, r8#194
   LD r8#198, r8#197
@@ -1255,8 +1255,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#25; c
   LD [HL], r8#201
-  LD r8#202, $00
-  LD r8#203, $03
+  LD r8#202, $03
+  LD r8#203, $00
   LD r8#204, r8#203
   LD r8#205, r8#202
   LD r8#206, r8#205
@@ -1267,8 +1267,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#28; c
   LD [HL], r8#209
-  LD r8#210, $00
-  LD r8#211, $04
+  LD r8#210, $04
+  LD r8#211, $00
   LD r8#212, r8#211
   LD r8#213, r8#210
   LD r8#214, r8#213
@@ -1279,8 +1279,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#31; c
   LD [HL], r8#217
-  LD r8#218, $00
-  LD r8#219, $05
+  LD r8#218, $05
+  LD r8#219, $00
   LD r8#220, r8#219
   LD r8#221, r8#218
   LD r8#222, r8#221
@@ -1291,8 +1291,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#34; c
   LD [HL], r8#225
-  LD r8#226, $00
-  LD r8#227, $06
+  LD r8#226, $06
+  LD r8#227, $00
   LD r8#228, r8#227
   LD r8#229, r8#226
   LD r8#230, r8#229
@@ -1303,8 +1303,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#37; c
   LD [HL], r8#233
-  LD r8#234, $00
-  LD r8#235, $07
+  LD r8#234, $07
+  LD r8#235, $00
   LD r8#236, r8#235
   LD r8#237, r8#234
   LD r8#238, r8#237
@@ -1320,16 +1320,16 @@ main::
 .bb3:
   LD r8#16, r8#1
   LD r8#17, r8#2
-  LD r8#18, $00
-  LD r8#19, $08
+  LD r8#18, $08
+  LD r8#19, $00
   LD r8#20, r8#19
   LD r8#21, r8#18
   LD r8#22, r8#21
   LD r8#23, r8#20
-  LD A, r8#17
-  SUB A, r8#23; z, c
   LD A, r8#16
-  SBC A, r8#22; z, c
+  SUB A, r8#22; z, c
+  LD A, r8#17
+  SBC A, r8#23; z, c
   (out=c#3,in=c)
   LD r8#28, r8#3
   JP nc#3, .bb4; else=.bb5
@@ -1338,34 +1338,34 @@ main::
   JP .bb6
 
 .bb5:
-  LD r8#29, $00
-  LD r8#30, $08
+  LD r8#29, $08
+  LD r8#30, $00
   LD r8#31, r8#30
   LD r8#32, r8#29
   LD r8#33, r8#32
   LD r8#34, r8#31
-  LD A, r8#34
-  SUB A, r8#17; z, c
-  LD r8#37, A
   LD A, r8#33
-  SBC A, r8#16; z, c
+  SUB A, r8#16; z, c
+  LD r8#37, A
+  LD A, r8#34
+  SBC A, r8#17; z, c
   LD r8#40, A
-  LD r8#41, r8#40
-  LD r8#42, r8#37
-  LD r8#43, $00
-  LD r8#44, $01
+  LD r8#41, r8#37
+  LD r8#42, r8#40
+  LD r8#43, $01
+  LD r8#44, $00
   LD r8#45, r8#44
   LD r8#46, r8#43
   LD r8#47, r8#46
   LD r8#48, r8#45
-  LD A, r8#42
-  SUB A, r8#48; z, c
-  LD r8#51, A
   LD A, r8#41
-  SBC A, r8#47; z, c
+  SUB A, r8#47; z, c
+  LD r8#51, A
+  LD A, r8#42
+  SBC A, r8#48; z, c
   LD r8#54, A
-  LD r8#55, r8#54
-  LD r8#56, r8#51
+  LD r8#55, r8#51
+  LD r8#56, r8#54
   LD r8#57, $00
   LD r8#58, $00
   LD r8#59, r8#58
@@ -1389,10 +1389,10 @@ main::
   LD r8#68, r8#55
   LD r8#69, r8#68
   LD r8#70, r8#67
-  LD A, r8#66
-  SUB A, r8#70; z, c
   LD A, r8#65
-  SBC A, r8#69; z, c
+  SUB A, r8#69; z, c
+  LD A, r8#66
+  SBC A, r8#70; z, c
   (out=c#10,in=c)
   LD r8#75, r8#6
   LD r8#76, r8#17
@@ -1405,8 +1405,8 @@ main::
   JP .bb10
 
 .bb9:
-  LD r8#80, $00
-  LD r8#81, $01
+  LD r8#80, $01
+  LD r8#81, $00
   LD r8#82, r8#81
   LD r8#83, r8#80
   LD r8#84, r8#83
@@ -1436,8 +1436,8 @@ main::
   JP c#16, .bb11; else=.bb12
 
 .bb10:
-  LD r8#99, $00
-  LD r8#100, $01
+  LD r8#99, $01
+  LD r8#100, $00
   LD r8#101, r8#100
   LD r8#102, r8#99
   LD r8#103, r8#102
@@ -1461,8 +1461,8 @@ main::
   ADD HL, r16#7; c
   LD r8#113, [HL]
   LD r8#114, r8#113
-  LD r8#115, $00
-  LD r8#116, $01
+  LD r8#115, $01
+  LD r8#116, $00
   LD r8#117, r8#116
   LD r8#118, r8#115
   LD r8#119, r8#118
@@ -1484,8 +1484,8 @@ main::
   LD HL, DATA+$0000
   ADD HL, r16#13; c
   LD [HL], r8#130
-  LD r8#131, $00
-  LD r8#132, $01
+  LD r8#131, $01
+  LD r8#132, $00
   LD r8#133, r8#132
   LD r8#134, r8#131
   LD r8#135, r8#134
@@ -1512,8 +1512,8 @@ main::
   JP .bb12
 
 .bb12:
-  LD r8#151, $00
-  LD r8#152, $01
+  LD r8#151, $01
+  LD r8#152, $00
   LD r8#153, r8#152
   LD r8#154, r8#151
   LD r8#155, r8#154
@@ -1605,8 +1605,6 @@ bubble_sort::
   LD D, $00
   LD C, $00
   LD B, $00
-  LD E, D
-  LD D, C
   JP .bb3
 
 main::
@@ -1617,44 +1615,44 @@ main::
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $01
+  LD C, $01
+  LD B, $00
   LD A, $03
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $02
+  LD C, $02
+  LD B, $00
   LD A, $08
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $03
+  LD C, $03
+  LD B, $00
   LD A, $01
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $04
+  LD C, $04
+  LD B, $00
   LD A, $09
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $05
+  LD C, $05
+  LD B, $00
   LD A, $02
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $06
+  LD C, $06
+  LD B, $00
   LD A, $07
   LD HL, DATA+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $00
-  LD B, $07
+  LD C, $07
+  LD B, $00
   LD A, $04
   LD HL, DATA+$0000
   ADD HL, BC; c
@@ -1662,46 +1660,48 @@ main::
   CALL bubble_sort; return=.bb13
 
 .bb3:
-  LD C, D
   LD HL SP+8; c
   LD [HL], C
   LD HL SP+9; c
   LD [HL], B
-  LD C, $00
   LD B, $08
-  LD HL SP+9; c
-  LD A, [HL]
-  SUB A, B; z, c
+  LD C, $00
   LD HL SP+8; c
   LD A, [HL]
+  SUB A, B; z, c
+  LD HL SP+9; c
+  LD A, [HL]
   SBC A, C; z, c
+  LD E, D
   JP nc, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
 
 .bb5:
-  LD B, $00
   LD C, $08
+  LD B, $00
   LD A, C
-  LD HL SP+9; c
+  LD HL SP+8; c
   LD C, [HL]
   SUB A, C; z, c
   LD C, A
   LD A, B
-  LD HL SP+8; c
+  LD HL SP+9; c
   LD B, [HL]
   SBC A, B; z, c
-  LD D, A
+  LD B, A
   LD A, C
-  LD B, $00
-  LD C, $01
-  SUB A, C; z, c
-  LD C, A
+  LD D, B
+  LD B, $01
+  LD C, $00
+  SUB A, B; z, c
+  LD B, A
   LD A, D
-  SBC A, B; z, c
+  SBC A, C; z, c
+  LD C, A
   LD HL SP+6; c
-  LD [HL], A
+  LD [HL], B
   LD B, C
   LD HL SP+7; c
   LD [HL], B
@@ -1710,8 +1710,6 @@ main::
   LD D, E
   LD HL SP+1; c
   LD [HL], D
-  LD D, B
-  LD B, C
   JP .bb7
 
 .bb6:
@@ -1720,9 +1718,9 @@ main::
   RET
 
 .bb7:
-  LD C, D
   LD HL SP+7; c
-  LD [HL], C
+  LD [HL], B
+  LD B, C
   LD HL SP+6; c
   LD [HL], B
   LD HL SP+7; c
@@ -1735,14 +1733,14 @@ main::
   LD B, C
   LD HL SP+5; c
   LD [HL], B
-  LD HL SP+6; c
-  LD A, [HL]
-  LD HL SP+5; c
-  LD B, [HL]
-  SUB A, B; z, c
   LD HL SP+7; c
   LD A, [HL]
   LD HL SP+4; c
+  LD B, [HL]
+  SUB A, B; z, c
+  LD HL SP+6; c
+  LD A, [HL]
+  LD HL SP+5; c
   LD B, [HL]
   SBC A, B; z, c
   SBC A, A; z, c
@@ -1769,8 +1767,8 @@ main::
   JP .bb10
 
 .bb9:
-  LD B, $00
-  LD C, $01
+  LD B, $01
+  LD C, $00
   LD HL SP+7; c
   LD A, [HL]
   ADD A, B; z, c
@@ -1801,8 +1799,8 @@ main::
   JP c, .bb11; else=.bb12
 
 .bb10:
-  LD B, $00
-  LD C, $01
+  LD B, $01
+  LD C, $00
   LD HL SP+8; c
   LD A, [HL]
   ADD A, B; z, c
@@ -1810,12 +1808,11 @@ main::
   LD HL SP+9; c
   LD A, [HL]
   ADC A, C; z, c
-  LD C, A
+  LD D, A
+  LD C, B
+  LD B, D
   LD HL SP+1; c
   LD D, [HL]
-  LD E, D
-  LD D, B
-  LD B, C
   JP .bb3
 
 .bb11:
@@ -1828,8 +1825,8 @@ main::
   LD B, [HL]
   LD HL SP+0; c
   LD [HL], B
-  LD B, $00
-  LD C, $01
+  LD B, $01
+  LD C, $00
   LD HL SP+7; c
   LD A, [HL]
   ADD A, B; z, c
@@ -1861,8 +1858,8 @@ main::
   LD B, [HL]
   ADD HL, BC; c
   LD [HL], D
-  LD B, $00
-  LD C, $01
+  LD B, $01
+  LD C, $00
   LD HL SP+7; c
   LD A, [HL]
   ADD A, B; z, c
@@ -1886,10 +1883,9 @@ main::
   JP .bb12
 
 .bb12:
+  LD C, $01
   LD B, $00
-  LD D, $01
-  LD C, B
-  LD E, D
+  LD E, B
   LD HL SP+6; c
   LD B, [HL]
   LD HL SP+7; c
@@ -1920,8 +1916,7 @@ main::
   LD [HL], D
   LD HL SP+0; c
   LD B, [HL]
-  LD D, B
-  LD B, E
+  LD C, E
   JP .bb7
 
 .bb13:

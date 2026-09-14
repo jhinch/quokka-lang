@@ -1176,8 +1176,8 @@ main::
 .bb16:
   LD r8#64, r8#53
   LD r8#65, r8#54
-  LD r8#66, $00
-  LD r8#67, $0f
+  LD r8#66, $0f
+  LD r8#67, $00
   LD r8#68, r8#67
   LD r8#69, r8#66
   LD r8#70, r8#69
@@ -1209,8 +1209,8 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, r16#9; c
   LD [HL], r8#79
-  LD r8#80, $00
-  LD r8#81, $01
+  LD r8#80, $01
+  LD r8#81, $00
   LD r8#82, r8#81
   LD r8#83, r8#80
   LD r8#84, r8#83
@@ -1379,8 +1379,8 @@ main::
 .bb16:
   LD C, B
   LD B, E
-  LD E, $00
-  LD H, $0f
+  LD E, $0f
+  LD H, $00
   LD A, B
   SUB A, H; z, c
   LD A, C
@@ -1402,8 +1402,8 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD H, $00
-  LD E, $01
+  LD H, $01
+  LD E, $00
   LD A, C
   ADD A, H; z, c
   LD C, A

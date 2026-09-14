@@ -556,8 +556,8 @@ gcd::
 
 main::
 .bb2:
-  LD r8#61, $04
-  LD r8#62, $2f
+  LD r8#61, $2f
+  LD r8#62, $04
   LD r8#63, r8#62
   LD r8#64, r8#61
   LD r8#65, r8#64
@@ -566,8 +566,8 @@ main::
   LD A, r8#65
   LD [HL++], A
   LD [HL], r8#66
-  LD r8#68, $01
-  LD r8#69, $ce
+  LD r8#68, $ce
+  LD r8#69, $01
   LD r8#70, r8#69
   LD r8#71, r8#68
   LD r8#72, r8#71
@@ -604,22 +604,22 @@ main::
   RET
 
 .bb5:
-  LD A, r8#20
-  SUB A, r8#32; z, c
   LD A, r8#19
-  SBC A, r8#31; z, c
+  SUB A, r8#31; z, c
+  LD A, r8#20
+  SBC A, r8#32; z, c
   (out=c#5,in=c)
   JP c#5, .bb6; else=.bb7
 
 .bb6:
-  LD A, r8#32
-  SUB A, r8#20; z, c
-  LD r8#43, A
   LD A, r8#31
-  SBC A, r8#19; z, c
+  SUB A, r8#19; z, c
+  LD r8#43, A
+  LD A, r8#32
+  SBC A, r8#20; z, c
   LD r8#46, A
-  LD r8#47, r8#46
-  LD r8#48, r8#43
+  LD r8#47, r8#43
+  LD r8#48, r8#46
   LD r8#5, r8#19
   LD r8#6, r8#20
   LD r8#7, r8#47
@@ -627,14 +627,14 @@ main::
   JP .bb8
 
 .bb7:
-  LD A, r8#20
-  SUB A, r8#32; z, c
-  LD r8#51, A
   LD A, r8#19
-  SBC A, r8#31; z, c
+  SUB A, r8#31; z, c
+  LD r8#51, A
+  LD A, r8#20
+  SBC A, r8#32; z, c
   LD r8#54, A
-  LD r8#55, r8#54
-  LD r8#56, r8#51
+  LD r8#55, r8#51
+  LD r8#56, r8#54
   LD r8#5, r8#55
   LD r8#6, r8#56
   LD r8#7, r8#31
@@ -721,44 +721,44 @@ gcd::
 .bb1:
   LD HL, A+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD C, A
+  LD C, [HL]
+  LD B, A
   LD HL, B+$0000
   LD A, [HL++]
   LD D, [HL]
+  LD H, A
   LD E, D
   LD D, C
   JP .bb3
 
 main::
 .bb2:
-  LD A, $04
-  LD B, $2f
+  LD A, $2f
+  LD B, $04
   LD HL, A+$0000
   LD [HL++], A
   LD [HL], B
-  LD A, $01
-  LD B, $ce
+  LD A, $ce
+  LD B, $01
   LD HL, B+$0000
   LD [HL++], A
   LD [HL], B
   CALL gcd; return=.bb9
 
 .bb3:
-  LD H, A
-  LD C, E
+  LD C, H
+  LD H, E
   LD A, $00
   LD L, $00
   LD E, A
-  LD A, C
-  SUB A, L; z, c
   LD A, H
+  SUB A, L; z, c
+  LD A, C
   SBC A, E; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
-  LD A, B
-  LD B, D
+  LD A, D
   RET
 
 .bb5:
@@ -774,8 +774,11 @@ main::
   LD B, A
   LD A, D
   SBC A, H; z, c
-  LD D, A
-  LD A, H
+  LD D, B
+  LD B, A
+  LD E, H
+  LD A, D
+  LD D, B
   JP .bb8
 
 .bb7:
@@ -784,10 +787,13 @@ main::
   LD C, A
   LD A, H
   SBC A, D; z, c
+  LD E, A
+  LD A, B
   JP .bb8
 
 .bb8:
-  LD E, C
+  LD H, C
+  LD B, A
   JP .bb3
 
 .bb9:

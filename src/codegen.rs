@@ -1241,7 +1241,7 @@ impl CodeGen {
                     mir::Operand::Literal(source) => {
                         #[allow(clippy::cast_possible_truncation)]
                         let value = source.value as u16;
-                        let [high, low] = value.to_le_bytes();
+                        let [low, high] = value.to_le_bytes();
                         let low = lir.insert_ld8_value(block, low);
                         let high = lir.insert_ld8_value(block, high);
                         (high, low)
@@ -1404,14 +1404,14 @@ impl CodeGen {
                 let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
                 let (left_high, left_low) =
                     self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
-                let left_high = lir.insert_ld_a(block, left_high);
-                let (target_high, _z, c_in) =
-                    lir.insert_sub(block, left_high, Operand8::Reg(right_high));
-                let target_high = lir.insert_move_a(block, target_high);
                 let left_low = lir.insert_ld_a(block, left_low);
-                let (target_low, _z, _c) =
-                    lir.insert_sbc(block, left_low, Operand8::Reg(right_low), c_in);
+                let (target_low, _z, c_in) =
+                    lir.insert_sub(block, left_low, Operand8::Reg(right_low));
                 let target_low = lir.insert_move_a(block, target_low);
+                let left_high = lir.insert_ld_a(block, left_high);
+                let (target_high, _z, _c) =
+                    lir.insert_sbc(block, left_high, Operand8::Reg(right_high), c_in);
+                let target_high = lir.insert_move_a(block, target_high);
                 (*target, target_high, target_low)
             }
         })
@@ -1441,7 +1441,7 @@ impl CodeGen {
             mir::Operand::Literal(right) => {
                 #[allow(clippy::cast_possible_truncation)]
                 let value = right.value as u16;
-                let [high, low] = value.to_le_bytes();
+                let [low, high] = value.to_le_bytes();
                 let low = lir.insert_ld8_value(block, low);
                 let high = lir.insert_ld8_value(block, high);
                 (high, low)
@@ -1508,10 +1508,11 @@ impl CodeGen {
                 let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
                 let (left_high, left_low) =
                     self.r16_from_operand(&mir::Operand::Local(left), block, lir, ctx, locals);
-                let left_high = lir.insert_ld_a(block, left_high);
-                let (_r16, _z, c_in) = lir.insert_sub(block, left_high, Operand8::Reg(right_high));
                 let left_low = lir.insert_ld_a(block, left_low);
-                let (_r16, _z, c) = lir.insert_sbc(block, left_low, Operand8::Reg(right_low), c_in);
+                let (_r16, _z, c_in) = lir.insert_sub(block, left_low, Operand8::Reg(right_low));
+                let left_high = lir.insert_ld_a(block, left_high);
+                let (_r16, _z, c) =
+                    lir.insert_sbc(block, left_high, Operand8::Reg(right_high), c_in);
                 (c, mir::Condition::NotZero)
             }
             ty => unimplemented!("{ty:?}"),

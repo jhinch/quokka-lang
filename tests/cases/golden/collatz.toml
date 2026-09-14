@@ -641,8 +641,8 @@ collatz_steps::
 
 main::
 .bb2:
-  LD r8#114, $00
-  LD r8#115, $1b
+  LD r8#114, $1b
+  LD r8#115, $00
   LD r8#116, r8#115
   LD r8#117, r8#114
   LD r8#118, r8#117
@@ -656,8 +656,8 @@ main::
 .bb3:
   LD r8#18, r8#1
   LD r8#19, r8#2
-  LD r8#20, $00
-  LD r8#21, $01
+  LD r8#20, $01
+  LD r8#21, $00
   LD r8#22, r8#21
   LD r8#23, r8#20
   LD r8#24, r8#23
@@ -675,8 +675,8 @@ main::
   JP .bb6
 
 .bb5:
-  LD r8#32, $00
-  LD r8#33, $01
+  LD r8#32, $01
+  LD r8#33, $00
   LD r8#34, r8#33
   LD r8#35, r8#32
   LD r8#36, r8#35
@@ -735,8 +735,8 @@ main::
   LD r8#77, A
   LD r8#78, r8#74
   LD r8#79, r8#77
-  LD r8#80, $00
-  LD r8#81, $01
+  LD r8#80, $01
+  LD r8#81, $00
   LD r8#82, r8#81
   LD r8#83, r8#80
   LD r8#84, r8#83
@@ -754,8 +754,8 @@ main::
   JP .bb9
 
 .bb9:
-  LD r8#94, $00
-  LD r8#95, $01
+  LD r8#94, $01
+  LD r8#95, $00
   LD r8#96, r8#95
   LD r8#97, r8#94
   LD r8#98, r8#97
@@ -853,8 +853,8 @@ collatz_steps::
 
 main::
 .bb2:
-  LD A, $00
-  LD B, $1b
+  LD A, $1b
+  LD B, $00
   LD HL, N+$0000
   LD [HL++], A
   LD [HL], B
@@ -867,8 +867,8 @@ main::
   LD A, E
   LD HL SP+1; c
   LD [HL], A
-  LD A, $00
-  LD E, $01
+  LD A, $01
+  LD E, $00
   LD B, A
   LD HL SP+1; c
   LD A, [HL]
@@ -888,8 +888,8 @@ main::
   JP .bb6
 
 .bb5:
-  LD C, $00
-  LD A, $01
+  LD C, $01
+  LD A, $00
   LD B, A
   LD HL SP+3; c
   LD A, [HL]
@@ -948,8 +948,8 @@ main::
   LD C, [HL]
   ADC A, C; z, c
   LD C, A
-  LD E, $00
-  LD D, $01
+  LD E, $01
+  LD D, $00
   LD A, B
   ADD A, E; z, c
   LD B, A
@@ -960,8 +960,8 @@ main::
   JP .bb9
 
 .bb9:
-  LD B, $00
-  LD A, $01
+  LD B, $01
+  LD A, $00
   LD C, A
   LD HL SP+0; c
   LD A, [HL]
