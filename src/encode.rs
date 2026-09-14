@@ -194,7 +194,7 @@ impl ObjFileEncoder {
             let function = block_to_function.get(block).copied();
             let (name, exported) = match function {
                 Some(function) if function == block => (code.functions[function].to_string(), true),
-                Some(function) => (format!("{}{block}", &code.functions[function]), false),
+                Some(function) => (format!("{}{block}", code.functions[function]), false),
                 None => (format!("@DANGLING{block}"), false),
             };
             let definition = SymbolDefinition {
@@ -1130,7 +1130,7 @@ impl ObjFileEncoder {
     fn encode_terminator(
         &self,
         node: SourceNodeId,
-        code: &lir::CodeSectionData,
+        _code: &lir::CodeSectionData,
         id: lir::SectionId,
         terminator: &lir::Terminator,
         peeked_block_id: Option<lir::BlockId>,
@@ -1204,8 +1204,8 @@ impl ObjFileEncoder {
                 callee,
                 return_block,
             } => {
-                todo!("CALL R16");
-                Some(*return_block)
+                todo!("CALL R16 callee={callee:?}, return_block={return_block:?}");
+                // Some(*return_block)
             }
             lir::Terminator::Jp { next_block } => Some(*next_block),
             lir::Terminator::JpFn { addr } => {

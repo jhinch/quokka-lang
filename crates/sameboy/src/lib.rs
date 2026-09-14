@@ -96,16 +96,116 @@ impl Sameboy {
     }
 
     /// Run for a specified number of instructions
-    pub fn run_for(&mut self, count: u32) {
-        for _ in 0..count {
+    pub fn run_for(&mut self, instr_count: u32) {
+        for _ in 0..instr_count {
             self.run();
         }
     }
 
+    /// Run until the `PC` register is equal to the `target` address. If `PC` is currently equal
+    /// to `target`, execute the instructions until the next time `PC` is equal to the `target`.
+    /// Returns `true` if `target` reached, `false` if `max_instr_count` instructions executed
+    pub fn run_until_pc(&mut self, target: u16, max_instr_count: u32) -> bool {
+        for _ in 0..max_instr_count {
+            self.run();
+            if target == self.read_pc() {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// read a byte from emulator memory at the given address
     pub fn read_memory(&mut self, addr: u16) -> u8 {
         // SAFETY: `GB_safe_read_memory` requires `*mut GB_gameboy_t` to point to initialized
         // memory which Box<_> guarantees
         unsafe { GB_safe_read_memory(self.inner.as_mut().get_mut(), addr) }
+    }
+
+    /// read the current state of the `AF` register
+    pub fn read_af(&mut self) -> u16 {
+        self.read_r16(|registers| registers.af)
+    }
+
+    /// read the current state of the `BC` register
+    pub fn read_bc(&mut self) -> u16 {
+        self.read_r16(|registers| registers.bc)
+    }
+
+    /// read the current state of the `DE` register
+    pub fn read_de(&mut self) -> u16 {
+        self.read_r16(|registers| registers.de)
+    }
+
+    /// read the current state of the `HL` register
+    pub fn read_hl(&mut self) -> u16 {
+        self.read_r16(|registers| registers.hl)
+    }
+
+    /// read the current state of the `SP` register
+    pub fn read_sp(&mut self) -> u16 {
+        self.read_r16(|registers| registers.sp)
+    }
+
+    /// read the current state of the `PC` register
+    pub fn read_pc(&mut self) -> u16 {
+        self.read_r16(|registers| registers.pc)
+    }
+
+    /// read the current state of the `A` register
+    pub fn read_a(&mut self) -> u8 {
+        self.read_r8(|registers| registers.a)
+    }
+
+    /// read the current state of the `F` register
+    pub fn read_f(&mut self) -> u8 {
+        self.read_r8(|registers| registers.f)
+    }
+
+    /// read the current state of the `B` register
+    pub fn read_b(&mut self) -> u8 {
+        self.read_r8(|registers| registers.b)
+    }
+
+    /// read the current state of the `C` register
+    pub fn read_c(&mut self) -> u8 {
+        self.read_r8(|registers| registers.c)
+    }
+
+    /// read the current state of the `D` register
+    pub fn read_d(&mut self) -> u8 {
+        self.read_r8(|registers| registers.d)
+    }
+
+    /// read the current state of the `E` register
+    pub fn read_e(&mut self) -> u8 {
+        self.read_r8(|registers| registers.e)
+    }
+
+    /// read the current state of the `H` register
+    pub fn read_h(&mut self) -> u8 {
+        self.read_r8(|registers| registers.h)
+    }
+
+    /// read the current state of the `L` register
+    pub fn read_l(&mut self) -> u8 {
+        self.read_r8(|registers| registers.l)
+    }
+
+    fn read_r16<T>(&mut self, f: impl FnOnce(&GB_registers_t__bindgen_ty_1) -> T) -> T {
+        // SAFETY: `GB_get_registers` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        let registers_ptr = unsafe { GB_get_registers(self.inner.as_mut().get_mut()) };
+        // SAFETY: `registers_ptr` is guaranteed to be initialized if `GB_gameboy_t` is initialized
+        unsafe { f(&(*registers_ptr).__bindgen_anon_1) }
+    }
+
+    fn read_r8<T>(&mut self, f: impl FnOnce(&GB_registers_t__bindgen_ty_2) -> T) -> T {
+        // SAFETY: `GB_get_registers` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        let registers_ptr = unsafe { GB_get_registers(self.inner.as_mut().get_mut()) };
+        // SAFETY: `registers_ptr` is guaranteed to be initialized if `GB_gameboy_t` is initialized
+        unsafe { f(&(*registers_ptr).__bindgen_anon_2) }
     }
 }
 
