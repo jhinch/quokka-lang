@@ -197,6 +197,18 @@ pub struct NotStructError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error(
+    "`{name}` cannot be placed at address ${addr:04x}: overlaps the cartridge header ($0100-$014F)"
+)]
+#[diagnostic()]
+pub struct FnAddrOverlapsHeaderError {
+    pub name: Identifier,
+    pub addr: u16,
+    #[label("this address")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("field `{name}` defined multiple times on `{ty}`")]
 #[diagnostic()]
 pub struct FieldRedefinedError {

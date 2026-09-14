@@ -143,7 +143,7 @@ foo -> unit:
   .bb1:
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return

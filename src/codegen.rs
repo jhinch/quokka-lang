@@ -13,6 +13,9 @@ use indexmap::map::Entry;
 use miette::SourceSpan;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
+pub const CART_HEADER_START_ADDR: u16 = 0x0100;
+pub const CART_HEADER_END_ADDR: u16 = 0x014F;
+
 pub struct CodeGen {
     ty_registry: TyRegistry,
     result_builder: MultiResultBuilder,
@@ -42,32 +45,75 @@ impl CodeGen {
             globals.insert(global_id, self.generate_from_global(global));
         }
 
+        // code_section_id is used for the shared code section
+        // functions with explicit addresses will be tracked in
+        // their own code sections within pinned
         let code_section_id = self.lir.reserve_code_section();
         let mut code_section = CodeSectionBuilder::default();
         let mut functions = SecondaryMap::new();
+        let mut pinned: Vec<(mir::FunctionId, SectionId, CodeSectionBuilder)> = Vec::new();
         for (function_id, function) in &mir.functions {
-            let block = code_section.new_function(function.name.clone());
-            functions.insert(
-                function_id,
-                FnAddr {
-                    section: None,
-                    entry_block: block,
-                },
-            );
+            if function.attrs.address.is_some()
+                || function.attrs.region != attr::RomRegionKind::Auto
+            {
+                let section_id = self.lir.reserve_code_section();
+                let mut section = CodeSectionBuilder::default();
+                let region_kind =
+                    self.lower_fn_rom_region(function.attrs.region, function.attrs.address);
+                match function.attrs.address {
+                    Some(addr) => section.set_region_and_addr(region_kind, addr),
+                    None => section.set_region(region_kind),
+                }
+
+                let block = section.new_function(function.name.clone());
+                functions.insert(
+                    function_id,
+                    FnAddr {
+                        section: Some(section_id),
+                        entry_block: block,
+                    },
+                );
+                pinned.push((function_id, section_id, section));
+            } else {
+                let block = code_section.new_function(function.name.clone());
+                functions.insert(
+                    function_id,
+                    FnAddr {
+                        section: Some(code_section_id),
+                        entry_block: block,
+                    },
+                );
+            }
+            if let Some(_addr) = function.attrs.address {}
         }
         for (function_id, function) in &mir.functions {
+            if function.attrs.address.is_none() {
+                self.generate_from_function(
+                    mir,
+                    function,
+                    functions[function_id].entry_block,
+                    &globals,
+                    &functions,
+                    &mut code_section,
+                );
+            }
+        }
+        self.lir.seal_code_section(code_section_id, code_section);
+
+        for (function_id, section_id, mut section) in pinned {
+            let function = &mir.functions[function_id];
             self.generate_from_function(
                 mir,
                 function,
                 functions[function_id].entry_block,
                 &globals,
                 &functions,
-                &mut code_section,
+                &mut section,
             );
+            self.lir.seal_code_section(section_id, section);
         }
-        self.lir.seal_code_section(code_section_id, code_section);
 
-        self.generate_startup_code(mir, &functions, code_section_id);
+        self.generate_startup_code(mir, &functions);
     }
 
     /// Generates the startup code sections.
@@ -81,11 +127,8 @@ impl CodeGen {
         &mut self,
         mir: &mir::Mir,
         functions: &SecondaryMap<mir::FunctionId, FnAddr>,
-        code_section_id: SectionId,
     ) {
-        const CART_HEADER_START_ADDR: u16 = 0x0100;
-        const CART_HEADER_DATA_START_ADDR: u16 = 0x0104;
-        const CART_HEADER_END_ADDR: u16 = 0x014F;
+        const CART_HEADER_DATA_START_ADDR: u16 = CART_HEADER_START_ADDR + 4;
         const CART_HEADER_DATA_LEN: usize =
             CART_HEADER_END_ADDR as usize - CART_HEADER_DATA_START_ADDR as usize + 1;
         let header_code_section_id = self.lir.reserve_code_section();
@@ -123,17 +166,14 @@ impl CodeGen {
         let entrypoint = mir
             .entrypoint
             .expect("mir must have a resolved entrypoint function");
-        let entrypoint_block = functions[entrypoint].entry_block;
+        let entrypoint_addr = functions[entrypoint];
 
         bootstrap_code.insert_ld_sp_value(bootstrap_code_block, Ld16Source::Literal(0xFFFE));
         let spin_block = bootstrap_code.new_block();
         bootstrap_code.set_terminator(
             bootstrap_code_block,
             Terminator::Call {
-                callee: FnAddr {
-                    section: Some(code_section_id),
-                    entry_block: entrypoint_block,
-                },
+                callee: entrypoint_addr,
                 return_block: spin_block,
             },
         );
@@ -1677,6 +1717,24 @@ impl CodeGen {
             }
         };
         (r8, bit_offset.bits())
+    }
+
+    /// Resolves a `#[address]`-pinned function's ROM region, inferring `Rom0` vs `RomX` from `addr`
+    /// when `region` is left as `Auto`.
+    fn lower_fn_rom_region(&self, region: attr::RomRegionKind, addr: Option<u16>) -> RomRegionKind {
+        match region {
+            attr::RomRegionKind::Rom0 => RomRegionKind::Rom0,
+            attr::RomRegionKind::RomX => RomRegionKind::RomX(None),
+            attr::RomRegionKind::Auto => {
+                if let Some(addr) = addr
+                    && addr >= 0x4000
+                {
+                    RomRegionKind::RomX(None)
+                } else {
+                    RomRegionKind::Rom0
+                }
+            }
+        }
     }
 }
 

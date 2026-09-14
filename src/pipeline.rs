@@ -11,6 +11,10 @@ use crate::parse::Parser;
 use crate::regalloc::RegAllocator;
 use crate::ty::TyRegistry;
 use quokka_lang_obj::ObjFile;
+use std::fs::File;
+use std::io::{self, BufWriter, Write as _};
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus, Stdio};
 
 #[derive(Default)]
 pub struct PipelineConfig {
@@ -184,9 +188,144 @@ impl AllocateOutput {
     }
 
     #[must_use]
-    pub fn encode(self) -> ObjFile {
+    pub fn encode(self) -> EncodedOutput {
         let mut encoder = ObjFileEncoder::default();
         encoder.enable_features(self.config.features.clone());
-        encoder.encode(&self.lir)
+        let obj = encoder.encode(&self.lir);
+        EncodedOutput { obj }
     }
+}
+
+pub struct EncodedOutput {
+    obj: ObjFile,
+}
+
+impl EncodedOutput {
+    #[must_use]
+    pub fn obj(&self) -> &ObjFile {
+        &self.obj
+    }
+
+    #[must_use]
+    pub fn into_obj(self) -> ObjFile {
+        self.obj
+    }
+
+    /// Write the encoded RGBDS object file to `path`.
+    pub fn write_obj(self, path: impl AsRef<Path>) -> Result<ObjOutput, BuildError> {
+        let path = path.as_ref();
+        let mut file = BufWriter::new(File::create(path)?);
+        quokka_lang_obj::write(&mut file, &self.obj)?;
+        file.flush()?;
+        Ok(ObjOutput {
+            obj_path: path.to_path_buf(),
+        })
+    }
+}
+
+pub struct ObjOutput {
+    obj_path: PathBuf,
+}
+
+impl ObjOutput {
+    #[must_use]
+    pub fn obj_path(&self) -> &Path {
+        &self.obj_path
+    }
+
+    /// Link the object file into a Game Boy ROM using `rgblink`, writing the ROM to `gb_path`
+    /// and its symbol table to `sym_path`.
+    pub fn link(
+        self,
+        gb_path: impl AsRef<Path>,
+        sym_path: impl AsRef<Path>,
+    ) -> Result<LinkedOutput, BuildError> {
+        let gb_path = gb_path.as_ref().to_path_buf();
+        let sym_path = sym_path.as_ref().to_path_buf();
+        run_tool(
+            "rgblink",
+            Command::new("rgblink")
+                .arg("--output")
+                .arg(&gb_path)
+                .arg("--sym")
+                .arg(&sym_path)
+                .arg(&self.obj_path),
+        )?;
+        Ok(LinkedOutput { gb_path, sym_path })
+    }
+}
+
+pub struct LinkedOutput {
+    gb_path: PathBuf,
+    sym_path: PathBuf,
+}
+
+impl LinkedOutput {
+    #[must_use]
+    pub fn gb_path(&self) -> &Path {
+        &self.gb_path
+    }
+
+    #[must_use]
+    pub fn sym_path(&self) -> &Path {
+        &self.sym_path
+    }
+
+    /// Fix up the ROM's header (logo, checksums) in place using `rgbfix`, producing a ROM ready
+    /// to load into an emulator or flash cart.
+    pub fn fix(self) -> Result<RomOutput, BuildError> {
+        run_tool(
+            "rgbfix",
+            Command::new("rgbfix")
+                .arg("-v")
+                .arg("-p")
+                .arg("0xFF")
+                .arg(&self.gb_path),
+        )?;
+        Ok(RomOutput {
+            gb_path: self.gb_path,
+            sym_path: self.sym_path,
+        })
+    }
+}
+
+pub struct RomOutput {
+    gb_path: PathBuf,
+    sym_path: PathBuf,
+}
+
+impl RomOutput {
+    #[must_use]
+    pub fn gb_path(&self) -> &Path {
+        &self.gb_path
+    }
+
+    #[must_use]
+    pub fn sym_path(&self) -> &Path {
+        &self.sym_path
+    }
+
+    /// Read the built ROM's bytes back off disk.
+    pub fn read_rom(&self) -> io::Result<Vec<u8>> {
+        std::fs::read(&self.gb_path)
+    }
+}
+
+fn run_tool(tool: &'static str, command: &mut Command) -> Result<(), BuildError> {
+    let status = command.stdin(Stdio::null()).status()?;
+    if !status.success() {
+        return Err(BuildError::ToolFailed { tool, status });
+    }
+    Ok(())
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum BuildError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    #[error("`{tool}` exited with {status}")]
+    ToolFailed {
+        tool: &'static str,
+        status: ExitStatus,
+    },
 }

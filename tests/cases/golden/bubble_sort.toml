@@ -1042,7 +1042,7 @@ bubble_sort -> u8:
     i#37: u16 = copy i#36
     jump .bb8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -1151,7 +1151,7 @@ bubble_sort -> u8:
     i#37: u16 = copy i#36
     jump .bb8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 0

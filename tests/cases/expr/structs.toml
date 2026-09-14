@@ -530,7 +530,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     v#1: Empty = alloc
@@ -549,7 +549,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: Point = alloc
@@ -571,7 +571,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: Point = alloc
@@ -595,7 +595,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: Point = alloc
@@ -621,7 +621,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: Wrapper = alloc
@@ -645,7 +645,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     a#1: u8 = copy 1
@@ -795,7 +795,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: Point = [1, 2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -818,7 +818,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: Wrapper = [5]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -843,7 +843,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [5]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -870,7 +870,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [9]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return

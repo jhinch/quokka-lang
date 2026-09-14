@@ -888,7 +888,7 @@ binary_search -> u16:
     low#20: u16 = phi low#16 <- .bb12, low#5 <- .bb13
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -978,7 +978,7 @@ binary_search -> u16:
     low#20: u16 = phi low#16 <- .bb12, low#5 <- .bb13
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 0

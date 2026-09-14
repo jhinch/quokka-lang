@@ -19,6 +19,7 @@ ron = "0.12.2"
 toml_edit = { version = "0.25.13", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 slotmap = "1.1.1"
+tempfile = "3.27.0"
 thiserror = "2.0.20"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["fmt"] }
@@ -43,6 +44,11 @@ name = "optimize_soundness_tests"
 path = "tests/optimize_soundness_tests.rs"
 harness = false
 
+[[test]]
+name = "emulator_tests"
+path = "tests/emulator_tests.rs"
+harness = false
+
 [dependencies]
 clap.workspace = true
 derive_more.workspace = true
@@ -62,4 +68,6 @@ quokka-lang-obj.workspace = true
 
 [dev-dependencies]
 libtest-mimic.workspace = true
+tempfile.workspace = true
 toml_edit.workspace = true
+quokka-lang-sameboy.workspace = true

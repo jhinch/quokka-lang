@@ -128,7 +128,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -278,7 +278,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -295,7 +295,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -318,7 +318,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -343,7 +343,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -360,7 +360,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [20]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -380,7 +380,7 @@ const A: u8 = [5]
 @ConstDeclAttributes { region: Auto, address: None }
 const B: u8 = [5]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -429,7 +429,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -452,7 +452,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -481,7 +481,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [10]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -541,7 +541,7 @@ const A: u8 = [1]
 @ConstDeclAttributes { region: Auto, address: None }
 const B: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -558,7 +558,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -575,7 +575,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -592,7 +592,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -609,7 +609,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -626,7 +626,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -643,7 +643,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [7]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -660,7 +660,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [5]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -681,7 +681,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -702,7 +702,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -723,7 +723,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -744,7 +744,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -765,7 +765,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -786,7 +786,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -807,7 +807,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -828,7 +828,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -845,7 +845,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -862,7 +862,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -879,7 +879,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -896,7 +896,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -913,7 +913,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u16 = [255, 255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -930,7 +930,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -947,7 +947,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -964,7 +964,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i16 = [255, 255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -981,7 +981,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -998,7 +998,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1015,7 +1015,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1032,7 +1032,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1049,7 +1049,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1066,7 +1066,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1083,7 +1083,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [128]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1100,7 +1100,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1117,7 +1117,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u1 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1134,7 +1134,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u16 = [88, 2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1151,7 +1151,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u16 = [0, 0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1168,7 +1168,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u16 = [44, 1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1185,7 +1185,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u16 = [255, 255]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1202,7 +1202,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [127]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1219,7 +1219,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [128]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1236,7 +1236,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [73]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1253,7 +1253,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i8 = [127]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1270,7 +1270,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i16 = [0, 125]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1287,7 +1287,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i16 = [0, 128]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1304,7 +1304,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i16 = [96, 109]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1321,7 +1321,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: i16 = [255, 127]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1339,7 +1339,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1357,7 +1357,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1375,7 +1375,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1393,7 +1393,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1411,7 +1411,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1429,7 +1429,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1447,7 +1447,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1465,7 +1465,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [8]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1483,7 +1483,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [7]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1501,7 +1501,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [8]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1519,7 +1519,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [7]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1537,7 +1537,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [6]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1555,7 +1555,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [6]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1573,7 +1573,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [6]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1591,7 +1591,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1609,7 +1609,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1627,7 +1627,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1645,7 +1645,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [0]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1663,7 +1663,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1681,7 +1681,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u2 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1699,7 +1699,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1717,7 +1717,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [15]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1735,7 +1735,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [10]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1753,7 +1753,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [8]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1771,7 +1771,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -1789,7 +1789,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: u4 = [8]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return

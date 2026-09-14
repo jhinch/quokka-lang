@@ -443,7 +443,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 1071
@@ -498,7 +498,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: u16 = copy 1071

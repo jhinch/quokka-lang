@@ -9,6 +9,7 @@ use crate::attr::{
     ConstDeclAttributes, FieldDeclAttributes, FnDeclAttributes, GlobalDeclAttributes,
     StructDeclAttributes,
 };
+use crate::codegen::{CART_HEADER_END_ADDR, CART_HEADER_START_ADDR};
 use crate::consteval;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::mir::{
@@ -288,6 +289,15 @@ impl Analyzer {
                             FnDeclAttributes::default()
                         }
                     };
+                    if let Some(addr) = attrs.address
+                        && (CART_HEADER_START_ADDR..=CART_HEADER_END_ADDR).contains(&addr)
+                    {
+                        self.result_builder.add_error(FnAddrOverlapsHeaderError {
+                            span: decl.signature.name.span,
+                            name: decl.signature.name.data.clone(),
+                            addr,
+                        });
+                    }
                     let fn_ptr_ty = self.ty_registry.register_fn_ptr(return_ty);
                     let function_id = self.mir_builder.reserve_function();
                     fn_decls.insert(function_id, (decl, fn_ptr_ty, attrs));

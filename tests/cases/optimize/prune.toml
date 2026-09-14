@@ -41,7 +41,7 @@ f -> u8:
     #RET: u8 = copy n#7
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -82,7 +82,7 @@ f -> u8:
     #RET: u8 = copy n#2
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -131,7 +131,7 @@ f -> u8:
     x#6: u8 = copy 22
     jump .bb4
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2

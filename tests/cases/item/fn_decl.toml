@@ -289,3 +289,37 @@ fn main() {
 expected_errors = [
     "`continue` outside of a loop @ [16:25]",
 ]
+
+[[case]]
+name = "fn_with_address_attribute"
+kind = "analyzer"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {}
+"""
+expected_mir = """
+@FnDeclAttributes { entrypoint: false, no_startup_code: false, inline: Auto, region: Auto, address: Some(336) }
+checkpoint -> unit:
+  .bb1:
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "fn_address_overlapping_cartridge_header_is_an_error"
+kind = "analyzer"
+source = """
+#[address = 0x0104]
+fn checkpoint() {}
+
+fn main() {}
+"""
+expected_errors = [
+    "`checkpoint` cannot be placed at address $0104: overlaps the cartridge header ($0100-$014F) @ [23:33]",
+]

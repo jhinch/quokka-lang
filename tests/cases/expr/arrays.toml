@@ -617,7 +617,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     a#1: u8 = copy 1
@@ -635,7 +635,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     #1: [u8; 1] = alloc
@@ -654,7 +654,7 @@ fn main() {
 }
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     a#1: u8 = copy 1
@@ -724,7 +724,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: [u8; 4] = [1, 2, 3, 4]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -743,7 +743,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: [u8; 3] = [1, 2, 3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -760,7 +760,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: [u8; 4] = [1, 1, 1, 1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return
@@ -779,7 +779,7 @@ expected_mir = """
 @ConstDeclAttributes { region: Auto, address: None }
 const A: [u8; 3] = [2, 2, 2]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     return

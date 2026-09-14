@@ -1,0 +1,39 @@
+[[case]]
+name = "global_u8_assignment"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global OUT: u8;
+
+fn main() {
+    OUT = 3;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 3
+
+[[case]]
+name = "global_array_assignment"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global OUT: [u8; 3];
+
+fn main() {
+    OUT[0] = 1;
+    OUT[1] = 2;
+    OUT[2] = 3;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [1, 2, 3]

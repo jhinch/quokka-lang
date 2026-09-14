@@ -1,8 +1,6 @@
 use crate::cli::Execute;
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use tracing::instrument;
 
@@ -43,8 +41,10 @@ impl BuildCommand {
             .file_stem()
             .ok_or_else(|| miette::miette!("Cannot determine file stem"))?;
         let obj_path = build_dir.join(format!("{}.obj", entrypoint_stem.display()));
+        let gb_path = build_dir.join(format!("{}.gb", entrypoint_stem.display()));
+        let sym_path = build_dir.join(format!("{}.sym", entrypoint_stem.display()));
 
-        let data = PipelineConfig::default()
+        PipelineConfig::default()
             .with_features(self.preview_features.iter().cloned().collect())
             .start()
             .parse(file_contents)?
@@ -52,31 +52,12 @@ impl BuildCommand {
             .optimize()?
             .codegen()?
             .allocate()
-            .encode();
-
-        let mut obj_file = BufWriter::new(File::create(&obj_path).map_err(|e| miette::miette!(e))?);
-        quokka_lang_obj::write(&mut obj_file, &data).map_err(|e| miette::miette!(e))?;
-        obj_file.flush().map_err(|e| miette::miette!(e))?;
-
-        let gb_path = build_dir.join(format!("{}.gb", entrypoint_stem.display()));
-        let sym_path = build_dir.join(format!("{}.sym", entrypoint_stem.display()));
-        std::process::Command::new("rgblink")
-            .arg("--output")
-            .arg(&gb_path)
-            .arg("--sym")
-            .arg(&sym_path)
-            .arg(&obj_path)
-            .stdin(std::process::Stdio::null())
-            .status()
-            .map_err(|e| miette::miette!(e))?;
-
-        std::process::Command::new("rgbfix")
-            .arg("-v")
-            .arg("-p")
-            .arg("0xFF")
-            .arg(&gb_path)
-            .stdin(std::process::Stdio::null())
-            .status()
+            .encode()
+            .write_obj(&obj_path)
+            .map_err(|e| miette::miette!(e))?
+            .link(&gb_path, &sym_path)
+            .map_err(|e| miette::miette!(e))?
+            .fix()
             .map_err(|e| miette::miette!(e))?;
 
         Ok(())

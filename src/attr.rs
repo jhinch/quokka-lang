@@ -15,6 +15,10 @@ pub struct FnDeclAttributes {
     pub no_startup_code: bool,
     #[serde(default)]
     pub inline: InlineKind,
+    #[serde(default)]
+    pub region: RomRegionKind,
+    #[serde(default)]
+    pub address: Option<u16>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -36,7 +40,7 @@ pub struct ConstDeclAttributes {
     pub address: Option<u16>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RomRegionKind {
     #[default]

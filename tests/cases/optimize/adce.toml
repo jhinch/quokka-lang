@@ -29,7 +29,7 @@ f -> u8:
     #RET: u8 = copy #5
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -71,7 +71,7 @@ f -> u8:
     #RET: u8 = copy #4
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -118,7 +118,7 @@ f -> u8:
     #RET: u8 = copy n#2
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -171,7 +171,7 @@ f -> u8:
     #RET: u8 = copy x#8
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2
@@ -220,7 +220,7 @@ f -> u8:
     #RET: u8 = copy #7
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     call f, .bb2

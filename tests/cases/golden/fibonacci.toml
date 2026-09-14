@@ -708,7 +708,7 @@ fibonacci -> u8:
     #RET: u8 = copy b#15
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     i#1: u16 = copy 0
@@ -783,7 +783,7 @@ fibonacci -> u8:
     #RET: u8 = copy b#15
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto }
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
 main -> unit:
   .bb1:
     i#1: u16 = copy 0
