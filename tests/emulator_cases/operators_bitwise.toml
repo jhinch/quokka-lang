@@ -1,0 +1,255 @@
+[[case]]
+name = "not_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x0F;
+    OUT = !IN;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xF0
+
+[[case]]
+name = "not_u16"
+source = """
+global IN: u16;
+
+#[address = 0xC001]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x00FF;
+    OUT = !IN;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0xFF] # 0xFF00
+
+[[case]]
+name = "not_u1"
+ignored = "storing a u1 boolean result (here, from `!`) back into a `global: u1` writes an incorrect raw byte instead of 0/1 - see the R1-to-memory store path in codegen.rs. Un-ignore once fixed."
+source = """
+global IN: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 1;
+    OUT = !IN;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+
+[[case]]
+name = "shift_left_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b10000001;
+    OUT = IN <<;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0b00000010 # top bit dropped, 0 shifted in
+
+[[case]]
+name = "shift_right_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b10000001;
+    OUT = IN >>;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 0b01000000 # bottom bit dropped, 0 shifted in (unsigned = logical shift)
+
+[[case]]
+name = "rotate_left_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC002]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b10000001;
+    OUT = IN <%;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC002
+expected = 0b00000011 # top bit wraps around to the bottom
+
+[[case]]
+name = "rotate_right_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC003]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b10000001;
+    OUT = IN >%;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC003
+expected = 0b11000000 # bottom bit wraps around to the top
+
+[[case]]
+name = "shift_left_u16"
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x8001;
+    OUT = IN <<;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x02, 0x00] # 0x8001 << 1 = 0x0002 (bit 15 dropped, low byte's bit 7 was 0 so no carry in)
+
+[[case]]
+name = "shift_right_u16"
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x8001;
+    OUT = IN >>;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x40] # 0x8001 >> 1 = 0x4000 (unsigned/logical shift)
+
+[[case]]
+name = "rotate_left_u16"
+ignored = "register allocation panics with 'Failed to allocate registers ... due to successive spills for same registers' even for this single, minimal u16 rotate - a regalloc bug specific to u16 rotate (u16 shift does not trigger it). Un-ignore once fixed."
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x8001;
+    OUT = IN <%;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x03, 0x00] # 0x8001 rotated left = 0x0003 (bit 15 wraps to bit 0)
+
+[[case]]
+name = "rotate_right_u16"
+ignored = "same regalloc spill panic as rotate_left_u16 above - see that case's `ignored` reason."
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x8001;
+    OUT = IN >%;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0xC0] # 0x8001 rotated right = 0xC000 (bit 0 wraps to bit 15)

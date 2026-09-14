@@ -554,6 +554,7 @@ impl ObjFileEncoder {
                     Some(Color::E) => opcode::SBC_A_E,
                     Some(Color::H) => opcode::SBC_A_H,
                     Some(Color::L) => opcode::SBC_A_L,
+                    Some(Color::A) => opcode::SBC_A_A,
                     None => opcode::SBC_A_HL,
                     Some(unexpected) => unimplemented!("SBC A, {unexpected:?}"),
                 };
@@ -902,6 +903,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::RL_E,
                     (Color::H, Color::H) => opcode::RL_H,
                     (Color::L, Color::L) => opcode::RL_L,
+                    (Color::A, Color::A) => opcode::RL_A,
                     unexpected => unimplemented!("RL {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -920,6 +922,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::RLC_E,
                     (Color::H, Color::H) => opcode::RLC_H,
                     (Color::L, Color::L) => opcode::RLC_L,
+                    (Color::A, Color::A) => opcode::RLC_A,
                     unexpected => unimplemented!("RLC {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -938,6 +941,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::RR_E,
                     (Color::H, Color::H) => opcode::RR_H,
                     (Color::L, Color::L) => opcode::RR_L,
+                    (Color::A, Color::A) => opcode::RR_A,
                     unexpected => unimplemented!("RR {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -956,6 +960,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::RRC_E,
                     (Color::H, Color::H) => opcode::RRC_H,
                     (Color::L, Color::L) => opcode::RRC_L,
+                    (Color::A, Color::A) => opcode::RRC_A,
                     unexpected => unimplemented!("RRC {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -986,6 +991,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::SLA_E,
                     (Color::H, Color::H) => opcode::SLA_H,
                     (Color::L, Color::L) => opcode::SLA_L,
+                    (Color::A, Color::A) => opcode::SLA_A,
                     unexpected => unimplemented!("SLA {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1004,6 +1010,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::SRA_E,
                     (Color::H, Color::H) => opcode::SRA_H,
                     (Color::L, Color::L) => opcode::SRA_L,
+                    (Color::A, Color::A) => opcode::SRA_A,
                     unexpected => unimplemented!("SRA {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1022,6 +1029,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::SRL_E,
                     (Color::H, Color::H) => opcode::SRL_H,
                     (Color::L, Color::L) => opcode::SRL_L,
+                    (Color::A, Color::A) => opcode::SRL_A,
                     unexpected => unimplemented!("SRL {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1040,6 +1048,7 @@ impl ObjFileEncoder {
                     (Color::E, Color::E) => opcode::SWAP_E,
                     (Color::H, Color::H) => opcode::SWAP_H,
                     (Color::L, Color::L) => opcode::SWAP_L,
+                    (Color::A, Color::A) => opcode::SWAP_A,
                     unexpected => unimplemented!("SWAP {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());

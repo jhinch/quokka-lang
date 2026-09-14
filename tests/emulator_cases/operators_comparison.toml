@@ -1,0 +1,198 @@
+# Covers `==`, `!=`, `<`, `>=` for u8/u16. The u16 case specifically picks operands with equal high
+# bytes and a low byte that needs to borrow, since 16-bit comparisons lower to a subtraction with
+# carry propagation between the bytes (see operators_arithmetic.toml for the matching `-`
+# regression).
+#
+# Every case below is currently `ignored`: comparisons always produce a u1 result, and storing a
+# u1 result back into a `global: u1` writes an incorrect raw byte value (the same bug documented
+# in operators_arithmetic.toml's `arithmetic_u1` case and operators_boolean.toml's
+# `boolean_operator_values` case). None of these should need any other changes to pass once that
+# bug is fixed - un-ignore them at that point to get full regression coverage back at once. The
+# two cases at the bottom of this file document two further, separate gaps (`<=`/`>` unimplemented
+# for runtime operands, and u1-typed comparison operands hitting a `todo!()`).
+
+[[case]]
+name = "comparisons_u8"
+ignored = "comparisons produce a u1 result; storing it into a `global: u1` writes an incorrect raw byte value - see the R1-to-memory Store path in codegen.rs (r1_to_r8 / the per-bit read-modify-write in Instr::Store). Un-ignore once fixed."
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global EQ_OUT: u1;
+#[address = 0xC001]
+global NE_OUT: u1;
+#[address = 0xC002]
+global LT_OUT: u1;
+#[address = 0xC003]
+global GE_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 10;
+    B = 20;
+    EQ_OUT = A == B;
+    NE_OUT = A != B;
+    LT_OUT = A < B;
+    GE_OUT = A >= B;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "comparisons_u16"
+ignored = "same u1-result Store bug as comparisons_u8 above - see that case's `ignored` reason."
+source = """
+global A: u16;
+global B: u16;
+
+#[address = 0xC000]
+global EQ_OUT: u1;
+#[address = 0xC001]
+global NE_OUT: u1;
+#[address = 0xC002]
+global LT_OUT: u1;
+#[address = 0xC003]
+global GE_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    // equal high bytes (0x10), low byte of A is less than low byte of B, so evaluating this
+    // correctly requires the low byte's borrow to propagate into the high byte comparison
+    A = 0x1000;
+    B = 0x1001;
+    EQ_OUT = A == B;
+    NE_OUT = A != B;
+    LT_OUT = A < B;
+    GE_OUT = A >= B;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "comparisons_u16_equal_values"
+ignored = "same u1-result Store bug as comparisons_u8 above - see that case's `ignored` reason."
+source = """
+global A: u16;
+global B: u16;
+
+#[address = 0xC000]
+global EQ_OUT: u1;
+#[address = 0xC001]
+global NE_OUT: u1;
+#[address = 0xC002]
+global GE_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x1234;
+    B = 0x1234;
+    EQ_OUT = A == B;
+    NE_OUT = A != B;
+    GE_OUT = A >= B;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+
+[[case]]
+name = "comparison_le_and_gt_unimplemented_regression"
+ignored = "codegen.rs only implements Eq/Ne/Lt/Ge for runtime comparisons; `<=` and `>` on non-constant operands hit `unimplemented!(\"{instruction:?} as it should be rewritten within the optimization phase\")` since no pass actually performs that rewrite unless the operands happen to be compile-time constant (see optimize/sccp.rs). Un-ignore once codegen (or a mandatory canonicalization pass) implements Le/Gt directly."
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global LE_OUT: u1;
+#[address = 0xC001]
+global GT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 10;
+    B = 20;
+    LE_OUT = A <= B;
+    GT_OUT = A > B;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "comparisons_u1_unimplemented_regression"
+ignored = "u1 (and u2/u4) comparisons hit `todo!(\"{left:?} {right:?} u1\")` in codegen.rs's comparison lowering. Un-ignore once u1 comparisons are implemented."
+source = """
+global A: u1;
+global B: u1;
+
+#[address = 0xC000]
+global EQ_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0;
+    B = 1;
+    EQ_OUT = A == B;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0

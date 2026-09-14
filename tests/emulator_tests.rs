@@ -46,7 +46,7 @@ struct TestCase {
 }
 
 fn default_max_instructions() -> u32 {
-    1_000_000
+    1_000
 }
 
 /// Deserialized representation of the Game Boy model to emulate.
@@ -179,12 +179,15 @@ fn run_case(case: &TestCase) {
 
     let mut emulator = Sameboy::new(case.model.into());
     emulator.load_rom(&rom);
-    let reached = emulator.run_until_pc(case.await_pc, case.max_instructions);
-    assert!(
-        reached,
-        "did not reach PC ${:04x} within {} instructions",
-        case.await_pc, case.max_instructions
-    );
+    if !emulator.run_until_pc(0x100, 1_000_000) {
+        panic!("Did not execute boot ROM within 1M instructions");
+    }
+    if !emulator.run_until_pc(case.await_pc, case.max_instructions) {
+        panic!(
+            "did not reach PC ${:04x} within {} instructions",
+            case.await_pc, case.max_instructions
+        );
+    }
 
     for assertion in &case.assertions {
         let expected = assertion.expected.as_bytes();

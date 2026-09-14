@@ -1326,7 +1326,8 @@ impl CodeGen {
             mir::Instr::RotateLeft { target, source } => {
                 let (source_high, source_low) =
                     self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
-                let (_r8, _z, c) = lir.insert_sla(block, source_high);
+                let source_high_copy = lir.insert_ld8(block, source_high);
+                let (_r8, _z, c) = lir.insert_sla(block, source_high_copy);
                 let (target_low, _z, c) = lir.insert_rl(block, source_low, c);
                 let (target_high, _z, _c) = lir.insert_rl(block, source_high, c);
                 (*target, target_high, target_low)
@@ -1334,7 +1335,8 @@ impl CodeGen {
             mir::Instr::RotateRight { target, source } => {
                 let (source_high, source_low) =
                     self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
-                let (_r8, _z, c) = lir.insert_sra(block, source_low);
+                let source_low_copy = lir.insert_ld8(block, source_low);
+                let (_r8, _z, c) = lir.insert_sra(block, source_low_copy);
                 let (target_high, _z, c) = lir.insert_rr(block, source_high, c);
                 let (target_low, _z, _c) = lir.insert_rr(block, source_low, c);
                 (*target, target_high, target_low)

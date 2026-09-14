@@ -1107,7 +1107,7 @@ impl Analyzer {
                     self.analyze_expr(&op.left, block, mir, type_solver, scopes);
                 mir.write_variable(variable, block, left);
 
-                let right_block = mir.new_block();
+                let right_start_block = mir.new_block();
                 let end_block = mir.new_block();
 
                 mir.set_terminator(
@@ -1118,13 +1118,13 @@ impl Analyzer {
                             LogicalOpKind::And => Condition::NotZero,
                             LogicalOpKind::Or => Condition::Zero,
                         },
-                        then_block: right_block,
+                        then_block: right_start_block,
                         else_block: end_block,
                     },
                 );
 
                 let (right_block, right_ty, right) =
-                    self.analyze_expr(&op.right, right_block, mir, type_solver, scopes);
+                    self.analyze_expr(&op.right, right_start_block, mir, type_solver, scopes);
                 mir.write_variable(variable, right_block, right);
                 mir.set_terminator(
                     right_block,
@@ -1133,7 +1133,7 @@ impl Analyzer {
                     },
                 );
 
-                mir.seal_block(right_block);
+                mir.seal_block(right_start_block);
                 mir.seal_block(end_block);
 
                 let target = mir.read_variable(variable, end_block);
