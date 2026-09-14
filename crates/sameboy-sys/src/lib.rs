@@ -7,3 +7,17 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+pub mod bootroms {
+    pub const fn dmg() -> &'static [u8] {
+        include_bytes!("../bootroms/dmg_boot.bin")
+    }
+
+    pub const fn mgb() -> &'static [u8] {
+        include_bytes!("../bootroms/mgb_boot.bin")
+    }
+
+    pub const fn cgb() -> &'static [u8] {
+        include_bytes!("../bootroms/cgb_boot.bin")
+    }
+}

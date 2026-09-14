@@ -19,6 +19,11 @@ pub struct Sameboy {
 impl Sameboy {
     #[must_use]
     pub fn new(model: Model) -> Self {
+        let boot_rom = match model {
+            Model::Dmg => bootroms::dmg(),
+            Model::Mgb => bootroms::mgb(),
+            Model::Cgb => bootroms::cgb(),
+        };
         let model = model as GB_model_t;
         let mut inner = Box::<GB_gameboy_t>::new_uninit();
         // SAFETY: `GB_init` requires memory is `sizeof(GB_gameboy_t)` which
@@ -54,10 +59,15 @@ impl Sameboy {
             GB_set_pixels_output(inner.as_mut().get_mut(), pixels_ptr);
         }
 
-        Sameboy {
+        let mut sameboy = Sameboy {
             inner,
             pixels: (pixels_ptr, len),
-        }
+        };
+
+        sameboy.load_boot_rom(boot_rom);
+        sameboy.reset();
+
+        sameboy
     }
 
     pub fn reset(&mut self) {
@@ -65,6 +75,15 @@ impl Sameboy {
         // memory which Box<_> guarantees
         unsafe {
             GB_reset(self.inner.as_mut().get_mut());
+        }
+    }
+
+    pub fn load_boot_rom(&mut self, rom: &[u8]) {
+        // SAFETY: `GB_load_boot_rom_from_buffer` requires `*mut GB_gameboy_t` to point to
+        // initialized memory and `*const u8` to point to a buffer of size `size` which
+        // Box<_> and &[u8] guarantee respectively
+        unsafe {
+            GB_load_boot_rom_from_buffer(self.inner.as_mut().get_mut(), rom.as_ptr(), rom.len());
         }
     }
 
@@ -233,4 +252,6 @@ impl Drop for Sameboy {
 #[repr(u32)]
 pub enum Model {
     Dmg = GB_model_t_GB_MODEL_DMG_B,
+    Mgb = GB_model_t_GB_MODEL_MGB,
+    Cgb = GB_model_t_GB_MODEL_CGB_E,
 }
