@@ -6,6 +6,8 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+bindgen = "0.73.2"
+cc = "1.4.6"
 clap = { version = "4.6.6", features = ["derive"] }
 derive_more = { version = "2.1.1", features = ["from"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
@@ -22,6 +24,8 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["fmt"] }
 unicode-ident = "1.0.24"
 quokka-lang-obj = { path = "crates/obj" }
+quokka-lang-sameboy = { path = "crates/sameboy" }
+quokka-lang-sameboy-sys = { path = "crates/sameboy-sys" }
 quokka-lang-slotkeyset = { path = "crates/slotkeyset" }
 
 [package]

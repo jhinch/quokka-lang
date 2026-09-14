@@ -1,0 +1,3 @@
+[submodule "crates/sameboy-sys/SameBoy"]
+	path = crates/sameboy-sys/SameBoy
+	url = https://github.com/LIJI32/SameBoy.git

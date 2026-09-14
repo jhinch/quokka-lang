@@ -9,12 +9,14 @@ pub struct SlotKeySet<K: Key> {
 }
 
 impl<K: Key> SlotKeySet<K> {
+    #[must_use]
     pub fn new() -> Self {
         SlotKeySet {
             map: SecondaryMap::new(),
         }
     }
 
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         SlotKeySet {
             map: SecondaryMap::with_capacity(capacity),
@@ -23,18 +25,22 @@ impl<K: Key> SlotKeySet<K> {
 }
 
 impl<K: Key> SlotKeySet<K> {
+    #[must_use]
     pub fn capacity(&self) -> usize {
         self.map.capacity()
     }
 
+    #[must_use]
     pub fn iter(&self) -> impl FusedIterator<Item = K> + ExactSizeIterator + Clone + '_ {
         self.map.keys()
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.map.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
@@ -44,13 +50,14 @@ impl<K: Key> SlotKeySet<K> {
     }
 
     pub fn retain<F>(&mut self, mut f: impl FnMut(K) -> bool) {
-        self.map.retain(|k, _| f(k))
+        self.map.retain(|k, _| f(k));
     }
 
     pub fn clear(&mut self) {
-        self.map.clear()
+        self.map.clear();
     }
 
+    #[must_use]
     pub fn difference<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -58,6 +65,7 @@ impl<K: Key> SlotKeySet<K> {
         self.map.keys().filter(|&k| !other.contains(k))
     }
 
+    #[must_use]
     pub fn symmetric_difference<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -65,6 +73,7 @@ impl<K: Key> SlotKeySet<K> {
         self.difference(other).chain(other.difference(self))
     }
 
+    #[must_use]
     pub fn intersection<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -77,6 +86,7 @@ impl<K: Key> SlotKeySet<K> {
         this.map.keys().filter(|&k| other.contains(k))
     }
 
+    #[must_use]
     pub fn union<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -88,6 +98,7 @@ impl<K: Key> SlotKeySet<K> {
         self.map.contains_key(key)
     }
 
+    #[must_use]
     pub fn is_disjoint(&self, other: &SlotKeySet<K>) -> bool {
         if self.len() <= other.len() {
             self.iter().all(|v| !other.contains(v))
@@ -96,6 +107,7 @@ impl<K: Key> SlotKeySet<K> {
         }
     }
 
+    #[must_use]
     pub fn is_subset(&self, other: &SlotKeySet<K>) -> bool {
         if self.len() <= other.len() {
             self.iter().all(|v| other.contains(v))
@@ -104,6 +116,7 @@ impl<K: Key> SlotKeySet<K> {
         }
     }
 
+    #[must_use]
     pub fn is_superset(&self, other: &SlotKeySet<K>) -> bool {
         other.is_subset(self)
     }

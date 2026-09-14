@@ -1,0 +1,7 @@
+[package]
+name = "quokka-lang-sameboy"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+quokka-lang-sameboy-sys.workspace = true

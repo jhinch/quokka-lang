@@ -10,12 +10,14 @@ pub struct StableSparseSlotKeySet<K: Key> {
 }
 
 impl<K: Key> StableSparseSlotKeySet<K> {
+    #[must_use]
     pub fn new() -> Self {
         StableSparseSlotKeySet {
             set: IndexSet::new(),
         }
     }
 
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         StableSparseSlotKeySet {
             set: IndexSet::with_capacity(capacity),
@@ -24,18 +26,22 @@ impl<K: Key> StableSparseSlotKeySet<K> {
 }
 
 impl<K: Key> StableSparseSlotKeySet<K> {
+    #[must_use]
     pub fn capacity(&self) -> usize {
         self.set.capacity()
     }
 
+    #[must_use]
     pub fn iter(&self) -> impl FusedIterator<Item = K> + ExactSizeIterator + Clone + '_ {
         self.set.iter().copied()
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.set.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.set.is_empty()
     }
@@ -45,13 +51,14 @@ impl<K: Key> StableSparseSlotKeySet<K> {
     }
 
     pub fn retain<F>(&mut self, mut f: impl FnMut(K) -> bool) {
-        self.set.retain(|&k| f(k))
+        self.set.retain(|&k| f(k));
     }
 
     pub fn clear(&mut self) {
-        self.set.clear()
+        self.set.clear();
     }
 
+    #[must_use]
     pub fn difference<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -59,6 +66,7 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.difference(&other.set).copied()
     }
 
+    #[must_use]
     pub fn symmetric_difference<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -66,6 +74,7 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.symmetric_difference(&other.set).copied()
     }
 
+    #[must_use]
     pub fn intersection<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -73,6 +82,7 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.intersection(&other.set).copied()
     }
 
+    #[must_use]
     pub fn union<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -84,14 +94,17 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.contains(&key)
     }
 
+    #[must_use]
     pub fn is_disjoint(&self, other: &StableSparseSlotKeySet<K>) -> bool {
         self.set.is_disjoint(&other.set)
     }
 
+    #[must_use]
     pub fn is_subset(&self, other: &StableSparseSlotKeySet<K>) -> bool {
         self.set.is_subset(&other.set)
     }
 
+    #[must_use]
     pub fn is_superset(&self, other: &StableSparseSlotKeySet<K>) -> bool {
         self.set.is_superset(&other.set)
     }
