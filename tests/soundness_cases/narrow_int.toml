@@ -1,0 +1,19 @@
+[[case]]
+name = "narrow_int_wrapping_arithmetic_is_optimized_soundly"
+preview_features = ["narrow-int"]
+values = [0, 1, 2, 3]
+source = """
+global N: u2;
+
+fn f() -> u2 {
+    let n = N;
+    let x = n + n;
+    let y = x - 1;
+    return y;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""

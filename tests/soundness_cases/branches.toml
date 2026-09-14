@@ -1,0 +1,70 @@
+[[case]]
+name = "branch_whose_result_is_discarded_is_eliminated_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        x = 1;
+    } else {
+        x = 2;
+    }
+    return n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "branch_whose_result_is_actually_returned_is_preserved_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let x = n;
+    if n == 0 then {
+        x = 9;
+    } else {
+        x = n + 1;
+    }
+    return x;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+# the condition itself becoming a compile-time constant once N is folded away isn't possible here
+# (N is a runtime input), but nested constant subexpressions inside the branch bodies are exactly
+# what Sccp is meant to fold; this checks that folding them doesn't change which value ends up
+# observable.
+[[case]]
+name = "constant_folded_comparison_prunes_the_correct_branch_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    if n == 0 then {
+        return 1 + 1;
+    } else {
+        return 2 + 2;
+    }
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""

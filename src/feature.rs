@@ -41,6 +41,24 @@ impl fmt::Display for PreviewFeature {
     }
 }
 
+impl PreviewFeature {
+    /// preview features that opt in to an optimization pass on MIR.
+    #[must_use]
+    pub fn optimization_features() -> &'static [PreviewFeature] {
+        &[
+            PreviewFeature::Adce,
+            PreviewFeature::Sccp,
+            PreviewFeature::Prune,
+        ]
+    }
+
+    /// preview features that opt out of a default MIR optimization behavior.
+    #[must_use]
+    pub fn optimization_opt_out_features() -> &'static [PreviewFeature] {
+        &[PreviewFeature::NoTreeShake]
+    }
+}
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("Preview feature error: use --preview {feature}")]
 #[diagnostic()]
@@ -235,5 +253,12 @@ mod tests {
     fn into_iter_empty_set_yields_nothing() {
         let set = PreviewFeatureSet::default();
         assert_eq!(set.into_iter().count(), 0);
+    }
+
+    #[test]
+    fn optimization_features_and_opt_out_features_are_disjoint() {
+        for feature in PreviewFeature::optimization_features() {
+            assert!(!PreviewFeature::optimization_opt_out_features().contains(feature));
+        }
     }
 }

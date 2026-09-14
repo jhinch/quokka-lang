@@ -1,23 +1,194 @@
 //! Differential soundness testing for the MIR optimizer.
 //!
-//! Each test compiles a small Quokka program twice under an identical [`PipelineConfig`]: once
+//! Test cases live as TOML files under `tests/soundness_cases/`, in the same spirit as
+//! `tests/spec_tests.rs`, but this is a distinct kind of test (differential execution rather than
+//! golden-output comparison) so it gets its own directory and its own dynamically generated
+//! `libtest_mimic` trials rather than being folded into the spec test suite.
+//!
+//! Each case compiles a small Quokka program twice under an identical [`PipelineConfig`]: once
 //! without running `Optimizer::optimize` and once with it. Both MIRs are then interpreted with
 //! [`quokka_lang::consteval::evaluate`] (the same interpreter used for compile-time constant
-//! evaluation) across a range of concrete input values, fed in through mutable globals the
+//! evaluation) across a range of concrete input values, fed in through a mutable global the
 //! target function loads. If a pass changes observable behavior, the two runs diverge and the
 //! test fails - this catches semantic (not just structural) bugs that reading the optimizer's
 //! source code would miss.
 //!
-//! Limitations: `consteval::evaluate` does not support function calls or `Store`, so every
-//! target function here is a single, side-effect-free function that only reads globals and
-//! returns a value (never a `main` that calls it - `main` is included in each source only
-//! because the analyzer requires an entrypoint).
+//! For every case, one trial is generated per individual opt-in optimization feature (see
+//! [`PreviewFeature::optimization_features`]), one per individual opt-out feature (see
+//! [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in optimization
+//! feature enabled together.
+//!
+//! Limitations: `consteval::evaluate` does not support function calls or `Store`, so every target
+//! function is a single, side-effect-free function that only reads globals and returns a value
+//! (never a `main` that calls it - `main` is included in each source only because the analyzer
+//! requires an entrypoint).
 
+use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::mir::{GlobalId, Mir};
 use quokka_lang::pipeline::PipelineConfig;
 use quokka_lang::ty::{Ty, TyRegistry};
 use slotmap::SparseSecondaryMap;
+use std::collections::HashMap;
+
+/// Deserialized representation of a test suite TOML file.
+#[derive(serde::Deserialize)]
+struct TestSuite {
+    #[serde(rename = "case")]
+    cases: Vec<TestCase>,
+}
+
+/// Deserialized representation of a test case within a test suite.
+#[derive(Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TestCase {
+    name: String,
+    #[serde(default = "default_function")]
+    function: String,
+    #[serde(default = "default_global")]
+    global: String,
+    /// additional preview features required for `source` to compile, unrelated to optimization
+    /// (e.g. `narrow-int`).
+    #[serde(default)]
+    preview_features: Vec<PreviewFeature>,
+    /// single-byte values to feed into `global`, one trial input per entry.
+    values: Vec<u8>,
+    #[serde(default)]
+    ignored: Option<String>,
+    source: String,
+}
+
+fn default_function() -> String {
+    "f".to_string()
+}
+
+fn default_global() -> String {
+    "N".to_string()
+}
+
+fn main() {
+    let args = Arguments::from_args();
+    let suites = load_suites().unwrap();
+    let mut tests = Vec::new();
+    for (suite_name, suite) in &suites {
+        let counts = suite.cases.iter().map(|case| case.name.clone()).fold(
+            HashMap::<String, u32>::new(),
+            |mut counts, name| {
+                *counts.entry(name).or_default() += 1;
+                counts
+            },
+        );
+        let duplicate_cases = counts
+            .into_iter()
+            .filter_map(|(name, count)| if count > 1 { Some(name) } else { None })
+            .collect::<Vec<_>>();
+        let suite_name = suite_name.clone();
+        tests.push(Trial::test(
+            format!("optimize_soundness::{suite_name}::_lint_cases"),
+            move || {
+                assert!(
+                    duplicate_cases.is_empty(),
+                    "duplicate test cases: {duplicate_cases:?}. Ensure that all names are unique within a TOML file"
+                );
+                Ok(())
+            },
+        ));
+    }
+    for (suite_name, suite) in suites {
+        for case in suite.cases {
+            let ignored_flag = case
+                .ignored
+                .as_ref()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
+            let values = case.values.iter().map(|v| vec![*v]).collect::<Vec<_>>();
+
+            for &feature in PreviewFeature::optimization_features() {
+                tests.push(make_trial(
+                    &suite_name,
+                    &case,
+                    &format!("{feature}"),
+                    [feature]
+                        .into_iter()
+                        .chain(case.preview_features.iter().copied()),
+                    values.clone(),
+                    ignored_flag,
+                ));
+            }
+            for &feature in PreviewFeature::optimization_opt_out_features() {
+                tests.push(make_trial(
+                    &suite_name,
+                    &case,
+                    &format!("{feature}"),
+                    [feature]
+                        .into_iter()
+                        .chain(case.preview_features.iter().copied()),
+                    values.clone(),
+                    ignored_flag,
+                ));
+            }
+            tests.push(make_trial(
+                &suite_name,
+                &case,
+                "all",
+                PreviewFeature::optimization_features()
+                    .iter()
+                    .copied()
+                    .chain(case.preview_features.iter().copied()),
+                values.clone(),
+                ignored_flag,
+            ));
+        }
+    }
+    libtest_mimic::run(&args, tests).exit()
+}
+
+fn make_trial(
+    suite_name: &str,
+    case: &TestCase,
+    variant: &str,
+    features: impl IntoIterator<Item = PreviewFeature>,
+    values: Vec<Vec<u8>>,
+    ignored_flag: bool,
+) -> Trial {
+    let name = format!("optimize_soundness::{suite_name}::{}::{variant}", case.name);
+    let features: Vec<PreviewFeature> = features.into_iter().collect();
+    let case = case.clone();
+    Trial::test(name, move || {
+        assert_optimization_preserves_semantics(&case, &features, &values);
+        Ok(())
+    })
+    .with_ignored_flag(ignored_flag)
+}
+
+/// Load all suites from the `tests/soundness_cases` directory, keyed by suite name (the file
+/// stem).
+fn load_suites()
+-> Result<Vec<(String, TestSuite)>, Box<dyn std::error::Error + Send + Sync + 'static>> {
+    let mut suites = Vec::new();
+    for entry in std::fs::read_dir("tests/soundness_cases")? {
+        let entry = entry?;
+        let suite_path = entry.path();
+        if !entry.metadata()?.is_file()
+            || suite_path
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+                != "toml"
+        {
+            continue;
+        }
+        let name = suite_path
+            .file_stem()
+            .ok_or("expected filename")?
+            .to_string_lossy()
+            .to_string();
+        let suite: TestSuite = toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
+        suites.push((name, suite));
+    }
+    suites.sort_by(|(a, _), (b, _)| a.cmp(b));
+    Ok(suites)
+}
 
 fn eval_function(
     mir: &Mir,
@@ -56,15 +227,13 @@ fn eval_function(
     quokka_lang::consteval::evaluate(function, &globals_map, ty_registry)
 }
 
-/// Compiles `source` once with `features` disabled and once with them enabled, then asserts
-/// that `fn_name` produces byte-identical results before and after optimization for every value
-/// in `sample_inputs`, fed in through the global named `global_name`.
+/// Compiles `case.source` once with `features` disabled and once with them enabled, then asserts
+/// that `case.function` produces byte-identical results before and after optimization for every
+/// value in `values`, fed in through the global named `case.global`.
 fn assert_optimization_preserves_semantics(
-    source: &str,
+    case: &TestCase,
     features: &[PreviewFeature],
-    fn_name: &str,
-    global_name: &str,
-    sample_inputs: &[Vec<u8>],
+    values: &[Vec<u8>],
 ) {
     let mut config = PipelineConfig::default();
     for &feature in features {
@@ -72,7 +241,7 @@ fn assert_optimization_preserves_semantics(
     }
     let analyzed = config
         .start()
-        .parse(source)
+        .parse(&case.source)
         .unwrap_or_else(|e| panic!("parse failed: {e:?}"))
         .analyze()
         .unwrap_or_else(|e| panic!("analyze failed: {e:?}"));
@@ -84,258 +253,14 @@ fn assert_optimization_preserves_semantics(
     let ty_registry = optimized.ty_registry();
     let optimized_mir = optimized.mir();
 
-    for input in sample_inputs {
-        let inputs = [(global_name, input.clone())];
-        let before = eval_function(&unoptimized_mir, ty_registry, fn_name, &inputs);
-        let after = eval_function(optimized_mir, ty_registry, fn_name, &inputs);
+    for value in values {
+        let inputs = [(case.global.as_str(), value.clone())];
+        let before = eval_function(&unoptimized_mir, ty_registry, &case.function, &inputs);
+        let after = eval_function(optimized_mir, ty_registry, &case.function, &inputs);
         assert_eq!(
             before, after,
-            "optimizing with {features:?} changed the result of `{fn_name}` for {global_name} = {input:?}"
+            "optimizing with {features:?} changed the result of `{}` for {} = {value:?}",
+            case.function, case.global
         );
     }
-}
-
-fn u8_values() -> Vec<Vec<u8>> {
-    [0u8, 1, 2, 3, 5, 10, 127, 128, 200, 255]
-        .into_iter()
-        .map(|v| vec![v])
-        .collect()
-}
-
-const ALL_PASSES: &[PreviewFeature] = &[
-    PreviewFeature::Adce,
-    PreviewFeature::Sccp,
-    PreviewFeature::Prune,
-];
-
-const DISABLE_PASSES: &[PreviewFeature] = &[PreviewFeature::NoTreeShake];
-
-#[test]
-fn straight_line_dead_code_is_eliminated_soundly() {
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let dead = n + n;
-    let x = n - 1;
-    return x;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    for &pass in ALL_PASSES {
-        assert_optimization_preserves_semantics(source, &[pass], "f", "N", &u8_values());
-    }
-    for &pass_off in DISABLE_PASSES {
-        assert_optimization_preserves_semantics(source, &[pass_off], "f", "N", &u8_values());
-    }
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
-}
-
-#[test]
-fn branch_whose_result_is_discarded_is_eliminated_soundly() {
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let x = n;
-    if n == 0 then {
-        x = 1;
-    } else {
-        x = 2;
-    }
-    return n;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    for &pass in ALL_PASSES {
-        assert_optimization_preserves_semantics(source, &[pass], "f", "N", &u8_values());
-    }
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
-}
-
-#[test]
-fn branch_whose_result_is_actually_returned_is_preserved_soundly() {
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let x = n;
-    if n == 0 then {
-        x = 9;
-    } else {
-        x = n + 1;
-    }
-    return x;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
-}
-
-#[test]
-fn constant_folded_comparison_prunes_the_correct_branch_soundly() {
-    // the condition itself is a compile-time constant once N is folded away isn't possible here
-    // (N is a runtime input), but nested constant subexpressions inside the branch bodies are
-    // exactly what Sccp is meant to fold; this checks that folding them doesn't change which
-    // value ends up observable.
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    if n == 0 then {
-        return 1 + 1;
-    } else {
-        return 2 + 2;
-    }
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &u8_values());
-}
-
-#[test]
-fn loop_that_never_iterates_is_optimized_soundly() {
-    // `consteval::evaluate` can only run this loop for N=0 - see the doc comment on
-    // `loop_with_accumulator_is_optimized_soundly` below for why. This at least confirms the
-    // optimizer + harness are fine for the one iteration count that's currently evaluable.
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let i = 0;
-    let sum = 0;
-    loop {
-        if i == n then {
-            break;
-        }
-        sum = sum + i;
-        i = i + 1;
-    }
-    return sum;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &[vec![0u8]]);
-}
-
-#[test]
-fn loop_with_accumulator_is_optimized_soundly() {
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let i = 0;
-    let sum = 0;
-    loop {
-        if i == n then {
-            break;
-        }
-        sum = sum + i;
-        i = i + 1;
-    }
-    return sum;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    // keep inputs small: this loop is O(n) in the interpreter and n=255 would run 255 times,
-    // which is unnecessary to prove the point
-    let inputs = [0u8, 1, 2, 3, 4, 10, 20]
-        .into_iter()
-        .map(|v| vec![v])
-        .collect::<Vec<_>>();
-    for &pass in ALL_PASSES {
-        assert_optimization_preserves_semantics(source, &[pass], "f", "N", &inputs);
-    }
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &inputs);
-}
-
-#[test]
-fn loop_with_early_return_is_optimized_soundly() {
-    let source = r#"
-global N: u8;
-
-fn f() -> u8 {
-    let n = N;
-    let i = 0;
-    loop {
-        if i == n then {
-            return i;
-        }
-        if i == 5 then {
-            return 100;
-        }
-        i = i + 1;
-    }
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    let inputs = [0u8, 1, 3, 5, 6, 9]
-        .into_iter()
-        .map(|v| vec![v])
-        .collect::<Vec<_>>();
-    assert_optimization_preserves_semantics(source, ALL_PASSES, "f", "N", &inputs);
-}
-
-#[test]
-fn narrow_int_wrapping_arithmetic_is_optimized_soundly() {
-    let source = r#"
-global N: u2;
-
-fn f() -> u2 {
-    let n = N;
-    let x = n + n;
-    let y = x - 1;
-    return y;
-}
-
-fn main() {
-    N = 1;
-    f();
-}
-"#;
-    let features = [
-        PreviewFeature::NarrowInt,
-        PreviewFeature::Adce,
-        PreviewFeature::Sccp,
-        PreviewFeature::Prune,
-    ];
-    let inputs = [0u8, 1, 2, 3]
-        .into_iter()
-        .map(|v| vec![v])
-        .collect::<Vec<_>>();
-    assert_optimization_preserves_semantics(source, &features, "f", "N", &inputs);
 }

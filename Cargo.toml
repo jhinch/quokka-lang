@@ -38,6 +38,11 @@ name = "spec_tests"
 path = "tests/spec_tests.rs"
 harness = false
 
+[[test]]
+name = "optimize_soundness"
+path = "tests/optimize_soundness.rs"
+harness = false
+
 [dependencies]
 clap.workspace = true
 derive_more.workspace = true
