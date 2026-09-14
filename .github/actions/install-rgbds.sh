@@ -7,9 +7,9 @@ function main() {
   case "$os" in
     ubuntu-*)
       sudo apt-get update
-      sudo apt-get install cmake bison libpng-dev
+      sudo apt-get install -y cmake bison libpng-dev
       curl -L https://github.com/gbdev/rgbds/releases/download/v1.0.3/rgbds-source.tar.gz > rgbds-source.tar.gz
-      tar -xvf rgbds-source.tar.gz
+      tar -xf rgbds-source.tar.gz
       (cd rgbds; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release)
       (cd rgbds; cmake --build build)
       (cd rgbds; sudo cmake --install build)
