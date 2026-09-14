@@ -86,6 +86,27 @@ impl Sameboy {
         // memory which Box<_> guarantees
         unsafe { GB_run(self.inner.as_mut().get_mut()) }
     }
+
+    /// Run for at least the specified number of 8MHz ticks.
+    pub fn run_for_cycles(&mut self, target: u32) {
+        let mut value = 0;
+        while value < target {
+            value = value.checked_add(self.run()).expect("value overflowed");
+        }
+    }
+
+    /// Run for a specified number of instructions
+    pub fn run_for(&mut self, count: u32) {
+        for _ in 0..count {
+            self.run();
+        }
+    }
+
+    pub fn read_memory(&mut self, addr: u16) -> u8 {
+        // SAFETY: `GB_safe_read_memory` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        unsafe { GB_safe_read_memory(self.inner.as_mut().get_mut(), addr) }
+    }
 }
 
 impl Drop for Sameboy {

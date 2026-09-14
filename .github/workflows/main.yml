@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
+      with:
+        submodules: true
     - name: Build
       run: cargo build --workspace --locked --verbose
     - name: Test
