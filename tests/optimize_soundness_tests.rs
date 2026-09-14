@@ -108,9 +108,7 @@ fn main() {
                     &suite_name,
                     &case,
                     &format!("{feature}"),
-                    [feature]
-                        .into_iter()
-                        .chain(case.preview_features.iter().copied()),
+                    std::iter::once(feature).chain(case.preview_features.iter().copied()),
                     values.clone(),
                     ignored_flag,
                 ));
@@ -120,9 +118,7 @@ fn main() {
                     &suite_name,
                     &case,
                     &format!("{feature}"),
-                    [feature]
-                        .into_iter()
-                        .chain(case.preview_features.iter().copied()),
+                    std::iter::once(feature).chain(case.preview_features.iter().copied()),
                     values.clone(),
                     ignored_flag,
                 ));
