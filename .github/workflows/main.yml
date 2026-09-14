@@ -19,7 +19,7 @@ jobs:
       with:
         submodules: true
     - name: Install RGBDS
-      run: ./.github/actions/install-rgbds.sh
+      run: ./.github/actions/install-rgbds.sh ubuntu-latest
     - name: Build
       run: cargo build --workspace --locked --verbose
     - name: Test
