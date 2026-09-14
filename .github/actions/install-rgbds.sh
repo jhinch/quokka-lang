@@ -4,7 +4,7 @@ set -e
 
 function main() {
   local os="$1"
-  case "$os"
+  case "$os" in
     ubuntu-*)
       sudo apt-get update
       # sudo apt-get install
