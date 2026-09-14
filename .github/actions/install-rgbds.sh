@@ -11,8 +11,9 @@ function main() {
       curl -L https://github.com/gbdev/rgbds/releases/download/v1.0.3/rgbds-source.tar.gz > rgbds-source.tar.gz
       mkdir -p rgbds-source
       tar -xf rgbds-source.tar.gz --directory rgbds-source
-      (cd rgbds-source; make -j)
-      (cd rgbds-source; sudo make install)
+      (cd rgbds-source; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release)
+      (cd rgbds-source; cmake --build build)
+      (cd rgbds-source; sudo cmake --install build)
       rm -rf rgbds-source
       ;;
     *)
