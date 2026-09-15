@@ -1068,7 +1068,9 @@ impl Instr {
     pub fn register_defs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
         self.target_r8s()
             .map(VirtualReg::R8)
+            .chain(self.in_place_r8_redef().into_iter().map(VirtualReg::R8))
             .chain(self.target_r16().into_iter().map(VirtualReg::R16))
+            .chain(self.in_place_r16_redef().into_iter().map(VirtualReg::R16))
             .chain(self.zero().map(VirtualReg::Zero))
             .chain(self.carry().map(VirtualReg::Carry))
     }
@@ -1172,6 +1174,57 @@ impl Instr {
         })
     }
 
+    /// The register (if any) that an in-place-mutating instruction (an ALU, rotate/shift, bit,
+    /// or inc/dec op that writes its result back into the register it reads from rather than
+    /// defining a new one) redefines.
+    ///
+    /// This is distinct from [`Instr::target_r8s`] because that function's result also drives
+    /// the "each register is defined at most once per block" bookkeeping in
+    /// [`CodeSectionBuilder::insert_instr`], which would panic if these already-once-defined
+    /// registers were reported there too. The interference graph still needs to know about the
+    /// redefinition (via [`Instr::register_defs`]) so it doesn't coalesce the register with
+    /// another value that is still live across the mutation.
+    fn in_place_r8_redef(&self) -> Option<R8Id> {
+        match self {
+            Instr::Dec { source, .. }
+            | Instr::Inc { source, .. }
+            | Instr::Res { source, .. }
+            | Instr::Set { source, .. }
+            | Instr::Rl { source, .. }
+            | Instr::Rlc { source, .. }
+            | Instr::Rr { source, .. }
+            | Instr::Rrc { source, .. }
+            | Instr::Sla { source, .. }
+            | Instr::Sra { source, .. }
+            | Instr::Srl { source, .. }
+            | Instr::Swap { source, .. } => Some(*source),
+            Instr::Cpl { source, .. }
+            | Instr::Rla { source, .. }
+            | Instr::Rlca { source, .. }
+            | Instr::Rra { source, .. }
+            | Instr::Rrca { source, .. } => Some(source.0),
+            Instr::Adc { left, .. }
+            | Instr::Add { left, .. }
+            | Instr::Sbc { left, .. }
+            | Instr::Sub { left, .. }
+            | Instr::And { left, .. }
+            | Instr::Or { left, .. }
+            | Instr::Xor { left, .. } => Some(left.0),
+            _ => None,
+        }
+    }
+
+    /// The 16-bit register (if any) that an in-place-mutating instruction (`ADD HL,r16`,
+    /// `DEC r16`, `INC r16`) redefines. See [`Instr::in_place_r8_redef`] for why this is kept
+    /// separate from [`Instr::target_r16`].
+    fn in_place_r16_redef(&self) -> Option<R16Id> {
+        match self {
+            Instr::Add16 { left, .. } => Some(left.0),
+            Instr::Dec16 { source } | Instr::Inc16 { source } => Some(*source),
+            _ => None,
+        }
+    }
+
     #[must_use]
     pub fn target_r16(&self) -> Option<R16Id> {
         match self {
@@ -1238,11 +1291,11 @@ impl Instr {
             | Instr::PushAF { .. }
             | Instr::PopAF { .. }
             | Instr::LdReturn8 { .. }
-            | Instr::Add16 { .. }
             | Instr::Ld8Inc { .. }
             | Instr::Ld8Dec { .. }
             | Instr::StoreInc { .. }
             | Instr::StoreDec { .. }
+            | Instr::Add16 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::FreshA { .. } => None,

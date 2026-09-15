@@ -46,7 +46,6 @@ expected = [0x00, 0xFF] # 0xFF00
 
 [[case]]
 name = "not_u1"
-ignored = "storing a u1 boolean result (here, from `!`) back into a `global: u1` writes an incorrect raw byte instead of 0/1 - see the R1-to-memory store path in codegen.rs. Un-ignore once fixed."
 source = """
 global IN: u1;
 
@@ -67,6 +66,7 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 
 [[case]]
 name = "shift_left_u8"

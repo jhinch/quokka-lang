@@ -3,7 +3,6 @@
 
 [[case]]
 name = "boolean_operator_values"
-ignored = "storing a u1 result back into a `global: u1` writes an incorrect raw byte value - see the R1-to-memory Store path in codegen.rs (r1_to_r8 / the per-bit read-modify-write in Instr::Store); same bug as operators_arithmetic.toml's arithmetic_u1 case, here via && / ||. Un-ignore once fixed."
 source = """
 global A: u1;
 global B: u1;
@@ -29,13 +28,14 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 1
+mask = 0b0000_0001
 
 [[case]]
 name = "boolean_operators_short_circuit"
-ignored = "Failed to allocate registers after 3 previous iterations due to successive spills for same registers {R8(R8Id(66v1))}"
 source = """
 global LEFT: u1;
 
@@ -77,12 +77,16 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 0 # and_rhs() must not have run since the left side of && was already false
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC003
 expected = 0 # or_rhs() must not have run since the left side of || was already true
+mask = 0b0000_0001

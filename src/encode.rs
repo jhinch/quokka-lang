@@ -104,7 +104,7 @@ impl ObjFileEncoder {
 
     fn encode_ram_section(&mut self, node: SourceNodeId, data: &lir::RamSectionData) -> SymbolId {
         let ram_data = RamSectionData {
-            size: u32::from(data.size.bytes()),
+            size: u32::from(data.size.padded_bytes()),
         };
         let (ram_data, bank, mode) = match data.region {
             lir::RamRegionKind::WRam0 => (SectionData::WRam0(ram_data), None, LinkingMode::Normal),
@@ -451,18 +451,18 @@ impl ObjFileEncoder {
                 bytes.push(opcode::LD_HLI_A);
             }
             lir::Instr::Adc { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::ADC_A_B,
-                    Some(Color::C) => opcode::ADC_A_C,
-                    Some(Color::D) => opcode::ADC_A_D,
-                    Some(Color::E) => opcode::ADC_A_E,
-                    Some(Color::H) => opcode::ADC_A_H,
-                    Some(Color::L) => opcode::ADC_A_L,
-                    None => opcode::ADC_A_HL,
-                    Some(unexpected) => unimplemented!("ABC A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::ADC_A_B,
+                        Color::C => opcode::ADC_A_C,
+                        Color::D => opcode::ADC_A_D,
+                        Color::E => opcode::ADC_A_E,
+                        Color::H => opcode::ADC_A_H,
+                        Color::L => opcode::ADC_A_L,
+                        unexpected => unimplemented!("ADC A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::ADC_A_HL,
+                    lir::Operand8::Literal(_) => opcode::ADC_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -470,18 +470,18 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::Add { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::ADD_A_B,
-                    Some(Color::C) => opcode::ADD_A_C,
-                    Some(Color::D) => opcode::ADD_A_D,
-                    Some(Color::E) => opcode::ADD_A_E,
-                    Some(Color::H) => opcode::ADD_A_H,
-                    Some(Color::L) => opcode::ADD_A_L,
-                    None => opcode::ADD_A_HL,
-                    Some(unexpected) => unimplemented!("ADD A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::ADD_A_B,
+                        Color::C => opcode::ADD_A_C,
+                        Color::D => opcode::ADD_A_D,
+                        Color::E => opcode::ADD_A_E,
+                        Color::H => opcode::ADD_A_H,
+                        Color::L => opcode::ADD_A_L,
+                        unexpected => unimplemented!("ADD A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::ADD_A_HL,
+                    lir::Operand8::Literal(_) => opcode::ADD_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -489,18 +489,18 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::Cp { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::CP_A_B,
-                    Some(Color::C) => opcode::CP_A_C,
-                    Some(Color::D) => opcode::CP_A_D,
-                    Some(Color::E) => opcode::CP_A_E,
-                    Some(Color::H) => opcode::CP_A_H,
-                    Some(Color::L) => opcode::CP_A_L,
-                    None => opcode::CP_A_HL,
-                    Some(unexpected) => unimplemented!("CP A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::CP_A_B,
+                        Color::C => opcode::CP_A_C,
+                        Color::D => opcode::CP_A_D,
+                        Color::E => opcode::CP_A_E,
+                        Color::H => opcode::CP_A_H,
+                        Color::L => opcode::CP_A_L,
+                        unexpected => unimplemented!("CP A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::CP_A_HL,
+                    lir::Operand8::Literal(_) => opcode::CP_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -538,19 +538,19 @@ impl ObjFileEncoder {
                 bytes.push(opcode::INC_HL);
             }
             lir::Instr::Sbc { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::SBC_A_B,
-                    Some(Color::C) => opcode::SBC_A_C,
-                    Some(Color::D) => opcode::SBC_A_D,
-                    Some(Color::E) => opcode::SBC_A_E,
-                    Some(Color::H) => opcode::SBC_A_H,
-                    Some(Color::L) => opcode::SBC_A_L,
-                    Some(Color::A) => opcode::SBC_A_A,
-                    None => opcode::SBC_A_HL,
-                    Some(unexpected) => unimplemented!("SBC A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::SBC_A_B,
+                        Color::C => opcode::SBC_A_C,
+                        Color::D => opcode::SBC_A_D,
+                        Color::E => opcode::SBC_A_E,
+                        Color::H => opcode::SBC_A_H,
+                        Color::L => opcode::SBC_A_L,
+                        Color::A => opcode::SBC_A_A,
+                        unexpected => unimplemented!("SBC A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::SBC_A_HL,
+                    lir::Operand8::Literal(_) => opcode::SBC_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -558,18 +558,18 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::Sub { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::SUB_A_B,
-                    Some(Color::C) => opcode::SUB_A_C,
-                    Some(Color::D) => opcode::SUB_A_D,
-                    Some(Color::E) => opcode::SUB_A_E,
-                    Some(Color::H) => opcode::SUB_A_H,
-                    Some(Color::L) => opcode::SUB_A_L,
-                    None => opcode::SUB_A_HL,
-                    Some(unexpected) => unimplemented!("SUB A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::SUB_A_B,
+                        Color::C => opcode::SUB_A_C,
+                        Color::D => opcode::SUB_A_D,
+                        Color::E => opcode::SUB_A_E,
+                        Color::H => opcode::SUB_A_H,
+                        Color::L => opcode::SUB_A_L,
+                        unexpected => unimplemented!("SUB A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::SUB_A_HL,
+                    lir::Operand8::Literal(_) => opcode::SUB_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -577,18 +577,18 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::And { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::AND_A_B,
-                    Some(Color::C) => opcode::AND_A_C,
-                    Some(Color::D) => opcode::AND_A_D,
-                    Some(Color::E) => opcode::AND_A_E,
-                    Some(Color::H) => opcode::AND_A_H,
-                    Some(Color::L) => opcode::AND_A_L,
-                    None => opcode::AND_A_HL,
-                    Some(unexpected) => unimplemented!("AND A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::AND_A_B,
+                        Color::C => opcode::AND_A_C,
+                        Color::D => opcode::AND_A_D,
+                        Color::E => opcode::AND_A_E,
+                        Color::H => opcode::AND_A_H,
+                        Color::L => opcode::AND_A_L,
+                        unexpected => unimplemented!("AND A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::AND_A_HL,
+                    lir::Operand8::Literal(_) => opcode::AND_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -599,18 +599,18 @@ impl ObjFileEncoder {
                 bytes.push(opcode::CPL);
             }
             lir::Instr::Or { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::OR_A_B,
-                    Some(Color::C) => opcode::OR_A_C,
-                    Some(Color::D) => opcode::OR_A_D,
-                    Some(Color::E) => opcode::OR_A_E,
-                    Some(Color::H) => opcode::OR_A_H,
-                    Some(Color::L) => opcode::OR_A_L,
-                    None => opcode::OR_A_HL,
-                    Some(unexpected) => unimplemented!("OR A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::OR_A_B,
+                        Color::C => opcode::OR_A_C,
+                        Color::D => opcode::OR_A_D,
+                        Color::E => opcode::OR_A_E,
+                        Color::H => opcode::OR_A_H,
+                        Color::L => opcode::OR_A_L,
+                        unexpected => unimplemented!("OR A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::OR_A_HL,
+                    lir::Operand8::Literal(_) => opcode::OR_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
@@ -618,18 +618,18 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::Xor { right, .. } => {
-                let opcode = match right
-                    .into_r8()
-                    .map(|r8| code.r8_registers[r8].color.unwrap())
-                {
-                    Some(Color::B) => opcode::XOR_A_B,
-                    Some(Color::C) => opcode::XOR_A_C,
-                    Some(Color::D) => opcode::XOR_A_D,
-                    Some(Color::E) => opcode::XOR_A_E,
-                    Some(Color::H) => opcode::XOR_A_H,
-                    Some(Color::L) => opcode::XOR_A_L,
-                    None => opcode::XOR_A_HL,
-                    Some(unexpected) => unimplemented!("XOR A, {unexpected:?}"),
+                let opcode = match right {
+                    lir::Operand8::Reg(r8) => match code.r8_registers[*r8].color.unwrap() {
+                        Color::B => opcode::XOR_A_B,
+                        Color::C => opcode::XOR_A_C,
+                        Color::D => opcode::XOR_A_D,
+                        Color::E => opcode::XOR_A_E,
+                        Color::H => opcode::XOR_A_H,
+                        Color::L => opcode::XOR_A_L,
+                        unexpected => unimplemented!("XOR A, {unexpected:?}"),
+                    },
+                    lir::Operand8::Ptr(_) => opcode::XOR_A_HL,
+                    lir::Operand8::Literal(_) => opcode::XOR_A_N8,
                 };
                 bytes.push(opcode);
                 if let lir::Operand8::Literal(value) = right {
