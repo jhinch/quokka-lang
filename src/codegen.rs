@@ -654,7 +654,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
-                let source = self.r1_to_flag(source, block, lir);
+                let (source, condition) = self.r1_to_flag(source, condition, block, lir);
                 let callee = ctx.functions[*callee];
                 let return_block = ctx.blocks[*mir_return_block];
                 let else_block = ctx.blocks[*mir_else_block];
@@ -693,7 +693,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
-                let source = self.r1_to_flag(source, block, lir);
+                let (source, condition) = self.r1_to_flag(source, condition, block, lir);
                 let then_block = ctx.blocks[*mir_then_block];
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
@@ -712,7 +712,7 @@ impl CodeGen {
                 else_block: mir_else_block,
             } => {
                 let (source, condition) = locals.r1s[*mir_source];
-                let source = self.r1_to_flag(source, block, lir);
+                let (source, condition) = self.r1_to_flag(source, condition, block, lir);
                 let else_block = ctx.blocks[*mir_else_block];
                 lir.set_terminator(
                     block,
@@ -978,25 +978,26 @@ impl CodeGen {
         })
     }
 
-    fn r1_to_flag(&mut self, r1: R1, block: BlockId, lir: &mut CodeSectionBuilder) -> FlagId {
+    fn r1_to_flag(
+        &mut self,
+        r1: R1,
+        condition: mir::Condition,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+    ) -> (FlagId, mir::Condition) {
         match r1 {
-            R1::Zero(flag) => FlagId::from(flag),
-            R1::Carry(flag) => FlagId::from(flag),
+            R1::Zero(flag) => (FlagId::from(flag), condition),
+            R1::Carry(flag) => (FlagId::from(flag), condition),
             R1::R8(r8) => {
                 let r8 = lir.insert_ld_a(block, r8);
                 let (z, _c) = lir.insert_cp(block, r8, Operand8::Literal(0xFF));
-                FlagId::from(z)
+                (FlagId::from(z), condition)
             }
             R1::Bit(r8, bit) => {
                 // `BIT` sets Z when the tested bit is 0, i.e. Z is SET for a *false* u1 value -
-                // the opposite polarity of every other flag source here, which all have Z/C SET
-                // mean true (matching `mir::Condition::NotZero` on the value). Route through
-                // `r1_to_r8`'s canonical 0xFF/0x00 form and the same CP-against-0xFF trick the
-                // `R1::R8` case above uses, so the returned flag's SET state means true here too.
-                let r8 = self.r1_to_r8(R1::Bit(r8, bit), block, lir);
-                let a = lir.insert_ld_a(block, r8);
-                let (z, _c) = lir.insert_cp(block, a, Operand8::Literal(0xFF));
-                FlagId::from(z)
+                // the opposite polarity to what the value represents so we need to invert the
+                // condition
+                (FlagId::from(lir.insert_bit(block, bit, r8)), !condition)
             }
         }
     }
