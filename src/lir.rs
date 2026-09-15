@@ -1068,9 +1068,9 @@ impl Instr {
     pub fn register_defs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
         self.target_r8s()
             .map(VirtualReg::R8)
-            .chain(self.in_place_r8_redef().into_iter().map(VirtualReg::R8))
+            .chain(self.redefined_r8().into_iter().map(VirtualReg::R8))
             .chain(self.target_r16().into_iter().map(VirtualReg::R16))
-            .chain(self.in_place_r16_redef().into_iter().map(VirtualReg::R16))
+            .chain(self.redefined_r16().into_iter().map(VirtualReg::R16))
             .chain(self.zero().map(VirtualReg::Zero))
             .chain(self.carry().map(VirtualReg::Carry))
     }
@@ -1184,7 +1184,8 @@ impl Instr {
     /// registers were reported there too. The interference graph still needs to know about the
     /// redefinition (via [`Instr::register_defs`]) so it doesn't coalesce the register with
     /// another value that is still live across the mutation.
-    fn in_place_r8_redef(&self) -> Option<R8Id> {
+    #[must_use]
+    pub fn redefined_r8(&self) -> Option<R8Id> {
         match self {
             Instr::Dec { source, .. }
             | Instr::Inc { source, .. }
@@ -1215,9 +1216,10 @@ impl Instr {
     }
 
     /// The 16-bit register (if any) that an in-place-mutating instruction (`ADD HL,r16`,
-    /// `DEC r16`, `INC r16`) redefines. See [`Instr::in_place_r8_redef`] for why this is kept
+    /// `DEC r16`, `INC r16`) redefines. See [`Instr::redefined_r8`] for why this is kept
     /// separate from [`Instr::target_r16`].
-    fn in_place_r16_redef(&self) -> Option<R16Id> {
+    #[must_use]
+    pub fn redefined_r16(&self) -> Option<R16Id> {
         match self {
             Instr::Add16 { left, .. } => Some(left.0),
             Instr::Dec16 { source } | Instr::Inc16 { source } => Some(*source),
