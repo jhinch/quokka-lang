@@ -2769,14 +2769,6 @@ impl Operand8 {
             Operand8::Literal(value) => write!(f, "${value:02x}"),
         })
     }
-
-    #[must_use]
-    pub fn into_r8(self) -> Option<R8Id> {
-        match self {
-            Operand8::Reg(r8) => Some(r8),
-            Operand8::Ptr(_) | Operand8::Literal(_) => None,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
