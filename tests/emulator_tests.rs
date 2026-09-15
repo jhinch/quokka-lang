@@ -17,6 +17,7 @@ use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
 use quokka_lang_sameboy::{Model, Sameboy};
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 /// Deserialized representation of a test suite TOML file.
 #[derive(serde::Deserialize)]
@@ -179,8 +180,14 @@ fn run_case(case: &TestCase) {
 
     let mut emulator = Sameboy::new(case.model.into());
     emulator.load_rom(&rom);
-    if !emulator.run_until_pc(0x100, 1_000_000) {
-        panic!("Did not execute boot ROM within 1M instructions");
+    // Restoring a save state captured right after a previous emulator instance finished
+    // executing the boot ROM is behaviorally equivalent to (but far faster than) running the
+    // boot ROM again here: the boot ROM's CPU/RAM/VRAM end state only depends on the emulated
+    // model and the cartridge header, both of which are fixed for every case (the header is
+    // always written the same way by `fix()`/`rgbfix`, regardless of source), and never on the
+    // ROM's actual code, which the boot ROM doesn't execute.
+    if !emulator.load_state(boot_snapshot(case.model)) {
+        panic!("failed to restore post-boot-ROM save state");
     }
     if !emulator.run_until_pc(case.await_pc, case.max_instructions) {
         panic!(
@@ -200,6 +207,59 @@ fn run_case(case: &TestCase) {
             assertion.addr
         );
     }
+}
+
+/// Returns a save state snapshot, captured right after the emulator finished executing the boot
+/// ROM for `model`, that can be restored onto any freshly-loaded ROM to skip re-running the boot
+/// ROM. Computed once per model and cached for the remainder of the process.
+fn boot_snapshot(model: ModelKind) -> &'static [u8] {
+    static DMG: OnceLock<Vec<u8>> = OnceLock::new();
+    static MGB: OnceLock<Vec<u8>> = OnceLock::new();
+    static CGB: OnceLock<Vec<u8>> = OnceLock::new();
+    let cell = match model {
+        ModelKind::Dmg => &DMG,
+        ModelKind::Mgb => &MGB,
+        ModelKind::Cgb => &CGB,
+    };
+    cell.get_or_init(|| {
+        let mut emulator = Sameboy::new(model.into());
+        emulator.load_rom(template_rom());
+        if !emulator.run_until_pc(0x100, 1_000_000) {
+            panic!("did not execute boot ROM within 1M instructions while building save state");
+        }
+        emulator.save_state()
+    })
+}
+
+/// A minimal, otherwise-blank ROM with a valid header (correct Nintendo logo and header
+/// checksum, as `rgbfix` would produce for any real case ROM), used only to get an emulator
+/// through the boot ROM when building a [`boot_snapshot`]. Its code is never executed: the boot
+/// ROM only inspects the header, and the snapshot is captured the instant `PC` reaches `$0100`,
+/// before any cartridge code runs.
+fn template_rom() -> &'static [u8] {
+    static ROM: OnceLock<Vec<u8>> = OnceLock::new();
+    ROM.get_or_init(|| {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let rom_path = dir.path().join("template.gb");
+        std::fs::write(&rom_path, vec![0u8; 0x8000]).expect("failed to write template rom");
+        run_tool(
+            "rgbfix",
+            std::process::Command::new("rgbfix")
+                .arg("-v")
+                .arg("-p")
+                .arg("0xFF")
+                .arg(&rom_path),
+        );
+        std::fs::read(&rom_path).expect("failed to read template rom")
+    })
+}
+
+fn run_tool(tool: &str, command: &mut std::process::Command) {
+    let status = command
+        .stdin(std::process::Stdio::null())
+        .status()
+        .unwrap_or_else(|e| panic!("failed to run `{tool}`: {e}"));
+    assert!(status.success(), "`{tool}` exited with {status}");
 }
 
 /// Builds `case.source` all the way down to ROM bytes, using the same fluent pipeline API the

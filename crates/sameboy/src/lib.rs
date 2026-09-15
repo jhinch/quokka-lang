@@ -134,6 +134,40 @@ impl Sameboy {
         false
     }
 
+    /// Capture a snapshot of the emulator's current state (CPU registers, RAM, MBC state, etc.)
+    /// that can later be restored with [`Sameboy::load_state`].
+    ///
+    /// A snapshot does not include cartridge ROM contents, so it can be restored onto any
+    /// `Sameboy` instance that has since had a compatible ROM (matching model, and an MBC RAM
+    /// size no smaller than the snapshot's) loaded with [`Sameboy::load_rom`].
+    #[must_use]
+    pub fn save_state(&mut self) -> Vec<u8> {
+        // SAFETY: `GB_get_save_state_size` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        let size = unsafe { GB_get_save_state_size(self.inner.as_mut().get_mut()) };
+        let mut buffer = vec![0u8; size];
+        // SAFETY: `GB_save_state_to_buffer` requires `*mut GB_gameboy_t` to point to initialized
+        // memory, and `*mut u8` to point to a buffer of at least `GB_get_save_state_size(gb)`
+        // bytes, both of which are guaranteed above
+        unsafe {
+            GB_save_state_to_buffer(self.inner.as_mut().get_mut(), buffer.as_mut_ptr());
+        }
+        buffer
+    }
+
+    /// Restore a snapshot previously captured with [`Sameboy::save_state`]. Returns `true` if
+    /// the snapshot was compatible with the emulator's current state (model, currently loaded
+    /// ROM's MBC RAM size, etc.) and was restored successfully.
+    pub fn load_state(&mut self, state: &[u8]) -> bool {
+        // SAFETY: `GB_load_state_from_buffer` requires `*mut GB_gameboy_t` to point to
+        // initialized memory, and `*const u8`/`length` to describe a valid, readable buffer,
+        // both of which are guaranteed by Box<_> and &[u8] respectively
+        let result = unsafe {
+            GB_load_state_from_buffer(self.inner.as_mut().get_mut(), state.as_ptr(), state.len())
+        };
+        result == 0
+    }
+
     /// read a byte from emulator memory at the given address
     pub fn read_memory(&mut self, addr: u16) -> u8 {
         // SAFETY: `GB_safe_read_memory` requires `*mut GB_gameboy_t` to point to initialized
