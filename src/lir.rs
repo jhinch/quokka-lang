@@ -1180,7 +1180,7 @@ impl Instr {
     ///
     /// This is distinct from [`Instr::target_r8s`] because that function's result also drives
     /// the "each register is defined at most once per block" bookkeeping in
-    /// [`CodeSectionBuilder::insert_instr`], which would panic if these already-once-defined
+    /// [`CodeSectionBuilder`], which would panic if these already-once-defined
     /// registers were reported there too. The interference graph still needs to know about the
     /// redefinition (via [`Instr::register_defs`]) so it doesn't coalesce the register with
     /// another value that is still live across the mutation.
