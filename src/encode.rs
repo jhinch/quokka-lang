@@ -402,7 +402,7 @@ impl ObjFileEncoder {
                 self.encode_ld16_source(node, id, opcode::LD16_SP_N16, source, bytes, patches);
             }
             lir::Instr::Store {
-                target_addr,
+                addr: target_addr,
                 source,
             } => {
                 let target_color = target_addr
@@ -507,17 +507,14 @@ impl ObjFileEncoder {
                     bytes.push(*value);
                 }
             }
-            lir::Instr::Dec { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::DEC_B,
-                    (Color::C, Color::C) => opcode::DEC_C,
-                    (Color::D, Color::D) => opcode::DEC_D,
-                    (Color::E, Color::E) => opcode::DEC_E,
-                    (Color::H, Color::H) => opcode::DEC_H,
-                    (Color::L, Color::L) => opcode::DEC_L,
+            lir::Instr::Dec { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::DEC_B,
+                    Color::C => opcode::DEC_C,
+                    Color::D => opcode::DEC_D,
+                    Color::E => opcode::DEC_E,
+                    Color::H => opcode::DEC_H,
+                    Color::L => opcode::DEC_L,
                     unexpected => unimplemented!("DEC {unexpected:?}"),
                 };
                 bytes.push(opcode);
@@ -525,17 +522,14 @@ impl ObjFileEncoder {
             lir::Instr::DecPtr { .. } => {
                 bytes.push(opcode::DEC_HL);
             }
-            lir::Instr::Inc { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::INC_B,
-                    (Color::C, Color::C) => opcode::INC_C,
-                    (Color::D, Color::D) => opcode::INC_D,
-                    (Color::E, Color::E) => opcode::INC_E,
-                    (Color::H, Color::H) => opcode::INC_H,
-                    (Color::L, Color::L) => opcode::INC_L,
+            lir::Instr::Inc { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::INC_B,
+                    Color::C => opcode::INC_C,
+                    Color::D => opcode::INC_D,
+                    Color::E => opcode::INC_E,
+                    Color::H => opcode::INC_H,
+                    Color::L => opcode::INC_L,
                     unexpected => unimplemented!("INC {unexpected:?}"),
                 };
                 bytes.push(opcode);
@@ -720,75 +714,67 @@ impl ObjFileEncoder {
                 };
                 bytes.extend(opcode.to_le_bytes());
             }
-            lir::Instr::Res {
-                target,
-                bit,
-                source,
-            } => {
-                let opcode = match (
-                    u8::from(*bit),
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (0, Color::B, Color::B) => opcode::RES_0_B,
-                    (0, Color::C, Color::C) => opcode::RES_0_C,
-                    (0, Color::D, Color::D) => opcode::RES_0_D,
-                    (0, Color::E, Color::E) => opcode::RES_0_E,
-                    (0, Color::H, Color::H) => opcode::RES_0_H,
-                    (0, Color::L, Color::L) => opcode::RES_0_L,
-                    (0, Color::A, Color::A) => opcode::RES_0_A,
-                    (1, Color::B, Color::B) => opcode::RES_1_B,
-                    (1, Color::C, Color::C) => opcode::RES_1_C,
-                    (1, Color::D, Color::D) => opcode::RES_1_D,
-                    (1, Color::E, Color::E) => opcode::RES_1_E,
-                    (1, Color::H, Color::H) => opcode::RES_1_H,
-                    (1, Color::L, Color::L) => opcode::RES_1_L,
-                    (1, Color::A, Color::A) => opcode::RES_1_A,
-                    (2, Color::B, Color::B) => opcode::RES_2_B,
-                    (2, Color::C, Color::C) => opcode::RES_2_C,
-                    (2, Color::D, Color::D) => opcode::RES_2_D,
-                    (2, Color::E, Color::E) => opcode::RES_2_E,
-                    (2, Color::H, Color::H) => opcode::RES_2_H,
-                    (2, Color::L, Color::L) => opcode::RES_2_L,
-                    (2, Color::A, Color::A) => opcode::RES_2_A,
-                    (3, Color::B, Color::B) => opcode::RES_3_B,
-                    (3, Color::C, Color::C) => opcode::RES_3_C,
-                    (3, Color::D, Color::D) => opcode::RES_3_D,
-                    (3, Color::E, Color::E) => opcode::RES_3_E,
-                    (3, Color::H, Color::H) => opcode::RES_3_H,
-                    (3, Color::L, Color::L) => opcode::RES_3_L,
-                    (3, Color::A, Color::A) => opcode::RES_3_A,
-                    (4, Color::B, Color::B) => opcode::RES_4_B,
-                    (4, Color::C, Color::C) => opcode::RES_4_C,
-                    (4, Color::D, Color::D) => opcode::RES_4_D,
-                    (4, Color::E, Color::E) => opcode::RES_4_E,
-                    (4, Color::H, Color::H) => opcode::RES_4_H,
-                    (4, Color::L, Color::L) => opcode::RES_4_L,
-                    (4, Color::A, Color::A) => opcode::RES_4_A,
-                    (5, Color::B, Color::B) => opcode::RES_5_B,
-                    (5, Color::C, Color::C) => opcode::RES_5_C,
-                    (5, Color::D, Color::D) => opcode::RES_5_D,
-                    (5, Color::E, Color::E) => opcode::RES_5_E,
-                    (5, Color::H, Color::H) => opcode::RES_5_H,
-                    (5, Color::L, Color::L) => opcode::RES_5_L,
-                    (5, Color::A, Color::A) => opcode::RES_5_A,
-                    (6, Color::B, Color::B) => opcode::RES_6_B,
-                    (6, Color::C, Color::C) => opcode::RES_6_C,
-                    (6, Color::D, Color::D) => opcode::RES_6_D,
-                    (6, Color::E, Color::E) => opcode::RES_6_E,
-                    (6, Color::H, Color::H) => opcode::RES_6_H,
-                    (6, Color::L, Color::L) => opcode::RES_6_L,
-                    (6, Color::A, Color::A) => opcode::RES_6_A,
-                    (7, Color::B, Color::B) => opcode::RES_7_B,
-                    (7, Color::C, Color::C) => opcode::RES_7_C,
-                    (7, Color::D, Color::D) => opcode::RES_7_D,
-                    (7, Color::E, Color::E) => opcode::RES_7_E,
-                    (7, Color::H, Color::H) => opcode::RES_7_H,
-                    (7, Color::L, Color::L) => opcode::RES_7_L,
-                    (7, Color::A, Color::A) => opcode::RES_7_A,
-                    (unexpected_bit, unexpected_target, unexpected_source) => unimplemented!(
-                        "RES {unexpected_bit}, ({unexpected_target:?}, {unexpected_source:?})"
-                    ),
+            lir::Instr::Res { bit, source } => {
+                let opcode = match (u8::from(*bit), code.r8_registers[*source].color.unwrap()) {
+                    (0, Color::B) => opcode::RES_0_B,
+                    (0, Color::C) => opcode::RES_0_C,
+                    (0, Color::D) => opcode::RES_0_D,
+                    (0, Color::E) => opcode::RES_0_E,
+                    (0, Color::H) => opcode::RES_0_H,
+                    (0, Color::L) => opcode::RES_0_L,
+                    (0, Color::A) => opcode::RES_0_A,
+                    (1, Color::B) => opcode::RES_1_B,
+                    (1, Color::C) => opcode::RES_1_C,
+                    (1, Color::D) => opcode::RES_1_D,
+                    (1, Color::E) => opcode::RES_1_E,
+                    (1, Color::H) => opcode::RES_1_H,
+                    (1, Color::L) => opcode::RES_1_L,
+                    (1, Color::A) => opcode::RES_1_A,
+                    (2, Color::B) => opcode::RES_2_B,
+                    (2, Color::C) => opcode::RES_2_C,
+                    (2, Color::D) => opcode::RES_2_D,
+                    (2, Color::E) => opcode::RES_2_E,
+                    (2, Color::H) => opcode::RES_2_H,
+                    (2, Color::L) => opcode::RES_2_L,
+                    (2, Color::A) => opcode::RES_2_A,
+                    (3, Color::B) => opcode::RES_3_B,
+                    (3, Color::C) => opcode::RES_3_C,
+                    (3, Color::D) => opcode::RES_3_D,
+                    (3, Color::E) => opcode::RES_3_E,
+                    (3, Color::H) => opcode::RES_3_H,
+                    (3, Color::L) => opcode::RES_3_L,
+                    (3, Color::A) => opcode::RES_3_A,
+                    (4, Color::B) => opcode::RES_4_B,
+                    (4, Color::C) => opcode::RES_4_C,
+                    (4, Color::D) => opcode::RES_4_D,
+                    (4, Color::E) => opcode::RES_4_E,
+                    (4, Color::H) => opcode::RES_4_H,
+                    (4, Color::L) => opcode::RES_4_L,
+                    (4, Color::A) => opcode::RES_4_A,
+                    (5, Color::B) => opcode::RES_5_B,
+                    (5, Color::C) => opcode::RES_5_C,
+                    (5, Color::D) => opcode::RES_5_D,
+                    (5, Color::E) => opcode::RES_5_E,
+                    (5, Color::H) => opcode::RES_5_H,
+                    (5, Color::L) => opcode::RES_5_L,
+                    (5, Color::A) => opcode::RES_5_A,
+                    (6, Color::B) => opcode::RES_6_B,
+                    (6, Color::C) => opcode::RES_6_C,
+                    (6, Color::D) => opcode::RES_6_D,
+                    (6, Color::E) => opcode::RES_6_E,
+                    (6, Color::H) => opcode::RES_6_H,
+                    (6, Color::L) => opcode::RES_6_L,
+                    (6, Color::A) => opcode::RES_6_A,
+                    (7, Color::B) => opcode::RES_7_B,
+                    (7, Color::C) => opcode::RES_7_C,
+                    (7, Color::D) => opcode::RES_7_D,
+                    (7, Color::E) => opcode::RES_7_E,
+                    (7, Color::H) => opcode::RES_7_H,
+                    (7, Color::L) => opcode::RES_7_L,
+                    (7, Color::A) => opcode::RES_7_A,
+                    (unexpected_bit, unexpected_source) => {
+                        unimplemented!("RES {unexpected_bit}, {unexpected_source:?})")
+                    }
                 };
                 bytes.extend(opcode.to_le_bytes());
             }
@@ -806,75 +792,67 @@ impl ObjFileEncoder {
                 };
                 bytes.extend(opcode.to_le_bytes());
             }
-            lir::Instr::Set {
-                target,
-                bit,
-                source,
-            } => {
-                let opcode = match (
-                    u8::from(*bit),
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (0, Color::B, Color::B) => opcode::SET_0_B,
-                    (0, Color::C, Color::C) => opcode::SET_0_C,
-                    (0, Color::D, Color::D) => opcode::SET_0_D,
-                    (0, Color::E, Color::E) => opcode::SET_0_E,
-                    (0, Color::H, Color::H) => opcode::SET_0_H,
-                    (0, Color::L, Color::L) => opcode::SET_0_L,
-                    (0, Color::A, Color::A) => opcode::SET_0_A,
-                    (1, Color::B, Color::B) => opcode::SET_1_B,
-                    (1, Color::C, Color::C) => opcode::SET_1_C,
-                    (1, Color::D, Color::D) => opcode::SET_1_D,
-                    (1, Color::E, Color::E) => opcode::SET_1_E,
-                    (1, Color::H, Color::H) => opcode::SET_1_H,
-                    (1, Color::L, Color::L) => opcode::SET_1_L,
-                    (1, Color::A, Color::A) => opcode::SET_1_A,
-                    (2, Color::B, Color::B) => opcode::SET_2_B,
-                    (2, Color::C, Color::C) => opcode::SET_2_C,
-                    (2, Color::D, Color::D) => opcode::SET_2_D,
-                    (2, Color::E, Color::E) => opcode::SET_2_E,
-                    (2, Color::H, Color::H) => opcode::SET_2_H,
-                    (2, Color::L, Color::L) => opcode::SET_2_L,
-                    (2, Color::A, Color::A) => opcode::SET_2_A,
-                    (3, Color::B, Color::B) => opcode::SET_3_B,
-                    (3, Color::C, Color::C) => opcode::SET_3_C,
-                    (3, Color::D, Color::D) => opcode::SET_3_D,
-                    (3, Color::E, Color::E) => opcode::SET_3_E,
-                    (3, Color::H, Color::H) => opcode::SET_3_H,
-                    (3, Color::L, Color::L) => opcode::SET_3_L,
-                    (3, Color::A, Color::A) => opcode::SET_3_A,
-                    (4, Color::B, Color::B) => opcode::SET_4_B,
-                    (4, Color::C, Color::C) => opcode::SET_4_C,
-                    (4, Color::D, Color::D) => opcode::SET_4_D,
-                    (4, Color::E, Color::E) => opcode::SET_4_E,
-                    (4, Color::H, Color::H) => opcode::SET_4_H,
-                    (4, Color::L, Color::L) => opcode::SET_4_L,
-                    (4, Color::A, Color::A) => opcode::SET_4_A,
-                    (5, Color::B, Color::B) => opcode::SET_5_B,
-                    (5, Color::C, Color::C) => opcode::SET_5_C,
-                    (5, Color::D, Color::D) => opcode::SET_5_D,
-                    (5, Color::E, Color::E) => opcode::SET_5_E,
-                    (5, Color::H, Color::H) => opcode::SET_5_H,
-                    (5, Color::L, Color::L) => opcode::SET_5_L,
-                    (5, Color::A, Color::A) => opcode::SET_5_A,
-                    (6, Color::B, Color::B) => opcode::SET_6_B,
-                    (6, Color::C, Color::C) => opcode::SET_6_C,
-                    (6, Color::D, Color::D) => opcode::SET_6_D,
-                    (6, Color::E, Color::E) => opcode::SET_6_E,
-                    (6, Color::H, Color::H) => opcode::SET_6_H,
-                    (6, Color::L, Color::L) => opcode::SET_6_L,
-                    (6, Color::A, Color::A) => opcode::SET_6_A,
-                    (7, Color::B, Color::B) => opcode::SET_7_B,
-                    (7, Color::C, Color::C) => opcode::SET_7_C,
-                    (7, Color::D, Color::D) => opcode::SET_7_D,
-                    (7, Color::E, Color::E) => opcode::SET_7_E,
-                    (7, Color::H, Color::H) => opcode::SET_7_H,
-                    (7, Color::L, Color::L) => opcode::SET_7_L,
-                    (7, Color::A, Color::A) => opcode::SET_7_A,
-                    (unexpected_bit, unexpected_target, unexpected_source) => unimplemented!(
-                        "SET {unexpected_bit}, ({unexpected_target:?}, {unexpected_source:?})"
-                    ),
+            lir::Instr::Set { bit, source } => {
+                let opcode = match (u8::from(*bit), code.r8_registers[*source].color.unwrap()) {
+                    (0, Color::B) => opcode::SET_0_B,
+                    (0, Color::C) => opcode::SET_0_C,
+                    (0, Color::D) => opcode::SET_0_D,
+                    (0, Color::E) => opcode::SET_0_E,
+                    (0, Color::H) => opcode::SET_0_H,
+                    (0, Color::L) => opcode::SET_0_L,
+                    (0, Color::A) => opcode::SET_0_A,
+                    (1, Color::B) => opcode::SET_1_B,
+                    (1, Color::C) => opcode::SET_1_C,
+                    (1, Color::D) => opcode::SET_1_D,
+                    (1, Color::E) => opcode::SET_1_E,
+                    (1, Color::H) => opcode::SET_1_H,
+                    (1, Color::L) => opcode::SET_1_L,
+                    (1, Color::A) => opcode::SET_1_A,
+                    (2, Color::B) => opcode::SET_2_B,
+                    (2, Color::C) => opcode::SET_2_C,
+                    (2, Color::D) => opcode::SET_2_D,
+                    (2, Color::E) => opcode::SET_2_E,
+                    (2, Color::H) => opcode::SET_2_H,
+                    (2, Color::L) => opcode::SET_2_L,
+                    (2, Color::A) => opcode::SET_2_A,
+                    (3, Color::B) => opcode::SET_3_B,
+                    (3, Color::C) => opcode::SET_3_C,
+                    (3, Color::D) => opcode::SET_3_D,
+                    (3, Color::E) => opcode::SET_3_E,
+                    (3, Color::H) => opcode::SET_3_H,
+                    (3, Color::L) => opcode::SET_3_L,
+                    (3, Color::A) => opcode::SET_3_A,
+                    (4, Color::B) => opcode::SET_4_B,
+                    (4, Color::C) => opcode::SET_4_C,
+                    (4, Color::D) => opcode::SET_4_D,
+                    (4, Color::E) => opcode::SET_4_E,
+                    (4, Color::H) => opcode::SET_4_H,
+                    (4, Color::L) => opcode::SET_4_L,
+                    (4, Color::A) => opcode::SET_4_A,
+                    (5, Color::B) => opcode::SET_5_B,
+                    (5, Color::C) => opcode::SET_5_C,
+                    (5, Color::D) => opcode::SET_5_D,
+                    (5, Color::E) => opcode::SET_5_E,
+                    (5, Color::H) => opcode::SET_5_H,
+                    (5, Color::L) => opcode::SET_5_L,
+                    (5, Color::A) => opcode::SET_5_A,
+                    (6, Color::B) => opcode::SET_6_B,
+                    (6, Color::C) => opcode::SET_6_C,
+                    (6, Color::D) => opcode::SET_6_D,
+                    (6, Color::E) => opcode::SET_6_E,
+                    (6, Color::H) => opcode::SET_6_H,
+                    (6, Color::L) => opcode::SET_6_L,
+                    (6, Color::A) => opcode::SET_6_A,
+                    (7, Color::B) => opcode::SET_7_B,
+                    (7, Color::C) => opcode::SET_7_C,
+                    (7, Color::D) => opcode::SET_7_D,
+                    (7, Color::E) => opcode::SET_7_E,
+                    (7, Color::H) => opcode::SET_7_H,
+                    (7, Color::L) => opcode::SET_7_L,
+                    (7, Color::A) => opcode::SET_7_A,
+                    (unexpected_bit, unexpected_source) => {
+                        unimplemented!("SET {unexpected_bit}, {unexpected_source:?})")
+                    }
                 };
                 bytes.extend(opcode.to_le_bytes());
             }
@@ -892,18 +870,15 @@ impl ObjFileEncoder {
                 };
                 bytes.extend(opcode.to_le_bytes());
             }
-            lir::Instr::Rl { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::RL_B,
-                    (Color::C, Color::C) => opcode::RL_C,
-                    (Color::D, Color::D) => opcode::RL_D,
-                    (Color::E, Color::E) => opcode::RL_E,
-                    (Color::H, Color::H) => opcode::RL_H,
-                    (Color::L, Color::L) => opcode::RL_L,
-                    (Color::A, Color::A) => opcode::RL_A,
+            lir::Instr::Rl { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::RL_B,
+                    Color::C => opcode::RL_C,
+                    Color::D => opcode::RL_D,
+                    Color::E => opcode::RL_E,
+                    Color::H => opcode::RL_H,
+                    Color::L => opcode::RL_L,
+                    Color::A => opcode::RL_A,
                     unexpected => unimplemented!("RL {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -911,18 +886,15 @@ impl ObjFileEncoder {
             lir::Instr::RlPtr { .. } => {
                 bytes.extend(opcode::RL_HL.to_le_bytes());
             }
-            lir::Instr::Rlc { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::RLC_B,
-                    (Color::C, Color::C) => opcode::RLC_C,
-                    (Color::D, Color::D) => opcode::RLC_D,
-                    (Color::E, Color::E) => opcode::RLC_E,
-                    (Color::H, Color::H) => opcode::RLC_H,
-                    (Color::L, Color::L) => opcode::RLC_L,
-                    (Color::A, Color::A) => opcode::RLC_A,
+            lir::Instr::Rlc { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::RLC_B,
+                    Color::C => opcode::RLC_C,
+                    Color::D => opcode::RLC_D,
+                    Color::E => opcode::RLC_E,
+                    Color::H => opcode::RLC_H,
+                    Color::L => opcode::RLC_L,
+                    Color::A => opcode::RLC_A,
                     unexpected => unimplemented!("RLC {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -930,18 +902,15 @@ impl ObjFileEncoder {
             lir::Instr::RlcPtr { .. } => {
                 bytes.extend(opcode::RLC_HL.to_le_bytes());
             }
-            lir::Instr::Rr { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::RR_B,
-                    (Color::C, Color::C) => opcode::RR_C,
-                    (Color::D, Color::D) => opcode::RR_D,
-                    (Color::E, Color::E) => opcode::RR_E,
-                    (Color::H, Color::H) => opcode::RR_H,
-                    (Color::L, Color::L) => opcode::RR_L,
-                    (Color::A, Color::A) => opcode::RR_A,
+            lir::Instr::Rr { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::RR_B,
+                    Color::C => opcode::RR_C,
+                    Color::D => opcode::RR_D,
+                    Color::E => opcode::RR_E,
+                    Color::H => opcode::RR_H,
+                    Color::L => opcode::RR_L,
+                    Color::A => opcode::RR_A,
                     unexpected => unimplemented!("RR {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -949,18 +918,15 @@ impl ObjFileEncoder {
             lir::Instr::RrPtr { .. } => {
                 bytes.extend(opcode::RR_HL.to_le_bytes());
             }
-            lir::Instr::Rrc { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::RRC_B,
-                    (Color::C, Color::C) => opcode::RRC_C,
-                    (Color::D, Color::D) => opcode::RRC_D,
-                    (Color::E, Color::E) => opcode::RRC_E,
-                    (Color::H, Color::H) => opcode::RRC_H,
-                    (Color::L, Color::L) => opcode::RRC_L,
-                    (Color::A, Color::A) => opcode::RRC_A,
+            lir::Instr::Rrc { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::RRC_B,
+                    Color::C => opcode::RRC_C,
+                    Color::D => opcode::RRC_D,
+                    Color::E => opcode::RRC_E,
+                    Color::H => opcode::RRC_H,
+                    Color::L => opcode::RRC_L,
+                    Color::A => opcode::RRC_A,
                     unexpected => unimplemented!("RRC {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -980,18 +946,15 @@ impl ObjFileEncoder {
             lir::Instr::Rrca { .. } => {
                 bytes.push(opcode::RRCA);
             }
-            lir::Instr::Sla { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::SLA_B,
-                    (Color::C, Color::C) => opcode::SLA_C,
-                    (Color::D, Color::D) => opcode::SLA_D,
-                    (Color::E, Color::E) => opcode::SLA_E,
-                    (Color::H, Color::H) => opcode::SLA_H,
-                    (Color::L, Color::L) => opcode::SLA_L,
-                    (Color::A, Color::A) => opcode::SLA_A,
+            lir::Instr::Sla { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::SLA_B,
+                    Color::C => opcode::SLA_C,
+                    Color::D => opcode::SLA_D,
+                    Color::E => opcode::SLA_E,
+                    Color::H => opcode::SLA_H,
+                    Color::L => opcode::SLA_L,
+                    Color::A => opcode::SLA_A,
                     unexpected => unimplemented!("SLA {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -999,18 +962,15 @@ impl ObjFileEncoder {
             lir::Instr::SlaPtr { .. } => {
                 bytes.extend(opcode::SLA_HL.to_le_bytes());
             }
-            lir::Instr::Sra { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::SRA_B,
-                    (Color::C, Color::C) => opcode::SRA_C,
-                    (Color::D, Color::D) => opcode::SRA_D,
-                    (Color::E, Color::E) => opcode::SRA_E,
-                    (Color::H, Color::H) => opcode::SRA_H,
-                    (Color::L, Color::L) => opcode::SRA_L,
-                    (Color::A, Color::A) => opcode::SRA_A,
+            lir::Instr::Sra { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::SRA_B,
+                    Color::C => opcode::SRA_C,
+                    Color::D => opcode::SRA_D,
+                    Color::E => opcode::SRA_E,
+                    Color::H => opcode::SRA_H,
+                    Color::L => opcode::SRA_L,
+                    Color::A => opcode::SRA_A,
                     unexpected => unimplemented!("SRA {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1018,18 +978,15 @@ impl ObjFileEncoder {
             lir::Instr::SraPtr { .. } => {
                 bytes.extend(opcode::SRA_HL.to_le_bytes());
             }
-            lir::Instr::Srl { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::SRL_B,
-                    (Color::C, Color::C) => opcode::SRL_C,
-                    (Color::D, Color::D) => opcode::SRL_D,
-                    (Color::E, Color::E) => opcode::SRL_E,
-                    (Color::H, Color::H) => opcode::SRL_H,
-                    (Color::L, Color::L) => opcode::SRL_L,
-                    (Color::A, Color::A) => opcode::SRL_A,
+            lir::Instr::Srl { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::SRL_B,
+                    Color::C => opcode::SRL_C,
+                    Color::D => opcode::SRL_D,
+                    Color::E => opcode::SRL_E,
+                    Color::H => opcode::SRL_H,
+                    Color::L => opcode::SRL_L,
+                    Color::A => opcode::SRL_A,
                     unexpected => unimplemented!("SRL {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1037,18 +994,15 @@ impl ObjFileEncoder {
             lir::Instr::SrlPtr { .. } => {
                 bytes.extend(opcode::SRL_HL.to_le_bytes());
             }
-            lir::Instr::Swap { target, source, .. } => {
-                let opcode = match (
-                    code.r8_registers[*target].color.unwrap(),
-                    code.r8_registers[*source].color.unwrap(),
-                ) {
-                    (Color::B, Color::B) => opcode::SWAP_B,
-                    (Color::C, Color::C) => opcode::SWAP_C,
-                    (Color::D, Color::D) => opcode::SWAP_D,
-                    (Color::E, Color::E) => opcode::SWAP_E,
-                    (Color::H, Color::H) => opcode::SWAP_H,
-                    (Color::L, Color::L) => opcode::SWAP_L,
-                    (Color::A, Color::A) => opcode::SWAP_A,
+            lir::Instr::Swap { source, .. } => {
+                let opcode = match code.r8_registers[*source].color.unwrap() {
+                    Color::B => opcode::SWAP_B,
+                    Color::C => opcode::SWAP_C,
+                    Color::D => opcode::SWAP_D,
+                    Color::E => opcode::SWAP_E,
+                    Color::H => opcode::SWAP_H,
+                    Color::L => opcode::SWAP_L,
+                    Color::A => opcode::SWAP_A,
                     unexpected => unimplemented!("SWAP {unexpected:?}"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -1079,26 +1033,20 @@ impl ObjFileEncoder {
                 bytes.push(opcode::LD_HL_SP_E8);
                 bytes.extend(right.to_le_bytes());
             }
-            lir::Instr::Dec16 { target, source } => {
-                let opcode = match (
-                    code.r16_registers[*target].color.unwrap(),
-                    code.r16_registers[*source].color.unwrap(),
-                ) {
-                    (Color::BC, Color::BC) => opcode::DEC16_BC,
-                    (Color::DE, Color::DE) => opcode::DEC16_DE,
-                    (Color::HL, Color::HL) => opcode::DEC16_HL,
+            lir::Instr::Dec16 { source } => {
+                let opcode = match code.r16_registers[*source].color.unwrap() {
+                    Color::BC => opcode::DEC16_BC,
+                    Color::DE => opcode::DEC16_DE,
+                    Color::HL => opcode::DEC16_HL,
                     unexpected => unimplemented!("DEC {unexpected:?}"),
                 };
                 bytes.push(opcode);
             }
-            lir::Instr::Inc16 { target, source } => {
-                let opcode = match (
-                    code.r16_registers[*target].color.unwrap(),
-                    code.r16_registers[*source].color.unwrap(),
-                ) {
-                    (Color::BC, Color::BC) => opcode::INC16_BC,
-                    (Color::DE, Color::DE) => opcode::INC16_DE,
-                    (Color::HL, Color::HL) => opcode::INC16_HL,
+            lir::Instr::Inc16 { source } => {
+                let opcode = match code.r16_registers[*source].color.unwrap() {
+                    Color::BC => opcode::INC16_BC,
+                    Color::DE => opcode::INC16_DE,
+                    Color::HL => opcode::INC16_HL,
                     unexpected => unimplemented!("INC {unexpected:?}"),
                 };
                 bytes.push(opcode);
@@ -1133,6 +1081,7 @@ impl ObjFileEncoder {
             lir::Instr::MoveCarry { .. } => {}
             lir::Instr::LdReturn8 { .. } => {}
             lir::Instr::LdReturn16 { .. } => {}
+            lir::Instr::FreshA { .. } => {}
         }
     }
 

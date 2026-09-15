@@ -99,9 +99,9 @@ f::
   LD r8#26, r8#23
   LD r8#27, r8#26
   LD r8#28, r8#25
-  (out=r16#12;high_in=r8#28;low_in=r8#27)
+  (out=r16#11;high_in=r8#28;low_in=r8#27)
   LD HL, RESULT+$0000
-  ADD HL, r16#12; c
+  ADD HL, r16#11; c
   LD [HL], r8#4
   LD r8#29, $02
   LD r8#30, $00
@@ -109,9 +109,9 @@ f::
   LD r8#32, r8#29
   LD r8#33, r8#32
   LD r8#34, r8#31
-  (out=r16#15;high_in=r8#34;low_in=r8#33)
+  (out=r16#13;high_in=r8#34;low_in=r8#33)
   LD HL, RESULT+$0000
-  ADD HL, r16#15; c
+  ADD HL, r16#13; c
   LD [HL], r8#6
   LD r8#35, $03
   LD r8#36, $00
@@ -119,9 +119,9 @@ f::
   LD r8#38, r8#35
   LD r8#39, r8#38
   LD r8#40, r8#37
-  (out=r16#18;high_in=r8#40;low_in=r8#39)
+  (out=r16#15;high_in=r8#40;low_in=r8#39)
   LD HL, RESULT+$0000
-  ADD HL, r16#18; c
+  ADD HL, r16#15; c
   LD [HL], r8#8
   LD r8#41, $04
   LD r8#42, $00
@@ -129,9 +129,9 @@ f::
   LD r8#44, r8#41
   LD r8#45, r8#44
   LD r8#46, r8#43
-  (out=r16#21;high_in=r8#46;low_in=r8#45)
+  (out=r16#17;high_in=r8#46;low_in=r8#45)
   LD HL, RESULT+$0000
-  ADD HL, r16#21; c
+  ADD HL, r16#17; c
   LD [HL], r8#10
   LD r8#47, $05
   LD r8#48, $00
@@ -139,9 +139,9 @@ f::
   LD r8#50, r8#47
   LD r8#51, r8#50
   LD r8#52, r8#49
-  (out=r16#24;high_in=r8#52;low_in=r8#51)
+  (out=r16#19;high_in=r8#52;low_in=r8#51)
   LD HL, RESULT+$0000
-  ADD HL, r16#24; c
+  ADD HL, r16#19; c
   LD [HL], r8#12
   LD r8#53, $06
   LD r8#54, $00
@@ -149,9 +149,9 @@ f::
   LD r8#56, r8#53
   LD r8#57, r8#56
   LD r8#58, r8#55
-  (out=r16#27;high_in=r8#58;low_in=r8#57)
+  (out=r16#21;high_in=r8#58;low_in=r8#57)
   LD HL, RESULT+$0000
-  ADD HL, r16#27; c
+  ADD HL, r16#21; c
   LD [HL], r8#14
   LD r8#59, $07
   LD r8#60, $00
@@ -159,9 +159,9 @@ f::
   LD r8#62, r8#59
   LD r8#63, r8#62
   LD r8#64, r8#61
-  (out=r16#30;high_in=r8#64;low_in=r8#63)
+  (out=r16#23;high_in=r8#64;low_in=r8#63)
   LD HL, RESULT+$0000
-  ADD HL, r16#30; c
+  ADD HL, r16#23; c
   LD [HL], r8#16
   RET
 
@@ -279,11 +279,11 @@ f::
   LD [HL], B
   LD HL, G+$0000
   LD B, [HL]
-  LD HL SP+3; c
+  LD HL SP+4; c
   LD [HL], B
   LD HL, H+$0000
   LD B, [HL]
-  LD HL SP+4; c
+  LD HL SP+3; c
   LD [HL], B
   LD B, $00
   LD H, $00
@@ -327,14 +327,14 @@ f::
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+3; c
+  LD HL SP+4; c
   LD A, [HL]
   LD [HL], A
   LD C, $07
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+4; c
+  LD HL SP+3; c
   LD A, [HL]
   LD [HL], A
   ADD SP 5; z, c
@@ -451,10 +451,10 @@ f::
   LD r8#29, r8#26
   LD r8#30, r8#29
   LD r8#31, r8#28
-  (out=r16#11;high_in=r8#31;low_in=r8#30)
+  (out=r16#6;high_in=r8#31;low_in=r8#30)
   LD HL, RESULT+$0000
-  ADD HL, r16#11; c
-  ADD HL, r16#11; c
+  ADD HL, r16#6; c
+  ADD HL, r16#6; c
   LD A, r8#4
   LD [HL++], A
   LD [HL], r8#5
@@ -464,10 +464,10 @@ f::
   LD r8#36, r8#33
   LD r8#37, r8#36
   LD r8#38, r8#35
-  (out=r16#16;high_in=r8#38;low_in=r8#37)
+  (out=r16#8;high_in=r8#38;low_in=r8#37)
   LD HL, RESULT+$0000
-  ADD HL, r16#16; c
-  ADD HL, r16#16; c
+  ADD HL, r16#8; c
+  ADD HL, r16#8; c
   LD A, r8#9
   LD [HL++], A
   LD [HL], r8#10
@@ -477,10 +477,10 @@ f::
   LD r8#43, r8#40
   LD r8#44, r8#43
   LD r8#45, r8#42
-  (out=r16#21;high_in=r8#45;low_in=r8#44)
+  (out=r16#10;high_in=r8#45;low_in=r8#44)
   LD HL, RESULT+$0000
-  ADD HL, r16#21; c
-  ADD HL, r16#21; c
+  ADD HL, r16#10; c
+  ADD HL, r16#10; c
   LD A, r8#14
   LD [HL++], A
   LD [HL], r8#15
@@ -490,10 +490,10 @@ f::
   LD r8#50, r8#47
   LD r8#51, r8#50
   LD r8#52, r8#49
-  (out=r16#26;high_in=r8#52;low_in=r8#51)
+  (out=r16#12;high_in=r8#52;low_in=r8#51)
   LD HL, RESULT+$0000
-  ADD HL, r16#26; c
-  ADD HL, r16#26; c
+  ADD HL, r16#12; c
+  ADD HL, r16#12; c
   LD A, r8#19
   LD [HL++], A
   LD [HL], r8#20
@@ -503,10 +503,10 @@ f::
   LD r8#57, r8#54
   LD r8#58, r8#57
   LD r8#59, r8#56
-  (out=r16#31;high_in=r8#59;low_in=r8#58)
+  (out=r16#14;high_in=r8#59;low_in=r8#58)
   LD HL, RESULT+$0000
-  ADD HL, r16#31; c
-  ADD HL, r16#31; c
+  ADD HL, r16#14; c
+  ADD HL, r16#14; c
   LD A, r8#24
   LD [HL++], A
   LD [HL], r8#25
@@ -588,61 +588,76 @@ END_SECTION
 START_SECTION ROM0
 f::
 .bb1:
-  ADD SP -8; z, c
+  ADD SP -9; z, c
   LD HL, A+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD D, A
-  LD E, B
+  LD C, [HL]
+  LD B, A
+  LD HL SP+0; c
+  LD [HL], C
   LD HL, B+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD HL SP+0; c
+  LD C, [HL]
+  LD HL SP+8; c
   LD [HL], A
-  LD A, B
-  LD HL SP+1; c
-  LD [HL], A
+  LD HL SP+2; c
+  LD [HL], C
   LD HL, C+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD HL SP+2; c
-  LD [HL], A
-  LD A, B
+  LD C, [HL]
   LD HL SP+3; c
   LD [HL], A
+  LD HL SP+4; c
+  LD [HL], C
   LD HL, D+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD HL SP+4; c
-  LD [HL], A
-  LD A, B
+  LD C, [HL]
   LD HL SP+5; c
   LD [HL], A
+  LD HL SP+6; c
+  LD [HL], C
   LD HL, E+$0000
   LD A, [HL++]
-  LD B, [HL]
-  LD HL SP+6; c
+  LD C, [HL]
+  LD HL SP+1; c
   LD [HL], A
-  LD A, B
   LD HL SP+7; c
-  LD [HL], A
-  LD C, $00
-  LD B, $00
+  LD [HL], C
+  LD E, $00
+  LD D, $00
   LD HL, RESULT+$0000
-  ADD HL, BC; c
-  ADD HL, BC; c
-  LD A, D
+  ADD HL, DE; c
+  ADD HL, DE; c
+  LD A, B
   LD [HL++], A
-  LD [HL], E
-  LD C, $01
-  LD B, $00
-  LD HL, RESULT+$0000
-  ADD HL, BC; c
-  ADD HL, BC; c
   LD HL SP+0; c
   LD A, [HL]
+  LD [HL], A
+  LD A, $01
+  LD B, $00
+  LD HL SP+0; c
+  LD [HL], A
+  LD HL SP+0; c
+  LD C, [HL]
+  LD HL SP+0; c
+  LD A, C
   LD [HL++], A
-  LD HL SP+1; c
+  LD [HL], B
+  LD HL, RESULT+$0000
+  LD HL SP+0; c
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  ADD HL, BC; c
+  LD HL SP+0; c
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  ADD HL, BC; c
+  LD HL SP+8; c
+  LD A, [HL]
+  LD [HL++], A
+  LD HL SP+2; c
   LD A, [HL]
   LD [HL], A
   LD C, $02
@@ -650,10 +665,10 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+2; c
+  LD HL SP+3; c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+3; c
+  LD HL SP+4; c
   LD A, [HL]
   LD [HL], A
   LD C, $03
@@ -661,10 +676,10 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+4; c
+  LD HL SP+5; c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+5; c
+  LD HL SP+6; c
   LD A, [HL]
   LD [HL], A
   LD C, $04
@@ -672,13 +687,13 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+6; c
+  LD HL SP+1; c
   LD A, [HL]
   LD [HL++], A
   LD HL SP+7; c
   LD A, [HL]
   LD [HL], A
-  ADD SP 8; z, c
+  ADD SP 9; z, c
   RET
 
 main::

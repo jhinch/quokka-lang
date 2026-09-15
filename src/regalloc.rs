@@ -857,7 +857,7 @@ fn load_spill_slot(
         }
         VirtualReg::Zero(flag) => {
             let source = flag_spill_r8s[&VirtualReg::Zero(flag)];
-            let one = code
+            let a = code
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
@@ -865,7 +865,7 @@ fn load_spill_slot(
                 })
                 .downcast_to_a_without_move();
             instructions.push(Instr::Ld8Value {
-                target: one.upcast_to_r8_without_move(),
+                target: a.upcast_to_r8_without_move(),
                 source: 0xff,
             });
             let z = code.zero_registers.insert(Register {
@@ -876,40 +876,19 @@ fn load_spill_slot(
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let target = code
-                .r8_registers
-                .insert(Register {
-                    color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_a_without_move();
             // zero flag is stored as 0xff when set and 0x00 when not set. To set it back to the
             // zero flag we need to take the complement of the value, but CPL doesn't set the zero
             // flag so XOR is the next best instruction.
             instructions.push(Instr::Xor {
-                target,
                 z,
                 c,
-                left: one,
+                left: a,
                 right: Operand8::Reg(source),
             });
             VirtualReg::Zero(z)
         }
         VirtualReg::Carry(flag) => {
             let source = flag_spill_r8s[&VirtualReg::Carry(flag)];
-            // even though the register will contain 0xFF if true and 0x00 if false
-            // and therefore a rotate instruction will not change the value, we still
-            // need to do a move to not confuse the register allocator and the defined
-            // declarations. To avoid this we would need to change how the LIR instructions
-            // are defined
-            let moved = code.r8_registers.insert(Register {
-                color: None,
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::Ld8 {
-                target: moved,
-                source,
-            });
             let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -918,16 +897,10 @@ fn load_spill_slot(
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            let target = code.r8_registers.insert(Register {
-                color: None,
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::Rrc {
-                target,
-                z,
-                c,
-                source: moved,
-            });
+            // this is safe to do without a move as the register will contain 0xFF if true
+            // and 0x00 if false so rotating it with RRC doesn't change anything, it just
+            // sets the z or c flags
+            instructions.push(Instr::Rrc { z, c, source });
             VirtualReg::Carry(c)
         }
     }
@@ -966,16 +939,8 @@ fn load_r16_spill_into_high_low(
             defined: [(block_id, instructions.len())].into_iter().collect(),
         })
         .downcast_to_a_without_move();
-    let revised_addr = code
-        .r16_registers
-        .insert(Register {
-            color: Some(Color::HL),
-            defined: [(block_id, instructions.len())].into_iter().collect(),
-        })
-        .downcast_to_hl_without_move();
     instructions.push(Instr::Ld8Inc {
         target: a,
-        revised_addr,
         source_addr,
     });
     code.r8_registers[low]
@@ -990,7 +955,7 @@ fn load_r16_spill_into_high_low(
         .insert(block_id, instructions.len());
     instructions.push(Instr::Ld8Ptr {
         target: high,
-        source_addr: Addr::Reg(revised_addr.upcast_to_r16_without_move()),
+        source_addr: Addr::Reg(source_addr.upcast_to_r16_without_move()),
     });
 }
 
@@ -1022,7 +987,7 @@ fn store_spill_slot(
                 right: slot,
             });
             instructions.push(Instr::Store {
-                target_addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
+                addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
                 source: r8,
             });
         }
@@ -1073,20 +1038,12 @@ fn store_spill_slot(
                 target: a.upcast_to_r8_without_move(),
                 source: low,
             });
-            let revised_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
             instructions.push(Instr::StoreInc {
-                revised_addr,
                 addr: target_addr,
                 source: a,
             });
             instructions.push(Instr::Store {
-                target_addr: Addr::Reg(revised_addr.upcast_to_r16_without_move()),
+                addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
                 source: high,
             });
         }
@@ -1097,9 +1054,10 @@ fn store_spill_slot(
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: SparseSecondaryMap::new(), // dangling
+                    defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_a_without_move();
+            instructions.push(Instr::FreshA { target: a });
             let c_in = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: SparseSecondaryMap::new(), // dangling
@@ -1129,10 +1087,6 @@ fn store_spill_slot(
             });
             // low now has the zero flag stored in the 7th bit. We can now
             // use the rotate left strategy
-            let target = code.r8_registers.insert(Register {
-                color: None,
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
             let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -1142,27 +1096,15 @@ fn store_spill_slot(
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::Rlc {
-                target,
                 z,
                 c: c_in,
                 source: low,
             });
-            let a1 = code
+            let a = code
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
                     defined: SparseSecondaryMap::new(), // dangling
-                })
-                .downcast_to_a_without_move();
-            let a2 = code.r8_registers.insert(Register {
-                color: Some(Color::A),
-                defined: SparseSecondaryMap::new(), // dangling
-            });
-            let source = code
-                .r8_registers
-                .insert(Register {
-                    color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_a_without_move();
             let z = code.zero_registers.insert(Register {
@@ -1174,11 +1116,10 @@ fn store_spill_slot(
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::Sbc {
-                target: source,
                 z,
                 c,
-                left: a1,
-                right: Operand8::Reg(a2),
+                left: a,
+                right: Operand8::Reg(a.upcast_to_r8_without_move()),
                 c_in,
             });
             let target = flag_spill_r8s[&VirtualReg::Zero(z_in)];
@@ -1187,21 +1128,18 @@ fn store_spill_slot(
                 .insert(block_id, instructions.len());
             instructions.push(Instr::Ld8 {
                 target,
-                source: source.upcast_to_r8_without_move(),
+                source: a.upcast_to_r8_without_move(),
             });
         }
         VirtualReg::Carry(c_in) => {
-            let a1 = code
+            let a = code
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: SparseSecondaryMap::new(), // dangling
+                    defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_a_without_move();
-            let a2 = code.r8_registers.insert(Register {
-                color: Some(Color::A),
-                defined: SparseSecondaryMap::new(), // dangling
-            });
+            instructions.push(Instr::FreshA { target: a });
             let source = code
                 .r8_registers
                 .insert(Register {
@@ -1218,11 +1156,10 @@ fn store_spill_slot(
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::Sbc {
-                target: source,
                 z,
                 c,
-                left: a1,
-                right: Operand8::Reg(a2),
+                left: a,
+                right: Operand8::Reg(a.upcast_to_r8_without_move()),
                 c_in,
             });
             let target = flag_spill_r8s[&VirtualReg::Carry(c_in)];
@@ -1301,7 +1238,8 @@ fn rewrite_instruction(
         | Instr::PopR16 { .. }
         | Instr::PopAF { .. }
         | Instr::LdReturn8 { .. }
-        | Instr::LdReturn16 { .. } => {}
+        | Instr::LdReturn16 { .. }
+        | Instr::FreshA { .. } => {}
         Instr::Ld8 { source, .. }
         | Instr::Dec { source, .. }
         | Instr::Inc { source, .. }
@@ -1352,7 +1290,7 @@ fn rewrite_instruction(
             *addr = sub_hl(*addr);
         }
         Instr::Store {
-            target_addr,
+            addr: target_addr,
             source,
         } => {
             if let Addr::Reg(target_addr) = target_addr {
@@ -1687,57 +1625,31 @@ fn specialize_accumulator_rotates(code: &mut CodeSectionData) {
         for instruction in &mut block.instructions {
             let is_a = |r8: R8Id| code.r8_registers[r8].color == Some(Color::A);
             match instruction {
-                Instr::Rl {
-                    target,
-                    z,
-                    c,
-                    source,
-                    c_in,
-                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                Instr::Rl { z, c, source, c_in } if !used_zero.contains(z) && is_a(*source) => {
                     *instruction = Instr::Rla {
-                        target: target.downcast_to_a_without_move(),
                         z: *z,
                         c: *c,
                         source: source.downcast_to_a_without_move(),
                         c_in: *c_in,
                     };
                 }
-                Instr::Rlc {
-                    target,
-                    z,
-                    c,
-                    source,
-                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                Instr::Rlc { z, c, source } if !used_zero.contains(z) && is_a(*source) => {
                     *instruction = Instr::Rlca {
-                        target: target.downcast_to_a_without_move(),
                         z: *z,
                         c: *c,
                         source: source.downcast_to_a_without_move(),
                     };
                 }
-                Instr::Rr {
-                    target,
-                    z,
-                    c,
-                    source,
-                    c_in,
-                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                Instr::Rr { z, c, source, c_in } if !used_zero.contains(z) && is_a(*source) => {
                     *instruction = Instr::Rra {
-                        target: target.downcast_to_a_without_move(),
                         z: *z,
                         c: *c,
                         source: source.downcast_to_a_without_move(),
                         c_in: *c_in,
                     };
                 }
-                Instr::Rrc {
-                    target,
-                    z,
-                    c,
-                    source,
-                } if !used_zero.contains(z) && is_a(*target) && is_a(*source) => {
+                Instr::Rrc { z, c, source } if !used_zero.contains(z) && is_a(*source) => {
                     *instruction = Instr::Rrca {
-                        target: target.downcast_to_a_without_move(),
                         z: *z,
                         c: *c,
                         source: source.downcast_to_a_without_move(),
@@ -1881,12 +1793,7 @@ mod tests {
             ..Register::default()
         });
         let block = code.blocks.insert(Block {
-            instructions: vec![Instr::Rlc {
-                target: r8,
-                z,
-                c,
-                source: r8,
-            }],
+            instructions: vec![Instr::Rlc { z, c, source: r8 }],
             terminator: Terminator::Ret,
             previous: Vec::new(),
         });
