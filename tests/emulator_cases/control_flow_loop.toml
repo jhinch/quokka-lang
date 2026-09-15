@@ -1,0 +1,195 @@
+# Covers `LoopExpression`, `break` and `continue`, one shape per case.
+
+[[case]]
+name = "loop_breaks_immediately"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUT = 1;
+    loop {
+        OUT = 2;
+        break;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 2
+
+[[case]]
+name = "loop_accumulates_until_break"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let i = 0;
+    let sum = 0;
+    loop {
+        if i == 5 then {
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    OUT = sum;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 10 # 0 + 1 + 2 + 3 + 4
+
+[[case]]
+name = "loop_break_with_value"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let x = 7;
+    let result: u8 = loop {
+        break x;
+    };
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7
+
+[[case]]
+name = "loop_continue_skips_rest_of_body"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global SKIPPED_RAN: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let i = 0;
+    let sum = 0;
+    SKIPPED_RAN = 0;
+    loop {
+        if i == 5 then {
+            break;
+        }
+        i = i + 1;
+        if i == 3 then {
+            continue;
+        }
+        sum = sum + i;
+        if i == 3 then {
+            SKIPPED_RAN = 1;
+        }
+    }
+    OUT = sum;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 12 # 1 + 2 + 4 + 5 (3 is skipped by `continue`)
+[[case.assertion]]
+addr = 0xC001
+expected = 0 # code after `continue` in the iteration where i == 3 must not run
+mask = 0b0000_0001
+
+[[case]]
+name = "nested_loop_inner_break_only_exits_inner"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let outer: u8 = 0;
+    let total: u8 = 0;
+    loop {
+        if outer == 3 then {
+            break;
+        }
+        let inner: u8 = 0;
+        loop {
+            if inner == 2 then {
+                break;
+            }
+            total = total + 1;
+            inner = inner + 1;
+        }
+        outer = outer + 1;
+    }
+    OUT = total;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 6 # outer loop runs 3 times, inner loop runs 2 times each
+
+[[case]]
+name = "nested_loop_inner_continue_does_not_affect_outer"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let outer: u8 = 0;
+    let total: u8 = 0;
+    loop {
+        if outer == 3 then {
+            break;
+        }
+        let inner: u8 = 0;
+        loop {
+            if inner == 3 then {
+                break;
+            }
+            inner = inner + 1;
+            if inner == 2 then {
+                continue;
+            }
+            total = total + 1;
+        }
+        outer = outer + 1;
+    }
+    OUT = total;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 6 # each of the 3 outer iterations counts inner values 1 and 3, skipping 2

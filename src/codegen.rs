@@ -1,8 +1,8 @@
 use crate::ast::Identifier;
 use crate::lir::{
     BlockId, CarryId, CodeSectionBuilder, DataSectionData, FlagId, FnAddr, HLId, Ld16Source, Lir,
-    LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SIGN_MASK,
-    SectionAddr, SectionId, Terminator, ZeroId,
+    LirBuilder, Operand8, R8Id, RamRegionKind, RamSectionData, RomRegionKind, SectionAddr,
+    SectionId, Terminator, ZeroId,
 };
 use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::{BitCount, u3};
@@ -1179,8 +1179,9 @@ impl CodeGen {
             }
             mir::Instr::Neg { target, source } => {
                 let a = lir.insert_ld_a(block, locals.r8s[*source]);
-                let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(SIGN_MASK));
+                lir.insert_cpl(block, a);
                 let r8 = lir.insert_move_a(block, a);
+                let _z = lir.insert_inc(block, r8);
                 (*target, r8)
             }
             mir::Instr::RotateLeft { target, source } => {
@@ -1380,10 +1381,16 @@ impl CodeGen {
             mir::Instr::Neg { target, source } => {
                 let (source_high, source_low) =
                     self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let a = lir.insert_ld_a(block, source_low);
+                lir.insert_cpl(block, a);
+                let target_low = lir.insert_move_a(block, a);
                 let a = lir.insert_ld_a(block, source_high);
-                let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(SIGN_MASK));
+                lir.insert_cpl(block, a);
                 let target_high = lir.insert_move_a(block, a);
-                (*target, target_high, source_low)
+                let target16 = lir.insert_join(block, target_high, target_low);
+                lir.insert_inc16(block, target16);
+                let (target_high, target_low) = lir.insert_split(block, target16);
+                (*target, target_high, target_low)
             }
             mir::Instr::RotateLeft { target, source } => {
                 let (source_high, source_low) =
@@ -1799,7 +1806,7 @@ impl CodeGen {
                 }
             }
         }
-        let r8 = if ty.bit_size(&self.ty_registry).into_u32() <= 8 {
+        let r8 = if local_ty.bit_size(&self.ty_registry).into_u32() <= 8 {
             assert_eq!(bit_offset.bytes(), 0);
             locals.r8s[local]
         } else {

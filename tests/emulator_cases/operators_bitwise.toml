@@ -1,48 +1,8 @@
-[[case]]
-name = "not_u8"
-source = """
-global IN: u8;
-
-#[address = 0xC000]
-global OUT: u8;
-
-#[address = 0x0150]
-fn checkpoint() {}
-
-fn main() {
-    IN = 0x0F;
-    OUT = !IN;
-
-    checkpoint();
-}
-"""
-await_pc = 0x0150
-[[case.assertion]]
-addr = 0xC000
-expected = 0xF0
-
-[[case]]
-name = "not_u16"
-source = """
-global IN: u16;
-
-#[address = 0xC001]
-global OUT: u16;
-
-#[address = 0x0150]
-fn checkpoint() {}
-
-fn main() {
-    IN = 0x00FF;
-    OUT = !IN;
-
-    checkpoint();
-}
-"""
-await_pc = 0x0150
-[[case.assertion]]
-addr = 0xC001
-expected = [0x00, 0xFF] # 0xFF00
+# Covers the single-operand `NotExpression`, `ShiftExpression` and `RotateExpression` forms, one
+# operator and width per case. Each case binds the operand into a `let` local first (rather than
+# applying the operator directly to a global read, which has no local to re-read afterwards - see
+# `docs/src/reference/statements/lets.md`) and checks both the result and that the operand's local
+# was not corrupted by computing it.
 
 [[case]]
 name = "not_u1"
@@ -51,13 +11,18 @@ global IN: u1;
 
 #[address = 0xC000]
 global OUT: u1;
+#[address = 0xC001]
+global IN_OUT: u1;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 1;
-    OUT = !IN;
+    let in_ = IN;
+    let result = !in_;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -67,6 +32,72 @@ await_pc = 0x0150
 addr = 0xC000
 expected = 0
 mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "not_u8"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global IN_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x0F;
+    let in_ = IN;
+    let result = !in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xF0
+[[case.assertion]]
+addr = 0xC001
+expected = 0x0F
+
+[[case]]
+name = "not_u16"
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global IN_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x00FF;
+    let in_ = IN;
+    let result = !in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0xFF] # 0xFF00
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0x00]
 
 [[case]]
 name = "shift_left_u8"
@@ -75,13 +106,18 @@ global IN: u8;
 
 #[address = 0xC000]
 global OUT: u8;
+#[address = 0xC001]
+global IN_OUT: u8;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0b10000001;
-    OUT = IN <<;
+    let in_ = IN;
+    let result = in_ <<;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -90,75 +126,102 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0b00000010 # top bit dropped, 0 shifted in
+[[case.assertion]]
+addr = 0xC001
+expected = 0b10000001
 
 [[case]]
 name = "shift_right_u8"
 source = """
 global IN: u8;
 
-#[address = 0xC001]
+#[address = 0xC000]
 global OUT: u8;
+#[address = 0xC001]
+global IN_OUT: u8;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0b10000001;
-    OUT = IN >>;
+    let in_ = IN;
+    let result = in_ >>;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
 """
 await_pc = 0x0150
 [[case.assertion]]
-addr = 0xC001
+addr = 0xC000
 expected = 0b01000000 # bottom bit dropped, 0 shifted in (unsigned = logical shift)
+[[case.assertion]]
+addr = 0xC001
+expected = 0b10000001
 
 [[case]]
 name = "rotate_left_u8"
 source = """
 global IN: u8;
 
-#[address = 0xC002]
+#[address = 0xC000]
 global OUT: u8;
+#[address = 0xC001]
+global IN_OUT: u8;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0b10000001;
-    OUT = IN <%;
+    let in_ = IN;
+    let result = in_ <%;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
 """
 await_pc = 0x0150
 [[case.assertion]]
-addr = 0xC002
+addr = 0xC000
 expected = 0b00000011 # top bit wraps around to the bottom
+[[case.assertion]]
+addr = 0xC001
+expected = 0b10000001
 
 [[case]]
 name = "rotate_right_u8"
 source = """
 global IN: u8;
 
-#[address = 0xC003]
+#[address = 0xC000]
 global OUT: u8;
+#[address = 0xC001]
+global IN_OUT: u8;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0b10000001;
-    OUT = IN >%;
+    let in_ = IN;
+    let result = in_ >%;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
 """
 await_pc = 0x0150
 [[case.assertion]]
-addr = 0xC003
+addr = 0xC000
 expected = 0b11000000 # bottom bit wraps around to the top
+[[case.assertion]]
+addr = 0xC001
+expected = 0b10000001
 
 [[case]]
 name = "shift_left_u16"
@@ -167,13 +230,18 @@ global IN: u16;
 
 #[address = 0xC000]
 global OUT: u16;
+#[address = 0xC002]
+global IN_OUT: u16;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0x8001;
-    OUT = IN <<;
+    let in_ = IN;
+    let result = in_ <<;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -182,6 +250,9 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = [0x02, 0x00] # 0x8001 << 1 = 0x0002 (bit 15 dropped, low byte's bit 7 was 0 so no carry in)
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x80]
 
 [[case]]
 name = "shift_right_u16"
@@ -190,13 +261,18 @@ global IN: u16;
 
 #[address = 0xC000]
 global OUT: u16;
+#[address = 0xC002]
+global IN_OUT: u16;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0x8001;
-    OUT = IN >>;
+    let in_ = IN;
+    let result = in_ >>;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -205,6 +281,9 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = [0x00, 0x40] # 0x8001 >> 1 = 0x4000 (unsigned/logical shift)
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x80]
 
 [[case]]
 name = "rotate_left_u16"
@@ -213,13 +292,18 @@ global IN: u16;
 
 #[address = 0xC000]
 global OUT: u16;
+#[address = 0xC002]
+global IN_OUT: u16;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0x8001;
-    OUT = IN <%;
+    let in_ = IN;
+    let result = in_ <%;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -228,6 +312,9 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = [0x03, 0x00] # 0x8001 rotated left = 0x0003 (bit 15 wraps to bit 0)
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x80]
 
 [[case]]
 name = "rotate_right_u16"
@@ -236,13 +323,18 @@ global IN: u16;
 
 #[address = 0xC000]
 global OUT: u16;
+#[address = 0xC002]
+global IN_OUT: u16;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
     IN = 0x8001;
-    OUT = IN >%;
+    let in_ = IN;
+    let result = in_ >%;
+    OUT = result;
+    IN_OUT = in_;
 
     checkpoint();
 }
@@ -251,3 +343,6 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = [0x00, 0xC0] # 0x8001 rotated right = 0xC000 (bit 0 wraps to bit 15)
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x80]

@@ -1,0 +1,204 @@
+# Covers `IfExpression`, one shape per case: with/without an `else` branch, condition true/false,
+# used as a value-producing expression, and nested ifs.
+
+[[case]]
+name = "if_without_else_condition_true"
+source = """
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COND = 1;
+    OUT = 0;
+    if COND then {
+        OUT = 42;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 42
+
+[[case]]
+name = "if_without_else_condition_false"
+source = """
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COND = 0;
+    OUT = 7;
+    if COND then {
+        OUT = 42;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7 # the if-body must not have run
+
+[[case]]
+name = "if_else_takes_then_branch"
+source = """
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COND = 1;
+    if COND then {
+        OUT = 1;
+    } else {
+        OUT = 2;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+
+[[case]]
+name = "if_else_takes_else_branch"
+source = """
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COND = 0;
+    if COND then {
+        OUT = 1;
+    } else {
+        OUT = 2;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 2
+
+[[case]]
+name = "if_else_as_value_producing_expression"
+source = """
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COND = 1;
+    let result: u8 = if COND then {
+        yield 10;
+    } else {
+        yield 20;
+    };
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 10
+
+[[case]]
+name = "nested_if_inner_condition_gates_outer_body"
+source = """
+global OUTER: u1;
+global INNER: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUTER = 1;
+    INNER = 1;
+    OUT = 0;
+    if OUTER then {
+        if INNER then {
+            OUT = 99;
+        }
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 99
+
+[[case]]
+name = "nested_if_outer_false_skips_inner"
+source = """
+global OUTER: u1;
+global INNER: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global INNER_BODY_RAN: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUTER = 0;
+    INNER = 1;
+    OUT = 5;
+    INNER_BODY_RAN = 0;
+    if OUTER then {
+        if INNER then {
+            INNER_BODY_RAN = 1;
+        }
+        OUT = 99;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 5 # outer body, including the nested if, must not have run
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001

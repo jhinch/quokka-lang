@@ -1,0 +1,184 @@
+# Covers the `NegateExpression` (`-`) unary operator, which only applies to signed integer types
+# (`i8`, `i16` - see `docs/src/reference/expressions/operators.md`). Each case binds the operand
+# into a `let` local first and checks both the two's-complement negation result and that the
+# operand's local was not corrupted by computing it.
+#
+# Negation previously miscompiled as `XOR` with the sign bit (flipping bit 7 only) rather than a
+# true two's-complement negation (`~x + 1`), so e.g. negating `1` produced `-127` instead of `-1`.
+# These cases pin down the correct two's-complement behavior, including the classic edge case where
+# the most negative value of a width negates to itself (`-128 -> -128`, `-32768 -> -32768`) since
+# that magnitude has no positive two's-complement counterpart.
+
+[[case]]
+name = "neg_i8"
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global IN_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 1;
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF # -1
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+
+[[case]]
+name = "neg_i8_positive_result"
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global IN_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0xEC; // -20
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 20
+[[case.assertion]]
+addr = 0xC001
+expected = 0xEC
+
+[[case]]
+name = "neg_i8_most_negative_value_regression"
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x80; // -128, has no positive two's-complement counterpart
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x80 # -128 negates to itself
+
+[[case]]
+name = "neg_i16"
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global OUT: i16;
+#[address = 0xC002]
+global IN_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 1;
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0xFF] # -1
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x00]
+
+[[case]]
+name = "neg_i16_borrow_across_bytes"
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global OUT: i16;
+#[address = 0xC002]
+global IN_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x0100; // 256
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+    IN_OUT = in_;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0xFF] # -256 = 0xFF00
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x01]
+
+[[case]]
+name = "neg_i16_most_negative_value_regression"
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x8000; // -32768, has no positive two's-complement counterpart
+    let in_ = IN;
+    let result = -in_;
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x80] # -32768 negates to itself

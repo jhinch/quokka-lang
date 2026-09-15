@@ -1,0 +1,169 @@
+# Covers `FieldAccessExpression` on a global struct (a full language feature) and on a local struct
+# (gated behind the `local-field-access` preview feature - see
+# docs/src/reference/expressions/field-access.md).
+#
+# `local_field_read` previously crashed: reading a field from a local whose *overall* type spans
+# more than a single byte picked which register to read from based on the *field's* size (any u8
+# field, including the second field of a two-`u8` struct) rather than the *local's* overall size,
+# so reading the second field of a local struct either failed an internal assertion or would have
+# silently read the wrong byte. See `src/codegen.rs`'s `projected_local_to_r8`.
+#
+# `local_field_write` is `ignored`: writing to a field of a local struct is entirely unimplemented
+# in codegen.rs (same underlying gap as `array_index.toml`'s local-array write case - nothing lowers
+# `Write` with a `Field` projection on a local).
+
+[[case]]
+name = "global_struct_field_read"
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    P.x = 10;
+    P.y = 20;
+    OUT = P.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 20
+
+[[case]]
+name = "global_struct_field_write_does_not_corrupt_sibling_field"
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_Y: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    P.x = 10;
+    P.y = 20;
+    P.x = 99;
+    OUT_X = P.x;
+    OUT_Y = P.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 99
+[[case.assertion]]
+addr = 0xC001
+expected = 20 # writing x must not disturb y
+
+[[case]]
+name = "local_field_read"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_Y: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    P.x = 10;
+    P.y = 20;
+    let p = P;
+    OUT_X = p.x;
+    OUT_Y = p.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 10
+[[case.assertion]]
+addr = 0xC001
+expected = 20
+
+[[case]]
+name = "local_field_read_does_not_corrupt_source_local"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+
+#[address = 0xC000]
+global OUT_Y: u8;
+#[address = 0xC001]
+global P_OUT: [u8; 2];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    P.x = 10;
+    P.y = 20;
+    let p = P;
+    OUT_Y = p.y;
+    P_OUT[0] = p.x;
+    P_OUT[1] = p.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 20
+[[case.assertion]]
+addr = 0xC001
+expected = [10, 20]
+
+[[case]]
+name = "local_field_write"
+ignored = "Writing to a field of a local struct is entirely unimplemented in codegen.rs - it hits `not yet implemented: Write { .. }`. See the comment at the top of this file. Un-ignore once codegen.rs lowers Write projections on locals."
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_Y: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let p: Point = Point { x: 1, y: 2 };
+    p.x = 99;
+    OUT_X = p.x;
+    OUT_Y = p.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 99
+[[case.assertion]]
+addr = 0xC001
+expected = 2 # writing x must not disturb y

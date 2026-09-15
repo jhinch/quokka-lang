@@ -1,25 +1,32 @@
 # Covers `&&` and `||`, which (unlike the other operators) only operate on u1 and short-circuit
-# their right operand.
+# their right operand. One case per operator for the plain value-producing behavior (with operand
+# corruption checks), and a separate case per operator for the short-circuit behavior.
 
 [[case]]
-name = "boolean_operator_values"
+name = "and_value"
 source = """
-global A: u1;
-global B: u1;
+global LEFT: u1;
+global RIGHT: u1;
 
 #[address = 0xC000]
-global AND_OUT: u1;
+global OUT: u1;
 #[address = 0xC001]
-global OR_OUT: u1;
+global LEFT_OUT: u1;
+#[address = 0xC002]
+global RIGHT_OUT: u1;
 
 #[address = 0x0150]
 fn checkpoint() {}
 
 fn main() {
-    A = 1;
-    B = 0;
-    AND_OUT = A && B;
-    OR_OUT = A || B;
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left && right;
+    OUT = result;
+    LEFT_OUT = left;
+    RIGHT_OUT = right;
 
     checkpoint();
 }
@@ -33,9 +40,56 @@ mask = 0b0000_0001
 addr = 0xC001
 expected = 1
 mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 0
+mask = 0b0000_0001
 
 [[case]]
-name = "boolean_operators_short_circuit"
+name = "or_value"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+#[address = 0xC002]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left || right;
+    OUT = result;
+    LEFT_OUT = left;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "and_short_circuits"
 source = """
 global LEFT: u1;
 
@@ -43,10 +97,6 @@ global LEFT: u1;
 global AND_RESULT: u1;
 #[address = 0xC001]
 global AND_CALLED: u1;
-#[address = 0xC002]
-global OR_RESULT: u1;
-#[address = 0xC003]
-global OR_CALLED: u1;
 
 #[address = 0x0150]
 fn checkpoint() {}
@@ -56,19 +106,10 @@ fn and_rhs() -> u1 {
     return 1;
 }
 
-fn or_rhs() -> u1 {
-    OR_CALLED = 1;
-    return 0;
-}
-
 fn main() {
     LEFT = 0;
     AND_CALLED = 0;
     AND_RESULT = LEFT && and_rhs();
-
-    LEFT = 1;
-    OR_CALLED = 0;
-    OR_RESULT = LEFT || or_rhs();
 
     checkpoint();
 }
@@ -82,11 +123,39 @@ mask = 0b0000_0001
 addr = 0xC001
 expected = 0 # and_rhs() must not have run since the left side of && was already false
 mask = 0b0000_0001
+
+[[case]]
+name = "or_short_circuits"
+source = """
+global LEFT: u1;
+
+#[address = 0xC000]
+global OR_RESULT: u1;
+#[address = 0xC001]
+global OR_CALLED: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn or_rhs() -> u1 {
+    OR_CALLED = 1;
+    return 0;
+}
+
+fn main() {
+    LEFT = 1;
+    OR_CALLED = 0;
+    OR_RESULT = LEFT || or_rhs();
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
 [[case.assertion]]
-addr = 0xC002
+addr = 0xC000
 expected = 1
 mask = 0b0000_0001
 [[case.assertion]]
-addr = 0xC003
+addr = 0xC001
 expected = 0 # or_rhs() must not have run since the left side of || was already true
 mask = 0b0000_0001

@@ -486,8 +486,6 @@ pub const ZERO_FLAG_BIT: u8 = 7;
 pub const ZERO_FLAG_MASK: u8 = 1 << ZERO_FLAG_BIT;
 pub const CARRY_FLAG_BIT: u8 = 4;
 pub const CARRY_FLAG_MASK: u8 = 1 << CARRY_FLAG_BIT;
-pub const SIGN_BIT: u8 = 7;
-pub const SIGN_MASK: u8 = 1 << SIGN_BIT;
 
 #[derive(Debug, Default)]
 pub struct Lir {

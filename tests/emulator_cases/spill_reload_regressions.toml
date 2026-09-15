@@ -1,0 +1,110 @@
+# Two related, currently-unfixed register-allocator soundness bugs, both found while writing the
+# per-operand corruption checks in `operators_arithmetic.toml`. Checking that *both* operands of a
+# u16 binary operator survive the operation (i.e. both `let` locals are read again afterwards) is
+# enough register pressure on the Game Boy's small register file to force a spill of one of the
+# operand's high bytes - and reloading that spill corrupts unrelated, still-live state, because the
+# spill reload sequence emitted by `load_spill_slot` in `src/regalloc.rs` always clobbers `HL` and
+# the flags register to compute the spill slot's address (`LD HL, SP+e8`), without checking whether
+# some other already-colored, still-live virtual register is relying on `HL` or a flag surviving
+# across that point. This is a real architectural gap - the register allocator decides colors and
+# liveness *before* spill code exists, so nothing in that pass can see clobbers introduced by the
+# later, separate spill-rewrite pass.
+#
+# Both cases below spilled the same way in the same minimal `left`/`right` u16 program; only the
+# operator differs, which is what determines *which* prior state ends up corrupted:
+#
+# - `+`/`-` chain the low byte's carry into the high byte's `ADC`/`SBC`. If a spill reload lands
+#   between the two, `LD HL, SP+e8` clobbers the carry flag before the high byte instruction reads
+#   it, silently discarding the borrow/carry.
+# - `&`/`|`/`^` don't need a live flag (their z/c outputs are unused), but storing the *second*
+#   operand back out to a global still depends on `HL` holding the target address across two
+#   instructions (`LD [HL++], A` for the low byte, then `LD [HL], A` for the high byte). If a spill
+#   reload for the high byte's source value lands in between, it repoints `HL` at the spill slot
+#   instead, and the final `LD [HL], A` silently writes the value back into the spill slot rather
+#   than the intended global - the target's high byte is left as whatever WRAM happened to contain.
+#
+# `operators_arithmetic.toml`'s u16 cases work around this by only keeping one operand alive across
+# the operation per case (checking `left` and `right` in separate cases), which stays under the
+# pressure threshold that triggers the spill.
+
+[[case]]
+name = "sub_u16_both_operands_live_corrupts_borrow_regression"
+ignored = "Register pressure from keeping both `left` and `right` live past the subtraction forces a spill of the right operand's high byte. Reloading it between the low byte's SUB and the high byte's SBC uses `LD HL, SP+e8`, which clobbers the carry flag the SBC depends on, so the borrow from the low byte is silently lost. See the comment at the top of this file for the full root cause; un-ignore once `src/regalloc.rs`'s spill-reload codegen preserves flags that are live across a reload."
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+#[address = 0xC004]
+global RIGHT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1000;
+    RIGHT = 0x0001;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left - right;
+    OUT = result;
+    LEFT_OUT = left;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0x0F] # low byte borrows from high byte: 0x0FFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x10]
+[[case.assertion]]
+addr = 0xC004
+expected = [0x01, 0x00]
+
+[[case]]
+name = "bitand_u16_both_operands_live_corrupts_store_target_regression"
+ignored = "Register pressure from keeping both `left` and `right` live past the AND forces a spill of the right operand's high byte. Reloading it between the low- and high-byte halves of storing RIGHT_OUT repoints HL at the spill slot instead of RIGHT_OUT's high byte, so the final store silently writes back into the spill slot instead of RIGHT_OUT. See the comment at the top of this file for the full root cause; un-ignore once `src/regalloc.rs`'s spill-reload codegen preserves a live HL address across a reload."
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+#[address = 0xC004]
+global RIGHT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    RIGHT = 0x00FF;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left & right;
+    OUT = result;
+    LEFT_OUT = left;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x00]
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12]
+[[case.assertion]]
+addr = 0xC004
+expected = [0xFF, 0x00]

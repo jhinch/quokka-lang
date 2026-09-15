@@ -1,0 +1,204 @@
+# Covers `ArrayIndexExpression` with a runtime (non-constant) index on a global array (a full
+# language feature - see docs/src/reference/expressions/array-index.md). `globals.toml` already
+# covers indexing with compile-time-constant indices, so these cases focus on indices computed at
+# runtime, which take a different codegen path.
+#
+# The two `local_array_*` cases at the bottom are `ignored`: indexing a *local* array (gated behind
+# the `local-array` preview feature) turns out to be entirely unimplemented in codegen.rs, not just
+# for a runtime index - even the doc's own literal-index example (`a[0]`) hits the same
+# `not yet implemented: cannot lower Index(Local(..)) on local` panic. The analyzer/type-checker
+# fully accept and type-check local-array indexing (see tests/cases/types/local_array.toml), but
+# nothing in codegen.rs lowers it to any actual Game Boy instructions yet.
+
+[[case]]
+name = "global_array_read_runtime_index"
+source = """
+global ARR: [u8; 4];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    ARR[0] = 10;
+    ARR[1] = 20;
+    ARR[2] = 30;
+    ARR[3] = 40;
+    INDEX = 2;
+    let index = INDEX;
+    OUT = ARR[index];
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 30
+
+[[case]]
+name = "global_array_write_runtime_index"
+source = """
+global ARR: [u8; 4];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 4];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    ARR[0] = 1;
+    ARR[1] = 1;
+    ARR[2] = 1;
+    ARR[3] = 1;
+    INDEX = 2;
+    let index = INDEX;
+    ARR[index] = 99;
+
+    OUT[0] = ARR[0];
+    OUT[1] = ARR[1];
+    OUT[2] = ARR[2];
+    OUT[3] = ARR[3];
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [1, 1, 99, 1] # only index 2 is overwritten
+
+[[case]]
+name = "global_array_runtime_index_variable_not_corrupted"
+source = """
+global ARR: [u8; 4];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global INDEX_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    ARR[0] = 10;
+    ARR[1] = 20;
+    ARR[2] = 30;
+    ARR[3] = 40;
+    INDEX = 2;
+    let index = INDEX;
+    OUT = ARR[index];
+    INDEX_OUT = index;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 30
+[[case.assertion]]
+addr = 0xC001
+expected = [0x02, 0x00]
+
+[[case]]
+name = "loop_computed_index_writes_each_array_element"
+source = """
+global ARR: [u16; 5];
+
+#[address = 0xC000]
+global OUT: [u16; 5];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let i: u16 = 0;
+    loop {
+        if i == 5 then {
+            break;
+        }
+        ARR[i] = i;
+        i += 1;
+    }
+
+    OUT[0] = ARR[0];
+    OUT[1] = ARR[1];
+    OUT[2] = ARR[2];
+    OUT[3] = ARR[3];
+    OUT[4] = ARR[4];
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0, 0, 1, 0, 2, 0, 3, 0, 4, 0]
+
+[[case]]
+name = "local_array_read_runtime_index"
+ignored = "Indexing a local array is entirely unimplemented in codegen.rs - it hits `not yet implemented: cannot lower Index(Local(..)) on local` even for a literal index, not just a runtime one. See the comment at the top of this file. Un-ignore once codegen.rs lowers Index projections on local arrays."
+preview_features = ["local-array"]
+source = """
+global ARR: [u8; 2];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    ARR[0] = 10;
+    ARR[1] = 20;
+    INDEX = 1;
+    let arr = ARR;
+    let index = INDEX;
+    OUT = arr[index];
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 20
+
+[[case]]
+name = "local_array_write_runtime_index"
+ignored = "Writing to a local array element is entirely unimplemented in codegen.rs - it hits `not yet implemented: Write { .. }` even during the array literal's own initialization, not just the runtime-indexed assignment. See the comment at the top of this file. Un-ignore once codegen.rs lowers Write projections on local arrays."
+preview_features = ["local-array"]
+source = """
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 2];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let arr: [u8; 2] = [1, 1];
+    INDEX = 1;
+    let index = INDEX;
+    arr[index] = 99;
+
+    OUT[0] = arr[0];
+    OUT[1] = arr[1];
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [1, 99] # only index 1 is overwritten
