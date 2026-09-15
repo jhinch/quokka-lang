@@ -16,6 +16,32 @@ use slotmap::{SecondaryMap, SparseSecondaryMap};
 pub const CART_HEADER_START_ADDR: u16 = 0x0100;
 pub const CART_HEADER_END_ADDR: u16 = 0x014F;
 
+/// Size in bytes of each entry in the RST/interrupt jump vector table.
+///
+/// See <https://gbdev.io/pandocs/Memory_Map.html#jump-vectors-in-first-rom-bank>
+const VECTOR_SLOT_LEN: u16 = 8;
+
+/// `RST` vector addresses, each handled with a bare `RET` stub.
+const RST_VECTOR_ADDRS: [(u16, &str); 8] = [
+    (0x0000, "@RST_00"),
+    (0x0008, "@RST_08"),
+    (0x0010, "@RST_10"),
+    (0x0018, "@RST_18"),
+    (0x0020, "@RST_20"),
+    (0x0028, "@RST_28"),
+    (0x0030, "@RST_30"),
+    (0x0038, "@RST_38"),
+];
+
+/// Interrupt vector addresses, each handled with a bare `RETI` stub.
+const INTERRUPT_VECTOR_ADDRS: [(u16, &str); 5] = [
+    (0x0040, "@INT_VBLANK"),
+    (0x0048, "@INT_LCD_STAT"),
+    (0x0050, "@INT_TIMER"),
+    (0x0058, "@INT_SERIAL"),
+    (0x0060, "@INT_JOYPAD"),
+];
+
 pub struct CodeGen {
     ty_registry: TyRegistry,
     result_builder: MultiResultBuilder,
@@ -120,6 +146,11 @@ impl CodeGen {
     ///
     /// This includes:
     ///
+    /// * **RST vector stubs** `ROM0[0x0000..=0x003F]` - One `RET` stub per `RST` vector, so the
+    ///   linker cannot place other code in the region until `RST` is supported
+    /// * **Interrupt vector stubs** `ROM0[0x0040..=0x0067]` - One `RETI` stub per interrupt
+    ///   vector, so the linker cannot place other code in the region until interrupts are
+    ///   supported
     /// * **Cartridge header code section** `ROM0[0x0100..=0x0103]` - Jumps to the bootstrap code
     /// * **Cartridge header data section** `ROM0[0x0104..=0x014F]` - Zero'd out ROM data for the header data
     /// * **Bootstrap code section** `ROM0[auto]` - Initializes SP, calls to entrypoint, then spins
@@ -128,6 +159,13 @@ impl CodeGen {
         mir: &mir::Mir,
         functions: &SecondaryMap<mir::FunctionId, FnAddr>,
     ) {
+        for &(addr, name) in &RST_VECTOR_ADDRS {
+            self.generate_vector_stub(addr, name, Terminator::Ret);
+        }
+        for &(addr, name) in &INTERRUPT_VECTOR_ADDRS {
+            self.generate_vector_stub(addr, name, Terminator::Reti);
+        }
+
         const CART_HEADER_DATA_START_ADDR: u16 = CART_HEADER_START_ADDR + 4;
         const CART_HEADER_DATA_LEN: usize =
             CART_HEADER_END_ADDR as usize - CART_HEADER_DATA_START_ADDR as usize + 1;
@@ -185,6 +223,26 @@ impl CodeGen {
         );
         self.lir
             .seal_code_section(bootstrap_code_section_id, bootstrap_code);
+    }
+
+    /// Generates a single jump-vector stub: a 1-byte terminator instruction (`RET` or `RETI`)
+    /// pinned at `addr`, followed by a zero'd out data section padding the rest of the
+    /// [`VECTOR_SLOT_LEN`]-byte slot. Reserving the whole slot keeps the linker from placing
+    /// other code in it before `RST`/interrupts are actually supported.
+    fn generate_vector_stub(&mut self, addr: u16, name: &str, terminator: Terminator) {
+        let code_section_id = self.lir.reserve_code_section();
+        let mut code = CodeSectionBuilder::default();
+        code.set_region_and_addr(RomRegionKind::Rom0, addr);
+        let block = code.new_function(Identifier::from(name));
+        code.set_terminator(block, terminator);
+        self.lir.seal_code_section(code_section_id, code);
+
+        let _ = self.lir.insert_data_section(DataSectionData {
+            name: Identifier::from(format!("{name}_PAD")),
+            region: Some(RomRegionKind::Rom0),
+            addr: Some(addr + 1),
+            data: vec![0; (VECTOR_SLOT_LEN - 1) as usize],
+        });
     }
 
     fn generate_from_global(&mut self, global: &mir::Global) -> LoweredGlobal {

@@ -129,7 +129,7 @@ fn calculate_function_blocks(code: &CodeSectionData) -> FunctionBlocks {
             queue.extend(code.blocks[block].next_blocks());
             if matches!(
                 code.blocks[block].terminator,
-                Terminator::Ret | Terminator::RetIf { .. }
+                Terminator::Ret | Terminator::RetIf { .. } | Terminator::Reti
             ) {
                 exits.insert(block);
             }
@@ -1434,6 +1434,7 @@ fn rewrite_terminator(
         | Terminator::Jp { .. }
         | Terminator::JpFn { .. }
         | Terminator::Ret
+        | Terminator::Reti
         | Terminator::Halt { .. } => {}
         Terminator::CallR16 { callee, .. } => {
             *callee = sub_r16(*callee);

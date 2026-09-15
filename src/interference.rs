@@ -1032,6 +1032,7 @@ fn restrict_from_terminator(terminator: &Terminator, graph: &mut InterferenceGra
         | Terminator::Jp { .. }
         | Terminator::JpFn { .. }
         | Terminator::Ret
+        | Terminator::Reti
         | Terminator::Halt { .. } => {}
     }
 }

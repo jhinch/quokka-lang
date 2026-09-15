@@ -2416,6 +2416,8 @@ pub enum Terminator {
         negate: bool,
         else_block: BlockId,
     },
+    /// `RETI`
+    Reti,
     /// `HALT`
     Halt { return_block: BlockId },
 }
@@ -2434,6 +2436,7 @@ impl Terminator {
             | Terminator::Jp { .. }
             | Terminator::JpFn { .. }
             | Terminator::Ret
+            | Terminator::Reti
             | Terminator::Halt { .. } => None,
         }
         .into_iter()
@@ -2479,6 +2482,7 @@ impl Terminator {
                 },
                 Terminator::JpFn { .. } => None,
                 Terminator::Ret => None,
+                Terminator::Reti => None,
             }?;
             next += 1;
             Some(value)
@@ -2559,6 +2563,9 @@ impl Terminator {
                 }
                 write!(f, "{}", source.display(lir, section))?;
                 write!(f, "; else={else_block}")
+            }
+            Terminator::Reti => {
+                write!(f, "RETI")
             }
             Terminator::Halt { return_block } => {
                 write!(f, "HALT; return={return_block}")
@@ -2834,7 +2841,7 @@ impl CodeSectionBuilder {
             "block {block:?} is already terminated"
         );
         match &terminator {
-            Terminator::Ret | Terminator::JpFn { .. } => {}
+            Terminator::Ret | Terminator::Reti | Terminator::JpFn { .. } => {}
             Terminator::Call { return_block, .. }
             | Terminator::CallR16 { return_block, .. }
             | Terminator::Jp {

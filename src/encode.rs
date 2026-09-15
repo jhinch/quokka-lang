@@ -1234,6 +1234,10 @@ impl ObjFileEncoder {
                 bytes.push(opcode::RET);
                 None
             }
+            lir::Terminator::Reti => {
+                bytes.push(opcode::RETI);
+                None
+            }
             lir::Terminator::RetIf {
                 source,
                 negate,
