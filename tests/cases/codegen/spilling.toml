@@ -423,23 +423,23 @@ f::
   LD E, B
   LD HL, D+$0000
   LD B, [HL]
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD [HL], B
   LD HL, E+$0000
   LD B, [HL]
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD [HL], B
   LD HL, F+$0000
   LD B, [HL]
-  LD HL SP+2; c
+  LD HL SP+2; z, c
   LD [HL], B
   LD HL, G+$0000
   LD B, [HL]
-  LD HL SP+4; c
+  LD HL SP+4; z, c
   LD [HL], B
   LD HL, H+$0000
   LD B, [HL]
-  LD HL SP+3; c
+  LD HL SP+3; z, c
   LD [HL], B
   LD B, $00
   LD H, $00
@@ -462,35 +462,35 @@ f::
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $04
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $05
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+2; c
+  LD HL SP+2; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $06
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+4; c
+  LD HL SP+4; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $07
   LD B, $00
   LD HL, RESULT+$0000
   ADD HL, BC; c
-  LD HL SP+3; c
+  LD HL SP+3; z, c
   LD A, [HL]
   LD [HL], A
   ADD SP 5; z, c
@@ -1061,35 +1061,35 @@ f::
   LD A, [HL++]
   LD C, [HL]
   LD B, A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD [HL], C
   LD HL, B+$0000
   LD A, [HL++]
   LD C, [HL]
-  LD HL SP+8; c
+  LD HL SP+8; z, c
   LD [HL], A
-  LD HL SP+2; c
+  LD HL SP+2; z, c
   LD [HL], C
   LD HL, C+$0000
   LD A, [HL++]
   LD C, [HL]
-  LD HL SP+3; c
+  LD HL SP+3; z, c
   LD [HL], A
-  LD HL SP+4; c
+  LD HL SP+4; z, c
   LD [HL], C
   LD HL, D+$0000
   LD A, [HL++]
   LD C, [HL]
-  LD HL SP+5; c
+  LD HL SP+5; z, c
   LD [HL], A
-  LD HL SP+6; c
+  LD HL SP+6; z, c
   LD [HL], C
   LD HL, E+$0000
   LD A, [HL++]
   LD C, [HL]
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD [HL], A
-  LD HL SP+7; c
+  LD HL SP+7; z, c
   LD [HL], C
   LD E, $00
   LD D, $00
@@ -1098,34 +1098,34 @@ f::
   ADD HL, DE; c
   LD A, B
   LD [HL++], A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL]
   LD [HL], A
   LD A, $01
   LD B, $00
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD [HL], A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD C, [HL]
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, C
   LD [HL++], A
   LD [HL], B
   LD HL, RESULT+$0000
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL++]
   LD C, A
   LD B, [HL]
   ADD HL, BC; c
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL++]
   LD C, A
   LD B, [HL]
   ADD HL, BC; c
-  LD HL SP+8; c
+  LD HL SP+8; z, c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+2; c
+  LD HL SP+2; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $02
@@ -1133,10 +1133,10 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+3; c
+  LD HL SP+3; z, c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+4; c
+  LD HL SP+4; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $03
@@ -1144,10 +1144,10 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+5; c
+  LD HL SP+5; z, c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+6; c
+  LD HL SP+6; z, c
   LD A, [HL]
   LD [HL], A
   LD C, $04
@@ -1155,10 +1155,10 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   ADD HL, BC; c
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD A, [HL]
   LD [HL++], A
-  LD HL SP+7; c
+  LD HL SP+7; z, c
   LD A, [HL]
   LD [HL], A
   ADD SP 9; z, c

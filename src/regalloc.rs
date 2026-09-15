@@ -813,12 +813,17 @@ fn load_spill_slot(
                     defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_hl_without_move();
+            let z = code.zero_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
             let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::LdSPE8 {
                 target: source_addr,
+                z,
                 c,
                 right: slot,
             });
@@ -923,12 +928,17 @@ fn load_r16_spill_into_high_low(
             defined: [(block_id, instructions.len())].into_iter().collect(),
         })
         .downcast_to_hl_without_move();
+    let z = code.zero_registers.insert(Register {
+        color: Some(Color::Fz),
+        defined: [(block_id, instructions.len())].into_iter().collect(),
+    });
     let c = code.carry_registers.insert(Register {
         color: Some(Color::Fc),
         defined: [(block_id, instructions.len())].into_iter().collect(),
     });
     instructions.push(Instr::LdSPE8 {
         target: source_addr,
+        z,
         c,
         right: slot,
     });
@@ -977,12 +987,17 @@ fn store_spill_slot(
                     defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_hl_without_move();
+            let z = code.zero_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
             let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::LdSPE8 {
                 target: target_addr,
+                z,
                 c,
                 right: slot,
             });
@@ -1000,12 +1015,17 @@ fn store_spill_slot(
                     defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_hl_without_move();
+            let z = code.zero_registers.insert(Register {
+                color: Some(Color::Fz),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            });
             let c = code.carry_registers.insert(Register {
                 color: Some(Color::Fc),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
             instructions.push(Instr::LdSPE8 {
                 target: target_addr,
+                z,
                 c,
                 right: slot,
             });

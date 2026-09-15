@@ -926,9 +926,10 @@ fn restrict_from_instruction(
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
-        Instr::LdSPE8 { c, target, .. } => {
+        Instr::LdSPE8 { z, c, target, .. } => {
             // `LD HL SP+e8`
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
             graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
         }
         Instr::Dec16 { source } | Instr::Inc16 { source } => {

@@ -1000,13 +1000,14 @@ END_SECTION
 START_SECTION ROM0
 collatz_steps::
 .bb1:
-  ADD SP -2; z, c
+  ADD SP -5; z, c
   LD HL, N+$0000
   LD A, [HL++]
   LD C, [HL]
-  LD E, $00
+  LD D, $00
   LD B, $00
-  LD D, B
+  LD HL SP+4; z, c
+  LD [HL], B
   JP .bb3
 
 main::
@@ -1020,95 +1021,152 @@ main::
 
 .bb3:
   LD B, A
-  LD H, $01
-  LD L, $00
+  LD HL SP+3; z, c
+  LD [HL], B
+  LD B, C
+  LD HL SP+2; z, c
+  LD [HL], B
+  LD B, $01
+  LD C, $00
+  LD HL SP+2; z, c
+  LD A, [HL]
+  SUB A, C; z, c
+  LD HL SP+3; z, c
+  LD A, [HL]
+  SBC A, B; z, c
+  FRESH A
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  LD HL SP+0; z, c
   LD A, C
-  SUB A, L; z, c
-  LD A, B
-  SBC A, H; z, c
-  LD A, E
-  LD HL SP+1; c
-  LD [HL], A
-  LD A, D
-  LD HL SP+0; c
-  LD [HL], A
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+0; z, c
+  LD HL SP+0; z, c
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL SP+0; z, c
+  LD [HL], B
+  LD [HL++], A
+  LD HL SP+0; z, c
+  LD B, [HL]
+  LD [HL], B
+  LD HL SP+0; z, c
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL SP+0; z, c
+  LD [HL], B
+  RLCA A; z, c
+  SBC A, A; z, c
+  LD B, D
+  LD HL SP+1; z, c
+  LD [HL], B
+  LD HL SP+4; z, c
+  LD B, [HL]
+  LD HL SP+0; z, c
+  LD [HL], B
+  LD A, $ff
+  XOR A, A; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
   JP .bb6
 
 .bb5:
-  LD D, $01
-  LD E, $00
-  LD A, B
-  AND A, D; z, c
-  LD D, A
+  LD C, $01
+  LD B, $00
+  LD HL SP+3; z, c
+  LD A, [HL]
+  AND A, C; z, c
+  LD C, A
+  LD HL SP+2; z, c
+  LD A, [HL]
+  AND A, B; z, c
+  LD B, $00
+  LD D, $00
+  SUB A, D; z, c
   LD A, C
-  AND A, E; z, c
-  LD E, $00
-  LD H, $00
-  SUB A, H; z, c
-  LD A, D
-  SBC A, E; z, c
+  SBC A, B; z, c
   JP z, .bb7; else=.bb8
 
 .bb6:
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL]
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD B, [HL]
-  ADD SP 2; z, c
+  ADD SP 5; z, c
   RET
 
 .bb7:
-  SRL C; z, c
-  LD A, B
-  RRA A; z, c
-  LD E, A
+  LD HL SP+2; z, c
+  LD B, [HL]
+  SRL B; z, c
+  LD HL SP+3; z, c
+  LD C, [HL]
+  RR C; z, c
+  LD E, C
+  LD HL SP+0; z, c
+  LD [HL], B
   JP .bb9
 
 .bb8:
-  LD A, B
+  LD HL SP+3; z, c
+  LD A, [HL]
+  LD HL SP+3; z, c
+  LD B, [HL]
   ADD A, B; z, c
-  LD E, A
+  LD B, A
+  LD HL SP+2; z, c
+  LD A, [HL]
+  LD HL SP+2; z, c
+  LD C, [HL]
+  ADC A, C; z, c
+  LD C, A
+  LD A, B
+  LD HL SP+3; z, c
+  LD B, [HL]
+  ADD A, B; z, c
+  LD B, A
   LD A, C
+  LD HL SP+2; z, c
+  LD C, [HL]
   ADC A, C; z, c
   LD D, A
-  LD A, E
-  ADD A, B; z, c
-  LD B, A
-  LD A, D
-  ADC A, C; z, c
-  LD C, A
-  LD E, $01
-  LD D, $00
+  LD C, $01
+  LD E, $00
   LD A, B
-  ADD A, E; z, c
-  LD B, A
-  LD A, C
-  ADC A, D; z, c
-  LD E, B
+  ADD A, C; z, c
   LD C, A
+  LD A, D
+  ADC A, E; z, c
+  LD B, A
+  LD E, C
+  LD HL SP+0; z, c
+  LD [HL], B
   JP .bb9
 
 .bb9:
-  LD A, $01
-  LD D, $00
-  LD B, A
-  LD HL SP+0; c
-  LD A, [HL]
-  LD HL SP+1; c
+  LD B, $01
+  LD C, $00
+  LD HL SP+0; z, c
+  LD D, [HL]
+  LD HL SP+1; z, c
   LD H, [HL]
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD A, [HL]
   ADD A, B; z, c
   LD B, A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL]
-  ADC A, D; z, c
-  LD D, A
+  ADC A, C; z, c
+  LD C, A
+  LD D, B
+  LD B, C
+  LD HL SP+0; z, c
+  LD C, [HL]
   LD A, E
-  LD E, B
+  LD HL SP+4; z, c
+  LD [HL], B
   JP .bb3
 
 .bb10:

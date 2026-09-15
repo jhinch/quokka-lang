@@ -981,7 +981,12 @@ pub enum Instr {
     /// `ADD SP e8`
     AddSP { z: ZeroId, c: CarryId, right: i8 },
     /// `LD HL,SP+e8`
-    LdSPE8 { target: HLId, c: CarryId, right: i8 },
+    LdSPE8 {
+        target: HLId,
+        z: ZeroId,
+        c: CarryId,
+        right: i8,
+    },
     /// `DEC r16`
     Dec16 { source: R16Id },
     /// `INC r16`
@@ -1340,6 +1345,7 @@ impl Instr {
             | Instr::Swap { z, .. }
             | Instr::SwapPtr { z, .. }
             | Instr::AddSP { z, .. }
+            | Instr::LdSPE8 { z, .. }
             | Instr::PopAF { z, .. }
             | Instr::MoveZero { z, .. } => Some(*z),
             Instr::Nop
@@ -1364,7 +1370,6 @@ impl Instr {
             | Instr::Ccf { .. }
             | Instr::Scf { .. }
             | Instr::Add16 { .. }
-            | Instr::LdSPE8 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
             | Instr::PushR16 { .. }
@@ -2318,11 +2323,17 @@ impl Instr {
                     c.display_carry(lir, section),
                 )
             }
-            Instr::LdSPE8 { target, c, right } => {
+            Instr::LdSPE8 {
+                target,
+                z,
+                c,
+                right,
+            } => {
                 write!(
                     f,
-                    "LD {} SP+{right}; {}",
+                    "LD {} SP+{right}; {}, {}",
                     target.display(lir, section),
+                    z.display_zero(lir, section),
                     c.display_carry(lir, section),
                 )
             }

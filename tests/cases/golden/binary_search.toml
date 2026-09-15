@@ -1568,17 +1568,17 @@ main::
   CALL binary_search; return=.bb11
 
 .bb3:
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD [HL], C
   LD D, A
   LD A, B
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD [HL], A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD A, [HL]
   SUB A, D; z, c
   LD A, E
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD B, [HL]
   SBC A, B; z, c
   JP c, .bb4; else=.bb5
@@ -1591,11 +1591,11 @@ main::
 
 .bb5:
   LD A, D
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD B, [HL]
   ADD A, B; z, c
   LD B, A
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD A, [HL]
   ADC A, E; z, c
   SRL A; z, c
@@ -1631,7 +1631,7 @@ main::
   ADC A, D; z, c
   LD B, C
   LD D, A
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD C, [HL]
   LD A, E
   JP .bb10
@@ -1645,7 +1645,7 @@ main::
   LD A, B
   SBC A, E; z, c
   LD B, D
-  LD HL SP+1; c
+  LD HL SP+1; z, c
   LD D, [HL]
   JP .bb10
 

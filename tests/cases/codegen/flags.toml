@@ -394,7 +394,7 @@ f::
   POP BC
   RLC C; z, c
   SBC A, A; z, c
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD [HL], A
   LD HL, C+$0000
   LD A, [HL]
@@ -431,7 +431,7 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff
-  LD HL SP+0; c
+  LD HL SP+0; z, c
   LD B, [HL]
   XOR A, B; z, c
   PUSH AF(high_in=A, z_in=z, c_in=c)
