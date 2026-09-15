@@ -993,11 +993,14 @@ pub enum Instr {
     Inc16 { source: R16Id },
     /// `PUSH r16`
     PushR16 { source: R16Id },
+    /// push the AF register onto the stack. If `source`, `z_in` or `c_in` are None, their
+    /// bits are considered undefined and will push whatever the current values in those
+    /// registers are.
     /// `PUSH AF`
     PushAF {
-        source: AId,
-        z_in: ZeroId,
-        c_in: CarryId,
+        source: Option<AId>,
+        z_in: Option<ZeroId>,
+        c_in: Option<CarryId>,
     },
     /// `POP r16`
     PopR16 { target: R16Id },
@@ -1534,9 +1537,12 @@ impl Instr {
                 | Instr::Rla { source, .. }
                 | Instr::Rlca { source, .. }
                 | Instr::Rra { source, .. }
-                | Instr::Rrca { source, .. }
-                | Instr::PushAF { source, .. } => match next {
+                | Instr::Rrca { source, .. } => match next {
                     0 => Some(source.0),
+                    _ => None,
+                },
+                Instr::PushAF { source, .. } => match next {
+                    0 => source.map(|source| source.0),
                     _ => None,
                 },
                 Instr::Nop
@@ -1697,7 +1703,8 @@ impl Instr {
     #[must_use]
     pub fn zero_in(&self) -> Option<ZeroId> {
         match self {
-            Instr::PushAF { z_in, .. } | Instr::MoveZero { z_in, .. } => Some(*z_in),
+            Instr::PushAF { z_in, .. } => *z_in,
+            Instr::MoveZero { z_in, .. } => Some(*z_in),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1782,8 +1789,8 @@ impl Instr {
             | Instr::Rla { c_in, .. }
             | Instr::Rra { c_in, .. }
             | Instr::Ccf { c_in, .. }
-            | Instr::MoveCarry { c_in, .. }
-            | Instr::PushAF { c_in, .. } => Some(*c_in),
+            | Instr::MoveCarry { c_in, .. } => Some(*c_in),
+            Instr::PushAF { c_in, .. } => *c_in,
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -2338,13 +2345,22 @@ impl Instr {
                 )
             }
             Instr::PushAF { source, z_in, c_in } => {
-                write!(
-                    f,
-                    "PUSH AF(high_in={}, z_in={}, c_in={})",
-                    source.display(lir, section),
-                    z_in.display(lir, section),
-                    c_in.display(lir, section),
-                )
+                write!(f, "PUSH AF(high_in=")?;
+                match source {
+                    None => write!(f, "?")?,
+                    Some(source) => write!(f, "{}", source.display(lir, section))?,
+                }
+                write!(f, ", z_in=")?;
+                match z_in {
+                    None => write!(f, "?")?,
+                    Some(z_in) => write!(f, "{}", z_in.display(lir, section))?,
+                }
+                write!(f, ", c_in=")?;
+                match c_in {
+                    None => write!(f, "?")?,
+                    Some(c_in) => write!(f, "{}", c_in.display(lir, section))?,
+                }
+                write!(f, ")")
             }
             Instr::PushR16 { source } => {
                 write!(f, "PUSH {}", source.display(lir, section))
@@ -3743,9 +3759,14 @@ impl CodeSectionBuilder {
     /// `PUSH AF`
     /// Useful for storing the zero flag to the stack to be restored via a pop
     pub fn insert_push_af_z(&mut self, block: BlockId, z_in: ZeroId) {
-        let source = self.new_a();
-        let c_in = self.new_carry_flag();
-        self.insert_instr(block, Instr::PushAF { source, z_in, c_in });
+        self.insert_instr(
+            block,
+            Instr::PushAF {
+                source: None,
+                z_in: Some(z_in),
+                c_in: None,
+            },
+        );
     }
 
     /// `POP r16`

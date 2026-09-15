@@ -1034,8 +1034,7 @@ main::
   LD HL SP+3; z, c
   LD A, [HL]
   SBC A, B; z, c
-  FRESH A
-  PUSH AF(high_in=A, z_in=z, c_in=c)
+  PUSH AF(high_in=?, z_in=z, c_in=?)
   POP BC
   LD HL SP+0; z, c
   LD A, C

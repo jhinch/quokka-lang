@@ -994,13 +994,19 @@ fn restrict_from_instruction(
             // `POP r16`
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r16());
         }
-        Instr::PushAF {
-            source: target,
-            z_in: z,
-            c_in: c,
-        }
-        | Instr::PopAF { target, z, c } => {
+        Instr::PushAF { source, z_in, c_in } => {
             // `PUSH AF`
+            if let Some(source) = source {
+                graph.constrain_colors_to(VirtualReg::from(*source), Color::r8());
+            }
+            if let Some(z_in) = z_in {
+                graph.constrain_colors_to(VirtualReg::from(*z_in), Color::z());
+            }
+            if let Some(c_in) = c_in {
+                graph.constrain_colors_to(VirtualReg::from(*c_in), Color::c());
+            }
+        }
+        Instr::PopAF { target, z, c } => {
             // `POP AF`
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());
             graph.constrain_colors_to(VirtualReg::from(*z), Color::z());

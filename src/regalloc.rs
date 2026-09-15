@@ -1070,22 +1070,10 @@ fn store_spill_slot(
         VirtualReg::Zero(z_in) => {
             // zero flags are difficult, unfortunately. We need to push them onto
             // the stack then pop onto a 16-bit register
-            let a = code
-                .r8_registers
-                .insert(Register {
-                    color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_a_without_move();
-            instructions.push(Instr::FreshA { target: a });
-            let c_in = code.carry_registers.insert(Register {
-                color: Some(Color::Fc),
-                defined: SparseSecondaryMap::new(), // dangling
-            });
             instructions.push(Instr::PushAF {
-                source: a,
-                z_in,
-                c_in,
+                source: None,
+                z_in: Some(z_in),
+                c_in: None,
             });
             let target = code.r16_registers.insert(Register {
                 color: None,
@@ -1392,9 +1380,15 @@ fn rewrite_instruction(
             *source = sub_r16(*source);
         }
         Instr::PushAF { source, z_in, c_in } => {
-            *source = sub_a(*source);
-            *z_in = sub_zero(*z_in);
-            *c_in = sub_carry(*c_in);
+            if let Some(source) = source {
+                *source = sub_a(*source);
+            }
+            if let Some(z_in) = z_in {
+                *z_in = sub_zero(*z_in);
+            }
+            if let Some(c_in) = c_in {
+                *c_in = sub_carry(*c_in);
+            }
         }
         Instr::Join {
             high_in, low_in, ..
