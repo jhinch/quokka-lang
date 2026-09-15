@@ -243,7 +243,10 @@ ping_or_pong::
 .bb1:
   LD HL, CHOICE+$0000
   LD A, [HL]
-  BIT 0, A; z
+  RRCA A; z, c
+  FRESH A
+  SBC A, A; z, c
+  CP A, $ff; z, c
   JP z, .bb5; else=.bb6
 
 ping::

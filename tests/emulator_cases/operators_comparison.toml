@@ -3,17 +3,15 @@
 # carry propagation between the bytes (see operators_arithmetic.toml for the matching `-`
 # regression).
 #
-# Every case below is currently `ignored`: comparisons always produce a u1 result, and storing a
-# u1 result back into a `global: u1` writes an incorrect raw byte value (the same bug documented
-# in operators_arithmetic.toml's `arithmetic_u1` case and operators_boolean.toml's
-# `boolean_operator_values` case). None of these should need any other changes to pass once that
-# bug is fixed - un-ignore them at that point to get full regression coverage back at once. The
-# two cases at the bottom of this file document two further, separate gaps (`<=`/`>` unimplemented
-# for runtime operands, and u1-typed comparison operands hitting a `todo!()`).
+# Comparisons always produce a u1 result, and a `global: u1` only defines bit 0 of its byte - the
+# rest is left as whatever WRAM happened to contain at boot (SameBoy deliberately randomizes
+# uninitialized memory, matching real hardware - see docs/src/reference/items/global-items.md on
+# globals not being zero-initialized), so every assertion on one masks down to bit 0. The two
+# cases at the bottom of this file document two further, separate gaps (`<=`/`>` unimplemented for
+# runtime operands, and u1-typed comparison operands hitting a `todo!()`), and stay `ignored`.
 
 [[case]]
 name = "comparisons_u8"
-ignored = "comparisons produce a u1 result; storing it into a `global: u1` writes an incorrect raw byte value - see the R1-to-memory Store path in codegen.rs (r1_to_r8 / the per-bit read-modify-write in Instr::Store). Un-ignore once fixed."
 source = """
 global A: u8;
 global B: u8;
@@ -45,19 +43,22 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC003
 expected = 0
+mask = 0b0000_0001
 
 [[case]]
 name = "comparisons_u16"
-ignored = "same u1-result Store bug as comparisons_u8 above - see that case's `ignored` reason."
 source = """
 global A: u16;
 global B: u16;
@@ -91,19 +92,22 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC003
 expected = 0
+mask = 0b0000_0001
 
 [[case]]
 name = "comparisons_u16_equal_values"
-ignored = "same u1-result Store bug as comparisons_u8 above - see that case's `ignored` reason."
 source = """
 global A: u16;
 global B: u16;
@@ -132,12 +136,15 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 1
+mask = 0b0000_0001
 
 [[case]]
 name = "comparison_le_and_gt_unimplemented_regression"

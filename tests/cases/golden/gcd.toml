@@ -721,12 +721,14 @@ gcd::
 .bb1:
   LD HL, A+$0000
   LD A, [HL++]
-  LD C, [HL]
-  LD B, A
+  LD B, [HL]
+  LD C, A
   LD HL, B+$0000
   LD A, [HL++]
   LD D, [HL]
   LD E, D
+  LD D, C
+  LD C, B
   JP .bb3
 
 main::
@@ -744,46 +746,47 @@ main::
   CALL gcd; return=.bb9
 
 .bb3:
-  LD D, A
+  LD B, A
   LD H, $00
   LD L, $00
   LD A, E
   SUB A, L; z, c
-  LD A, D
+  LD A, B
   SBC A, H; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
-  LD A, B
+  LD B, C
+  LD A, D
   RET
 
 .bb5:
-  LD A, D
-  SUB A, B; z, c
+  LD A, B
+  SUB A, D; z, c
   LD A, E
   SBC A, C; z, c
   JP c, .bb6; else=.bb7
 
 .bb6:
-  LD A, B
-  SUB A, D; z, c
-  LD B, A
+  LD A, D
+  SUB A, B; z, c
+  LD D, A
   LD A, C
   SBC A, E; z, c
   LD C, A
   JP .bb8
 
 .bb7:
-  LD A, D
-  SUB A, B; z, c
-  LD D, A
+  LD A, B
+  SUB A, D; z, c
+  LD B, A
   LD A, E
   SBC A, C; z, c
   LD E, A
   JP .bb8
 
 .bb8:
-  LD A, D
+  LD A, B
   JP .bb3
 
 .bb9:

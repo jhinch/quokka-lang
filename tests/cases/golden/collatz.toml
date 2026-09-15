@@ -908,8 +908,7 @@ main::
   SRL C; z, c
   LD A, B
   RRA A; z, c
-  LD D, A
-  LD E, C
+  LD E, A
   JP .bb9
 
 .bb8:
@@ -932,13 +931,13 @@ main::
   LD B, A
   LD A, C
   ADC A, D; z, c
-  LD D, B
-  LD E, A
+  LD E, B
+  LD C, A
   JP .bb9
 
 .bb9:
   LD A, $01
-  LD C, $00
+  LD D, $00
   LD B, A
   LD HL SP+0; c
   LD A, [HL]
@@ -950,12 +949,10 @@ main::
   LD B, A
   LD HL SP+0; c
   LD A, [HL]
-  ADC A, C; z, c
-  LD H, A
-  LD A, D
-  LD C, E
+  ADC A, D; z, c
+  LD D, A
+  LD A, E
   LD E, B
-  LD D, H
   JP .bb3
 
 .bb10:

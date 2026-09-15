@@ -75,6 +75,35 @@ impl From<ModelKind> for Model {
 struct Assertion {
     addr: u16,
     expected: ExpectedValue,
+    /// Bits to compare, per byte starting at `addr`. Defaults to `0xff` (every bit compared).
+    /// A single value broadcasts across every byte of `expected`; e.g. a `global: u1` only
+    /// defines bit 0 of its byte, with the rest left as whatever WRAM happened to contain at
+    /// boot (SameBoy deliberately randomizes uninitialized memory, matching real hardware), so
+    /// such an assertion should set `mask = 0b0000_0001` to ignore those undefined bits.
+    #[serde(default)]
+    mask: Option<ExpectedValue>,
+}
+
+impl Assertion {
+    /// The mask bytes to compare, one per byte of `expected`.
+    fn mask_bytes(&self) -> Vec<u8> {
+        let len = self.expected.as_bytes().len();
+        match &self.mask {
+            None => vec![0xff; len],
+            Some(mask) => {
+                let mask = mask.as_bytes();
+                match mask.len() {
+                    1 => vec![mask[0]; len],
+                    mask_len if mask_len == len => mask,
+                    mask_len => panic!(
+                        "mask at ${:04x} has {mask_len} byte(s), expected 1 (broadcast) or {len} \
+                         to match `expected`",
+                        self.addr
+                    ),
+                }
+            }
+        }
+    }
 }
 
 /// The expected value of an [`Assertion`]: either a single byte, or an array of consecutive
@@ -191,12 +220,20 @@ fn run_case(case: &TestCase) {
 
     for assertion in &case.assertions {
         let expected = assertion.expected.as_bytes();
+        let mask = assertion.mask_bytes();
         let actual: Vec<u8> = (0..expected.len() as u16)
             .map(|offset| emulator.read_memory(assertion.addr.wrapping_add(offset)))
             .collect();
+        let masked_actual: Vec<u8> = actual.iter().zip(&mask).map(|(byte, m)| byte & m).collect();
+        let masked_expected: Vec<u8> = expected
+            .iter()
+            .zip(&mask)
+            .map(|(byte, m)| byte & m)
+            .collect();
         assert_eq!(
-            actual, expected,
-            "memory at ${:04x} did not match expected value",
+            masked_actual, masked_expected,
+            "memory at ${:04x} did not match expected value (mask {mask:02x?}, raw actual \
+             {actual:02x?}, raw expected {expected:02x?})",
             assertion.addr
         );
     }

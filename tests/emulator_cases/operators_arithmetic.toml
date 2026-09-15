@@ -1,6 +1,5 @@
 [[case]]
 name = "arithmetic_u1"
-ignored = "storing a u1 result back into a `global: u1` writes an incorrect raw byte value - see the R1-to-memory Store path in codegen.rs (r1_to_r8 / the per-bit read-modify-write in Instr::Store). This affects any u1-typed result being stored to a variable, not just u1 arithmetic (see operators_comparison.toml and operators_boolean.toml for the same bug via comparisons/&&/||). Un-ignore once fixed."
 source = """
 global A: u1;
 global B: u1;
@@ -47,18 +46,23 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC003
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC004
 expected = 1
+mask = 0b0000_0001
 
 [[case]]
 name = "arithmetic_u8"
@@ -240,7 +244,6 @@ expected = [0x34, 0x12] # low byte first, then high byte
 
 [[case]]
 name = "compound_assign_u1"
-ignored = "same u1 Store bug as arithmetic_u1 above - see that case's `ignored` reason."
 source = """
 global A: u1;
 
@@ -286,18 +289,23 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC002
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC003
 expected = 1
+mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC004
 expected = 0
+mask = 0b0000_0001
 
 [[case]]
 name = "compound_assign_u8"

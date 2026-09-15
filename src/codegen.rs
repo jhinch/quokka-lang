@@ -725,23 +725,20 @@ impl CodeGen {
                 );
                 match self.r1_to_operand(source, block, lir, locals) {
                     (Operand8::Reg(source), condition) => {
+                        let mask = 1 << u8::from(bit);
                         let existing = lir.insert_ld8_hl_ptr(block, target);
                         let a = lir.insert_ld_a(block, existing);
-                        let (_z, _c) =
-                            lir.insert_and(block, a, Operand8::Literal(!(1 << u8::from(bit))));
-                        let a = if condition == mir::Condition::NotZero {
-                            let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(source));
-                            a
-                        } else {
-                            // we need to flip the bits of the source, but the accumulator is already
-                            // being used by existing, so we need to move exiting to another register
-                            // first
-                            let existing = lir.insert_move_a(block, a);
-                            let a = lir.insert_ld_a(block, source);
+                        let (_z, _c) = lir.insert_and(block, a, Operand8::Literal(!mask));
+                        // `source` is a full-byte 0x00/0xFF boolean, not just the target bit, so
+                        // we need to move the cleared existing byte out of the accumulator and
+                        // mask `source` down to that single bit before merging the two
+                        let existing = lir.insert_move_a(block, a);
+                        let a = lir.insert_ld_a(block, source);
+                        if condition != mir::Condition::NotZero {
                             lir.insert_cpl(block, a);
-                            let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(existing));
-                            a
-                        };
+                        }
+                        let (_z, _c) = lir.insert_and(block, a, Operand8::Literal(mask));
+                        let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(existing));
                         // this move is unnecessary, but we'll rely on register coalescing
                         // to fix it
                         let source = lir.insert_move_a(block, a);
@@ -932,7 +929,17 @@ impl CodeGen {
                 let (z, _c) = lir.insert_cp(block, r8, Operand8::Literal(0xFF));
                 FlagId::from(z)
             }
-            R1::Bit(r8, bit) => FlagId::from(lir.insert_bit(block, bit, r8)),
+            R1::Bit(r8, bit) => {
+                // `BIT` sets Z when the tested bit is 0, i.e. Z is SET for a *false* u1 value -
+                // the opposite polarity of every other flag source here, which all have Z/C SET
+                // mean true (matching `mir::Condition::NotZero` on the value). Route through
+                // `r1_to_r8`'s canonical 0xFF/0x00 form and the same CP-against-0xFF trick the
+                // `R1::R8` case above uses, so the returned flag's SET state means true here too.
+                let r8 = self.r1_to_r8(R1::Bit(r8, bit), block, lir);
+                let a = lir.insert_ld_a(block, r8);
+                let (z, _c) = lir.insert_cp(block, a, Operand8::Literal(0xFF));
+                FlagId::from(z)
+            }
         }
     }
 

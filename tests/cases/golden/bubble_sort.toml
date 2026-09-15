@@ -1785,9 +1785,8 @@ main::
   LD B, A
   LD HL SP+1; c
   LD C, [HL]
-  LD A, C
   LD HL SP+0; c
-  LD [HL], A
+  LD [HL], C
   RRC B; z, c
   JP c, .bb11; else=.bb12
 
@@ -1898,8 +1897,9 @@ main::
   LD HL SP+1; c
   LD A, [HL]
   ADD A, B; z, c
+  LD C, A
   LD HL SP+0; c
-  LD [HL], A
+  LD [HL], C
   JP .bb12
 
 .bb12:
