@@ -418,6 +418,11 @@ impl CodeGen {
         for mir_block in function.traverse_blocks() {
             let block = blocks[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
+                if matches!(instruction, mir::Instr::Nop) {
+                    // big hack for now. Nop doesn't have a Ty and we ignore it later
+                    // so ignore it upfront
+                    continue;
+                }
                 let ty = self.ty_from_instr(mir, function, instruction);
                 self.generate_from_instr(
                     instruction,
@@ -773,7 +778,7 @@ impl CodeGen {
                 projections,
                 source,
             } => {
-                let (target, bit) = self.projected_global_to_addr(
+                let (addr, bit) = self.projected_global_to_addr(
                     *target,
                     projections.as_slice(),
                     block,
@@ -784,7 +789,7 @@ impl CodeGen {
                 match self.r1_to_operand(source, block, lir, locals) {
                     (Operand8::Reg(source), condition) => {
                         let mask = 1 << u8::from(bit);
-                        let existing = lir.insert_ld8_hl_ptr(block, target);
+                        let existing = lir.insert_ld8_hl_ptr(block, addr);
                         let a = lir.insert_ld_a(block, existing);
                         let (_z, _c) = lir.insert_and(block, a, Operand8::Literal(!mask));
                         // `source` is a full-byte 0x00/0xFF boolean, not just the target bit, so
@@ -797,19 +802,27 @@ impl CodeGen {
                         }
                         let (_z, _c) = lir.insert_and(block, a, Operand8::Literal(mask));
                         let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(existing));
+                        let (addr, _bit) = self.projected_global_to_addr(
+                            *target,
+                            projections.as_slice(),
+                            block,
+                            lir,
+                            ctx,
+                            locals,
+                        );
                         // this move is unnecessary, but we'll rely on register coalescing
                         // to fix it
                         let source = lir.insert_move_a(block, a);
-                        lir.insert_store_hl(block, target, source);
+                        lir.insert_store_hl(block, addr, source);
                     }
                     (Operand8::Literal(mut source), condition) => {
                         if condition != mir::Condition::NotZero {
                             source = !source;
                         }
                         if source != 0 {
-                            lir.insert_set_ptr(block, bit, target);
+                            lir.insert_set_ptr(block, bit, addr);
                         } else {
-                            lir.insert_res_ptr(block, bit, target);
+                            lir.insert_res_ptr(block, bit, addr);
                         }
                     }
                     unexpected => unreachable!(
@@ -1326,15 +1339,6 @@ impl CodeGen {
                 projections,
                 source,
             } => {
-                let (addr, bit_offset) = self.projected_global_to_addr(
-                    *target,
-                    projections.as_slice(),
-                    block,
-                    lir,
-                    ctx,
-                    locals,
-                );
-                assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
                 let (high, low) = match source {
                     mir::Operand::Local(source) => locals.r16s[*source],
                     mir::Operand::FnPtr(source) => {
@@ -1351,6 +1355,15 @@ impl CodeGen {
                         (high, low)
                     }
                 };
+                let (addr, bit_offset) = self.projected_global_to_addr(
+                    *target,
+                    projections.as_slice(),
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                assert_eq!(bit_offset, u3::new(0), "misaligned 16-bit ty");
                 let low = lir.insert_ld_a(block, low);
                 lir.insert_store_inc(block, addr, low);
                 lir.insert_store_hl(block, addr, high);

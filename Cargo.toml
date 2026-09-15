@@ -34,6 +34,9 @@ name = "quokka-lang"
 version.workspace = true
 edition.workspace = true
 
+[features]
+validate-interference-graph = []
+
 [[test]]
 name = "spec_tests"
 path = "tests/spec_tests.rs"

@@ -88,6 +88,9 @@ f::
   LD A, r8#26
   AND A, $01; z, c
   OR A, r8#29; z, c
+  (out=r16#10;high_in=r8#21;low_in=r8#20)
+  LD HL, RESULT+$0000
+  ADD HL, r16#10; c
   LD r8#31, A
   LD [HL], r8#31
   LD r8#32, $01
@@ -96,12 +99,12 @@ f::
   LD r8#35, r8#32
   LD r8#36, r8#35
   LD r8#37, r8#34
-  (out=r16#10;high_in=r8#37;low_in=r8#36)
+  (out=r16#12;high_in=r8#37;low_in=r8#36)
   LD HL, RESULT+$0000
-  ADD HL, r16#10; c
+  ADD HL, r16#12; c
   PUSH AF(high_in=A, z_in=z#4, c_in=c)
-  POP r16#12
-  (high_out=r8#40;low_out=r8#39;in=r16#12)
+  POP r16#14
+  (high_out=r8#40;low_out=r8#39;in=r16#14)
   RLC r8#39; z, c
   FRESH A
   SBC A, A; z, c
@@ -113,6 +116,9 @@ f::
   LD A, r8#42
   AND A, $01; z, c
   OR A, r8#45; z, c
+  (out=r16#15;high_in=r8#37;low_in=r8#36)
+  LD HL, RESULT+$0000
+  ADD HL, r16#15; c
   LD r8#47, A
   LD [HL], r8#47
   LD r8#48, $02
@@ -121,12 +127,12 @@ f::
   LD r8#51, r8#48
   LD r8#52, r8#51
   LD r8#53, r8#50
-  (out=r16#13;high_in=r8#53;low_in=r8#52)
+  (out=r16#17;high_in=r8#53;low_in=r8#52)
   LD HL, RESULT+$0000
-  ADD HL, r16#13; c
+  ADD HL, r16#17; c
   PUSH AF(high_in=A, z_in=z#6, c_in=c)
-  POP r16#15
-  (high_out=r8#56;low_out=r8#55;in=r16#15)
+  POP r16#19
+  (high_out=r8#56;low_out=r8#55;in=r16#19)
   RLC r8#55; z, c
   FRESH A
   SBC A, A; z, c
@@ -138,6 +144,9 @@ f::
   LD A, r8#58
   AND A, $01; z, c
   OR A, r8#61; z, c
+  (out=r16#20;high_in=r8#53;low_in=r8#52)
+  LD HL, RESULT+$0000
+  ADD HL, r16#20; c
   LD r8#63, A
   LD [HL], r8#63
   RET
@@ -369,7 +378,7 @@ END_SECTION
 START_SECTION ROM0
 f::
 .bb1:
-  ADD SP -1; z, c
+  ADD SP -2; z, c
   LD HL, A+$0000
   LD B, [HL]
   LD C, B
@@ -382,7 +391,7 @@ f::
   POP BC
   RLC C; z, c
   SBC A, A; z, c
-  LD E, A
+  LD C, A
   LD HL, B+$0000
   LD B, [HL]
   LD A, B
@@ -391,8 +400,8 @@ f::
   CP A, B; z, c
   FRESH A
   PUSH AF(high_in=A, z_in=z, c_in=c)
-  POP BC
-  RLC C; z, c
+  POP DE
+  RLC E; z, c
   SBC A, A; z, c
   LD HL SP+0; z, c
   LD [HL], A
@@ -403,37 +412,18 @@ f::
   CP A, B; z, c
   FRESH A
   PUSH AF(high_in=A, z_in=z, c_in=c)
-  POP BC
-  RLC C; z, c
+  POP DE
+  RLC E; z, c
   SBC A, A; z, c
-  LD D, A
-  LD C, $00
-  LD B, $00
-  LD HL, RESULT+$0000
-  ADD HL, BC; c
-  LD A, $ff
-  XOR A, E; z, c
-  PUSH AF(high_in=A, z_in=z, c_in=c)
-  POP BC
-  RLC C; z, c
-  FRESH A
-  SBC A, A; z, c
-  LD C, A
-  LD A, [HL]
-  AND A, $fe; z, c
-  LD B, A
-  LD A, C
-  AND A, $01; z, c
-  OR A, B; z, c
+  LD HL SP+1; z, c
   LD [HL], A
-  LD C, $01
   LD B, $00
+  LD D, $00
+  LD E, B
   LD HL, RESULT+$0000
-  ADD HL, BC; c
+  ADD HL, DE; c
   LD A, $ff
-  LD HL SP+0; z, c
-  LD B, [HL]
-  XOR A, B; z, c
+  XOR A, C; z, c
   PUSH AF(high_in=A, z_in=z, c_in=c)
   POP BC
   RLC C; z, c
@@ -446,27 +436,74 @@ f::
   LD A, B
   AND A, $01; z, c
   OR A, C; z, c
+  LD HL, RESULT+$0000
+  ADD HL, DE; c
   LD [HL], A
-  LD C, $02
+  LD C, $01
   LD B, $00
+  LD HL SP+0; z, c
+  LD [HL], C
+  LD D, B
+  LD HL SP+0; z, c
+  LD E, [HL]
+  LD HL, RESULT+$0000
+  ADD HL, DE; c
+  LD A, $ff
+  LD HL SP+0; z, c
+  LD B, [HL]
+  XOR A, B; z, c
+  PUSH AF(high_in=A, z_in=z, c_in=c)
+  POP BC
+  LD HL SP+0; z, c
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+0; z, c
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL SP+0; z, c
+  LD [HL], B
+  RLCA A; z, c
+  FRESH A
+  SBC A, A; z, c
+  LD B, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  LD C, A
+  LD A, B
+  AND A, $01; z, c
+  OR A, C; z, c
+  LD HL SP+0; z, c
+  LD E, [HL]
+  LD HL, RESULT+$0000
+  ADD HL, DE; c
+  LD [HL], A
+  LD B, $02
+  LD D, $00
+  LD C, B
+  LD B, D
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff
+  LD HL SP+1; z, c
+  LD D, [HL]
   XOR A, D; z, c
   PUSH AF(high_in=A, z_in=z, c_in=c)
-  POP BC
-  RLC C; z, c
+  POP DE
+  RLC E; z, c
   FRESH A
   SBC A, A; z, c
-  LD C, A
+  LD D, A
   LD A, [HL]
   AND A, $fe; z, c
-  LD B, A
-  LD A, C
+  LD E, A
+  LD A, D
   AND A, $01; z, c
-  OR A, B; z, c
+  OR A, E; z, c
+  LD HL, RESULT+$0000
+  ADD HL, BC; c
   LD [HL], A
-  ADD SP 1; z, c
+  ADD SP 2; z, c
   RET
 
 main::

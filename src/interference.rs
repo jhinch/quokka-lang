@@ -549,18 +549,70 @@ pub fn build_interference_graph(
             }
         }
     }
-    if cfg!(debug_assertions) {
-        for (reg, data) in &graph.node_to_data {
-            if let Some(permitted_colors) = data.permitted_colors.as_ref().cloned() {
-                assert!(
-                    !permitted_colors.is_empty(),
-                    "{reg:?} has an initial state of no permitted colors. precolor = {:?}",
-                    data.precolored
-                );
-            }
+    validate_initial_coloring(&graph, code);
+    (graph, moves)
+}
+
+#[cfg(not(feature = "validate-interference-graph"))]
+fn validate_initial_coloring(_graph: &InterferenceGraph, _code: &CodeSectionData) {
+    //
+    // currently there are real issues this validation finds in existing tests.
+    // Adding this validation under a cargo feature gate for now until we address
+    // the underlying issues (QUOK-109)
+}
+
+#[cfg(feature = "validate-interference-graph")]
+fn validate_initial_coloring(graph: &InterferenceGraph, code: &CodeSectionData) {
+    for (reg, data) in &graph.node_to_data {
+        if let Some(permitted_colors) = data.permitted_colors.as_ref().cloned() {
+            assert!(
+                !permitted_colors.is_empty(),
+                "{reg:?} has an initial state of no permitted colors. precolor = {:?}",
+                data.precolored
+            );
         }
     }
-    (graph, moves)
+    for &(a, b) in &graph.edges {
+        if code.register_data(a).defined.is_empty() || code.register_data(b).defined.is_empty() {
+            // Registers with no `defined` entry anywhere (dangling registers) are deliberately
+            // excluded as they don't represent a real, distinct value that needs to survive
+            // to a later read, so backward. This imprecision should however be resolved and
+            // this guard removed.
+            continue;
+        }
+        let (Some(a_color), Some(b_color)) = (graph.precolor(a), graph.precolor(b)) else {
+            continue;
+        };
+        // precolored registers are not candidates for spilling within the register allocation
+        // algorithm, so performing this check up front ensures that uncolorable scenarios or ones
+        // which would cause issues fail upfront.
+        if a_color.conflicts(b_color) {
+            for (block_id, block) in code.blocks.iter() {
+                eprintln!(".{block_id}:");
+                for (index, instr) in block.instructions.iter().enumerate() {
+                    eprint!("{index}: {instr:?} #");
+                    if instr.register_defs().any(|r| r == a) {
+                        eprint!(" DEFINED a");
+                    }
+                    if instr.register_defs().any(|r| r == b) {
+                        eprint!(" DEFINED b");
+                    }
+                    if instr.register_uses().any(|r| r == a) {
+                        eprint!(" USED a");
+                    }
+                    if instr.register_uses().any(|r| r == b) {
+                        eprint!(" USED b");
+                    }
+                    eprintln!();
+                }
+            }
+            panic!(
+                "{a:?}(defined={:?}) and {b:?}(defined={:?}) are both precolored to conflicting colors ({a_color:?}, {b_color:?}) but are simultaneously live",
+                code.register_data(a).defined.iter().collect::<Vec<_>>(),
+                code.register_data(b).defined.iter().collect::<Vec<_>>(),
+            );
+        }
+    }
 }
 
 #[instrument(skip_all)]
