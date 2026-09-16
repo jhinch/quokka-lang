@@ -1469,9 +1469,8 @@ store::
 .bb1:
   LD HL, A+$0000
   LD r8#1, [HL]
-  LD r8#2, r8#1
   LD HL, OUT+$0000
-  LD [HL], r8#2
+  LD [HL], r8#1
   RET
 
 main::

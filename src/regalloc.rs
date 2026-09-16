@@ -338,7 +338,7 @@ impl Colorer {
             }
         }
 
-        'selection: while let Some(reg) = self.select_stack.pop_front() {
+        while let Some(reg) = self.select_stack.pop_front() {
             let mut candidates = self.graph.permitted_colors(reg);
             for neighbor in self.graph.get_edges(reg) {
                 let neighbor = self.get_alias(neighbor);
@@ -347,6 +347,18 @@ impl Colorer {
                 }
             }
 
+            // Registers still waiting to be colored which this one interferes with. Committing
+            // to a color removes it (and anything overlapping it, such as `B` removing `BC`)
+            // from their permitted sets, so a candidate which empties one of them is a dead
+            // end: prefer any other candidate before falling back to it.
+            let uncolored_neighbors = self
+                .graph
+                .get_edges(reg)
+                .map(|neighbor| self.get_alias(neighbor))
+                .filter(|neighbor| *neighbor != reg && !colors.contains_key(neighbor))
+                .collect::<IndexSet<_>>();
+
+            let mut selected = None;
             for color in candidates {
                 let propagated_permitted_colors = self
                     .graph
@@ -365,14 +377,45 @@ impl Colorer {
                     );
                     continue;
                 }
-                colors.insert(reg, color);
-                self.colored_nodes.insert(reg);
-                // this commits the propagated permitted colors. Unfortunately we will
-                // need to do the calculation twice
-                self.graph.constrain_colors_to(reg, ColorSet::just(color));
-                continue 'selection;
+                let starved = uncolored_neighbors.iter().copied().find(|&neighbor| {
+                    let mut permitted = propagated_permitted_colors
+                        .get(&neighbor)
+                        .cloned()
+                        .unwrap_or_else(|| self.graph.permitted_colors(neighbor));
+                    permitted.retain(|candidate| !candidate.conflicts(color));
+                    for other in self.graph.get_edges(neighbor) {
+                        let other = self.get_alias(other);
+                        if let Some(&taken) = colors.get(&other) {
+                            permitted.retain(|candidate| !candidate.conflicts(taken));
+                        }
+                    }
+                    permitted.is_empty()
+                });
+                if let Some(starved) = starved {
+                    // taking this color leaves an interfering register with nothing to take.
+                    // this is what fragments the register file for the wider `r16` pairs, e.g.
+                    // coloring two unrelated `r8`s `B` and `D` leaves no aligned pair free.
+                    tracing::trace!(
+                        reg = ?reg,
+                        color = ?color,
+                        starved = ?starved,
+                        "Candidate color starves an uncolored neighbor"
+                    );
+                    selected = selected.or(Some(color));
+                    continue;
+                }
+                selected = Some(color);
+                break;
             }
-            self.spilled_nodes.insert(reg);
+            let Some(color) = selected else {
+                self.spilled_nodes.insert(reg);
+                continue;
+            };
+            colors.insert(reg, color);
+            self.colored_nodes.insert(reg);
+            // this commits the propagated permitted colors. Unfortunately we will
+            // need to do the calculation twice
+            self.graph.constrain_colors_to(reg, ColorSet::just(color));
         }
         for reg in self.coalesced_nodes.iter().copied().collect::<Vec<_>>() {
             let a = self.get_alias(reg);

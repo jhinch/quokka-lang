@@ -52,7 +52,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "ne_u8_left_preserved"
-ignored = "conflicting precolored HL registers are simultaneously live"
 source = """
 global LEFT: u8;
 global RIGHT: u8;
@@ -88,7 +87,6 @@ expected = 10
 
 [[case]]
 name = "ne_u8_right_preserved"
-ignored = "conflicting precolored HL registers are simultaneously live"
 source = """
 global LEFT: u8;
 global RIGHT: u8;
@@ -434,7 +432,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "ne_u16_left_preserved"
-ignored = "conflicting precolored HL registers are simultaneously live"
 source = """
 global LEFT: u16;
 global RIGHT: u16;

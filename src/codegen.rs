@@ -542,12 +542,6 @@ impl CodeGen {
                 if let Some((target, r1, condition)) =
                     self.generate_from_u1_instr(instruction, block, lir, ctx, locals)
                 {
-                    let r1 = match r1 {
-                        R1::Zero(z_in) => R1::Zero(lir.insert_move_zero(block, z_in)),
-                        R1::Carry(c_in) => R1::Carry(lir.insert_move_carry(block, c_in)),
-                        R1::R8(source) => R1::R8(lir.insert_ld8(block, source)),
-                        R1::Bit(source, bit) => R1::Bit(lir.insert_ld8(block, source), bit),
-                    };
                     locals.r1s.insert(target, (r1, condition));
                 }
             }
@@ -557,7 +551,6 @@ impl CodeGen {
                 if let Some((target, r8)) =
                     self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals)
                 {
-                    let r8 = lir.insert_ld8(block, r8);
                     locals.r8s.insert(target, r8);
                 }
             }
@@ -565,8 +558,6 @@ impl CodeGen {
                 if let Some((target, high, low)) =
                     self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals)
                 {
-                    let low = lir.insert_ld8(block, low);
-                    let high = lir.insert_ld8(block, high);
                     locals.r16s.insert(target, (high, low));
                 }
             }
@@ -585,7 +576,6 @@ impl CodeGen {
                         if let Some((target, r8)) =
                             self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals)
                         {
-                            let r8 = lir.insert_ld8(block, r8);
                             locals.r8s.insert(target, r8);
                         }
                     }
@@ -593,8 +583,6 @@ impl CodeGen {
                         if let Some((target, high, low)) =
                             self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals)
                         {
-                            let low = lir.insert_ld8(block, low);
-                            let high = lir.insert_ld8(block, high);
                             locals.r16s.insert(target, (high, low));
                         }
                     }
@@ -885,6 +873,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
+                let z = lir.insert_move_zero(block, z);
                 (*target, R1::Zero(z), condition)
             }
             mir::Instr::Ne {
@@ -894,6 +883,7 @@ impl CodeGen {
             } => {
                 let (z, condition) =
                     self.eq_from_comparison_op(*left, right, block, lir, ctx, locals);
+                let z = lir.insert_move_zero(block, z);
                 (*target, R1::Zero(z), !condition)
             }
             mir::Instr::Lt {
@@ -903,6 +893,7 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
+                let c = lir.insert_move_carry(block, c);
                 (*target, R1::Carry(c), condition)
             }
             mir::Instr::Ge {
@@ -912,6 +903,7 @@ impl CodeGen {
             } => {
                 let (c, condition) =
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
+                let c = lir.insert_move_carry(block, c);
                 (*target, R1::Carry(c), !condition)
             }
             mir::Instr::BitAnd {

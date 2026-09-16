@@ -27,11 +27,8 @@ f::
   LD r8#1, [HL]
   LD r8#2, r8#1
   LD r8#3, r8#2
-  LD r8#4, r8#3
-  LD r8#5, r8#4
-  LD r8#6, r8#5
   LD HL, RESULT+$0000
-  LD [HL], r8#6
+  LD [HL], r8#3
   RET
 
 main::
