@@ -91,7 +91,7 @@ impl RegAllocator {
             Ok(colors) => Ok(colors),
             Err(failure) => {
                 let spills = failure.spills.clone();
-                rewrite_code(code, spill_slots, failure);
+                rewrite_code(code, &block_liveness, spill_slots, failure);
                 Err(spills)
             }
         }
@@ -607,6 +607,7 @@ pub struct AllocationFailure {
 #[instrument(skip_all)]
 fn rewrite_code(
     code: &mut CodeSectionData,
+    block_liveness: &BlockLiveness,
     spill_slots: &mut SpillSlots,
     failure: Box<AllocationFailure>,
 ) {
@@ -645,8 +646,7 @@ fn rewrite_code(
     // below. `rewrite_block_with_spills` uses this to notice when a spill-slot address
     // computation (`LD HL, SP+e8`, which always clobbers `HL` and the flags) would land in the
     // middle of some other already-precolored `HL`/`A`/`Fz`/`Fc` register's live range, and
-    // bracket the computation with `PUSH`/`POP` to protect it - see QUOK-109.
-    let block_liveness = calculate_block_liveness(code);
+    // bracket the computation with `PUSH`/`POP` to protect it
     for block in code.blocks.keys().collect::<Vec<_>>() {
         let live_at =
             liveness_before_each_instruction(&code.blocks[block], &block_liveness.live_out[block]);
@@ -680,7 +680,7 @@ fn liveness_before_each_instruction(
     let mut live_at = vec![IndexSet::new(); block.instructions.len() + 1];
     live_at[block.instructions.len()] = live.clone();
     for (index, instruction) in block.instructions.iter().enumerate().rev() {
-        for reg in instruction.register_defs() {
+        for reg in instruction.register_new_defs() {
             live.swap_remove(&reg);
         }
         for reg in instruction.register_uses() {

@@ -527,7 +527,7 @@ pub fn build_interference_graph(
             // its possible the register was never used, so we need
             // to ensure we add them to the live list so the correct
             // edges are added to the graph
-            for reg in instruction.register_defs() {
+            for reg in instruction.register_new_defs() {
                 live.insert(reg);
             }
             for reg in instruction.register_defs() {
@@ -541,7 +541,7 @@ pub fn build_interference_graph(
             // we are walking the instructions backwards, so the
             // definitions are no longer live after the instruction
             // and uses are live at least from this instruction.
-            for reg in instruction.register_defs() {
+            for reg in instruction.register_new_defs() {
                 live.swap_remove(&reg);
             }
             for reg in instruction.register_uses() {

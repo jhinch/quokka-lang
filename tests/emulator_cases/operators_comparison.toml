@@ -2,7 +2,7 @@
 # `let` locals first and checking the result plus that one of the operands was not corrupted by the
 # comparison (in a separate "_left_preserved"/"_right_preserved" case per operand, rather than
 # checking both operands live in the same case - see the comment in `spill_reload_regressions.toml`
-# for the register-allocator spill-reload bug (QUOK-109, now fixed) that keeping every local
+# for the register-allocator spill-reload bug that keeping every local
 # simultaneously live used to trigger). The u16 cases specifically pick operands with equal high
 # bytes and a low byte that needs to borrow, since 16-bit comparisons lower to a subtraction with
 # carry propagation between the bytes (see operators_arithmetic.toml for the matching `-`
