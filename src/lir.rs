@@ -658,6 +658,23 @@ impl CodeSectionData {
 
     pub fn check_integrity(&self) -> Result<(), MultiError> {
         let mut result_builder = MultiResultBuilder::default();
+        for (block_id, block) in self.blocks.iter() {
+            for (index, instr) in block.instructions.iter().enumerate() {
+                for reg in instr.register_new_defs() {
+                    if !self
+                        .register_data(reg)
+                        .defined
+                        .get(block_id)
+                        .is_some_and(|&i| index == i)
+                    {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "Bad defined data for register {reg:?}. Defined in {block_id:?} at index {index}, but defined at {:?}",
+                            self.register_data(reg).defined
+                        )));
+                    }
+                }
+            }
+        }
         for reg in self.registers() {
             let defined = &self.register_data(reg).defined;
             if defined.is_empty() {
