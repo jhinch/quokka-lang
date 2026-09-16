@@ -387,6 +387,7 @@ f::
   PUSH AF(high_in=?, z_in=z, c_in=?)
   POP BC
   RLC C; z, c
+  FRESH A
   SBC A, A; z, c
   LD D, A
   LD HL, B+$0000
@@ -397,6 +398,7 @@ f::
   PUSH AF(high_in=?, z_in=z, c_in=?)
   POP BC
   RLC C; z, c
+  FRESH A
   SBC A, A; z, c
   LD HL SP+0; z, c
   LD [HL], A
@@ -408,6 +410,7 @@ f::
   PUSH AF(high_in=?, z_in=z, c_in=?)
   POP BC
   RLC C; z, c
+  FRESH A
   SBC A, A; z, c
   LD HL SP+1; z, c
   LD [HL], A
@@ -424,20 +427,19 @@ f::
   RLC E; z, c
   FRESH A
   SBC A, A; z, c
-  LD E, A
+  LD D, A
   LD A, [HL]
   AND A, $fe; z, c
-  LD D, A
-  LD A, E
+  LD E, A
+  LD A, D
   AND A, $01; z, c
-  OR A, D; z, c
+  OR A, E; z, c
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD B, $01
-  LD A, $00
-  LD C, B
-  LD B, A
+  LD A, $01
+  LD B, $00
+  LD C, A
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff
@@ -449,19 +451,20 @@ f::
   RLC E; z, c
   FRESH A
   SBC A, A; z, c
-  LD E, A
+  LD D, A
   LD A, [HL]
   AND A, $fe; z, c
-  LD D, A
-  LD A, E
+  LD E, A
+  LD A, D
   AND A, $01; z, c
-  OR A, D; z, c
+  OR A, E; z, c
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD A, $02
-  LD B, $00
-  LD C, A
+  LD B, $02
+  LD A, $00
+  LD C, B
+  LD B, A
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff

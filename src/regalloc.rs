@@ -604,6 +604,7 @@ fn rewrite_code(
     if !spill_slots.function_to_frame.is_empty() {
         rewrite_functions_with_frames(code, spill_slots, &functions_blocks);
     }
+    code.check_integrity().unwrap();
 }
 
 fn allocate_spill_slots(
@@ -1119,9 +1120,10 @@ fn store_spill_slot(
                 .r8_registers
                 .insert(Register {
                     color: Some(Color::A),
-                    defined: SparseSecondaryMap::new(), // dangling
+                    defined: [(block_id, instructions.len())].into_iter().collect(),
                 })
                 .downcast_to_a_without_move();
+            instructions.push(Instr::FreshA { target: a });
             let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -1155,13 +1157,6 @@ fn store_spill_slot(
                 })
                 .downcast_to_a_without_move();
             instructions.push(Instr::FreshA { target: a });
-            let source = code
-                .r8_registers
-                .insert(Register {
-                    color: Some(Color::A),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_a_without_move();
             let z = code.zero_registers.insert(Register {
                 color: Some(Color::Fz),
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -1183,7 +1178,7 @@ fn store_spill_slot(
                 .insert(block_id, instructions.len());
             instructions.push(Instr::Ld8 {
                 target,
-                source: source.upcast_to_r8_without_move(),
+                source: a.upcast_to_r8_without_move(),
             });
         }
     }
@@ -1506,6 +1501,20 @@ fn rewrite_function_entry_with_frame(code: &mut CodeSectionData, entry: BlockId,
         code.blocks[entry]
             .instructions
             .insert(0, Instr::AddSP { z, c, right: 0 });
+        for (index, instr) in code.blocks[entry].instructions.iter().enumerate().skip(1) {
+            for r8 in instr.target_r8s() {
+                code.r8_registers[r8].defined[entry] = index;
+            }
+            if let Some(r16) = instr.target_r16() {
+                code.r16_registers[r16].defined[entry] = index;
+            }
+            if let Some(z) = instr.zero() {
+                code.zero_registers[z].defined[entry] = index;
+            }
+            if let Some(c) = instr.carry() {
+                code.carry_registers[c].defined[entry] = index;
+            }
+        }
     }
     if let Some(Instr::AddSP { right, .. }) = &mut code.blocks[entry].instructions.first_mut() {
         *right = -i8::try_from(frame.occupants.len()).expect("More than 127 slots required");

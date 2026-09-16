@@ -10,6 +10,7 @@
 //! produce the final assembly code.
 
 use crate::ast::Identifier;
+use crate::multi::{MultiError, MultiResultBuilder};
 use crate::num::{BitCount, u3};
 use crate::reg::Color;
 use quokka_lang_slotkeyset::{SlotKeySet, SparseSlotKeySet};
@@ -653,6 +654,34 @@ impl CodeSectionData {
             VirtualReg::Zero(reg) => &mut self.zero_registers[reg],
             VirtualReg::Carry(reg) => &mut self.carry_registers[reg],
         }
+    }
+
+    pub fn check_integrity(&self) -> Result<(), MultiError> {
+        let mut result_builder = MultiResultBuilder::default();
+        for reg in self.registers() {
+            let defined = &self.register_data(reg).defined;
+            if defined.is_empty() {
+                result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                    "dangling register {reg:?}"
+                )));
+                continue;
+            }
+            for (block_id, &index) in defined {
+                if index >= self.blocks[block_id].instructions.len() {
+                    result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                        "Bad defined data for register {reg:?}. Not defined in {block_id:?} at index {index}, instruction doesn't exist"
+                    )));
+                    continue;
+                }
+                let instr = &self.blocks[block_id].instructions[index];
+                if !instr.register_defs().any(|r| r == reg) {
+                    result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                        "Bad defined data for register {reg:?}. Not defined in {block_id:?} at index {index}. Found {instr:?}"
+                    )));
+                }
+            }
+        }
+        result_builder.finish(()).into_result()
     }
 }
 
@@ -2862,6 +2891,7 @@ impl CodeSectionBuilder {
             self.outstanding_phis.is_empty(),
             "uncompleted phi registers"
         );
+        self.data.check_integrity().unwrap();
         Section {
             data: SectionData::Code(self.data),
         }
