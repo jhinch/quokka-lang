@@ -348,14 +348,21 @@ impl Colorer {
             }
 
             for color in candidates {
-                if self
+                let propagated_permitted_colors = self
                     .graph
-                    .calculate_propagated_permitted_colors(reg, ColorSet::just(color))
+                    .calculate_propagated_permitted_colors(reg, ColorSet::just(color));
+                if propagated_permitted_colors
                     .values()
                     .any(|set| set.is_empty())
                 {
                     // the candidate will result in another register becoming uncolorable due to
                     // constraint propagation so we will need to try and different one
+                    tracing::trace!(
+                        reg = ?reg,
+                        color = ?color,
+                        propagated_permitted_colors = ?propagated_permitted_colors,
+                        "Candidate color violates constraints"
+                    );
                     continue;
                 }
                 colors.insert(reg, color);
