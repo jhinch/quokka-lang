@@ -1094,6 +1094,7 @@ impl ObjFileEncoder {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn encode_terminator(
         &self,
         node: SourceNodeId,
