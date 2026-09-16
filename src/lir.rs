@@ -673,6 +673,18 @@ impl CodeSectionData {
                         )));
                     }
                 }
+                for reg in instr.register_uses() {
+                    let data = self.register_data(reg);
+                    let Some(color) = data.color else {
+                        continue;
+                    };
+                    if !data.defined.contains_key(block_id) {
+                        result_builder.add_error(miette::MietteDiagnostic::new(format!(
+                            "Precolored register {reg:?} (color {color:?}) must be confined to a single block. Used in {block_id:?}, defined in {:?}",
+                            data.defined
+                        )));
+                    }
+                }
             }
         }
         for reg in self.registers() {

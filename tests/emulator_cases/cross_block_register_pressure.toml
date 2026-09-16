@@ -1,0 +1,925 @@
+# outer_substitutions` (the spill-eviction rename map `src/regalloc.rs` uses
+# to bracket a `LD HL, SP+e8` spill-slot address computation with `PUSH`/`POP` around an
+# already-precolored `HL`/`A`/`Fz`/`Fc` register - see `spill_reload_regressions.toml`) only
+# rewrites occurrences within the single block where the eviction happens. That is only sound
+# if a precolored register is never live *out* of a block in the first place.
+# `CodeSectionData::check_integrity` (`src/lir.rs`) asserts the invariant directly: it
+# computes real liveness and fails (in debug builds, i.e. every test run) if any precolored
+# register is live-out of any block. `RegAllocator` calls `check_integrity` after
+# every spill-rewrite round, so any case below that forces a spill would immediately panic on
+# compilation if this invariant - and therefore the soundness of the same-block-only rename - ever
+# stopped holding for real Quokka programs.
+#
+# Every case here forces at least one spill (more simultaneously-live locals of some kind than
+# there are physical registers - see `spilling.toml`/`flags.toml` in `tests/cases/codegen` for the
+# same technique) *inside one region of a branchy or looping control-flow graph*, while a sibling
+# block (the other arm of an if, an outer/later part of a loop, code after the branch merges)
+# stays under pressure and must be completely unaffected. Each stresses a different kind of block
+# boundary the eviction rename must not need to cross:
+#
+# - if/else where only one arm spills (both as a statement and as a value-producing expression
+#   merged through a phi)
+# - a value that is live *into and out of* a branch (spans the merge block) while the branch body
+#   spills internally
+# - a nested if, where only the inner branch spills
+# - a loop body that spills every iteration, with an accumulator carried live across the
+#   loop's back edge
+# - a loop where only one iteration's inner branch spills
+# - the r16 and flag (Fz/Fc) spill paths, not just r8, inside a branch
+
+[[case]]
+name = "if_then_r8_pressure_executes_correctly"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_B: u8;
+#[address = 0xC002]
+global OUT_C: u8;
+#[address = 0xC003]
+global OUT_D: u8;
+#[address = 0xC004]
+global OUT_E: u8;
+#[address = 0xC005]
+global OUT_F: u8;
+#[address = 0xC006]
+global OUT_G: u8;
+#[address = 0xC007]
+global OUT_H: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_A = 0xEE;
+    OUT_B = 0xEE;
+    OUT_C = 0xEE;
+    OUT_D = 0xEE;
+    OUT_E = 0xEE;
+    OUT_F = 0xEE;
+    OUT_G = 0xEE;
+    OUT_H = 0xEE;
+    COND = 1;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        OUT_A = a;
+        OUT_B = b;
+        OUT_C = c;
+        OUT_D = d;
+        OUT_E = e;
+        OUT_F = f;
+        OUT_G = g;
+        OUT_H = h;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 2
+[[case.assertion]]
+addr = 0xC002
+expected = 3
+[[case.assertion]]
+addr = 0xC003
+expected = 4
+[[case.assertion]]
+addr = 0xC004
+expected = 5
+[[case.assertion]]
+addr = 0xC005
+expected = 6
+[[case.assertion]]
+addr = 0xC006
+expected = 7
+[[case.assertion]]
+addr = 0xC007
+expected = 8
+
+[[case]]
+name = "if_then_r8_pressure_skipped_leaves_sibling_path_untouched"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_B: u8;
+#[address = 0xC002]
+global OUT_C: u8;
+#[address = 0xC003]
+global OUT_D: u8;
+#[address = 0xC004]
+global OUT_E: u8;
+#[address = 0xC005]
+global OUT_F: u8;
+#[address = 0xC006]
+global OUT_G: u8;
+#[address = 0xC007]
+global OUT_H: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_A = 0xEE;
+    OUT_B = 0xEE;
+    OUT_C = 0xEE;
+    OUT_D = 0xEE;
+    OUT_E = 0xEE;
+    OUT_F = 0xEE;
+    OUT_G = 0xEE;
+    OUT_H = 0xEE;
+    COND = 0;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        OUT_A = a;
+        OUT_B = b;
+        OUT_C = c;
+        OUT_D = d;
+        OUT_E = e;
+        OUT_F = f;
+        OUT_G = g;
+        OUT_H = h;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC001
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC002
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC003
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC004
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC005
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC006
+expected = 0xEE
+[[case.assertion]]
+addr = 0xC007
+expected = 0xEE
+
+[[case]]
+name = "if_else_value_producing_only_then_arm_spills_takes_then"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    COND = 1;
+    let result: u8 = if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        yield a + b + c + d + e + f + g + h;
+    } else {
+        yield 0;
+    };
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 36 # 1 + 2 + ... + 8, computed on the spilling arm
+
+[[case]]
+name = "if_else_value_producing_only_then_arm_spills_takes_else"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    COND = 0;
+    let result: u8 = if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        yield a + b + c + d + e + f + g + h;
+    } else {
+        yield 0;
+    };
+    OUT = result;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0 # the spilling arm must not run
+
+[[case]]
+name = "value_live_across_if_survives_sibling_branch_spill_taken"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_SUM: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_SUM = 0xEE;
+    let x = 99;
+    COND = 1;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        OUT_SUM = a + b + c + d + e + f + g + h;
+    }
+    OUT_X = x;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 99 # x is live across the whole if (defined before, used after) and must survive
+[[case.assertion]]
+addr = 0xC001
+expected = 36
+
+[[case]]
+name = "value_live_across_if_survives_sibling_branch_spill_skipped"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_SUM: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_SUM = 0xEE;
+    let x = 99;
+    COND = 0;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        OUT_SUM = a + b + c + d + e + f + g + h;
+    }
+    OUT_X = x;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 99 # x must survive even though the sibling branch (never taken) would have spilled
+[[case.assertion]]
+addr = 0xC001
+expected = 0xEE # the spilling branch must not run
+
+[[case]]
+name = "nested_if_inner_branch_spills_outer_unaffected_inner_taken"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global OUTER: u1;
+global INNER: u1;
+
+#[address = 0xC000]
+global OUT_MARK: u8;
+#[address = 0xC001]
+global OUT_SUM: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_MARK = 0;
+    OUT_SUM = 0xEE;
+    OUTER = 1;
+    INNER = 1;
+    if OUTER then {
+        if INNER then {
+            let a = A;
+            let b = B;
+            let c = C;
+            let d = D;
+            let e = E;
+            let f = F;
+            let g = G;
+            let h = H;
+            OUT_SUM = a + b + c + d + e + f + g + h;
+        }
+        OUT_MARK = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1 # outer body ran regardless of the inner branch's own spilling
+[[case.assertion]]
+addr = 0xC001
+expected = 36
+
+[[case]]
+name = "nested_if_inner_branch_spills_outer_unaffected_inner_skipped"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+global OUTER: u1;
+global INNER: u1;
+
+#[address = 0xC000]
+global OUT_MARK: u8;
+#[address = 0xC001]
+global OUT_SUM: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    OUT_MARK = 0;
+    OUT_SUM = 0xEE;
+    OUTER = 1;
+    INNER = 0;
+    if OUTER then {
+        if INNER then {
+            let a = A;
+            let b = B;
+            let c = C;
+            let d = D;
+            let e = E;
+            let f = F;
+            let g = G;
+            let h = H;
+            OUT_SUM = a + b + c + d + e + f + g + h;
+        }
+        OUT_MARK = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1 # outer body still ran
+[[case.assertion]]
+addr = 0xC001
+expected = 0xEE # the spilling inner branch must not run
+
+[[case]]
+name = "loop_body_r8_pressure_every_iteration_preserves_accumulator"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    let count: u8 = 0;
+    let total = 0;
+    loop {
+        if count == 3 then {
+            break;
+        }
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        let f = F;
+        let g = G;
+        let h = H;
+        total = total + a + b + c + d + e + f + g + h;
+        count = count + 1;
+    }
+    OUT = total;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 108 # 3 iterations of (1+2+...+8 = 36); the loop-carried `total`/`count` must survive
+               # a spill happening inside the body on every single iteration
+
+[[case]]
+name = "loop_body_pressure_only_on_one_iteration_preserves_accumulator"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global E: u8;
+global F: u8;
+global G: u8;
+global H: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    E = 5;
+    F = 6;
+    G = 7;
+    H = 8;
+    let i: u8 = 0;
+    let total = 0;
+    loop {
+        if i == 4 then {
+            break;
+        }
+        if i == 2 then {
+            let a = A;
+            let b = B;
+            let c = C;
+            let d = D;
+            let e = E;
+            let f = F;
+            let g = G;
+            let h = H;
+            total = total + a + b + c + d + e + f + g + h;
+        } else {
+            total = total + 1;
+        }
+        i = i + 1;
+    }
+    OUT = total;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 39 # i=0: +1, i=1: +1, i=2: +36 (spilling branch), i=3: +1
+
+[[case]]
+name = "if_then_r16_pressure_executes_correctly"
+source = """
+global A: u16;
+global B: u16;
+global C: u16;
+global D: u16;
+global E: u16;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_A: u16;
+#[address = 0xC002]
+global OUT_B: u16;
+#[address = 0xC004]
+global OUT_C: u16;
+#[address = 0xC006]
+global OUT_D: u16;
+#[address = 0xC008]
+global OUT_E: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x1234;
+    B = 0x2345;
+    C = 0x3456;
+    D = 0x4567;
+    E = 0x5678;
+    OUT_A = 0xEEEE;
+    OUT_B = 0xEEEE;
+    OUT_C = 0xEEEE;
+    OUT_D = 0xEEEE;
+    OUT_E = 0xEEEE;
+    COND = 1;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        OUT_A = a;
+        OUT_B = b;
+        OUT_C = c;
+        OUT_D = d;
+        OUT_E = e;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12]
+[[case.assertion]]
+addr = 0xC002
+expected = [0x45, 0x23]
+[[case.assertion]]
+addr = 0xC004
+expected = [0x56, 0x34]
+[[case.assertion]]
+addr = 0xC006
+expected = [0x67, 0x45]
+[[case.assertion]]
+addr = 0xC008
+expected = [0x78, 0x56]
+
+[[case]]
+name = "if_then_r16_pressure_skipped_leaves_sibling_path_untouched"
+source = """
+global A: u16;
+global B: u16;
+global C: u16;
+global D: u16;
+global E: u16;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_A: u16;
+#[address = 0xC002]
+global OUT_B: u16;
+#[address = 0xC004]
+global OUT_C: u16;
+#[address = 0xC006]
+global OUT_D: u16;
+#[address = 0xC008]
+global OUT_E: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x1234;
+    B = 0x2345;
+    C = 0x3456;
+    D = 0x4567;
+    E = 0x5678;
+    OUT_A = 0xEEEE;
+    OUT_B = 0xEEEE;
+    OUT_C = 0xEEEE;
+    OUT_D = 0xEEEE;
+    OUT_E = 0xEEEE;
+    COND = 0;
+    if COND then {
+        let a = A;
+        let b = B;
+        let c = C;
+        let d = D;
+        let e = E;
+        OUT_A = a;
+        OUT_B = b;
+        OUT_C = c;
+        OUT_D = d;
+        OUT_E = e;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xEE, 0xEE]
+[[case.assertion]]
+addr = 0xC002
+expected = [0xEE, 0xEE]
+[[case.assertion]]
+addr = 0xC004
+expected = [0xEE, 0xEE]
+[[case.assertion]]
+addr = 0xC006
+expected = [0xEE, 0xEE]
+[[case.assertion]]
+addr = 0xC008
+expected = [0xEE, 0xEE]
+
+[[case]]
+name = "if_then_flag_pressure_executes_correctly"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_P: u1;
+#[address = 0xC001]
+global OUT_Q: u1;
+#[address = 0xC002]
+global OUT_R: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 5;
+    B = 5;
+    C = 7;
+    D = 8;
+    OUT_P = 0;
+    OUT_Q = 0;
+    OUT_R = 0;
+    COND = 1;
+    if COND then {
+        let p = A == B;
+        let q = B == C;
+        let r = C == D;
+        OUT_P = p;
+        OUT_Q = q;
+        OUT_R = r;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1 # A == B
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0 # B == C
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 0 # C == D
+mask = 0b0000_0001
+
+[[case]]
+name = "if_then_flag_pressure_skipped_leaves_sibling_path_untouched"
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+global COND: u1;
+
+#[address = 0xC000]
+global OUT_P: u1;
+#[address = 0xC001]
+global OUT_Q: u1;
+#[address = 0xC002]
+global OUT_R: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 5;
+    B = 5;
+    C = 7;
+    D = 8;
+    OUT_P = 0;
+    OUT_Q = 0;
+    OUT_R = 0;
+    COND = 0;
+    if COND then {
+        let p = A == B;
+        let q = B == C;
+        let r = C == D;
+        OUT_P = p;
+        OUT_Q = q;
+        OUT_R = r;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0 # the spilling branch must not run
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 0
+mask = 0b0000_0001
