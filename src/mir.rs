@@ -217,18 +217,6 @@ impl Mir {
                                     right.display(self, function)
                                 )
                             }
-                            Instr::Le {
-                                target: _,
-                                left,
-                                right,
-                            } => {
-                                write!(
-                                    f,
-                                    "le {}, {}",
-                                    left.display(function),
-                                    right.display(self, function)
-                                )
-                            }
                             Instr::Ge {
                                 target: _,
                                 left,
@@ -237,18 +225,6 @@ impl Mir {
                                 write!(
                                     f,
                                     "ge {}, {}",
-                                    left.display(function),
-                                    right.display(self, function)
-                                )
-                            }
-                            Instr::Gt {
-                                target: _,
-                                left,
-                                right,
-                            } => {
-                                write!(
-                                    f,
-                                    "gt {}, {}",
                                     left.display(function),
                                     right.display(self, function)
                                 )
@@ -847,25 +823,15 @@ pub enum Instr {
         right: Operand,
     },
     /// `left < right`
+    /// can also be used to achieve `right > left` when `right` is `LocalId`
     Lt {
         target: LocalId,
         left: LocalId,
         right: Operand,
     },
-    /// `left <= right`
-    Le {
-        target: LocalId,
-        left: LocalId,
-        right: Operand,
-    },
     /// `left >= right`
+    /// can also be used to achieve `right <= left` when `right` is `LocalId`
     Ge {
-        target: LocalId,
-        left: LocalId,
-        right: Operand,
-    },
-    /// `left > right`
-    Gt {
         target: LocalId,
         left: LocalId,
         right: Operand,
@@ -922,9 +888,7 @@ impl Instr {
             | Instr::Eq { target, .. }
             | Instr::Ne { target, .. }
             | Instr::Lt { target, .. }
-            | Instr::Le { target, .. }
             | Instr::Ge { target, .. }
-            | Instr::Gt { target, .. }
             | Instr::BitAnd { target, .. }
             | Instr::BitOr { target, .. }
             | Instr::BitXor { target, .. }
@@ -965,9 +929,7 @@ impl Instr {
                 Instr::Eq { left, right, .. }
                 | Instr::Ne { left, right, .. }
                 | Instr::Lt { left, right, .. }
-                | Instr::Le { left, right, .. }
                 | Instr::Ge { left, right, .. }
-                | Instr::Gt { left, right, .. }
                 | Instr::BitAnd { left, right, .. }
                 | Instr::BitOr { left, right, .. }
                 | Instr::BitXor { left, right, .. }

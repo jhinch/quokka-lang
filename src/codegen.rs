@@ -905,9 +905,6 @@ impl CodeGen {
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
                 (*target, R1::Carry(c), condition)
             }
-            mir::Instr::Le { .. } => unimplemented!(
-                "{instruction:?} as it should be rewritten within the optimization phase"
-            ),
             mir::Instr::Ge {
                 target,
                 left,
@@ -917,9 +914,6 @@ impl CodeGen {
                     self.lt_from_comparison_op(*left, right, block, lir, ctx, locals);
                 (*target, R1::Carry(c), !condition)
             }
-            mir::Instr::Gt { .. } => unimplemented!(
-                "{instruction:?} as it should be rewritten within the optimization phase"
-            ),
             mir::Instr::BitAnd {
                 target,
                 left,
@@ -1224,9 +1218,7 @@ impl CodeGen {
             mir::Instr::Eq { .. }
             | mir::Instr::Ne { .. }
             | mir::Instr::Lt { .. }
-            | mir::Instr::Le { .. }
-            | mir::Instr::Ge { .. }
-            | mir::Instr::Gt { .. } => {
+            | mir::Instr::Ge { .. } => {
                 unimplemented!("{instruction:?} comparisons always produce U1")
             }
             mir::Instr::BitAnd {
@@ -1463,9 +1455,7 @@ impl CodeGen {
             mir::Instr::Eq { .. }
             | mir::Instr::Ne { .. }
             | mir::Instr::Lt { .. }
-            | mir::Instr::Le { .. }
-            | mir::Instr::Ge { .. }
-            | mir::Instr::Gt { .. } => {
+            | mir::Instr::Ge { .. } => {
                 unimplemented!("{instruction:?} comparisons always produce U1")
             }
             mir::Instr::BitAnd {

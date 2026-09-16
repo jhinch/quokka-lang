@@ -193,6 +193,76 @@ addr = 0xC001
 expected = 20
 
 [[case]]
+name = "gt_u8_left_preserved"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 20;
+    RIGHT = 10;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 20
+
+[[case]]
+name = "gt_u8_right_preserved"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 20;
+    RIGHT = 10;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 10
+
+[[case]]
 name = "ge_u8_left_preserved"
 source = """
 global LEFT: u8;
@@ -261,6 +331,76 @@ mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = 20
+
+[[case]]
+name = "le_u8_left_preserved"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 20;
+    RIGHT = 10;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 20
+
+[[case]]
+name = "le_u8_right_preserved"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 20;
+    RIGHT = 10;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 10
 
 [[case]]
 name = "eq_u16"
@@ -435,6 +575,76 @@ addr = 0xC001
 expected = [0x01, 0x10]
 
 [[case]]
+name = "gt_u16_left_preserved"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x01, 0x10]
+
+[[case]]
+name = "gt_u16_right_preserved"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x10]
+
+[[case]]
 name = "ge_u16_left_preserved"
 source = """
 global LEFT: u16;
@@ -503,6 +713,76 @@ mask = 0b0000_0001
 [[case.assertion]]
 addr = 0xC001
 expected = [0x01, 0x10]
+
+[[case]]
+name = "le_u16_left_preserved"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x01, 0x10]
+
+[[case]]
+name = "le_u16_right_preserved"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x10]
 
 [[case]]
 name = "eq_u16_equal_operands"
@@ -590,38 +870,6 @@ await_pc = 0x0150
 addr = 0xC000
 expected = 1
 mask = 0b0000_0001
-
-[[case]]
-name = "comparison_le_and_gt_unimplemented_regression"
-ignored = "codegen.rs only implements Eq/Ne/Lt/Ge for runtime comparisons; `<=` and `>` on non-constant operands hit `unimplemented!(\"{instruction:?} as it should be rewritten within the optimization phase\")` since no pass actually performs that rewrite unless the operands happen to be compile-time constant (see optimize/sccp.rs). Un-ignore once codegen (or a mandatory canonicalization pass) implements Le/Gt directly."
-source = """
-global A: u8;
-global B: u8;
-
-#[address = 0xC000]
-global LE_OUT: u1;
-#[address = 0xC001]
-global GT_OUT: u1;
-
-#[address = 0x0150]
-fn checkpoint() {}
-
-fn main() {
-    A = 10;
-    B = 20;
-    LE_OUT = A <= B;
-    GT_OUT = A > B;
-
-    checkpoint();
-}
-"""
-await_pc = 0x0150
-[[case.assertion]]
-addr = 0xC000
-expected = 1
-[[case.assertion]]
-addr = 0xC001
-expected = 0
 
 [[case]]
 name = "comparisons_u1_unimplemented_regression"

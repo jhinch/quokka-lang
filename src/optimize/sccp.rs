@@ -384,22 +384,6 @@ impl Sccp {
                     ResolvedValue::Top => ResolvedValue::Top,
                 }
             }
-            Instr::Le { left, right, .. } => {
-                let resolved = self.resolve_binary(
-                    *left,
-                    right,
-                    function.locals[*left].ty,
-                    ty_registry,
-                    values,
-                );
-                match resolved {
-                    ResolvedValue::Value((left, right)) => {
-                        ResolvedValue::Value(Value::U1(left <= &right))
-                    }
-                    ResolvedValue::Bottom => ResolvedValue::Bottom,
-                    ResolvedValue::Top => ResolvedValue::Top,
-                }
-            }
             Instr::Ge { left, right, .. } => {
                 let resolved = self.resolve_binary(
                     *left,
@@ -411,22 +395,6 @@ impl Sccp {
                 match resolved {
                     ResolvedValue::Value((left, right)) => {
                         ResolvedValue::Value(Value::U1(left >= &right))
-                    }
-                    ResolvedValue::Bottom => ResolvedValue::Bottom,
-                    ResolvedValue::Top => ResolvedValue::Top,
-                }
-            }
-            Instr::Gt { left, right, .. } => {
-                let resolved = self.resolve_binary(
-                    *left,
-                    right,
-                    function.locals[*left].ty,
-                    ty_registry,
-                    values,
-                );
-                match resolved {
-                    ResolvedValue::Value((left, right)) => {
-                        ResolvedValue::Value(Value::U1(left > &right))
                     }
                     ResolvedValue::Bottom => ResolvedValue::Bottom,
                     ResolvedValue::Top => ResolvedValue::Top,
@@ -669,9 +637,7 @@ impl Sccp {
                     Instr::Eq { right, .. }
                     | Instr::Ne { right, .. }
                     | Instr::Lt { right, .. }
-                    | Instr::Le { right, .. }
                     | Instr::Ge { right, .. }
-                    | Instr::Gt { right, .. }
                     | Instr::BitAnd { right, .. }
                     | Instr::BitOr { right, .. }
                     | Instr::BitXor { right, .. }

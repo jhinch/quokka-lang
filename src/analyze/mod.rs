@@ -1205,15 +1205,15 @@ impl Analyzer {
                             left,
                             right: Operand::Local(right),
                         },
-                        ComparisonOpKind::Le => Instr::Le {
+                        ComparisonOpKind::Le => Instr::Ge {
                             target,
-                            left,
-                            right: Operand::Local(right),
+                            left: right,
+                            right: Operand::Local(left),
                         },
-                        ComparisonOpKind::Gt => Instr::Gt {
+                        ComparisonOpKind::Gt => Instr::Lt {
                             target,
-                            left,
-                            right: Operand::Local(right),
+                            left: right,
+                            right: Operand::Local(left),
                         },
                         ComparisonOpKind::Ge => Instr::Ge {
                             target,

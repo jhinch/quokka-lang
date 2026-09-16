@@ -105,9 +105,7 @@ impl TreeShake {
                         | Instr::Eq { right: operand, .. }
                         | Instr::Ne { right: operand, .. }
                         | Instr::Lt { right: operand, .. }
-                        | Instr::Le { right: operand, .. }
                         | Instr::Ge { right: operand, .. }
-                        | Instr::Gt { right: operand, .. }
                         | Instr::BitAnd { right: operand, .. }
                         | Instr::BitOr { right: operand, .. }
                         | Instr::BitXor { right: operand, .. }

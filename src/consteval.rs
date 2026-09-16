@@ -195,18 +195,6 @@ pub fn evaluate(
                     let source = Value::U1(left < &right);
                     local_slots[*target].set(source);
                 }
-                Instr::Le {
-                    target,
-                    left,
-                    right,
-                } => {
-                    let operand_ty = function.locals[*left].ty;
-                    let left = local_slots[*left].check_init(*left, function);
-                    let right =
-                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
-                    let source = Value::U1(left <= &right);
-                    local_slots[*target].set(source);
-                }
                 Instr::Ge {
                     target,
                     left,
@@ -217,18 +205,6 @@ pub fn evaluate(
                     let right =
                         Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
                     let source = Value::U1(left >= &right);
-                    local_slots[*target].set(source);
-                }
-                Instr::Gt {
-                    target,
-                    left,
-                    right,
-                } => {
-                    let operand_ty = function.locals[*left].ty;
-                    let left = local_slots[*left].check_init(*left, function);
-                    let right =
-                        Value::from_operand(&local_slots, function, operand_ty, ty_registry, right);
-                    let source = Value::U1(left > &right);
                     local_slots[*target].set(source);
                 }
                 Instr::BitAnd {
@@ -971,41 +947,11 @@ mod tests {
     }
 
     #[test]
-    fn le_against_a_literal_right_operand() {
-        // 5u8 <= 5 must be true ([1]).
-        let result = eval_comparison(
-            5,
-            |target, left, right| Instr::Le {
-                target,
-                left,
-                right,
-            },
-            5,
-        );
-        assert_eq!(result, vec![1]);
-    }
-
-    #[test]
     fn ge_against_a_literal_right_operand() {
         // 5u8 >= 5 must be true ([1]).
         let result = eval_comparison(
             5,
             |target, left, right| Instr::Ge {
-                target,
-                left,
-                right,
-            },
-            5,
-        );
-        assert_eq!(result, vec![1]);
-    }
-
-    #[test]
-    fn gt_against_a_literal_right_operand() {
-        // 7u8 > 5 must be true ([1]).
-        let result = eval_comparison(
-            7,
-            |target, left, right| Instr::Gt {
                 target,
                 left,
                 right,
