@@ -456,27 +456,8 @@ pub fn build_interference_graph(
     BlockLiveness { live_out, .. }: &BlockLiveness,
 ) -> (InterferenceGraph, IndexSet<(BlockId, usize)>) {
     let mut graph = InterferenceGraph::default();
-    for (reg, data) in code
-        .r8_registers
-        .iter()
-        .map(|(reg, data)| (VirtualReg::from(reg), data))
-        .chain(
-            code.r16_registers
-                .iter()
-                .map(|(reg, data)| (VirtualReg::from(reg), data)),
-        )
-        .chain(
-            code.zero_registers
-                .iter()
-                .map(|(reg, data)| (VirtualReg::from(reg), data)),
-        )
-        .chain(
-            code.carry_registers
-                .iter()
-                .map(|(reg, data)| (VirtualReg::from(reg), data)),
-        )
-    {
-        if let Some(color) = data.color {
+    for reg in code.registers() {
+        if let Some(color) = code.register_data(reg).color {
             graph.set_precolored(reg, color);
         }
     }
