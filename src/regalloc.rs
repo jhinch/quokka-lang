@@ -641,13 +641,54 @@ fn rewrite_code(
         &failure.graph,
         &functions_blocks,
     );
+    // Liveness of the code as it exists *before* any spill-rewrite instructions are inserted
+    // below. `rewrite_block_with_spills` uses this to notice when a spill-slot address
+    // computation (`LD HL, SP+e8`, which always clobbers `HL` and the flags) would land in the
+    // middle of some other already-precolored `HL`/`A`/`Fz`/`Fc` register's live range, and
+    // bracket the computation with `PUSH`/`POP` to protect it - see QUOK-109.
+    let block_liveness = calculate_block_liveness(code);
     for block in code.blocks.keys().collect::<Vec<_>>() {
-        rewrite_block_with_spills(code, block, spill_slots, &failure.spills, &flag_spill_r8s);
+        let live_at =
+            liveness_before_each_instruction(&code.blocks[block], &block_liveness.live_out[block]);
+        rewrite_block_with_spills(
+            code,
+            block,
+            spill_slots,
+            &failure.spills,
+            &flag_spill_r8s,
+            &live_at,
+        );
     }
     if !spill_slots.function_to_frame.is_empty() {
         rewrite_functions_with_frames(code, spill_slots, &functions_blocks);
     }
     code.check_integrity().unwrap();
+}
+
+/// Computes, for each instruction index in `block` (plus one extra trailing entry for the point
+/// just before the terminator), the set of registers live at that exact program point - i.e.
+/// defined earlier and still needed later. Seeded from `live_out`, the block's live-out set as
+/// computed by [`calculate_block_liveness`].
+fn liveness_before_each_instruction(
+    block: &Block,
+    live_out: &IndexSet<VirtualReg>,
+) -> Vec<IndexSet<VirtualReg>> {
+    let mut live = live_out.clone();
+    for reg in block.terminator.register_uses() {
+        live.insert(reg);
+    }
+    let mut live_at = vec![IndexSet::new(); block.instructions.len() + 1];
+    live_at[block.instructions.len()] = live.clone();
+    for (index, instruction) in block.instructions.iter().enumerate().rev() {
+        for reg in instruction.register_defs() {
+            live.swap_remove(&reg);
+        }
+        for reg in instruction.register_uses() {
+            live.insert(reg);
+        }
+        live_at[index] = live.clone();
+    }
+    live_at
 }
 
 fn allocate_spill_slots(
@@ -754,11 +795,18 @@ fn rewrite_block_with_spills(
     spill_slots: &SpillSlots,
     spills: &IndexSet<VirtualReg>,
     flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+    live_at: &[IndexSet<VirtualReg>],
 ) {
     let old_instructions = std::mem::take(&mut code.blocks[block_id].instructions);
     let mut new_instructions = Vec::with_capacity(old_instructions.len());
+    // Registers that a spill-slot address computation has evicted (via `PUSH`/`POP`) somewhere
+    // earlier in this block to avoid colliding with `LD HL, SP+e8`'s hard-wired `HL`/flags
+    // clobber - see `begin_spill_slot_address`. Every use of the original register from that
+    // point on in the block must be redirected to whatever register now holds its value.
+    let mut outer_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
 
-    for instruction in old_instructions {
+    for (index, instruction) in old_instructions.into_iter().enumerate() {
+        let live_here = &live_at[index];
         let defs_requiring_stores = instruction
             .register_defs()
             .filter(|reg| spills.contains(reg))
@@ -779,13 +827,15 @@ fn rewrite_block_with_spills(
                     spill_slots,
                     *high,
                     *low,
+                    live_here,
+                    &mut outer_substitutions,
                 );
             }
             _ => {
-                let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
+                let mut reload_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
 
                 for reg in instruction.register_uses() {
-                    if spills.contains(&reg) & !use_substitutions.contains_key(&reg) {
+                    if spills.contains(&reg) & !reload_substitutions.contains_key(&reg) {
                         let fresh = load_spill_slot(
                             code,
                             block_id,
@@ -793,10 +843,15 @@ fn rewrite_block_with_spills(
                             reg,
                             spill_slots,
                             flag_spill_r8s,
+                            live_here,
+                            &mut outer_substitutions,
                         );
-                        use_substitutions.insert(reg, fresh);
+                        reload_substitutions.insert(reg, fresh);
                     }
                 }
+                // built after the loop above so it reflects any renames those calls just made
+                let mut use_substitutions = outer_substitutions.clone();
+                use_substitutions.extend(reload_substitutions);
 
                 let defs = instruction.register_new_defs().collect::<Vec<_>>();
                 let index = new_instructions.len();
@@ -817,15 +872,18 @@ fn rewrite_block_with_spills(
                 reg,
                 spill_slots,
                 flag_spill_r8s,
+                &live_at[index + 1],
+                &mut outer_substitutions,
             );
         }
     }
 
-    let mut use_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
+    let mut reload_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
 
     let old_terminator = std::mem::replace(&mut code.blocks[block_id].terminator, Terminator::Ret);
+    let live_here = &live_at[live_at.len() - 1];
     for reg in old_terminator.register_uses() {
-        if spills.contains(&reg) & !use_substitutions.contains_key(&reg) {
+        if spills.contains(&reg) & !reload_substitutions.contains_key(&reg) {
             let fresh = load_spill_slot(
                 code,
                 block_id,
@@ -833,10 +891,14 @@ fn rewrite_block_with_spills(
                 reg,
                 spill_slots,
                 flag_spill_r8s,
+                live_here,
+                &mut outer_substitutions,
             );
-            use_substitutions.insert(reg, fresh);
+            reload_substitutions.insert(reg, fresh);
         }
     }
+    let mut use_substitutions = outer_substitutions;
+    use_substitutions.extend(reload_substitutions);
 
     code.blocks[block_id].instructions = new_instructions;
     code.blocks[block_id].terminator = rewrite_terminator(old_terminator, &use_substitutions);
@@ -846,6 +908,172 @@ fn patch_reg_defined(code: &mut CodeSectionData, reg: VirtualReg, block_id: Bloc
     code.register_data_mut(reg).defined.insert(block_id, index);
 }
 
+/// Already-precolored registers whose live range was found spanning a spill-slot address
+/// computation and were evicted (via `PUSH`) to make room for it; see
+/// [`begin_spill_slot_address`].
+struct SpillAddressGuard {
+    hl: Option<R16Id>,
+    a: Option<AId>,
+    z: Option<ZeroId>,
+    c: Option<CarryId>,
+}
+
+fn resolve_current(
+    outer_substitutions: &HashMap<VirtualReg, VirtualReg>,
+    reg: VirtualReg,
+) -> VirtualReg {
+    outer_substitutions.get(&reg).copied().unwrap_or(reg)
+}
+
+/// Emits the `LD HL, SP+e8` used to compute a spill slot's address. `LD HL, SP+e8` is the only
+/// Game Boy instruction that can do SP-relative addressing, and it hard-wires its target to `HL`
+/// and always clobbers the flags - so if some other already-precolored `HL`/`A`/`Fz`/`Fc`
+/// register (found live in `live_here`) spans this exact point, it is first evicted with a
+/// `PUSH` and restored afterward via [`end_spill_slot_address`], rather than being left to
+/// silently collide with the fresh precolored registers this instruction needs. See QUOK-109.
+fn begin_spill_slot_address(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    instructions: &mut Vec<Instr>,
+    slot: i8,
+    live_here: &IndexSet<VirtualReg>,
+    outer_substitutions: &HashMap<VirtualReg, VirtualReg>,
+) -> (HLId, SpillAddressGuard) {
+    let hl = live_here.iter().copied().find_map(|reg| match reg {
+        VirtualReg::R16(r16) if code.r16_registers[r16].color == Some(Color::HL) => Some(r16),
+        _ => None,
+    });
+    let a = live_here.iter().copied().find_map(|reg| match reg {
+        VirtualReg::R8(r8) if code.r8_registers[r8].color == Some(Color::A) => {
+            Some(r8.downcast_to_a_without_move())
+        }
+        _ => None,
+    });
+    let z = live_here.iter().copied().find_map(|reg| match reg {
+        VirtualReg::Zero(z) if code.zero_registers[z].color == Some(Color::Fz) => Some(z),
+        _ => None,
+    });
+    let c = live_here.iter().copied().find_map(|reg| match reg {
+        VirtualReg::Carry(c) if code.carry_registers[c].color == Some(Color::Fc) => Some(c),
+        _ => None,
+    });
+
+    let mut growth: i8 = 0;
+    if let Some(hl) = hl {
+        let VirtualReg::R16(current) = resolve_current(outer_substitutions, VirtualReg::R16(hl))
+        else {
+            unreachable!("R16 substitutes to non-R16")
+        };
+        instructions.push(Instr::PushR16 { source: current });
+        growth += 2;
+    }
+    if a.is_some() || z.is_some() || c.is_some() {
+        let source = a.map(|a| {
+            let VirtualReg::R8(current) = resolve_current(
+                outer_substitutions,
+                VirtualReg::R8(a.upcast_to_r8_without_move()),
+            ) else {
+                unreachable!("R8 substitutes to non-R8")
+            };
+            current.downcast_to_a_without_move()
+        });
+        let z_in = z.map(|z| {
+            let VirtualReg::Zero(current) =
+                resolve_current(outer_substitutions, VirtualReg::Zero(z))
+            else {
+                unreachable!("Zero substitutes to non-Zero")
+            };
+            current
+        });
+        let c_in = c.map(|c| {
+            let VirtualReg::Carry(current) =
+                resolve_current(outer_substitutions, VirtualReg::Carry(c))
+            else {
+                unreachable!("Carry substitutes to non-Carry")
+            };
+            current
+        });
+        instructions.push(Instr::PushAF { source, z_in, c_in });
+        growth += 2;
+    }
+
+    let target = code
+        .r16_registers
+        .insert(Register {
+            color: Some(Color::HL),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        })
+        .downcast_to_hl_without_move();
+    let z_out = code.zero_registers.insert(Register {
+        color: Some(Color::Fz),
+        defined: [(block_id, instructions.len())].into_iter().collect(),
+    });
+    let c_out = code.carry_registers.insert(Register {
+        color: Some(Color::Fc),
+        defined: [(block_id, instructions.len())].into_iter().collect(),
+    });
+    instructions.push(Instr::LdSPE8 {
+        target,
+        z: z_out,
+        c: c_out,
+        right: slot
+            .checked_add(growth)
+            .expect("spill slot offset overflowed i8 after accounting for PUSH HL/AF growth"),
+    });
+    (target, SpillAddressGuard { hl, a, z, c })
+}
+
+/// Restores whatever [`begin_spill_slot_address`] evicted, and records the fresh registers now
+/// holding those values in `outer_substitutions` so later uses in this block get redirected to
+/// them by [`rewrite_instruction`]/[`rewrite_terminator`].
+fn end_spill_slot_address(
+    code: &mut CodeSectionData,
+    block_id: BlockId,
+    instructions: &mut Vec<Instr>,
+    guard: SpillAddressGuard,
+    outer_substitutions: &mut HashMap<VirtualReg, VirtualReg>,
+) {
+    if guard.a.is_some() || guard.z.is_some() || guard.c.is_some() {
+        let a = code
+            .r8_registers
+            .insert(Register {
+                color: Some(Color::A),
+                defined: [(block_id, instructions.len())].into_iter().collect(),
+            })
+            .downcast_to_a_without_move();
+        let z = code.zero_registers.insert(Register {
+            color: Some(Color::Fz),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        });
+        let c = code.carry_registers.insert(Register {
+            color: Some(Color::Fc),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        });
+        instructions.push(Instr::PopAF { target: a, z, c });
+        if let Some(outer_a) = guard.a {
+            outer_substitutions.insert(
+                VirtualReg::R8(outer_a.upcast_to_r8_without_move()),
+                VirtualReg::R8(a.upcast_to_r8_without_move()),
+            );
+        }
+        if let Some(outer_z) = guard.z {
+            outer_substitutions.insert(VirtualReg::Zero(outer_z), VirtualReg::Zero(z));
+        }
+        if let Some(outer_c) = guard.c {
+            outer_substitutions.insert(VirtualReg::Carry(outer_c), VirtualReg::Carry(c));
+        }
+    }
+    if let Some(outer_hl) = guard.hl {
+        let target = code.r16_registers.insert(Register {
+            color: Some(Color::HL),
+            defined: [(block_id, instructions.len())].into_iter().collect(),
+        });
+        instructions.push(Instr::PopR16 { target });
+        outer_substitutions.insert(VirtualReg::R16(outer_hl), VirtualReg::R16(target));
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn load_spill_slot(
     code: &mut CodeSectionData,
     block_id: BlockId,
@@ -853,31 +1081,20 @@ fn load_spill_slot(
     reg: VirtualReg,
     spill_slots: &SpillSlots,
     flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+    live_here: &IndexSet<VirtualReg>,
+    outer_substitutions: &mut HashMap<VirtualReg, VirtualReg>,
 ) -> VirtualReg {
     match reg {
         VirtualReg::R8(r8) => {
             let slot = spill_slots.r8_to_slot[r8];
-            let source_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
-            let z = code.zero_registers.insert(Register {
-                color: Some(Color::Fz),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            let c = code.carry_registers.insert(Register {
-                color: Some(Color::Fc),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::LdSPE8 {
-                target: source_addr,
-                z,
-                c,
-                right: slot,
-            });
+            let (source_addr, guard) = begin_spill_slot_address(
+                code,
+                block_id,
+                instructions,
+                slot,
+                live_here,
+                outer_substitutions,
+            );
             let target = code.r8_registers.insert(Register {
                 color: None,
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -886,6 +1103,7 @@ fn load_spill_slot(
                 target,
                 source_addr: Addr::Reg(source_addr.upcast_to_r16_without_move()),
             });
+            end_spill_slot_address(code, block_id, instructions, guard, outer_substitutions);
             VirtualReg::R8(target)
         }
         VirtualReg::R16(r16) => {
@@ -899,6 +1117,8 @@ fn load_spill_slot(
                 spill_slots,
                 high_in,
                 low_in,
+                live_here,
+                outer_substitutions,
             );
             let target = code.r16_registers.insert(Register {
                 color: None,
@@ -962,6 +1182,7 @@ fn load_spill_slot(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn load_r16_spill_into_high_low(
     code: &mut CodeSectionData,
     block_id: BlockId,
@@ -970,29 +1191,18 @@ fn load_r16_spill_into_high_low(
     spill_slots: &SpillSlots,
     high: R8Id,
     low: R8Id,
+    live_here: &IndexSet<VirtualReg>,
+    outer_substitutions: &mut HashMap<VirtualReg, VirtualReg>,
 ) {
     let slot = spill_slots.r16_to_slot[r16];
-    let source_addr = code
-        .r16_registers
-        .insert(Register {
-            color: Some(Color::HL),
-            defined: [(block_id, instructions.len())].into_iter().collect(),
-        })
-        .downcast_to_hl_without_move();
-    let z = code.zero_registers.insert(Register {
-        color: Some(Color::Fz),
-        defined: [(block_id, instructions.len())].into_iter().collect(),
-    });
-    let c = code.carry_registers.insert(Register {
-        color: Some(Color::Fc),
-        defined: [(block_id, instructions.len())].into_iter().collect(),
-    });
-    instructions.push(Instr::LdSPE8 {
-        target: source_addr,
-        z,
-        c,
-        right: slot,
-    });
+    let (source_addr, guard) = begin_spill_slot_address(
+        code,
+        block_id,
+        instructions,
+        slot,
+        live_here,
+        outer_substitutions,
+    );
     let a = code
         .r8_registers
         .insert(Register {
@@ -1018,8 +1228,10 @@ fn load_r16_spill_into_high_low(
         target: high,
         source_addr: Addr::Reg(source_addr.upcast_to_r16_without_move()),
     });
+    end_spill_slot_address(code, block_id, instructions, guard, outer_substitutions);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn store_spill_slot(
     code: &mut CodeSectionData,
     block_id: BlockId,
@@ -1027,59 +1239,36 @@ fn store_spill_slot(
     reg: VirtualReg,
     spill_slots: &SpillSlots,
     flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
+    live_here: &IndexSet<VirtualReg>,
+    outer_substitutions: &mut HashMap<VirtualReg, VirtualReg>,
 ) {
     match reg {
         VirtualReg::R8(r8) => {
             let slot = spill_slots.r8_to_slot[r8];
-            let target_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
-            let z = code.zero_registers.insert(Register {
-                color: Some(Color::Fz),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            let c = code.carry_registers.insert(Register {
-                color: Some(Color::Fc),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::LdSPE8 {
-                target: target_addr,
-                z,
-                c,
-                right: slot,
-            });
+            let (target_addr, guard) = begin_spill_slot_address(
+                code,
+                block_id,
+                instructions,
+                slot,
+                live_here,
+                outer_substitutions,
+            );
             instructions.push(Instr::Store {
                 addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
                 source: r8,
             });
+            end_spill_slot_address(code, block_id, instructions, guard, outer_substitutions);
         }
         VirtualReg::R16(r16) => {
             let slot = spill_slots.r16_to_slot[r16];
-            let target_addr = code
-                .r16_registers
-                .insert(Register {
-                    color: Some(Color::HL),
-                    defined: [(block_id, instructions.len())].into_iter().collect(),
-                })
-                .downcast_to_hl_without_move();
-            let z = code.zero_registers.insert(Register {
-                color: Some(Color::Fz),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            let c = code.carry_registers.insert(Register {
-                color: Some(Color::Fc),
-                defined: [(block_id, instructions.len())].into_iter().collect(),
-            });
-            instructions.push(Instr::LdSPE8 {
-                target: target_addr,
-                z,
-                c,
-                right: slot,
-            });
+            let (target_addr, guard) = begin_spill_slot_address(
+                code,
+                block_id,
+                instructions,
+                slot,
+                live_here,
+                outer_substitutions,
+            );
             let low = code.r8_registers.insert(Register {
                 color: None,
                 defined: [(block_id, instructions.len())].into_iter().collect(),
@@ -1117,6 +1306,7 @@ fn store_spill_slot(
                 addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
                 source: high,
             });
+            end_spill_slot_address(code, block_id, instructions, guard, outer_substitutions);
         }
         VirtualReg::Zero(z_in) => {
             // zero flags are difficult, unfortunately. We need to push them onto

@@ -1677,7 +1677,7 @@ bubble_sort::
   LD A, $00
   LD B, $00
   LD C, $00
-  LD D, A
+  LD E, A
   LD HL SP+3; z, c
   LD [HL], B
   LD A, C
@@ -1744,8 +1744,11 @@ main::
   LD HL SP+3; z, c
   LD A, [HL]
   SUB A, C; z, c
-  LD HL SP+1; z, c
-  LD A, [HL]
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+3; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  LD A, C
   SBC A, B; z, c
   JP nc, .bb4; else=.bb5
 
@@ -1755,37 +1758,44 @@ main::
 .bb5:
   LD A, $08
   LD B, $00
-  LD HL SP+3; z, c
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+5; z, c
   LD C, [HL]
+  POP AF(high_out=A); z, c
   SUB A, C; z, c
-  LD C, A
+  LD D, A
   LD A, B
-  LD HL SP+1; z, c
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+3; z, c
   LD B, [HL]
+  POP AF(high_out=A); z, c
   SBC A, B; z, c
-  LD E, A
+  LD B, A
   LD H, $01
   LD A, $00
-  LD B, A
-  LD A, C
+  LD C, A
+  LD A, D
   SUB A, H; z, c
-  LD HL SP+5; z, c
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+7; z, c
   LD [HL], A
-  LD A, E
-  SBC A, B; z, c
+  POP AF(high_out=A); z, c
+  LD A, B
+  SBC A, C; z, c
   LD HL SP+4; z, c
   LD [HL], A
   LD C, $00
   LD A, $00
-  LD B, D
+  LD B, E
   LD HL SP+2; z, c
   LD [HL], B
+  LD E, C
   LD HL SP+2; z, c
   LD [HL], A
   JP .bb7
 
 .bb6:
-  LD A, D
+  LD A, E
   ADD SP 6; z, c
   RET
 
@@ -1798,14 +1808,21 @@ main::
   LD A, [HL]
   LD HL SP+5; z, c
   LD [HL], A
-  LD A, C
-  LD HL SP+5; z, c
+  LD A, E
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+7; z, c
   LD B, [HL]
+  POP AF(high_out=A); z, c
   SUB A, B; z, c
-  LD HL SP+2; z, c
-  LD A, [HL]
+  PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+4; z, c
   LD B, [HL]
+  POP AF(high_out=A); z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+6; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
   SBC A, B; z, c
   FRESH A
   SBC A, A; z, c
@@ -1824,22 +1841,26 @@ main::
   JP .bb10
 
 .bb9:
-  LD D, $01
-  LD B, $00
-  LD A, C
-  ADD A, D; z, c
-  LD E, A
-  LD HL SP+2; z, c
-  LD A, [HL]
+  LD C, $01
+  LD A, $00
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD C, A
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD D, [HL]
+  POP AF(high_out=A); z, c
+  LD A, D
   ADC A, B; z, c
-  LD D, A
-  LD HL, DATA+$0000
-  ADD HL, DE; c
-  LD A, [HL]
-  LD HL SP+2; z, c
-  LD B, [HL]
+  LD B, A
   LD HL, DATA+$0000
   ADD HL, BC; c
+  LD A, [HL]
+  LD HL SP+2; z, c
+  LD D, [HL]
+  LD HL, DATA+$0000
+  ADD HL, DE; c
   LD B, [HL]
   CP A, B; z, c
   FRESH A
@@ -1851,20 +1872,22 @@ main::
   JP c, .bb11; else=.bb12
 
 .bb10:
-  LD C, $01
+  LD B, $01
   LD A, $00
-  LD B, A
+  LD C, A
   LD HL SP+3; z, c
   LD A, [HL]
-  ADD A, C; z, c
-  LD C, A
-  LD HL SP+1; z, c
-  LD A, [HL]
-  ADC A, B; z, c
+  ADD A, B; z, c
+  LD B, A
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+3; z, c
+  LD D, [HL]
+  POP AF(high_out=A); z, c
+  LD A, D
+  ADC A, C; z, c
   LD HL SP+2; z, c
-  LD B, [HL]
-  LD D, B
-  LD B, C
+  LD C, [HL]
+  LD E, C
   LD HL SP+3; z, c
   LD [HL], B
   LD HL SP+1; z, c
@@ -1873,42 +1896,52 @@ main::
 
 .bb11:
   LD HL SP+2; z, c
-  LD B, [HL]
-  LD HL, DATA+$0000
-  ADD HL, BC; c
-  LD A, [HL]
-  LD HL SP+0; z, c
-  LD [HL], A
-  LD D, $01
-  LD B, $00
-  LD A, C
-  ADD A, D; z, c
-  LD E, A
-  LD HL SP+2; z, c
-  LD A, [HL]
-  ADC A, B; z, c
-  LD D, A
+  LD D, [HL]
   LD HL, DATA+$0000
   ADD HL, DE; c
   LD A, [HL]
-  LD HL SP+2; z, c
-  LD B, [HL]
+  LD HL SP+0; z, c
+  LD [HL], A
+  LD C, $01
+  LD A, $00
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD C, A
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD D, [HL]
+  POP AF(high_out=A); z, c
+  LD A, D
+  ADC A, B; z, c
+  LD B, A
   LD HL, DATA+$0000
   ADD HL, BC; c
-  LD [HL], A
-  LD D, $01
-  LD B, $00
-  LD A, C
-  ADD A, D; z, c
-  LD E, A
-  LD HL SP+2; z, c
   LD A, [HL]
-  ADC A, B; z, c
-  LD D, A
+  LD HL SP+2; z, c
+  LD D, [HL]
   LD HL, DATA+$0000
   ADD HL, DE; c
-  LD HL SP+0; z, c
+  LD [HL], A
+  LD C, $01
+  LD A, $00
+  LD B, A
+  LD A, E
+  ADD A, C; z, c
+  LD C, A
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD D, [HL]
+  POP AF(high_out=A); z, c
+  LD A, D
+  ADC A, B; z, c
+  LD B, A
+  LD HL, DATA+$0000
+  ADD HL, BC; c
+  PUSH HL
+  LD HL SP+2; z, c
   LD A, [HL]
+  POP HL
   LD [HL], A
   LD B, $01
   LD HL SP+2; z, c
@@ -1918,17 +1951,20 @@ main::
   JP .bb12
 
 .bb12:
-  LD E, $01
+  LD C, $01
   LD A, $00
   LD B, A
   LD HL SP+2; z, c
   LD A, [HL]
-  LD A, C
-  LD A, C
-  ADD A, E; z, c
+  LD A, E
+  LD A, E
+  ADD A, C; z, c
   LD C, A
-  LD HL SP+2; z, c
-  LD A, [HL]
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD E, [HL]
+  POP AF(high_out=A); z, c
+  LD A, E
   ADC A, B; z, c
   LD HL SP+4; z, c
   LD B, [HL]
@@ -1941,6 +1977,7 @@ main::
   LD B, D
   LD HL SP+2; z, c
   LD [HL], B
+  LD E, C
   LD HL SP+2; z, c
   LD [HL], A
   JP .bb7

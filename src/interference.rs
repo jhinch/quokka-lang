@@ -553,15 +553,6 @@ pub fn build_interference_graph(
     (graph, moves)
 }
 
-#[cfg(not(feature = "validate-interference-graph"))]
-fn validate_initial_coloring(_graph: &InterferenceGraph, _code: &CodeSectionData) {
-    //
-    // currently there are real issues this validation finds in existing tests.
-    // Adding this validation under a cargo feature gate for now until we address
-    // the underlying issues (QUOK-109)
-}
-
-#[cfg(feature = "validate-interference-graph")]
 fn validate_initial_coloring(graph: &InterferenceGraph, code: &CodeSectionData) {
     for (reg, data) in &graph.node_to_data {
         if let Some(permitted_colors) = data.permitted_colors.as_ref().cloned() {

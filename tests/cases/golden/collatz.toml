@@ -967,8 +967,8 @@ collatz_steps::
   LD A, [HL]
   LD H, $00
   LD E, $00
-  LD D, B
-  LD C, A
+  LD C, B
+  LD D, A
   LD B, H
   LD HL SP+1; z, c
   LD [HL], B
@@ -989,9 +989,9 @@ main::
 .bb3:
   LD B, $01
   LD E, $00
-  LD A, C
-  SUB A, E; z, c
   LD A, D
+  SUB A, E; z, c
+  LD A, C
   SBC A, B; z, c
   JP z, .bb4; else=.bb5
 
@@ -1001,10 +1001,10 @@ main::
 .bb5:
   LD B, $01
   LD E, $00
-  LD A, D
+  LD A, C
   AND A, B; z, c
   LD B, A
-  LD A, C
+  LD A, D
   AND A, E; z, c
   LD E, $00
   LD H, $00
@@ -1022,36 +1022,36 @@ main::
   RET
 
 .bb7:
-  LD B, C
-  SRL B; z, c
   LD A, D
-  RRA A; z, c
-  LD E, A
+  SRL A; z, c
+  LD B, C
+  RR B; z, c
   LD C, B
+  LD E, A
   JP .bb9
 
 .bb8:
-  LD A, D
-  ADD A, D; z, c
-  LD E, A
   LD A, C
-  ADC A, C; z, c
+  ADD A, C; z, c
+  LD B, A
+  LD A, D
+  ADC A, D; z, c
+  LD E, A
+  LD A, B
+  ADD A, C; z, c
   LD B, A
   LD A, E
-  ADD A, D; z, c
-  LD D, A
-  LD A, B
-  ADC A, C; z, c
+  ADC A, D; z, c
   LD C, A
-  LD B, $01
-  LD E, $00
-  LD A, D
-  ADD A, B; z, c
+  LD E, $01
+  LD D, $00
+  LD A, B
+  ADD A, E; z, c
   LD B, A
   LD A, C
-  ADC A, E; z, c
-  LD E, B
-  LD C, A
+  ADC A, D; z, c
+  LD C, B
+  LD E, A
   JP .bb9
 
 .bb9:
@@ -1067,8 +1067,11 @@ main::
   LD A, [HL]
   ADD A, B; z, c
   LD B, A
-  LD HL SP+0; z, c
-  LD A, [HL]
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+2; z, c
+  LD H, [HL]
+  POP AF(high_out=A); z, c
+  LD A, H
   ADC A, D; z, c
   LD D, E
   LD HL SP+1; z, c

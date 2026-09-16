@@ -430,8 +430,12 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff
-  LD HL SP+0; z, c
+  PUSH HL
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+4; z, c
   LD D, [HL]
+  POP AF(high_out=A); z, c
+  POP HL
   XOR A, D; z, c
   PUSH AF(high_in=?, z_in=z, c_in=?)
   POP DE
@@ -454,8 +458,12 @@ f::
   LD HL, RESULT+$0000
   ADD HL, BC; c
   LD A, $ff
-  LD HL SP+1; z, c
+  PUSH HL
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+5; z, c
   LD D, [HL]
+  POP AF(high_out=A); z, c
+  POP HL
   XOR A, D; z, c
   PUSH AF(high_in=?, z_in=z, c_in=?)
   POP DE

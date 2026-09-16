@@ -1515,13 +1515,20 @@ main::
 
 .bb3:
   LD A, D
-  LD HL SP+0; z, c
-  LD B, [HL]
-  SUB A, B; z, c
+  PUSH AF(high_in=A, z_in=?, c_in=?)
   LD HL SP+2; z, c
-  LD A, [HL]
-  LD HL SP+1; z, c
   LD B, [HL]
+  POP AF(high_out=A); z, c
+  SUB A, B; z, c
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+3; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
   SBC A, B; z, c
   JP c, .bb4; else=.bb5
 
@@ -1536,10 +1543,15 @@ main::
   LD A, [HL]
   ADD A, D; z, c
   LD C, A
-  LD HL SP+1; z, c
-  LD A, [HL]
-  LD HL SP+2; z, c
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+3; z, c
   LD B, [HL]
+  POP AF(high_out=A); z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+4; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
   ADC A, B; z, c
   LD B, A
   SRL B; z, c

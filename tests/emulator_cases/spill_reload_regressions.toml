@@ -1,17 +1,20 @@
-# Two related, currently-unfixed register-allocator soundness bugs, both found while writing the
+# Two related register-allocator soundness bugs (QUOK-109), both found while writing the
 # per-operand corruption checks in `operators_arithmetic.toml`. Checking that *both* operands of a
 # u16 binary operator survive the operation (i.e. both `let` locals are read again afterwards) is
 # enough register pressure on the Game Boy's small register file to force a spill of one of the
-# operand's high bytes - and reloading that spill corrupts unrelated, still-live state, because the
-# spill reload sequence emitted by `load_spill_slot` in `src/regalloc.rs` always clobbers `HL` and
-# the flags register to compute the spill slot's address (`LD HL, SP+e8`), without checking whether
-# some other already-colored, still-live virtual register is relying on `HL` or a flag surviving
-# across that point. This is a real architectural gap - the register allocator decides colors and
-# liveness *before* spill code exists, so nothing in that pass can see clobbers introduced by the
-# later, separate spill-rewrite pass.
+# operand's high bytes - and reloading that spill used to corrupt unrelated, still-live state,
+# because the spill reload sequence emitted by `load_spill_slot` in `src/regalloc.rs` always
+# clobbers `HL` and the flags register to compute the spill slot's address (`LD HL, SP+e8`),
+# without checking whether some other already-colored, still-live virtual register was relying on
+# `HL` or a flag surviving across that point. This was a real architectural gap - the register
+# allocator decides colors and liveness *before* spill code exists, so nothing in that pass could
+# see clobbers introduced by the later, separate spill-rewrite pass. Fixed by bracketing the
+# address computation with `PUSH`/`POP HL` and/or `PUSH`/`POP AF` whenever an already-precolored
+# register is found live across it (`begin_spill_slot_address`/`end_spill_slot_address` in
+# `src/regalloc.rs`).
 #
 # Both cases below spilled the same way in the same minimal `left`/`right` u16 program; only the
-# operator differs, which is what determines *which* prior state ends up corrupted:
+# operator differs, which is what determined *which* prior state ended up corrupted:
 #
 # - `+`/`-` chain the low byte's carry into the high byte's `ADC`/`SBC`. If a spill reload lands
 #   between the two, `LD HL, SP+e8` clobbers the carry flag before the high byte instruction reads
@@ -29,7 +32,6 @@
 
 [[case]]
 name = "sub_u16_both_operands_live_corrupts_borrow_regression"
-ignored = "Register pressure from keeping both `left` and `right` live past the subtraction forces a spill of the right operand's high byte. Reloading it between the low byte's SUB and the high byte's SBC uses `LD HL, SP+e8`, which clobbers the carry flag the SBC depends on, so the borrow from the low byte is silently lost. See the comment at the top of this file for the full root cause; un-ignore once `src/regalloc.rs`'s spill-reload codegen preserves flags that are live across a reload."
 source = """
 global LEFT: u16;
 global RIGHT: u16;
@@ -70,7 +72,6 @@ expected = [0x01, 0x00]
 
 [[case]]
 name = "bitand_u16_both_operands_live_corrupts_store_target_regression"
-ignored = "Register pressure from keeping both `left` and `right` live past the AND forces a spill of the right operand's high byte. Reloading it between the low- and high-byte halves of storing RIGHT_OUT repoints HL at the spill slot instead of RIGHT_OUT's high byte, so the final store silently writes back into the spill slot instead of RIGHT_OUT. See the comment at the top of this file for the full root cause; un-ignore once `src/regalloc.rs`'s spill-reload codegen preserves a live HL address across a reload."
 source = """
 global LEFT: u16;
 global RIGHT: u16;
