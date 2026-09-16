@@ -674,7 +674,7 @@ impl CodeSectionData {
                     continue;
                 }
                 let instr = &self.blocks[block_id].instructions[index];
-                if !instr.register_defs().any(|r| r == reg) {
+                if !instr.register_new_defs().any(|r| r == reg) {
                     result_builder.add_error(miette::MietteDiagnostic::new(format!(
                         "Bad defined data for register {reg:?}. Not defined in {block_id:?} at index {index}. Found {instr:?}"
                     )));
@@ -1101,13 +1101,22 @@ impl Instr {
     }
 
     pub fn register_defs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        self.register_new_defs().chain(self.register_redefs())
+    }
+
+    pub fn register_new_defs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
         self.target_r8s()
             .map(VirtualReg::R8)
-            .chain(self.redefined_r8().into_iter().map(VirtualReg::R8))
             .chain(self.target_r16().into_iter().map(VirtualReg::R16))
-            .chain(self.redefined_r16().into_iter().map(VirtualReg::R16))
             .chain(self.zero().map(VirtualReg::Zero))
             .chain(self.carry().map(VirtualReg::Carry))
+    }
+
+    pub fn register_redefs(&self) -> impl Iterator<Item = VirtualReg> + '_ {
+        self.redefined_r8()
+            .into_iter()
+            .map(VirtualReg::R8)
+            .chain(self.redefined_r16().into_iter().map(VirtualReg::R16))
     }
 
     pub fn register_uses(&self) -> impl Iterator<Item = VirtualReg> + '_ {

@@ -755,7 +755,7 @@ fn rewrite_block_with_spills(
                     }
                 }
 
-                let defs = instruction.register_defs().collect::<Vec<_>>();
+                let defs = instruction.register_new_defs().collect::<Vec<_>>();
                 let index = new_instructions.len();
                 new_instructions.push(rewrite_instruction(instruction, &use_substitutions));
                 for reg in defs {
@@ -1501,18 +1501,12 @@ fn rewrite_function_entry_with_frame(code: &mut CodeSectionData, entry: BlockId,
         code.blocks[entry]
             .instructions
             .insert(0, Instr::AddSP { z, c, right: 0 });
-        for (index, instr) in code.blocks[entry].instructions.iter().enumerate().skip(1) {
-            for r8 in instr.target_r8s() {
-                code.r8_registers[r8].defined[entry] = index;
-            }
-            if let Some(r16) = instr.target_r16() {
-                code.r16_registers[r16].defined[entry] = index;
-            }
-            if let Some(z) = instr.zero() {
-                code.zero_registers[z].defined[entry] = index;
-            }
-            if let Some(c) = instr.carry() {
-                code.carry_registers[c].defined[entry] = index;
+        for index in 1..code.blocks[entry].instructions.len() {
+            for reg in code.blocks[entry].instructions[index]
+                .register_new_defs()
+                .collect::<Vec<_>>()
+            {
+                code.register_data_mut(reg).defined[entry] = index;
             }
         }
     }
@@ -1596,7 +1590,7 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
             };
             if retain {
                 let index = block.instructions.len();
-                for reg in instruction.register_defs() {
+                for reg in instruction.register_new_defs() {
                     // unfortunately this cannot use code.register_data_mut() as it conflicts
                     // with code.blocks.iter_mut() above
                     match reg {
@@ -1610,7 +1604,7 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
                 }
                 block.instructions.push(instruction);
             } else {
-                for reg in instruction.register_defs() {
+                for reg in instruction.register_new_defs() {
                     // we don't want to remove the register as we are not updating the
                     // uses of the register. Instead, we just clean up the definition pointer
                     match reg {

@@ -591,10 +591,10 @@ fn validate_initial_coloring(graph: &InterferenceGraph, code: &CodeSectionData) 
                 eprintln!(".{block_id}:");
                 for (index, instr) in block.instructions.iter().enumerate() {
                     eprint!("{index}: {instr:?} #");
-                    if instr.register_defs().any(|r| r == a) {
+                    if instr.register_new_defs().any(|r| r == a) {
                         eprint!(" DEFINED a");
                     }
-                    if instr.register_defs().any(|r| r == b) {
+                    if instr.register_new_defs().any(|r| r == b) {
                         eprint!(" DEFINED b");
                     }
                     if instr.register_uses().any(|r| r == a) {
@@ -629,7 +629,7 @@ pub fn calculate_block_liveness(code: &CodeSectionData) -> BlockLiveness {
                 }
             }
 
-            for reg in instruction.register_defs() {
+            for reg in instruction.register_new_defs() {
                 defs.insert(reg);
             }
         }
