@@ -1158,10 +1158,10 @@ main::
   LD r8#44, $00
   LD r8#45, r8#44
   LD r8#46, r8#43
-  LD A, r8#36
-  SUB A, r8#45; z, c
   LD A, r8#35
-  SBC A, r8#46; z, c
+  SUB A, r8#46; z, c
+  LD A, r8#36
+  SBC A, r8#45; z, c
   (out=z#11,in=z)
   JP z#11, .bb17; else=.bb18
 
@@ -1516,14 +1516,14 @@ main::
   RET
 
 .bb16:
-  LD A, $0f
-  LD C, $00
+  LD C, $0f
+  LD A, $00
   LD B, A
-  LD HL SP+0; z, c
+  LD HL SP+1; z, c
   LD A, [HL]
   SUB A, C; z, c
   PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+3; z, c
+  LD HL SP+2; z, c
   LD C, [HL]
   POP AF(high_out=A); z, c
   LD A, C

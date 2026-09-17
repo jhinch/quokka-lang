@@ -575,10 +575,10 @@ main::
   LD r8#16, $00
   LD r8#17, r8#16
   LD r8#18, r8#15
-  LD A, r8#2
-  SUB A, r8#17; z, c
   LD A, r8#1
-  SBC A, r8#18; z, c
+  SUB A, r8#18; z, c
+  LD A, r8#2
+  SBC A, r8#17; z, c
   (out=z#3,in=z)
   JP z#3, .bb4; else=.bb5
 
@@ -876,12 +876,11 @@ main::
   CALL gcd; return=.bb9
 
 .bb3:
-  LD A, $00
   LD L, $00
-  LD H, A
-  LD A, E
-  SUB A, L; z, c
+  LD H, $00
   LD A, B
+  SUB A, L; z, c
+  LD A, E
   SBC A, H; z, c
   JP z, .bb4; else=.bb5
 

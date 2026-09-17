@@ -1622,16 +1622,7 @@ impl CodeGen {
                 (z, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(left), block, lir, ctx, locals);
-
-                let a = lir.insert_ld_a(block, left_high);
-                let (_z, c_in) = lir.insert_sub(block, a, Operand8::Reg(right_high));
-
-                let a = lir.insert_ld_a(block, left_low);
-                let (z, _c) = lir.insert_sbc(block, a, Operand8::Reg(right_low), c_in);
-
+                let (z, _c) = self.cp_from_r16(left, right, block, lir, ctx, locals);
                 (z, mir::Condition::NotZero)
             }
             ty => unimplemented!("{ty:?}"),
@@ -1657,16 +1648,7 @@ impl CodeGen {
                 (c, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(left), block, lir, ctx, locals);
-
-                let a = lir.insert_ld_a(block, left_low);
-                let (_z, c_in) = lir.insert_sub(block, a, Operand8::Reg(right_low));
-
-                let a = lir.insert_ld_a(block, left_high);
-                let (_z, c) = lir.insert_sbc(block, a, Operand8::Reg(right_high), c_in);
-
+                let (_z, c) = self.cp_from_r16(left, right, block, lir, ctx, locals);
                 (c, mir::Condition::NotZero)
             }
             ty => unimplemented!("{ty:?}"),
@@ -1708,6 +1690,21 @@ impl CodeGen {
             }
             Ty::U2 => todo!("{left:?} {right:?} u2"),
             Ty::U4 => todo!("{left:?} {right:?} u4"),
+            Ty::I8 => {
+                // for I8, we need to take into account that negative numbers have their high bit
+                // set, so we need to XOR both operands so that the high bit is inverted and we can
+                // use a regular comparison
+                let right = lir.insert_ld8_operand(block, self.r8_to_operand(right, locals));
+
+                let a = lir.insert_ld_a(block, right);
+                let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0x80));
+                let right = lir.insert_move_a(block, a);
+
+                let a = lir.insert_ld_a(block, locals.r8s[left]);
+                let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0x80));
+
+                lir.insert_cp(block, a, Operand8::Reg(right))
+            }
             ty if ty.bit_size(&self.ty_registry) == 8 => {
                 let right = self.r8_to_operand(right, locals);
                 let a = lir.insert_ld_a(block, locals.r8s[left]);
@@ -1715,6 +1712,37 @@ impl CodeGen {
             }
             ty => unimplemented!("{ty:?}"),
         }
+    }
+
+    fn cp_from_r16(
+        &mut self,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx,
+        locals: &Locals,
+    ) -> (ZeroId, CarryId) {
+        let is_signed = ctx.function.locals[left].ty.is_signed_int();
+        let (mut right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
+        if is_signed {
+            let a = lir.insert_ld_a(block, right_high);
+            let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0b1000_0000));
+            right_high = lir.insert_move_a(block, a);
+        }
+        let (mut left_high, left_low) =
+            self.r16_from_operand(&mir::Operand::Local(left), block, lir, ctx, locals);
+        if is_signed {
+            let a = lir.insert_ld_a(block, left_high);
+            let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0b1000_0000));
+            left_high = lir.insert_move_a(block, a);
+        }
+
+        let a = lir.insert_ld_a(block, left_low);
+        let (_z, c_in) = lir.insert_sub(block, a, Operand8::Reg(right_low));
+
+        let a = lir.insert_ld_a(block, left_high);
+        lir.insert_sbc(block, a, Operand8::Reg(right_high), c_in)
     }
 
     fn projected_global_to_addr(

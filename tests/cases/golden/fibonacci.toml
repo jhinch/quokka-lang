@@ -903,10 +903,10 @@ main::
   LD r8#34, $00
   LD r8#35, r8#34
   LD r8#36, r8#33
-  LD A, r8#26
-  SUB A, r8#35; z, c
   LD A, r8#25
-  SBC A, r8#36; z, c
+  SUB A, r8#36; z, c
+  LD A, r8#26
+  SBC A, r8#35; z, c
   (out=z#9,in=z)
   JP z#9, .bb10; else=.bb11
 
@@ -1167,10 +1167,10 @@ main::
   LD HL SP+2; z, c
   LD [HL], A
   LD A, C
-  LD HL SP+0; z, c
+  LD HL SP+1; z, c
   LD [HL], A
   LD A, B
-  LD HL SP+1; z, c
+  LD HL SP+0; z, c
   LD [HL], A
   JP .bb9
 
@@ -1212,8 +1212,8 @@ main::
   RET
 
 .bb9:
-  LD A, $0a
-  LD C, $00
+  LD C, $0a
+  LD A, $00
   LD B, A
   LD HL SP+1; z, c
   LD A, [HL]
@@ -1243,9 +1243,9 @@ main::
   RET
 
 .bb13:
-  LD HL SP+0; z, c
-  LD C, [HL]
   LD HL SP+1; z, c
+  LD C, [HL]
+  LD HL SP+0; z, c
   LD B, [HL]
   LD HL, RESULTS+$0000
   ADD HL, BC; c
@@ -1253,12 +1253,12 @@ main::
   LD C, $01
   LD A, $00
   LD B, A
-  LD HL SP+0; z, c
+  LD HL SP+1; z, c
   LD A, [HL]
   ADD A, C; z, c
   LD C, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+3; z, c
+  LD HL SP+2; z, c
   LD D, [HL]
   POP AF(high_out=A); z, c
   LD A, D
@@ -1271,10 +1271,10 @@ main::
   LD HL SP+2; z, c
   LD [HL], A
   LD A, C
-  LD HL SP+0; z, c
+  LD HL SP+1; z, c
   LD [HL], A
   LD A, B
-  LD HL SP+1; z, c
+  LD HL SP+0; z, c
   LD [HL], A
   JP .bb9
 

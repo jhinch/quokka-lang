@@ -1,26 +1,5 @@
-# Covers `<`/`>=` on `i8`/`i16` operands (`Gt`/`Le` are canonicalized into `Ge`/`Lt` with swapped
-# operands - see `e2a3d69`), mirroring the u8/u16 groups in `operators_comparison.toml`, which never
-# covered signed operands.
-#
-# Most cases here are `ignored`: `lt_from_comparison_op` and its `cp_from_r8` helper
-# (`src/codegen.rs`) branch purely on `ty.bit_size(&self.ty_registry)` (8 or 16), never on whether
-# the type is signed (`Ty::I8`/`Ty::I16`) or unsigned (`Ty::U8`/`Ty::U16`). Both cases lower to a
-# plain `CP`/`SUB`+`SBC` chain and read the resulting carry flag directly as "less than", which is
-# only correct for unsigned operands: the SM83 has no signed-compare instruction, and getting a
-# correct signed result out of a subtraction requires comparing the operands' sign bits too
-# (equivalently, flipping the top bit of both operands before an unsigned compare) - none of which
-# happens here. Un-ignore each case once `lt_from_comparison_op`/`cp_from_r8` grow a signed-aware
-# comparison path.
-#
-# The bug this exposes is invisible whenever both operands share a sign (the two's-complement bit
-# patterns happen to sort the same way unsigned or signed in that case - see
-# `i8_lt_both_negative_operands` below, which passes today), but produces the wrong answer whenever
-# the operands' sign bits differ, which is exactly the case a real program is most likely to care
-# about (e.g. any "is this negative" check against a known-positive bound).
-
 [[case]]
 name = "i8_lt_negative_operand_less_than_positive"
-ignored = "signed i8 `<` uses unsigned CP semantics - see the comment at the top of this file"
 source = """
 global A: i8;
 global B: i8;
@@ -47,7 +26,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "i8_lt_min_value_less_than_max_value"
-ignored = "signed i8 `<` uses unsigned CP semantics - see the comment at the top of this file"
 source = """
 global A: i8;
 global B: i8;
@@ -74,7 +52,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "i8_ge_positive_operand_greater_equal_negative"
-ignored = "signed i8 `>=` shares lt_from_comparison_op's unsigned CP semantics - see the comment at the top of this file"
 source = """
 global A: i8;
 global B: i8;
@@ -127,7 +104,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "i16_lt_negative_operand_less_than_positive"
-ignored = "signed i16 `<` uses unsigned CP/SBC semantics - see the comment at the top of this file"
 source = """
 global A: i16;
 global B: i16;
