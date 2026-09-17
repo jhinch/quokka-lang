@@ -637,14 +637,14 @@ collatz_steps::
 
 main::
 .bb2:
-  LD r8#64, $1b
-  LD r8#65, $00
-  LD r8#66, r8#65
-  LD r8#67, r8#64
+  LD r8#66, $1b
+  LD r8#67, $00
+  LD r8#68, r8#67
+  LD r8#69, r8#66
   LD HL, N+$0000
-  LD A, r8#67
+  LD A, r8#69
   LD [HL++], A
-  LD [HL], r8#66
+  LD [HL], r8#68
   CALL collatz_steps; return=.bb10
 
 .bb3:
@@ -687,72 +687,74 @@ main::
 .bb6:
   LD r8#34, r8#4
   LD r8#35, r8#3
+  LD C, r8#35
+  LD B, r8#34
   RET
 
 .bb7:
-  LD r8#36, r8#2
-  SRL r8#36; z, c
-  LD r8#37, r8#1
-  RR r8#37; z, c
-  LD r8#5, r8#37
-  LD r8#6, r8#36
+  LD r8#38, r8#2
+  SRL r8#38; z, c
+  LD r8#39, r8#1
+  RR r8#39; z, c
+  LD r8#5, r8#39
+  LD r8#6, r8#38
   JP .bb9
 
 .bb8:
   LD A, r8#1
   ADD A, r8#1; z, c
-  LD r8#39, A
+  LD r8#41, A
   LD A, r8#2
   ADC A, r8#2; z, c
-  LD r8#41, A
-  LD A, r8#39
-  ADD A, r8#1; z, c
   LD r8#43, A
   LD A, r8#41
-  ADC A, r8#2; z, c
+  ADD A, r8#1; z, c
   LD r8#45, A
-  LD r8#46, $01
-  LD r8#47, $00
-  LD r8#48, r8#47
-  LD r8#49, r8#46
   LD A, r8#43
-  ADD A, r8#49; z, c
-  LD r8#51, A
+  ADC A, r8#2; z, c
+  LD r8#47, A
+  LD r8#48, $01
+  LD r8#49, $00
+  LD r8#50, r8#49
+  LD r8#51, r8#48
   LD A, r8#45
-  ADC A, r8#48; z, c
+  ADD A, r8#51; z, c
   LD r8#53, A
-  LD r8#5, r8#51
-  LD r8#6, r8#53
+  LD A, r8#47
+  ADC A, r8#50; z, c
+  LD r8#55, A
+  LD r8#5, r8#53
+  LD r8#6, r8#55
   JP .bb9
 
 .bb9:
-  LD r8#54, $01
-  LD r8#55, $00
-  LD r8#56, r8#55
-  LD r8#57, r8#54
-  LD r8#58, r8#4
-  LD r8#59, r8#3
+  LD r8#56, $01
+  LD r8#57, $00
+  LD r8#58, r8#57
+  LD r8#59, r8#56
+  LD r8#60, r8#4
+  LD r8#61, r8#3
   LD A, r8#3
-  ADD A, r8#57; z, c
-  LD r8#61, A
-  LD A, r8#4
-  ADC A, r8#56; z, c
+  ADD A, r8#59; z, c
   LD r8#63, A
+  LD A, r8#4
+  ADC A, r8#58; z, c
+  LD r8#65, A
   LD r8#1, r8#5
   LD r8#2, r8#6
-  LD r8#3, r8#61
-  LD r8#4, r8#63
+  LD r8#3, r8#63
+  LD r8#4, r8#65
   JP .bb3
 
 .bb10:
   LD BC, RETURN
   (high_out=B;low_out=C;in=BC)
-  LD r8#71, C
-  LD r8#72, B
+  LD r8#73, C
+  LD r8#74, B
   LD HL, RESULT+$0000
-  LD A, r8#71
+  LD A, r8#73
   LD [HL++], A
-  LD [HL], r8#72
+  LD [HL], r8#74
   RET
 
 END_SECTION
@@ -1015,9 +1017,9 @@ main::
 
 .bb6:
   LD HL SP+0; z, c
-  LD A, [HL]
+  LD B, [HL]
   LD HL SP+1; z, c
-  LD A, [HL]
+  LD C, [HL]
   ADD SP 2; z, c
   RET
 

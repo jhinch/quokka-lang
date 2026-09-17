@@ -1053,24 +1053,24 @@ x_mod_y::
 fizzbuzz::
 .bb2:
   LD HL, N+$0000
-  LD r8#9, [HL]
+  LD r8#10, [HL]
   LD HL, MOD_x+$0000
-  LD [HL], r8#9
-  LD r8#10, $03
-  LD HL, MOD_y+$0000
   LD [HL], r8#10
+  LD r8#11, $03
+  LD HL, MOD_y+$0000
+  LD [HL], r8#11
   CALL x_mod_y; return=.bb8
 
 main::
 .bb3:
-  LD r8#33, $00
-  LD r8#34, $00
-  LD r8#35, r8#34
-  LD r8#36, r8#33
-  LD r8#37, $01
-  LD r8#32, r8#37
-  LD r8#30, r8#36
-  LD r8#31, r8#35
+  LD r8#38, $00
+  LD r8#39, $00
+  LD r8#40, r8#39
+  LD r8#41, r8#38
+  LD r8#42, $01
+  LD r8#37, r8#42
+  LD r8#35, r8#41
+  LD r8#36, r8#40
   JP .bb16
 
 .bb4:
@@ -1095,68 +1095,73 @@ main::
 
 .bb7:
   LD r8#8, r8#1
+  LD A, r8#8
   RET
 
 .bb8:
   LD A, RETURN
-  LD r8#12, A
-  LD r8#13, $05
+  LD r8#13, A
+  LD r8#14, $05
   LD HL, MOD_y+$0000
-  LD [HL], r8#13
+  LD [HL], r8#14
   CALL x_mod_y; return=.bb9
 
 .bb9:
   LD A, RETURN
-  LD r8#15, A
-  LD r8#16, $00
-  LD A, r8#12
-  CP A, r8#16; z, c
+  LD r8#16, A
+  LD r8#17, $00
+  LD A, r8#13
+  CP A, r8#17; z, c
   (out=z#4,in=z)
   JP z#4, .bb10; else=.bb11
 
 .bb10:
-  LD r8#18, $00
-  LD A, r8#15
-  CP A, r8#18; z, c
+  LD r8#19, $00
+  LD A, r8#16
+  CP A, r8#19; z, c
   (out=z#6,in=z)
   JP z#6, .bb12; else=.bb13
 
 .bb11:
-  LD r8#20, $00
-  LD A, r8#15
-  CP A, r8#20; z, c
+  LD r8#21, $00
+  LD A, r8#16
+  CP A, r8#21; z, c
   (out=z#8,in=z)
   JP z#8, .bb14; else=.bb15
 
 .bb12:
-  LD r8#22, $03
-  LD r8#23, r8#22
+  LD r8#23, $03
+  LD r8#24, r8#23
+  LD A, r8#24
   RET
 
 .bb13:
-  LD r8#24, $01
-  LD r8#25, r8#24
+  LD r8#26, $01
+  LD r8#27, r8#26
+  LD A, r8#27
   RET
 
 .bb14:
-  LD r8#26, $02
-  LD r8#27, r8#26
+  LD r8#29, $02
+  LD r8#30, r8#29
+  LD A, r8#30
   RET
 
 .bb15:
-  LD r8#28, $00
-  LD r8#29, r8#28
+  LD r8#32, $00
+  LD r8#33, r8#32
+  LD A, r8#33
   RET
 
 .bb16:
-  LD r8#38, $0f
-  LD r8#39, $00
-  LD r8#40, r8#39
-  LD r8#41, r8#38
-  LD A, r8#31
-  SUB A, r8#40; z, c
-  LD A, r8#30
-  SBC A, r8#41; z, c
+  LD r8#43, $0f
+  LD r8#44, $00
+  LD r8#45, r8#44
+  LD r8#46, r8#43
+  LD A, r8#36
+  SUB A, r8#45; z, c
+  LD A, r8#35
+  SBC A, r8#46; z, c
   (out=z#11,in=z)
   JP z#11, .bb17; else=.bb18
 
@@ -1165,7 +1170,7 @@ main::
 
 .bb18:
   LD HL, N+$0000
-  LD [HL], r8#32
+  LD [HL], r8#37
   CALL fizzbuzz; return=.bb20
 
 .bb19:
@@ -1173,28 +1178,28 @@ main::
 
 .bb20:
   LD A, RETURN
-  LD r8#45, A
-  (out=r16#9;high_in=r8#31;low_in=r8#30)
+  LD r8#50, A
+  (out=r16#9;high_in=r8#36;low_in=r8#35)
   LD HL, RESULTS+$0000
   ADD HL, r16#9; c
-  LD [HL], r8#45
-  LD r8#46, $01
-  LD r8#47, $00
-  LD r8#48, r8#47
-  LD r8#49, r8#46
-  LD A, r8#30
-  ADD A, r8#49; z, c
-  LD r8#51, A
-  LD A, r8#31
-  ADC A, r8#48; z, c
-  LD r8#53, A
-  LD r8#54, $01
-  LD A, r8#32
+  LD [HL], r8#50
+  LD r8#51, $01
+  LD r8#52, $00
+  LD r8#53, r8#52
+  LD r8#54, r8#51
+  LD A, r8#35
   ADD A, r8#54; z, c
   LD r8#56, A
-  LD r8#32, r8#56
-  LD r8#30, r8#51
-  LD r8#31, r8#53
+  LD A, r8#36
+  ADC A, r8#53; z, c
+  LD r8#58, A
+  LD r8#59, $01
+  LD A, r8#37
+  ADD A, r8#59; z, c
+  LD r8#61, A
+  LD r8#37, r8#61
+  LD r8#35, r8#56
+  LD r8#36, r8#58
   JP .bb16
 
 END_SECTION

@@ -841,38 +841,39 @@ fibonacci::
 
 main::
 .bb2:
-  LD r8#26, $00
-  LD r8#27, $00
-  LD r8#28, r8#27
-  LD r8#29, r8#26
-  LD r8#30, $00
-  LD r8#25, r8#30
-  LD r8#23, r8#29
-  LD r8#24, r8#28
+  LD r8#28, $00
+  LD r8#29, $00
+  LD r8#30, r8#29
+  LD r8#31, r8#28
+  LD r8#32, $00
+  LD r8#27, r8#32
+  LD r8#25, r8#31
+  LD r8#26, r8#30
   JP .bb9
 
 .bb3:
   LD r8#7, $00
   LD r8#8, r8#7
+  LD A, r8#8
   RET
 
 .bb4:
-  LD r8#9, $01
+  LD r8#10, $01
   LD A, r8#4
-  ADD A, r8#9; z, c
-  LD r8#11, A
-  LD r8#12, $00
-  LD r8#13, $01
-  LD r8#14, $02
-  LD r8#1, r8#14
-  LD r8#2, r8#12
-  LD r8#3, r8#13
+  ADD A, r8#10; z, c
+  LD r8#12, A
+  LD r8#13, $00
+  LD r8#14, $01
+  LD r8#15, $02
+  LD r8#1, r8#15
+  LD r8#2, r8#13
+  LD r8#3, r8#14
   JP .bb5
 
 .bb5:
-  LD r8#15, r8#11
+  LD r8#16, r8#12
   LD A, r8#1
-  CP A, r8#15; z, c
+  CP A, r8#16; z, c
   (out=c#4,in=c)
   JP nc#4, .bb6; else=.bb7
 
@@ -882,29 +883,30 @@ main::
 .bb7:
   LD A, r8#2
   ADD A, r8#3; z, c
-  LD r8#18, A
-  LD r8#19, $01
+  LD r8#19, A
+  LD r8#20, $01
   LD A, r8#1
-  ADD A, r8#19; z, c
-  LD r8#21, A
-  LD r8#1, r8#21
+  ADD A, r8#20; z, c
+  LD r8#22, A
+  LD r8#1, r8#22
   LD r8#2, r8#3
-  LD r8#3, r8#18
+  LD r8#3, r8#19
   JP .bb5
 
 .bb8:
-  LD r8#22, r8#3
+  LD r8#23, r8#3
+  LD A, r8#23
   RET
 
 .bb9:
-  LD r8#31, $0a
-  LD r8#32, $00
-  LD r8#33, r8#32
-  LD r8#34, r8#31
-  LD A, r8#24
-  SUB A, r8#33; z, c
-  LD A, r8#23
-  SBC A, r8#34; z, c
+  LD r8#33, $0a
+  LD r8#34, $00
+  LD r8#35, r8#34
+  LD r8#36, r8#33
+  LD A, r8#26
+  SUB A, r8#35; z, c
+  LD A, r8#25
+  SBC A, r8#36; z, c
   (out=z#9,in=z)
   JP z#9, .bb10; else=.bb11
 
@@ -913,7 +915,7 @@ main::
 
 .bb11:
   LD HL, FIBONACCI_N+$0000
-  LD [HL], r8#25
+  LD [HL], r8#27
   CALL fibonacci; return=.bb13
 
 .bb12:
@@ -921,28 +923,28 @@ main::
 
 .bb13:
   LD A, RETURN
-  LD r8#38, A
-  (out=r16#3;high_in=r8#24;low_in=r8#23)
+  LD r8#40, A
+  (out=r16#3;high_in=r8#26;low_in=r8#25)
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
-  LD [HL], r8#38
-  LD r8#39, $01
-  LD r8#40, $00
-  LD r8#41, r8#40
-  LD r8#42, r8#39
-  LD A, r8#23
-  ADD A, r8#42; z, c
-  LD r8#44, A
-  LD A, r8#24
-  ADC A, r8#41; z, c
-  LD r8#46, A
-  LD r8#47, $01
+  LD [HL], r8#40
+  LD r8#41, $01
+  LD r8#42, $00
+  LD r8#43, r8#42
+  LD r8#44, r8#41
   LD A, r8#25
-  ADD A, r8#47; z, c
-  LD r8#49, A
-  LD r8#25, r8#49
-  LD r8#23, r8#44
-  LD r8#24, r8#46
+  ADD A, r8#44; z, c
+  LD r8#46, A
+  LD A, r8#26
+  ADC A, r8#43; z, c
+  LD r8#48, A
+  LD r8#49, $01
+  LD A, r8#27
+  ADD A, r8#49; z, c
+  LD r8#51, A
+  LD r8#27, r8#51
+  LD r8#25, r8#46
+  LD r8#26, r8#48
   JP .bb9
 
 END_SECTION
@@ -1172,15 +1174,15 @@ main::
 .bb4:
   LD B, $01
   ADD A, B; z, c
-  LD D, A
+  LD E, A
   LD C, $00
-  LD E, $01
+  LD D, $01
   LD B, $02
   JP .bb5
 
 .bb5:
   LD A, B
-  CP A, D; z, c
+  CP A, E; z, c
   JP nc, .bb6; else=.bb7
 
 .bb6:
@@ -1188,17 +1190,18 @@ main::
 
 .bb7:
   LD A, C
-  ADD A, E; z, c
+  ADD A, D; z, c
   LD H, A
   LD C, $01
   LD A, B
   ADD A, C; z, c
   LD B, A
-  LD C, E
-  LD E, H
+  LD C, D
+  LD D, H
   JP .bb5
 
 .bb8:
+  LD A, D
   RET
 
 .bb9:

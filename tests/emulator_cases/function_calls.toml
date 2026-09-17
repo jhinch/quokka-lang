@@ -45,6 +45,31 @@
 # CFG-successor gap applies there too.
 
 [[case]]
+name = "call_returns_u1_value"
+source = """
+#[address = 0xC000]
+global OUT: u1;
+
+fn get_value() -> u1 {
+    return 1;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
 name = "call_returns_u8_value"
 source = """
 #[address = 0xC000]
@@ -69,8 +94,7 @@ addr = 0xC000
 expected = 0x2A
 
 [[case]]
-name = "call_returns_u16_value_regression"
-ignored = "u16 return-value calling-convention mismatch: `Function::return_local` is never given a color constraint anywhere in src/codegen.rs or src/interference.rs, so the callee's return expression is colored like any other unconstrained local (observed: split across A and B, e.g. `LD A, $34` / `LD B, $12`), while `Instr::LdReturn16` at the call site is constrained to Color::BC (high=B, low=C). The low byte therefore comes back as whatever C contained before the call, not the callee's actual low byte. Reproduces with zero caller-side register pressure - see the file header for detail. Un-ignore once the return_local for u16-returning functions is constrained to Color::BC (or the call site reads whatever it was actually placed in)."
+name = "call_returns_u16_value"
 source = """
 #[address = 0xC000]
 global OUT: u16;

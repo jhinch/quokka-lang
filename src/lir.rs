@@ -3879,4 +3879,25 @@ impl CodeSectionBuilder {
         self.insert_instr(block, Instr::FreshA { target });
         target
     }
+
+    #[must_use]
+    pub fn insert_ld_bc(&mut self, block: BlockId, high_in: R8Id, low_in: R8Id) -> (R8Id, R8Id) {
+        let low = self.new_r8_precolored(Color::C);
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: low,
+                source: low_in,
+            },
+        );
+        let high = self.new_r8_precolored(Color::B);
+        self.insert_instr(
+            block,
+            Instr::Ld8 {
+                target: high,
+                source: high_in,
+            },
+        );
+        (high, low)
+    }
 }

@@ -1216,78 +1216,78 @@ bubble_sort::
 
 main::
 .bb2:
-  LD r8#100, $00
   LD r8#101, $00
-  LD r8#102, r8#101
-  LD r8#103, r8#100
-  LD r8#104, $05
-  (out=r16#13;high_in=r8#102;low_in=r8#103)
+  LD r8#102, $00
+  LD r8#103, r8#102
+  LD r8#104, r8#101
+  LD r8#105, $05
+  (out=r16#13;high_in=r8#103;low_in=r8#104)
   LD HL, DATA+$0000
   ADD HL, r16#13; c
-  LD [HL], r8#104
-  LD r8#105, $01
-  LD r8#106, $00
-  LD r8#107, r8#106
-  LD r8#108, r8#105
-  LD r8#109, $03
-  (out=r16#15;high_in=r8#107;low_in=r8#108)
+  LD [HL], r8#105
+  LD r8#106, $01
+  LD r8#107, $00
+  LD r8#108, r8#107
+  LD r8#109, r8#106
+  LD r8#110, $03
+  (out=r16#15;high_in=r8#108;low_in=r8#109)
   LD HL, DATA+$0000
   ADD HL, r16#15; c
-  LD [HL], r8#109
-  LD r8#110, $02
-  LD r8#111, $00
-  LD r8#112, r8#111
-  LD r8#113, r8#110
-  LD r8#114, $08
-  (out=r16#17;high_in=r8#112;low_in=r8#113)
+  LD [HL], r8#110
+  LD r8#111, $02
+  LD r8#112, $00
+  LD r8#113, r8#112
+  LD r8#114, r8#111
+  LD r8#115, $08
+  (out=r16#17;high_in=r8#113;low_in=r8#114)
   LD HL, DATA+$0000
   ADD HL, r16#17; c
-  LD [HL], r8#114
-  LD r8#115, $03
-  LD r8#116, $00
-  LD r8#117, r8#116
-  LD r8#118, r8#115
-  LD r8#119, $01
-  (out=r16#19;high_in=r8#117;low_in=r8#118)
+  LD [HL], r8#115
+  LD r8#116, $03
+  LD r8#117, $00
+  LD r8#118, r8#117
+  LD r8#119, r8#116
+  LD r8#120, $01
+  (out=r16#19;high_in=r8#118;low_in=r8#119)
   LD HL, DATA+$0000
   ADD HL, r16#19; c
-  LD [HL], r8#119
-  LD r8#120, $04
-  LD r8#121, $00
-  LD r8#122, r8#121
-  LD r8#123, r8#120
-  LD r8#124, $09
-  (out=r16#21;high_in=r8#122;low_in=r8#123)
+  LD [HL], r8#120
+  LD r8#121, $04
+  LD r8#122, $00
+  LD r8#123, r8#122
+  LD r8#124, r8#121
+  LD r8#125, $09
+  (out=r16#21;high_in=r8#123;low_in=r8#124)
   LD HL, DATA+$0000
   ADD HL, r16#21; c
-  LD [HL], r8#124
-  LD r8#125, $05
-  LD r8#126, $00
-  LD r8#127, r8#126
-  LD r8#128, r8#125
-  LD r8#129, $02
-  (out=r16#23;high_in=r8#127;low_in=r8#128)
+  LD [HL], r8#125
+  LD r8#126, $05
+  LD r8#127, $00
+  LD r8#128, r8#127
+  LD r8#129, r8#126
+  LD r8#130, $02
+  (out=r16#23;high_in=r8#128;low_in=r8#129)
   LD HL, DATA+$0000
   ADD HL, r16#23; c
-  LD [HL], r8#129
-  LD r8#130, $06
-  LD r8#131, $00
-  LD r8#132, r8#131
-  LD r8#133, r8#130
-  LD r8#134, $07
-  (out=r16#25;high_in=r8#132;low_in=r8#133)
+  LD [HL], r8#130
+  LD r8#131, $06
+  LD r8#132, $00
+  LD r8#133, r8#132
+  LD r8#134, r8#131
+  LD r8#135, $07
+  (out=r16#25;high_in=r8#133;low_in=r8#134)
   LD HL, DATA+$0000
   ADD HL, r16#25; c
-  LD [HL], r8#134
-  LD r8#135, $07
-  LD r8#136, $00
-  LD r8#137, r8#136
-  LD r8#138, r8#135
-  LD r8#139, $04
-  (out=r16#27;high_in=r8#137;low_in=r8#138)
+  LD [HL], r8#135
+  LD r8#136, $07
+  LD r8#137, $00
+  LD r8#138, r8#137
+  LD r8#139, r8#136
+  LD r8#140, $04
+  (out=r16#27;high_in=r8#138;low_in=r8#139)
   LD HL, DATA+$0000
   ADD HL, r16#27; c
-  LD [HL], r8#139
+  LD [HL], r8#140
   CALL bubble_sort; return=.bb13
 
 .bb3:
@@ -1337,135 +1337,136 @@ main::
 
 .bb6:
   LD r8#39, r8#3
+  LD A, r8#39
   RET
 
 .bb7:
-  LD r8#40, r8#34
-  LD r8#41, r8#32
+  LD r8#41, r8#34
+  LD r8#42, r8#32
   LD A, r8#4
-  SUB A, r8#41; z, c
+  SUB A, r8#42; z, c
   LD A, r8#5
-  SBC A, r8#40; z, c
+  SBC A, r8#41; z, c
   (out=c#10,in=c)
-  LD r8#44, r8#2
-  LD r8#45, r8#1
+  LD r8#45, r8#2
+  LD r8#46, r8#1
   JP nc#10, .bb8; else=.bb9
 
 .bb8:
   JP .bb10
 
 .bb9:
-  LD r8#46, $01
-  LD r8#47, $00
-  LD r8#48, r8#47
-  LD r8#49, r8#46
+  LD r8#47, $01
+  LD r8#48, $00
+  LD r8#49, r8#48
+  LD r8#50, r8#47
   LD A, r8#4
-  ADD A, r8#49; z, c
-  LD r8#51, A
+  ADD A, r8#50; z, c
+  LD r8#52, A
   LD A, r8#5
-  ADC A, r8#48; z, c
-  LD r8#53, A
-  (out=r16#1;high_in=r8#53;low_in=r8#51)
+  ADC A, r8#49; z, c
+  LD r8#54, A
+  (out=r16#1;high_in=r8#54;low_in=r8#52)
   LD HL, DATA+$0000
   ADD HL, r16#1; c
-  LD r8#54, [HL]
+  LD r8#55, [HL]
   (out=r16#3;high_in=r8#5;low_in=r8#4)
   LD HL, DATA+$0000
   ADD HL, r16#3; c
-  LD r8#55, [HL]
-  LD A, r8#54
-  CP A, r8#55; z, c
+  LD r8#56, [HL]
+  LD A, r8#55
+  CP A, r8#56; z, c
   (out=c#16,in=c)
   LD r8#7, r8#6
   JP c#16, .bb11; else=.bb12
 
 .bb10:
-  LD r8#57, $01
-  LD r8#58, $00
-  LD r8#59, r8#58
-  LD r8#60, r8#57
+  LD r8#58, $01
+  LD r8#59, $00
+  LD r8#60, r8#59
+  LD r8#61, r8#58
   LD A, r8#1
-  ADD A, r8#60; z, c
-  LD r8#62, A
+  ADD A, r8#61; z, c
+  LD r8#63, A
   LD A, r8#2
-  ADC A, r8#59; z, c
-  LD r8#64, A
+  ADC A, r8#60; z, c
+  LD r8#65, A
   LD r8#3, r8#6
-  LD r8#1, r8#62
-  LD r8#2, r8#64
+  LD r8#1, r8#63
+  LD r8#2, r8#65
   JP .bb3
 
 .bb11:
   (out=r16#5;high_in=r8#5;low_in=r8#4)
   LD HL, DATA+$0000
   ADD HL, r16#5; c
-  LD r8#65, [HL]
-  LD r8#66, $01
-  LD r8#67, $00
-  LD r8#68, r8#67
-  LD r8#69, r8#66
+  LD r8#66, [HL]
+  LD r8#67, $01
+  LD r8#68, $00
+  LD r8#69, r8#68
+  LD r8#70, r8#67
   LD A, r8#4
-  ADD A, r8#69; z, c
-  LD r8#71, A
+  ADD A, r8#70; z, c
+  LD r8#72, A
   LD A, r8#5
-  ADC A, r8#68; z, c
-  LD r8#73, A
-  (out=r16#7;high_in=r8#73;low_in=r8#71)
+  ADC A, r8#69; z, c
+  LD r8#74, A
+  (out=r16#7;high_in=r8#74;low_in=r8#72)
   LD HL, DATA+$0000
   ADD HL, r16#7; c
-  LD r8#74, [HL]
+  LD r8#75, [HL]
   (out=r16#9;high_in=r8#5;low_in=r8#4)
   LD HL, DATA+$0000
   ADD HL, r16#9; c
-  LD [HL], r8#74
-  LD r8#75, $01
-  LD r8#76, $00
-  LD r8#77, r8#76
-  LD r8#78, r8#75
+  LD [HL], r8#75
+  LD r8#76, $01
+  LD r8#77, $00
+  LD r8#78, r8#77
+  LD r8#79, r8#76
   LD A, r8#4
-  ADD A, r8#78; z, c
-  LD r8#80, A
+  ADD A, r8#79; z, c
+  LD r8#81, A
   LD A, r8#5
-  ADC A, r8#77; z, c
-  LD r8#82, A
-  (out=r16#11;high_in=r8#82;low_in=r8#80)
+  ADC A, r8#78; z, c
+  LD r8#83, A
+  (out=r16#11;high_in=r8#83;low_in=r8#81)
   LD HL, DATA+$0000
   ADD HL, r16#11; c
-  LD [HL], r8#65
-  LD r8#83, $01
+  LD [HL], r8#66
+  LD r8#84, $01
   LD A, r8#6
-  ADD A, r8#83; z, c
-  LD r8#85, A
-  LD r8#7, r8#85
+  ADD A, r8#84; z, c
+  LD r8#86, A
+  LD r8#7, r8#86
   JP .bb12
 
 .bb12:
-  LD r8#86, $01
-  LD r8#87, $00
-  LD r8#88, r8#87
-  LD r8#89, r8#86
-  LD r8#90, r8#5
-  LD r8#91, r8#4
+  LD r8#87, $01
+  LD r8#88, $00
+  LD r8#89, r8#88
+  LD r8#90, r8#87
+  LD r8#91, r8#5
+  LD r8#92, r8#4
   LD A, r8#4
-  ADD A, r8#89; z, c
-  LD r8#93, A
+  ADD A, r8#90; z, c
+  LD r8#94, A
   LD A, r8#5
-  ADC A, r8#88; z, c
-  LD r8#95, A
-  LD r8#96, r8#40
+  ADC A, r8#89; z, c
+  LD r8#96, A
   LD r8#97, r8#41
-  LD r8#98, r8#44
+  LD r8#98, r8#42
   LD r8#99, r8#45
+  LD r8#100, r8#46
   LD r8#6, r8#7
-  LD r8#4, r8#93
-  LD r8#5, r8#95
+  LD r8#4, r8#94
+  LD r8#5, r8#96
   JP .bb7
 
 .bb13:
   LD A, RETURN
-  LD r8#141, A
+  LD r8#142, A
   LD HL, SWAP_COUNT+$0000
-  LD [HL], r8#141
+  LD [HL], r8#142
   RET
 
 END_SECTION

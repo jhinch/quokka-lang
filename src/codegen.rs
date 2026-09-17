@@ -539,25 +539,43 @@ impl CodeGen {
     ) {
         match ty {
             Ty::U1 => {
-                if let Some((target, r1, condition)) =
+                if let Some((target, mut r1, mut condition)) =
                     self.generate_from_u1_instr(instruction, block, lir, ctx, locals)
                 {
+                    if ctx.function.locals[target].is_return {
+                        let r8 = self.r1_to_r8(r1, block, lir);
+                        let a = lir.insert_ld_a(block, r8);
+                        if condition != mir::Condition::NotZero {
+                            lir.insert_cpl(block, a);
+                            condition = mir::Condition::NotZero;
+                        }
+                        r1 = R1::R8(a.upcast_to_r8_without_move());
+                    }
                     locals.r1s.insert(target, (r1, condition));
                 }
             }
             Ty::U2 => todo!("{instruction:?} {:?}", Ty::U2),
             Ty::U4 => todo!("{instruction:?} {:?}", Ty::U4),
             Ty::U8 | Ty::I8 => {
-                if let Some((target, r8)) =
+                if let Some((target, mut r8)) =
                     self.generate_from_scalar8_instr(instruction, block, lir, ctx, locals)
                 {
+                    if ctx.function.locals[target].is_return {
+                        let a = lir.insert_ld_a(block, r8);
+                        r8 = a.upcast_to_r8_without_move();
+                    }
                     locals.r8s.insert(target, r8);
                 }
             }
             Ty::U16 | Ty::I16 => {
-                if let Some((target, high, low)) =
+                if let Some((target, mut high, mut low)) =
                     self.generate_from_scalar16_instr(instruction, block, lir, ctx, locals)
                 {
+                    if ctx.function.locals[target].is_return {
+                        let (b, c) = lir.insert_ld_bc(block, high, low);
+                        high = b;
+                        low = c;
+                    }
                     locals.r16s.insert(target, (high, low));
                 }
             }
