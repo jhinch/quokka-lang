@@ -13,15 +13,24 @@
 # Comparisons always produce a u1 result, and a `global: u1` only defines bit 0 of its byte - the
 # rest is left as whatever WRAM happened to contain at boot (SameBoy deliberately randomizes
 # uninitialized memory, matching real hardware - see docs/src/reference/items/global-items.md on
-# globals not being zero-initialized), so every assertion on one masks down to bit 0. The two cases
-# at the bottom of this file document two further, separate gaps (`<=`/`>` unimplemented for runtime
-# operands, and u1-typed comparison operands hitting a `todo!()`), and stay `ignored`.
+# globals not being zero-initialized), so every assertion on one masks down to bit 0.
 #
 # `==` doesn't get a "_left_preserved"/"_right_preserved" pair like the other operators below: its
 # codegen needs one extra register to invert the underlying `NotZero` flag into `==`'s sense, which
 # is just enough extra pressure to hit the same spill-reload bug documented in
 # `spill_reload_regressions.toml` even with only *one* operand kept alive afterwards. So `eq_u8` and
 # `eq_u16` below only check the result, not operand preservation.
+#
+# The `_r1` group at the bottom covers comparisons where the operands are themselves u1 (as opposed
+# to u8/u16 operands that happen to produce a u1 *result*, which is what every case above this one
+# exercises). u1 locals are represented internally as an "r1" - a flag/register plus a `Condition`
+# recording whether the flag's zero/nonzero sense is inverted relative to the value it represents
+# (see `cp_from_r8`'s `Ty::U1` arm in `src/codegen.rs`) - so besides the plain-value cases (mirroring
+# the u8/u16 groups above, one per operator plus left/right preservation), this group specifically
+# covers comparisons against a `!`-negated operand on both sides, which is what exercises that
+# `Condition`-inversion logic: `!x` reuses `x`'s underlying flag but flips its `Condition`, so a
+# comparison against it only produces the right answer if `cp_from_r8` re-inverts it back before
+# comparing.
 
 [[case]]
 name = "eq_u8"
@@ -869,8 +878,7 @@ expected = 1
 mask = 0b0000_0001
 
 [[case]]
-name = "comparisons_u1_unimplemented_regression"
-ignored = "u1 (and u2/u4) comparisons hit `todo!(\"{left:?} {right:?} u1\")` in codegen.rs's comparison lowering. Un-ignore once u1 comparisons are implemented."
+name = "eq_r1"
 source = """
 global A: u1;
 global B: u1;
@@ -893,3 +901,476 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_r1_left_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left != right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_r1_right_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left != right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "lt_r1_left_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left < right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "lt_r1_right_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left < right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "gt_r1_left_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "gt_r1_right_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left > right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ge_r1_left_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left >= right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ge_r1_right_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0;
+    RIGHT = 1;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left >= right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "le_r1_left_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "le_r1_right_preserved"
+source = """
+global LEFT: u1;
+global RIGHT: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global RIGHT_OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 1;
+    RIGHT = 0;
+    let left = LEFT;
+    let right = RIGHT;
+    let result = left <= right;
+    OUT = result;
+    RIGHT_OUT = right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_r1_left_negated"
+source = """
+global A: u1;
+global B: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 1;
+    let left = !A;
+    let right = B;
+    OUT = left == right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_r1_right_negated"
+source = """
+global A: u1;
+global B: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 1;
+    let left = A;
+    let right = !B;
+    OUT = left == right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "lt_r1_left_negated"
+source = """
+global A: u1;
+global B: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 1;
+    let left = !A;
+    let right = B;
+    OUT = left < right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "lt_r1_right_negated"
+source = """
+global A: u1;
+global B: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0;
+    B = 0;
+    let left = A;
+    let right = !B;
+    OUT = left < right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001

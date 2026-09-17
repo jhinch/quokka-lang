@@ -1665,7 +1665,29 @@ impl CodeGen {
         locals: &Locals,
     ) -> (ZeroId, CarryId) {
         match ctx.function.locals[left].ty {
-            Ty::U1 => todo!("{left:?} {right:?} u1"),
+            Ty::U1 => {
+                let (mut right, right_condition) = self.r1_to_operand(right, block, lir, locals);
+                if right_condition != mir::Condition::NotZero {
+                    right = match right {
+                        Operand8::Reg(right) => {
+                            let a = lir.insert_ld_a(block, right);
+                            lir.insert_cpl(block, a);
+                            Operand8::Reg(lir.insert_move_a(block, a))
+                        }
+                        Operand8::Literal(value) => Operand8::Literal(!value),
+                        Operand8::Ptr(_) => {
+                            unimplemented!("r1_to_operand doesn't produce Operand8::Ptr")
+                        }
+                    };
+                }
+                let (left, left_condition) = locals.r1s[left];
+                let left = self.r1_to_r8(left, block, lir);
+                let a = lir.insert_ld_a(block, left);
+                if left_condition != mir::Condition::NotZero {
+                    lir.insert_cpl(block, a);
+                }
+                lir.insert_cp(block, a, right)
+            }
             Ty::U2 => todo!("{left:?} {right:?} u2"),
             Ty::U4 => todo!("{left:?} {right:?} u4"),
             ty if ty.bit_size(&self.ty_registry) == 8 => {
