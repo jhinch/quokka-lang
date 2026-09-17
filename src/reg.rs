@@ -64,6 +64,7 @@ pub enum Color {
     SP = 1 << 12,
     Fz = 1 << 13,
     Fc = 1 << 14,
+    Call = 1 << 15,
 }
 
 impl From<Color> for u16 {
@@ -95,6 +96,7 @@ impl TryFrom<u16> for Color {
             12 => Color::SP,
             13 => Color::Fz,
             14 => Color::Fc,
+            15 => Color::Call,
             _ => return Err(()),
         })
     }
@@ -253,6 +255,19 @@ impl Color {
             Color::SP => RegSet::just(Reg::SP),
             Color::Fz => RegSet::just(Reg::Fz),
             Color::Fc => RegSet::just(Reg::Fc),
+            Color::Call => {
+                let mut set = RegSet::empty();
+                set.insert(Reg::A);
+                set.insert(Reg::B);
+                set.insert(Reg::C);
+                set.insert(Reg::D);
+                set.insert(Reg::E);
+                set.insert(Reg::H);
+                set.insert(Reg::L);
+                set.insert(Reg::Fz);
+                set.insert(Reg::Fc);
+                set
+            }
         }
     }
 
@@ -425,7 +440,7 @@ mod tests {
         Reg::Fz,
     ];
 
-    const ALL_COLORS: [Color; 15] = [
+    const ALL_COLORS: [Color; 16] = [
         Color::A,
         Color::F,
         Color::B,
@@ -441,6 +456,7 @@ mod tests {
         Color::SP,
         Color::Fz,
         Color::Fc,
+        Color::Call,
     ];
 
     #[test]
@@ -484,7 +500,6 @@ mod tests {
     fn color_try_from_u16_rejects_invalid() {
         assert_eq!(Color::try_from(0), Err(()));
         assert_eq!(Color::try_from(0b101), Err(()));
-        assert_eq!(Color::try_from(1 << 15), Err(()));
     }
 
     #[test]
@@ -514,6 +529,23 @@ mod tests {
         let af = Color::AF.regs();
         assert_eq!(af.len(), 3);
         assert!(af.contains(Reg::A) && af.contains(Reg::Fz) && af.contains(Reg::Fc));
+
+        let call = Color::Call.regs();
+        assert_eq!(call.len(), 9);
+        for reg in [
+            Reg::A,
+            Reg::B,
+            Reg::C,
+            Reg::D,
+            Reg::E,
+            Reg::H,
+            Reg::L,
+            Reg::Fz,
+            Reg::Fc,
+        ] {
+            assert!(call.contains(reg), "{reg:?}");
+        }
+        assert!(!call.contains(Reg::SP));
     }
 
     #[test]
@@ -534,6 +566,17 @@ mod tests {
         assert!(!Color::BC.conflicts(Color::DE));
         assert!(!Color::HL.conflicts(Color::SP));
         assert!(!Color::Fz.conflicts(Color::Fc));
+    }
+
+    #[test]
+    fn color_call_conflicts_with_everything_except_sp() {
+        for color in ALL_COLORS {
+            if color == Color::SP {
+                assert!(!Color::Call.conflicts(color), "{color:?}");
+            } else {
+                assert!(Color::Call.conflicts(color), "{color:?}");
+            }
+        }
     }
 
     #[test]

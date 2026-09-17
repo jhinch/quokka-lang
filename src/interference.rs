@@ -159,6 +159,16 @@ impl InterferenceGraph {
         self.node_to_data.get(&a).and_then(|data| data.precolored)
     }
 
+    /// Every node in the graph which has been precolored, including synthetic nodes (such as
+    /// [`VirtualReg::Call`]) which have no backing storage in `CodeSectionData`. Used instead of
+    /// [`CodeSectionData::registers`] to seed color assignment, since that only enumerates real,
+    /// storage-backed registers.
+    pub fn precolored(&self) -> impl Iterator<Item = (VirtualReg, Color)> + '_ {
+        self.node_to_data
+            .iter()
+            .filter_map(|(&reg, data)| data.precolored.map(|color| (reg, color)))
+    }
+
     /// the number of colors of node `a` which are blocked by colors in node `b`
     #[must_use]
     pub fn blocked_colors_count(&self, a: VirtualReg, b: VirtualReg) -> usize {
@@ -190,6 +200,9 @@ impl InterferenceGraph {
             VirtualReg::R16(_) => Color::r16(),
             VirtualReg::Zero(_) => Color::z(),
             VirtualReg::Carry(_) => Color::c(),
+            // Always precolored (see `set_precolored(_, Color::Call)` in
+            // `build_interference_graph`), so this fallback is unreachable in practice.
+            VirtualReg::Call(_) => ColorSet::just(Color::Call),
         }
     }
 
@@ -208,6 +221,7 @@ impl InterferenceGraph {
             VirtualReg::R16(_) => Color::r16().len(),
             VirtualReg::Zero(_) => Color::z().len(),
             VirtualReg::Carry(_) => Color::c().len(),
+            VirtualReg::Call(_) => 1,
         }
     }
 
@@ -472,6 +486,24 @@ pub fn build_interference_graph(
     let mut moves = IndexSet::new();
     for (block_id, block) in code.blocks.iter() {
         let mut live: IndexSet<VirtualReg> = live_out[block_id].clone();
+
+        // A call clobbers every register (see `Color::Call`), so anything live across it - i.e.
+        // still live *after* the call returns - must be forced to spill rather than trust the
+        // callee (which is register-allocated entirely independently, in its own code section)
+        // to leave any particular color untouched. We add this edge against `live` before
+        // folding in the terminator's own `register_uses()` (call args / the callee pointer for
+        // `CallR16`), since those die going into the call and aren't live across it.
+        if matches!(
+            block.terminator,
+            Terminator::Call { .. } | Terminator::CallIf { .. } | Terminator::CallR16 { .. }
+        ) {
+            let call_reg = VirtualReg::Call(block_id);
+            graph.set_precolored(call_reg, Color::Call);
+            for &reg in &live {
+                graph.add_edge(reg, call_reg);
+            }
+        }
+
         for reg in block.terminator.register_uses() {
             live.insert(reg);
         }
@@ -545,13 +577,6 @@ fn validate_initial_coloring(graph: &InterferenceGraph, code: &CodeSectionData) 
         }
     }
     for &(a, b) in &graph.edges {
-        if code.register_data(a).defined.is_empty() || code.register_data(b).defined.is_empty() {
-            // Registers with no `defined` entry anywhere (dangling registers) are deliberately
-            // excluded as they don't represent a real, distinct value that needs to survive
-            // to a later read, so backward. This imprecision should however be resolved and
-            // this guard removed.
-            continue;
-        }
         let (Some(a_color), Some(b_color)) = (graph.precolor(a), graph.precolor(b)) else {
             continue;
         };
@@ -577,11 +602,24 @@ fn validate_initial_coloring(graph: &InterferenceGraph, code: &CodeSectionData) 
                     }
                     eprintln!();
                 }
+                eprint!("{}: {:?} #", block.instructions.len(), block.terminator);
+                if block.terminator.register_uses().any(|r| r == a) {
+                    eprint!(" USED a");
+                }
+                println!();
             }
+            let a_defined = if a.is_synthetic() {
+                Vec::new()
+            } else {
+                code.register_data(a).defined.iter().collect::<Vec<_>>()
+            };
+            let b_defined = if b.is_synthetic() {
+                Vec::new()
+            } else {
+                code.register_data(b).defined.iter().collect::<Vec<_>>()
+            };
             panic!(
-                "{a:?}(defined={:?}) and {b:?}(defined={:?}) are both precolored to conflicting colors ({a_color:?}, {b_color:?}) but are simultaneously live",
-                code.register_data(a).defined.iter().collect::<Vec<_>>(),
-                code.register_data(b).defined.iter().collect::<Vec<_>>(),
+                "{a:?}(defined={a_defined:?}) and {b:?}(defined={b_defined:?}) are both precolored to conflicting colors ({a_color:?}, {b_color:?}) but are simultaneously live",
             );
         }
     }

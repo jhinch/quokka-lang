@@ -1423,6 +1423,7 @@ x_mod_y::
 
 fizzbuzz::
 .bb2:
+  ADD SP -1; z, c
   LD HL, N+$0000
   LD A, [HL]
   LD HL, MOD_x+$0000
@@ -1434,12 +1435,18 @@ fizzbuzz::
 
 main::
 .bb3:
+  ADD SP -3; z, c
+  LD C, $00
   LD B, $00
-  LD A, $00
-  LD C, $01
-  LD D, C
-  LD C, B
-  LD B, A
+  LD A, $01
+  LD HL SP+2; z, c
+  LD [HL], A
+  LD A, C
+  LD HL SP+1; z, c
+  LD [HL], A
+  LD A, B
+  LD HL SP+0; z, c
+  LD [HL], A
   JP .bb16
 
 .bb4:
@@ -1461,54 +1468,66 @@ main::
   RET
 
 .bb8:
-  LD B, A
+  LD HL SP+0; z, c
+  LD [HL], A
   LD A, $05
   LD HL, MOD_y+$0000
   LD [HL], A
   CALL x_mod_y; return=.bb9
 
 .bb9:
-  LD C, A
-  LD D, $00
-  LD A, B
-  CP A, D; z, c
+  LD B, A
+  LD C, $00
+  LD HL SP+0; z, c
+  LD A, [HL]
+  CP A, C; z, c
   JP z, .bb10; else=.bb11
 
 .bb10:
-  LD B, $00
-  LD A, C
-  CP A, B; z, c
+  LD C, $00
+  LD A, B
+  CP A, C; z, c
   JP z, .bb12; else=.bb13
 
 .bb11:
-  LD B, $00
-  LD A, C
-  CP A, B; z, c
+  LD C, $00
+  LD A, B
+  CP A, C; z, c
   JP z, .bb14; else=.bb15
 
 .bb12:
   LD A, $03
+  ADD SP 1; z, c
   RET
 
 .bb13:
   LD A, $01
+  ADD SP 1; z, c
   RET
 
 .bb14:
   LD A, $02
+  ADD SP 1; z, c
   RET
 
 .bb15:
   LD A, $00
+  ADD SP 1; z, c
   RET
 
 .bb16:
-  LD E, $0f
-  LD H, $00
-  LD A, B
-  SUB A, H; z, c
+  LD A, $0f
+  LD C, $00
+  LD B, A
+  LD HL SP+0; z, c
+  LD A, [HL]
+  SUB A, C; z, c
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+3; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
   LD A, C
-  SBC A, E; z, c
+  SBC A, B; z, c
   JP z, .bb17; else=.bb18
 
 .bb17:
@@ -1516,28 +1535,51 @@ main::
 
 .bb18:
   LD HL, N+$0000
-  LD [HL], D
+  PUSH HL
+  LD HL SP+4; z, c
+  LD A, [HL]
+  POP HL
+  LD [HL], A
   CALL fizzbuzz; return=.bb20
 
 .bb19:
+  ADD SP 3; z, c
   RET
 
 .bb20:
+  LD HL SP+1; z, c
+  LD C, [HL]
+  LD HL SP+0; z, c
+  LD B, [HL]
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD H, $01
-  LD E, $00
-  LD A, C
-  ADD A, H; z, c
-  LD C, A
-  LD A, B
-  ADC A, E; z, c
+  LD C, $01
+  LD A, $00
   LD B, A
-  LD E, $01
+  LD HL SP+1; z, c
+  LD A, [HL]
+  ADD A, C; z, c
+  LD C, A
+  PUSH AF(high_in=?, z_in=?, c_in=c)
+  LD HL SP+2; z, c
+  LD D, [HL]
+  POP AF(high_out=A); z, c
   LD A, D
-  ADD A, E; z, c
-  LD D, A
+  ADC A, B; z, c
+  LD B, A
+  LD D, $01
+  LD HL SP+2; z, c
+  LD A, [HL]
+  ADD A, D; z, c
+  LD HL SP+2; z, c
+  LD [HL], A
+  LD A, C
+  LD HL SP+1; z, c
+  LD [HL], A
+  LD A, B
+  LD HL SP+0; z, c
+  LD [HL], A
   JP .bb16
 
 END_SECTION

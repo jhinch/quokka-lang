@@ -196,7 +196,7 @@ impl Colorer {
                 break;
             }
         }
-        self.assign_colors(code)
+        self.assign_colors()
     }
 
     fn initialize_work(&mut self, code: &CodeSectionData) {
@@ -327,15 +327,12 @@ impl Colorer {
         self.freeze_moves(code, reg);
     }
 
-    fn assign_colors(
-        mut self,
-        code: &CodeSectionData,
-    ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
+    fn assign_colors(mut self) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
         let mut colors = HashMap::<VirtualReg, Color>::new();
-        for reg in code.registers() {
-            if let Some(color) = self.graph.precolor(reg) {
-                colors.insert(reg, color);
-            }
+        // copy across precolored registers first. Use the graph nodes which includes
+        // synthetic nodes such as `VirtualReg::Call` as well
+        for (reg, color) in self.graph.precolored() {
+            colors.insert(reg, color);
         }
 
         while let Some(reg) = self.select_stack.pop_front() {
@@ -424,6 +421,10 @@ impl Colorer {
             }
         }
         if self.spilled_nodes.is_empty() {
+            // Synthetic nodes (currently just `VirtualReg::Call`) exist only to constrain real
+            // registers' colors above; they have no `CodeSectionData` storage to write a color
+            // back into, so they must not leak into the result the caller writes back with.
+            colors.retain(|reg, _| !reg.is_synthetic());
             Ok(colors)
         } else {
             Err(Box::new(AllocationFailure {
@@ -785,6 +786,9 @@ fn allocate_spill_slots(
             VirtualReg::Zero(_) | VirtualReg::Carry(_) => {
                 unimplemented!("flag spills are handled differently")
             }
+            VirtualReg::Call(_) => unimplemented!(
+                "VirtualReg::Call is always precolored, so it can never be selected for spilling"
+            ),
         }
     }
 }
@@ -1179,6 +1183,9 @@ fn load_spill_slot(
             instructions.push(Instr::Rrc { z, c, source });
             VirtualReg::Carry(c)
         }
+        VirtualReg::Call(_) => unimplemented!(
+            "VirtualReg::Call is always precolored, so it can never be selected for spilling"
+        ),
     }
 }
 
@@ -1414,6 +1421,9 @@ fn store_spill_slot(
                 source: a.upcast_to_r8_without_move(),
             });
         }
+        VirtualReg::Call(_) => unimplemented!(
+            "VirtualReg::Call is always precolored, so it can never be selected for spilling"
+        ),
     }
 }
 
@@ -1831,6 +1841,9 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
                         VirtualReg::R16(reg) => &mut code.r16_registers[reg],
                         VirtualReg::Zero(reg) => &mut code.zero_registers[reg],
                         VirtualReg::Carry(reg) => &mut code.carry_registers[reg],
+                        VirtualReg::Call(_) => {
+                            unimplemented!("VirtualReg::Call is never a real instruction operand")
+                        }
                     }
                     .defined
                     .insert(block_id, index);
@@ -1845,6 +1858,9 @@ fn cleanup_redundant_instructions(code: &mut CodeSectionData) {
                         VirtualReg::R16(reg) => &mut code.r16_registers[reg],
                         VirtualReg::Zero(reg) => &mut code.zero_registers[reg],
                         VirtualReg::Carry(reg) => &mut code.carry_registers[reg],
+                        VirtualReg::Call(_) => {
+                            unimplemented!("VirtualReg::Call is never a real instruction operand")
+                        }
                     }
                     .defined
                     .remove(block_id);

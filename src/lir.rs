@@ -444,6 +444,20 @@ pub enum VirtualReg {
     R16(R16Id),
     Zero(ZeroId),
     Carry(CarryId),
+    /// Synthetic node representing the register clobber of a `Call`/`CallIf`/`CallR16`
+    /// terminator in the given block. It is added to the interference graph only (never to
+    /// [`CodeSectionData`]'s register storage - [`CodeSectionData::register_data`] does not
+    /// support it), precolored to [`Color::Call`], and interferes with everything live across
+    /// the call so those registers are forced to spill. See `build_interference_graph`.
+    #[from(skip)]
+    Call(BlockId),
+}
+
+impl VirtualReg {
+    #[must_use]
+    pub fn is_synthetic(self) -> bool {
+        matches!(self, VirtualReg::Call(_))
+    }
 }
 
 impl From<AId> for VirtualReg {
@@ -479,6 +493,7 @@ impl VirtualReg {
             ),
             VirtualReg::Zero(_) => color == Color::Fz,
             VirtualReg::Carry(_) => color == Color::Fc,
+            VirtualReg::Call(_) => color == Color::Call,
         }
     }
 }
@@ -643,6 +658,10 @@ impl CodeSectionData {
             VirtualReg::R16(reg) => &self.r16_registers[reg],
             VirtualReg::Zero(reg) => &self.zero_registers[reg],
             VirtualReg::Carry(reg) => &self.carry_registers[reg],
+            VirtualReg::Call(_) => unimplemented!(
+                "VirtualReg::Call is a synthetic interference-graph-only clobber marker with no \
+                 CodeSectionData storage; callers must not look it up here"
+            ),
         }
     }
 
@@ -653,6 +672,10 @@ impl CodeSectionData {
             VirtualReg::R16(reg) => &mut self.r16_registers[reg],
             VirtualReg::Zero(reg) => &mut self.zero_registers[reg],
             VirtualReg::Carry(reg) => &mut self.carry_registers[reg],
+            VirtualReg::Call(_) => unimplemented!(
+                "VirtualReg::Call is a synthetic interference-graph-only clobber marker with no \
+                 CodeSectionData storage; callers must not look it up here"
+            ),
         }
     }
 
