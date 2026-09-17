@@ -606,6 +606,7 @@ name = "quokka-lang-sameboy"
 version = "0.1.0"
 dependencies = [
  "quokka-lang-sameboy-sys",
+ "tracing",
 ]
 
 [[package]]

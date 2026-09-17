@@ -35,6 +35,13 @@ impl Sameboy {
         let inner = unsafe { inner.assume_init() };
         let mut inner = Box::into_pin(inner);
 
+        // SAFETY: `GB_set_log_callback` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees. `log_callback` is a valid `extern "C" fn` matching
+        // `GB_log_callback_t`'s signature for the lifetime of `inner`.
+        unsafe {
+            GB_set_log_callback(inner.as_mut().get_mut(), Some(log_callback));
+        }
+
         // SAFETY: `GB_get_screen_width` and `GB_get_screen_height` require `*mut GB_gameboy_t`
         // to point to initialized memory which Box<_> guarantees
         let (screen_width, screen_height): (u32, u32) = unsafe {
@@ -280,6 +287,19 @@ impl Drop for Sameboy {
             GB_free(self.inner.as_mut().get_mut());
         }
     }
+}
+
+/// Receives log messages from SameBoy (registered via `GB_set_log_callback`) and forwards them
+/// to `tracing` instead of letting SameBoy print them to stderr/stdout directly.
+extern "C" fn log_callback(
+    _gb: *mut GB_gameboy_t,
+    string: *const std::os::raw::c_char,
+    _attributes: GB_log_attributes_t,
+) {
+    // SAFETY: SameBoy guarantees `string` is a valid, non-null, NUL-terminated C string for
+    // the duration of this call
+    let message = unsafe { std::ffi::CStr::from_ptr(string) }.to_string_lossy();
+    tracing::info!("{}", message.trim_end_matches('\n'));
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
