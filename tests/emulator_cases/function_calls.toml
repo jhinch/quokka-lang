@@ -348,3 +348,221 @@ expected = 0x11
 [[case.assertion]]
 addr = 0xC001
 expected = 0x65
+
+# Recursion regression coverage. Spilled locals live in a per-function frame reserved by an
+# `AddSP` at function entry/exit (see `rewrite_functions_with_frames` in `src/regalloc.rs`), i.e.
+# on the real hardware stack rather than a static address, so each (re-)entry into a function -
+# including a recursive call to itself - gets its own live frame instead of aliasing an
+# outer/sibling call's spill slots. These cases are direct proof that recursion (including mutual
+# recursion) composes correctly with that frame scheme and with the call-site clobber modeling
+# added in `cbfc5f8`.
+
+[[case]]
+name = "recursive_function_accumulates_correctly"
+source = """
+global N: u8;
+
+#[address = 0xC000]
+global RESULT: u8;
+
+fn recurse() -> u8 {
+    let n = N;
+    if n == 0 then {
+        return 0;
+    }
+    N = n - 1;
+    let inner = recurse();
+    return n + inner;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 5;
+    RESULT = recurse();
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 15
+
+[[case]]
+name = "recursive_function_high_register_pressure_u16_locals"
+source = """
+global N: u8;
+
+#[address = 0xC000]
+global OUT: u16;
+
+fn recurse() -> u16 {
+    let p: u16 = 0x0001;
+    let q: u16 = 0x0002;
+    let r: u16 = 0x0003;
+    let s: u16 = 0x0004;
+    let n = N;
+    if n == 0 then {
+        return p + q + r + s;
+    }
+    N = n - 1;
+    let inner = recurse();
+    return p + q + r + s + inner;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 3;
+    OUT = recurse();
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [40, 0]
+
+[[case]]
+name = "mutual_recursion_is_even_true"
+source = """
+global N: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+fn is_even() -> u1 {
+    if N == 0 then {
+        return 1;
+    }
+    N = N - 1;
+    return is_odd();
+}
+
+fn is_odd() -> u1 {
+    if N == 0 then {
+        return 0;
+    }
+    N = N - 1;
+    return is_even();
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 4;
+    OUT = 0;
+    if is_even() then {
+        OUT = 1;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+
+[[case]]
+name = "mutual_recursion_is_even_false"
+source = """
+global N: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+fn is_even() -> u1 {
+    if N == 0 then {
+        return 1;
+    }
+    N = N - 1;
+    return is_odd();
+}
+
+fn is_odd() -> u1 {
+    if N == 0 then {
+        return 0;
+    }
+    N = N - 1;
+    return is_even();
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 7;
+    OUT = 9;
+    if is_even() then {
+        OUT = 1;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 9
+
+# Coverage for the u1-return ABI-forcing fix (`f123e08`) on the path where the returned condition
+# isn't already `NotZero` and needs complementing (`!=` negates `eq_from_comparison_op`'s
+# condition) before it's materialized into `A` - `call_returns_u1_value` above only exercises a
+# literal return, which never takes that `cpl` path.
+[[case]]
+name = "call_returns_u1_from_eq_comparison_true"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+fn eq_check() -> u1 {
+    let a: u8 = 5;
+    let b: u8 = 5;
+    return a == b;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUT = 0;
+    if eq_check() then {
+        OUT = 1;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+
+[[case]]
+name = "call_returns_u1_from_ne_comparison_false"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+fn neq_check() -> u1 {
+    let a: u8 = 5;
+    let b: u8 = 5;
+    return a != b;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUT = 7;
+    if neq_check() then {
+        OUT = 1;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7
