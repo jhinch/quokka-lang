@@ -1546,6 +1546,22 @@ impl Analyzer {
         let (block, callee_ty, callee) =
             self.analyze_place_expr(&call_expr.callee, block, mir, type_solver, scopes);
 
+        // Calling through a fn-ptr-typed variable/global requires the `fn-ptr` preview
+        // feature; calling a function directly by name does not (that lowers to a plain
+        // `Terminator::Call`, unaffected by the missing `CallR16` encoder support). A
+        // callee whose type is already known and is *not* a fn pointer (e.g. calling a
+        // `u8` local, or an undefined name resolved to `Ty::ERROR`) is skipped here so it
+        // reports only its own type/name error, not an unrelated preview-feature error.
+        let requires_fn_ptr_feature = !matches!(&callee, Operand::FnPtr(_))
+            && !matches!(&callee_ty, InferredTy::Concrete(ty) if !ty.is_fn_ptr());
+        if requires_fn_ptr_feature {
+            self.features.check_enabled(
+                PreviewFeature::FnPtr,
+                call_expr.callee.span,
+                &mut self.result_builder,
+            );
+        }
+
         let return_ty = type_solver.check_call_expr(call_expr, expr.span, callee_ty);
 
         let callee = match callee {

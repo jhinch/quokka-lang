@@ -286,7 +286,8 @@ expected = 0x58
 
 [[case]]
 name = "call_through_fn_ptr_returns_value_regression"
-ignored = "`Terminator::CallR16` is currently not implemented in the encoder. Implementation (or gating behind feature gate) tracked in QUOK-112"
+ignored = "`Terminator::CallR16` is currently not implemented in the encoder"
+preview_features = ["fn-ptr"]
 source = """
 #[address = 0xC000]
 global OUT: u8;
@@ -312,7 +313,8 @@ expected = 0x2A
 
 [[case]]
 name = "caller_local_live_across_fn_ptr_call_survives_regression"
-ignored = "`Terminator::CallR16` is currently not implemented in the encoder. Implementation (or gating behind feature gate) tracked in QUOK-112"
+ignored = "`Terminator::CallR16` is currently not implemented in the encoder"
+preview_features = ["fn-ptr"]
 source = """
 global A: u8;
 

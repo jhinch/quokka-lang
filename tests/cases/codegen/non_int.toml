@@ -686,6 +686,7 @@ END_SECTION
 name = "fn_ptr"
 kind = "codegen"
 allocate_registers = true
+preview_features = ["fn-ptr"]
 source = """
 global CHOICE: u1;
 

@@ -21,6 +21,8 @@ pub enum PreviewFeature {
     NarrowInt,
     /// enable use of `loop` expressions inside constant declarations
     ConstLoop,
+    /// enable calling a function through a function-pointer local/global variable
+    FnPtr,
     /// enable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     Adce,
     /// enable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR

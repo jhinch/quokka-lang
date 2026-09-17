@@ -1,0 +1,119 @@
+# Tests for the `fn-ptr` preview feature gate.
+#
+# A function's identifier can always be used as a first-class value (stored in a
+# local, returned, etc.) without the preview feature - only *calling* through
+# such a value (as opposed to calling a function directly by name) requires
+# `fn-ptr`, since that lowers to `Terminator::CallR16`, which has no encoder
+# support yet.
+#
+# There is currently no source syntax for declaring a global of function-pointer
+# type (no `fn(...)` type-ref grammar), so only the local-variable path is
+# exercised here; see `analyze_call` for the `Callee::Local` gate, which covers
+# both variables and globals identically.
+
+[[case]]
+name = "call_by_name_without_preview_ok"
+kind = "analyzer"
+source = """
+fn helper() {}
+fn main() {
+    helper();
+}
+"""
+expected_mir = """
+helper -> unit:
+  .bb1:
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+main -> unit:
+  .bb1:
+    call helper, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "store_fn_ptr_in_local_without_preview_ok"
+kind = "analyzer"
+source = """
+fn helper() {}
+fn main() {
+    let f = helper;
+}
+"""
+expected_mir = """
+helper -> unit:
+  .bb1:
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+main -> unit:
+  .bb1:
+    f#1: fn() -> unit = copy helper
+    return
+"""
+
+[[case]]
+name = "call_through_local_without_preview"
+kind = "analyzer"
+source = """
+fn helper() {}
+fn main() {
+    let f = helper;
+    f();
+}
+"""
+expected_errors = [
+    "Preview feature error: use --preview fn-ptr @ [51:52]",
+]
+
+[[case]]
+name = "call_through_local_with_preview"
+kind = "analyzer"
+preview_features = ["fn-ptr"]
+source = """
+fn helper() {}
+fn main() {
+    let f = helper;
+    f();
+}
+"""
+expected_mir = """
+helper -> unit:
+  .bb1:
+    return
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+main -> unit:
+  .bb1:
+    f#1: fn() -> unit = copy helper
+    call f#1, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "call_non_function_without_preview_no_extra_error"
+kind = "analyzer"
+source = """
+global A: u8;
+fn main() {
+    A();
+}
+"""
+expected_errors = [
+    "`u8` is not a function type @ [30:33]",
+]
+
+[[case]]
+name = "call_undefined_without_preview_no_extra_error"
+kind = "analyzer"
+source = """
+fn main() {
+    helper();
+}
+"""
+expected_errors = [
+    "name `helper` not defined in scope @ [16:22]",
+]
