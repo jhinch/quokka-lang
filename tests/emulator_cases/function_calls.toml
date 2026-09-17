@@ -1,0 +1,376 @@
+# Emulator coverage for function calls: no prior emulator test in this suite ever compiled a
+# `fn` with a return type or called one, so this file first establishes the basics (calling a
+# function, using its return value, calling it in a loop) and then specifically probes whether a
+# caller's live-across-the-call locals survive a call into a callee that independently needs
+# registers for its own locals.
+#
+# That probing found two distinct, real soundness bugs (both `ignored` below with a `_regression`
+# suffix), neither previously covered by any spec/unit/emulator test:
+#
+# 1. **`Terminator::Call`/`CallIf`/`CallR16` do not clobber anything.** `build_interference_graph`
+#    (`src/interference.rs`) and `calculate_block_liveness` only connect blocks via
+#    `Terminator::next_blocks()`, and for every call variant that only yields the caller's
+#    `return_block` (see `Terminator::next_blocks` in `src/lir.rs`) - the callee's own entry block
+#    is never treated as a CFG successor of the call site for liveness/interference purposes.
+#    Consequently a virtual register that is live across a call
+#    (defined before it, used again after it) is never given an interference edge against any
+#    register the callee's *own* body defines - the two live ranges look completely unrelated to
+#    the colorer, which is then free to (and, in the straight-line examples below, reliably does)
+#    assign them the *same* physical register. There is also no separate "every call clobbers the
+#    full register file" modeling to compensate, unlike a real ABI's caller-/callee-saved
+#    convention. The result: calling any non-trivial function can silently corrupt whichever of
+#    the caller's locals happen to still be live afterward, with no spill, warning, or
+#    integrity-check failure anywhere in the pipeline - `CodeSectionData::check_integrity` (see
+#    `cross_block_register_pressure.toml`) only validates *precolored* registers, not general
+#    virtual-register colors, so it doesn't catch this.
+#
+# 2. **A `u16` return value's low byte is delivered through the wrong physical register even with
+#    zero pressure.** `Instr::LdReturn16` (the read at the call site) is constrained to
+#    `Color::BC` in `restrict_from_terminator`/`restrict_from_instruction`
+#    (`src/interference.rs`), i.e. it expects high=`B`, low=`C`. But nothing gives the equivalent
+#    constraint to the *producing* side: `Function::return_local` (`src/mir.rs`) is never
+#    referenced anywhere in `src/codegen.rs` or `src/interference.rs`, so the local holding the
+#    value right before `Terminator::Return` is colored the same as any other unconstrained
+#    local. For an 8-bit return this happens to still land in `A` in every case tried below
+#    (apparently just the colorer's default/first-available choice for an otherwise-unconstrained
+#    r8, not an enforced convention), but for 16-bit it does not land in `BC`: the two bytes come
+#    back split across the accumulator and `B` (e.g. `LD A, $34` / `LD B, $12` in the callee) while
+#    the caller reads low from `C` and high from `B`, so the low byte of every `u16` return value
+#    is actually whatever `C` happened to contain beforehand, not the value the callee returned.
+#
+# The two bugs are independent - (2) reproduces with no caller-side pressure at all, and (1)
+# reproduces for a plain `u8` return with no `u16` involved - so both get their own regression
+# case(s) below. Bug (1) is not specific to `Terminator::Call`: it reproduces identically through
+# `CallR16` (calling a local function-pointer value, e.g. `let f = helper; f();`), since the same
+# CFG-successor gap applies there too.
+
+[[case]]
+name = "call_returns_u8_value"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+fn get_value() -> u8 {
+    return 0x2A;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x2A
+
+[[case]]
+name = "call_returns_u16_value_regression"
+ignored = "u16 return-value calling-convention mismatch: `Function::return_local` is never given a color constraint anywhere in src/codegen.rs or src/interference.rs, so the callee's return expression is colored like any other unconstrained local (observed: split across A and B, e.g. `LD A, $34` / `LD B, $12`), while `Instr::LdReturn16` at the call site is constrained to Color::BC (high=B, low=C). The low byte therefore comes back as whatever C contained before the call, not the callee's actual low byte. Reproduces with zero caller-side register pressure - see the file header for detail. Un-ignore once the return_local for u16-returning functions is constrained to Color::BC (or the call site reads whatever it was actually placed in)."
+source = """
+#[address = 0xC000]
+global OUT: u16;
+
+fn get_value() -> u16 {
+    return 0x1234;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12]
+
+[[case]]
+name = "caller_local_live_across_call_survives_u8_regression"
+ignored = "Call-clobber unsoundness: a caller's local that is still live after a `CALL` gets no interference edge against registers the callee itself defines (Terminator::Call's callee entry block is never a CFG successor of the call site for liveness purposes - see the file header). Here the colorer assigns `a` (in main) the same physical register that `helper`'s own local ends up in, so calling `helper()` silently overwrites `a`. Un-ignore once calls either clobber every color for values live across them (forcing a spill/reload) or are modeled as reaching the callee's blocks for interference purposes."
+source = """
+global A: u8;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_HELPER: u8;
+
+fn helper() -> u8 {
+    let x = 0xAA;
+    let y = 0xBB;
+    let z = x + y;
+    return z;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x11;
+    let a = A;
+    let h = helper();
+    OUT_A = a;
+    OUT_HELPER = h;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x11
+[[case.assertion]]
+addr = 0xC001
+expected = 0x65
+
+[[case]]
+name = "caller_locals_live_across_call_survive_register_pressure_regression"
+ignored = "Same call-clobber unsoundness as caller_local_live_across_call_survives_u8_regression, under more register pressure: with four caller locals (a/b/c/d) live across the call, three of them end up colored the same physical registers as three of helper's own locals (observed: a/b/d collide, c happens not to), so OUT_A/OUT_B come back as helper's internal values instead of the caller's, and OUT_D only happens to match by coincidence (both sides used the value 4). See the file header for the root cause."
+source = """
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u8;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_B: u8;
+#[address = 0xC002]
+global OUT_C: u8;
+#[address = 0xC003]
+global OUT_D: u8;
+#[address = 0xC004]
+global OUT_HELPER: u8;
+
+fn helper() -> u8 {
+    let p = 0x01;
+    let q = 0x02;
+    let r = 0x03;
+    let s = 0x04;
+    let t = p + q + r + s;
+    return t;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    B = 2;
+    C = 3;
+    D = 4;
+    let a = A;
+    let b = B;
+    let c = C;
+    let d = D;
+    let h = helper();
+    OUT_A = a;
+    OUT_B = b;
+    OUT_C = c;
+    OUT_D = d;
+    OUT_HELPER = h;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 2
+[[case.assertion]]
+addr = 0xC002
+expected = 3
+[[case.assertion]]
+addr = 0xC003
+expected = 4
+[[case.assertion]]
+addr = 0xC004
+expected = 10
+
+[[case]]
+name = "caller_u16_local_live_across_call_survives_regression"
+ignored = "Same call-clobber unsoundness (see file header) applied to a u16 caller local: `a` is corrupted by helper's own locals, and helper's own u16 return additionally hits the separate BC-convention bug from call_returns_u16_value_regression, so both OUT_A and OUT_HELPER come back wrong."
+source = """
+global A: u16;
+
+#[address = 0xC000]
+global OUT_A: u16;
+#[address = 0xC002]
+global OUT_HELPER: u16;
+
+fn helper() -> u16 {
+    let x = 0x1111;
+    let y = 0x2222;
+    let z = x + y;
+    return z;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x4242;
+    let a = A;
+    let h = helper();
+    OUT_A = a;
+    OUT_HELPER = h;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x42, 0x42]
+[[case.assertion]]
+addr = 0xC002
+expected = [0x33, 0x33]
+
+[[case]]
+name = "call_in_loop_accumulates_correctly"
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+fn get_one() -> u8 {
+    return 1;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let total: u8 = 0;
+    let i: u8 = 0;
+    loop {
+        if i == 5 then {
+            break;
+        }
+        total = total + get_one();
+        i = i + 1;
+    }
+    OUT = total;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 5
+
+[[case]]
+name = "nested_calls_preserve_outer_local_regression"
+ignored = "Same call-clobber unsoundness (see file header), shown to be transitive through nested calls: main's `a` is live across the call to middle(), which is itself live across the call to innermost() - either call site can (and here does) pick a color for a callee-internal local that collides with `a`."
+source = """
+global A: u8;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_RESULT: u8;
+
+fn innermost() -> u8 {
+    let p = 0x55;
+    return p;
+}
+
+fn middle() -> u8 {
+    let m = 0x03;
+    let inner = innermost();
+    return m + inner;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x77;
+    let a = A;
+    let result = middle();
+    OUT_A = a;
+    OUT_RESULT = result;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x77
+[[case.assertion]]
+addr = 0xC001
+expected = 0x58
+
+[[case]]
+name = "call_through_fn_ptr_returns_value_regression"
+ignored = "`Terminator::CallR16` (calling a function-pointer local, e.g. `let f = get_value; f();`) is entirely unimplemented in the encoder: `encode.rs` panics with `not yet implemented: CALL R16 callee=... return_block=...` (src/encode.rs:1175) even though parsing, analysis, MIR, codegen and register allocation all accept the program and `cargo run -- codegen --allocate-registers` happily prints a `CALL HL` for it. Un-ignore once `encode.rs` lowers `Terminator::CallR16` to real machine code."
+source = """
+#[address = 0xC000]
+global OUT: u8;
+
+fn get_value() -> u8 {
+    return 0x2A;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let f = get_value;
+    let v = f();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x2A
+
+[[case]]
+name = "caller_local_live_across_fn_ptr_call_survives_regression"
+ignored = "Currently hits the same `not yet implemented: CALL R16` encoder panic as call_through_fn_ptr_returns_value_regression, before it can even run - see that case for the encoder gap. It is kept here (rather than deleted) because `cargo run -- codegen --allocate-registers` on this exact source shows the register allocator has already made the same mistake as caller_local_live_across_call_survives_u8_regression before encoding ever gets involved: `a` and helper's own local `y` are both colored to the same physical register (observed: B), i.e. the call-clobber unsoundness from the file header reproduces identically through `CallR16`. Un-ignore (and expect it to fail on the corruption, not the encoder panic) once CALL R16 is implemented; it will need the call-clobber fix on top to actually pass."
+source = """
+global A: u8;
+
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_HELPER: u8;
+
+fn helper() -> u8 {
+    let x = 0xAA;
+    let y = 0xBB;
+    let z = x + y;
+    return z;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x11;
+    let a = A;
+    let f = helper;
+    let h = f();
+    OUT_A = a;
+    OUT_HELPER = h;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x11
+[[case.assertion]]
+addr = 0xC001
+expected = 0x65
