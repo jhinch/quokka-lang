@@ -1,4 +1,35 @@
 [[case]]
+name = "keeps_transfer_and_fill_even_when_results_are_unused"
+kind = "analyzer"
+optimize = true
+preview_features = ["adce", "bulk-copy", "bulk-fill"]
+source = """
+global A: [u8; 20];
+global B: [u8; 20];
+global C: [u8; 20];
+
+fn main() {
+    A = B;
+    C = [0; 20];
+}
+"""
+expected_mir = """
+@GlobalDeclAttributes { region: Auto, address: None }
+global A: [u8; 20]
+@GlobalDeclAttributes { region: Auto, address: None }
+global B: [u8; 20]
+@GlobalDeclAttributes { region: Auto, address: None }
+global C: [u8; 20]
+
+@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+main -> unit:
+  .bb1:
+    transfer A = B
+    fill C = [0; 20]
+    return
+"""
+
+[[case]]
 name = "removes_dead_straight_line_computation"
 kind = "analyzer"
 optimize = true

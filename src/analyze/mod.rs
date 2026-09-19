@@ -923,6 +923,16 @@ impl Analyzer {
                     self.analyze_call(expr, block, mir, type_solver, scopes, call_expr);
                 (return_block, StatementTy::Unit)
             }
+            ast::ExprData::Assign(op) => {
+                let (block, expr_ty, _) =
+                    self.analyze_assign_expr(op, expr.span, block, mir, type_solver, scopes, false);
+                let outcome = if expr_ty == InferredTy::Concrete(Ty::NEVER) {
+                    StatementTy::Never
+                } else {
+                    StatementTy::Unit
+                };
+                (block, outcome)
+            }
             _ => {
                 let (block, expr_ty, _) = self.analyze_expr(expr, block, mir, type_solver, scopes);
                 let outcome = if expr_ty == InferredTy::Concrete(Ty::NEVER) {
@@ -1225,152 +1235,13 @@ impl Analyzer {
                 (block, expr_ty, target)
             }
             ast::ExprData::Assign(op) => {
-                let (block, left_ty, left) =
-                    self.resolve_place(&op.left, block, mir, type_solver, scopes);
-                let (block, right_ty, right) =
-                    self.analyze_expr(&op.right, block, mir, type_solver, scopes);
-                let expr_ty =
-                    type_solver.check_assign_expr(op, expr.span, left_ty.clone(), right_ty);
-                if let Some(ResolvedPlace::Global(global, _)) = &left
-                    && !self.mir_builder.is_mutable_global(*global)
-                {
-                    self.result_builder
-                        .add_error(ConstNotAssignableError { span: op.left.span });
-                }
-                let target = match op.kind {
-                    AssignOpKind::Assign => right,
-                    kind => {
-                        let left = match &left {
-                            None => {
-                                // no error needs to be added in this situation as it
-                                // should already have been added in resolve_place()
-                                let target = mir.new_local(Ty::ERROR);
-                                mir.push_instr(block, Instr::Undefined { target });
-                                return (block, expr_ty, target);
-                            }
-                            Some(ResolvedPlace::Function(_)) => {
-                                self.result_builder
-                                    .add_error(FnPtrNotAssignableError { span: op.left.span });
-                                let target = mir.new_local(Ty::ERROR);
-                                mir.push_instr(block, Instr::Undefined { target });
-                                return (block, expr_ty, target);
-                            }
-                            Some(ResolvedPlace::Variable(variable, _, projections)) => {
-                                let source = mir.read_variable(*variable, block);
-                                if projections.is_empty() {
-                                    source
-                                } else {
-                                    let target = type_solver.new_registered_local(mir, &left_ty);
-                                    mir.push_instr(
-                                        block,
-                                        Instr::Read {
-                                            target,
-                                            source,
-                                            projections: projections.clone(),
-                                        },
-                                    );
-                                    target
-                                }
-                            }
-                            Some(ResolvedPlace::Global(source, projections)) => {
-                                let target = type_solver.new_registered_local(mir, &left_ty);
-                                mir.push_instr(
-                                    block,
-                                    Instr::Load {
-                                        target,
-                                        source: *source,
-                                        projections: projections.clone(),
-                                    },
-                                );
-                                target
-                            }
-                        };
-
-                        let target = type_solver.new_registered_local(mir, &expr_ty);
-                        mir.push_instr(
-                            block,
-                            match kind {
-                                AssignOpKind::AddAssign => Instr::Add {
-                                    target,
-                                    left,
-                                    right: Operand::Local(right),
-                                },
-                                AssignOpKind::SubAssign => Instr::Sub {
-                                    target,
-                                    left,
-                                    right: Operand::Local(right),
-                                },
-                                AssignOpKind::BitAndAssign => Instr::BitAnd {
-                                    target,
-                                    left,
-                                    right: Operand::Local(right),
-                                },
-                                AssignOpKind::BitOrAssign => Instr::BitOr {
-                                    target,
-                                    left,
-                                    right: Operand::Local(right),
-                                },
-                                AssignOpKind::BitXorAssign => Instr::BitXor {
-                                    target,
-                                    left,
-                                    right: Operand::Local(right),
-                                },
-                                AssignOpKind::Assign => {
-                                    unreachable!("assign handled separately")
-                                }
-                            },
-                        );
-                        target
-                    }
-                };
-
-                match left {
-                    None => {
-                        // no error needs to be added in this situation as it
-                        // should already have been added in resolve_place()
-                        let target = mir.new_local(Ty::ERROR);
-                        mir.push_instr(block, Instr::Undefined { target });
-                        (block, expr_ty, target)
-                    }
-                    Some(ResolvedPlace::Function(_)) => {
-                        self.result_builder
-                            .add_error(FnPtrNotAssignableError { span: op.left.span });
-                        let target = mir.new_local(Ty::ERROR);
-                        mir.push_instr(block, Instr::Undefined { target });
-                        (block, expr_ty, target)
-                    }
-                    Some(ResolvedPlace::Variable(variable, place_ty, projections)) => {
-                        let variable_target = if projections.is_empty() {
-                            target
-                        } else {
-                            let write_target = type_solver.new_registered_local(mir, &place_ty);
-                            let left = mir.read_variable(variable, block);
-                            mir.push_instr(
-                                block,
-                                Instr::Write {
-                                    target: write_target,
-                                    left,
-                                    projections,
-                                    right: Operand::Local(target),
-                                },
-                            );
-                            write_target
-                        };
-                        mir.write_variable(variable, block, variable_target);
-                        (block, expr_ty, target)
-                    }
-                    Some(ResolvedPlace::Global(global, projections)) => {
-                        mir.push_instr(
-                            block,
-                            Instr::Store {
-                                target: global,
-                                projections,
-                                source: Operand::Local(target),
-                            },
-                        );
-                        (block, expr_ty, target)
-                    }
-                }
+                let (block, expr_ty, target) =
+                    self.analyze_assign_expr(op, expr.span, block, mir, type_solver, scopes, true);
+                (
+                    block,
+                    expr_ty,
+                    target.expect("needs_value=true always produces a value"),
+                )
             }
             ast::ExprData::Block(ast_block) => {
                 let yield_ty = type_solver.fresh_ty_var();
@@ -1530,6 +1401,334 @@ impl Analyzer {
         }
     }
 
+    /// Analyzes an `=`/compound-assign expression.
+    ///
+    /// `needs_value` distinguishes a statement-position assignment (`dst = src;`, where the
+    /// produced value is discarded) from one used as a value (`let y = (dst = src);`). This
+    /// matters specifically for the whole-aggregate bulk copy/fill case below: that case has no
+    /// MIR value to produce (there is no local sized to hold the whole aggregate), so when
+    /// `needs_value` is `false` it must return `None` rather than fabricate a placeholder.
+    #[allow(clippy::too_many_arguments)]
+    fn analyze_assign_expr(
+        &mut self,
+        op: &ast::AssignOp,
+        expr_span: SourceSpan,
+        block: BlockId,
+        mir: &mut FunctionBuilder,
+        type_solver: &mut TypeSolver,
+        scopes: &mut Scopes,
+        needs_value: bool,
+    ) -> (BlockId, InferredTy, Option<LocalId>) {
+        let (block, left_ty, left) = self.resolve_place(&op.left, block, mir, type_solver, scopes);
+
+        // Whole-aggregate assignment (`dst = src;` / `dst = [v; N];`) where `dst` is a bare
+        // global identifier whose type is too large to fit in a local (see
+        // `TyTooLargeForLocalVariableError`/`IsRegisterSized`). Only a bare global identifier
+        // has an immediately-known concrete type here — a projected place's type is a deferred
+        // inference variable resolved only once the whole function's constraints are solved, so
+        // that case falls through to the existing local-based path below unchanged.
+        if op.kind == AssignOpKind::Assign
+            && let Some(ResolvedPlace::Global(target, target_projections)) = &left
+            && let InferredTy::Concrete(target_ty) = &left_ty
+            && target_ty.bit_size(&self.ty_registry) > 16
+        {
+            return self.analyze_bulk_assign_expr(
+                op,
+                expr_span,
+                block,
+                *target,
+                target_projections,
+                *target_ty,
+                mir,
+                type_solver,
+                scopes,
+                needs_value,
+            );
+        }
+
+        let (block, right_ty, right) =
+            self.analyze_expr(&op.right, block, mir, type_solver, scopes);
+        let expr_ty = type_solver.check_assign_expr(op, expr_span, left_ty.clone(), right_ty);
+        if let Some(ResolvedPlace::Global(global, _)) = &left
+            && !self.mir_builder.is_mutable_global(*global)
+        {
+            self.result_builder
+                .add_error(ConstNotAssignableError { span: op.left.span });
+        }
+        let target = match op.kind {
+            AssignOpKind::Assign => right,
+            kind => {
+                let left_value = match &left {
+                    None => {
+                        // no error needs to be added in this situation as it
+                        // should already have been added in resolve_place()
+                        let target = mir.new_local(Ty::ERROR);
+                        mir.push_instr(block, Instr::Undefined { target });
+                        return (block, expr_ty, Some(target));
+                    }
+                    Some(ResolvedPlace::Function(_)) => {
+                        self.result_builder
+                            .add_error(FnPtrNotAssignableError { span: op.left.span });
+                        let target = mir.new_local(Ty::ERROR);
+                        mir.push_instr(block, Instr::Undefined { target });
+                        return (block, expr_ty, Some(target));
+                    }
+                    Some(ResolvedPlace::Variable(variable, _, projections)) => {
+                        let source = mir.read_variable(*variable, block);
+                        if projections.is_empty() {
+                            source
+                        } else {
+                            let target = type_solver.new_registered_local(mir, &left_ty);
+                            mir.push_instr(
+                                block,
+                                Instr::Read {
+                                    target,
+                                    source,
+                                    projections: projections.clone(),
+                                },
+                            );
+                            target
+                        }
+                    }
+                    Some(ResolvedPlace::Global(source, projections)) => {
+                        let target = type_solver.new_registered_local(mir, &left_ty);
+                        mir.push_instr(
+                            block,
+                            Instr::Load {
+                                target,
+                                source: *source,
+                                projections: projections.clone(),
+                            },
+                        );
+                        target
+                    }
+                };
+
+                let target = type_solver.new_registered_local(mir, &expr_ty);
+                mir.push_instr(
+                    block,
+                    match kind {
+                        AssignOpKind::AddAssign => Instr::Add {
+                            target,
+                            left: left_value,
+                            right: Operand::Local(right),
+                        },
+                        AssignOpKind::SubAssign => Instr::Sub {
+                            target,
+                            left: left_value,
+                            right: Operand::Local(right),
+                        },
+                        AssignOpKind::BitAndAssign => Instr::BitAnd {
+                            target,
+                            left: left_value,
+                            right: Operand::Local(right),
+                        },
+                        AssignOpKind::BitOrAssign => Instr::BitOr {
+                            target,
+                            left: left_value,
+                            right: Operand::Local(right),
+                        },
+                        AssignOpKind::BitXorAssign => Instr::BitXor {
+                            target,
+                            left: left_value,
+                            right: Operand::Local(right),
+                        },
+                        AssignOpKind::Assign => {
+                            unreachable!("assign handled separately")
+                        }
+                    },
+                );
+                target
+            }
+        };
+
+        let target = match left {
+            None => {
+                // no error needs to be added in this situation as it
+                // should already have been added in resolve_place()
+                let target = mir.new_local(Ty::ERROR);
+                mir.push_instr(block, Instr::Undefined { target });
+                target
+            }
+            Some(ResolvedPlace::Function(_)) => {
+                self.result_builder
+                    .add_error(FnPtrNotAssignableError { span: op.left.span });
+                let target = mir.new_local(Ty::ERROR);
+                mir.push_instr(block, Instr::Undefined { target });
+                target
+            }
+            Some(ResolvedPlace::Variable(variable, place_ty, projections)) => {
+                let variable_target = if projections.is_empty() {
+                    target
+                } else {
+                    let write_target = type_solver.new_registered_local(mir, &place_ty);
+                    let left = mir.read_variable(variable, block);
+                    mir.push_instr(
+                        block,
+                        Instr::Write {
+                            target: write_target,
+                            left,
+                            projections,
+                            right: Operand::Local(target),
+                        },
+                    );
+                    write_target
+                };
+                mir.write_variable(variable, block, variable_target);
+                target
+            }
+            Some(ResolvedPlace::Global(global, projections)) => {
+                mir.push_instr(
+                    block,
+                    Instr::Store {
+                        target: global,
+                        projections,
+                        source: Operand::Local(target),
+                    },
+                );
+                target
+            }
+        };
+        (block, expr_ty, Some(target))
+    }
+
+    /// Analyzes the right-hand side of a whole-aggregate assignment into `dest_global` (a bare
+    /// global identifier whose type, `dest_ty`, is too large to fit in a local). Lowers a
+    /// global-to-global copy to `Instr::Transfer` (gated on `bulk-copy`) and a constant array
+    /// fill to `Instr::Fill` (gated on `bulk-fill`); anything else is a dedicated diagnostic
+    /// rather than falling through to the (invalid) local-materializing path.
+    #[allow(clippy::too_many_arguments)]
+    fn analyze_bulk_assign_expr(
+        &mut self,
+        op: &ast::AssignOp,
+        expr_span: SourceSpan,
+        mut block: BlockId,
+        target: GlobalId,
+        target_projections: &[PlaceProjection],
+        target_ty: Ty,
+        mir: &mut FunctionBuilder,
+        type_solver: &mut TypeSolver,
+        scopes: &mut Scopes,
+        needs_value: bool,
+    ) -> (BlockId, InferredTy, Option<LocalId>) {
+        if !self.mir_builder.is_mutable_global(target) {
+            self.result_builder
+                .add_error(ConstNotAssignableError { span: op.left.span });
+        }
+
+        match &op.right.data {
+            ast::ExprData::Place(rhs_place) => {
+                self.features.check_enabled(
+                    PreviewFeature::BulkCopy,
+                    op.right.span,
+                    &mut self.result_builder,
+                );
+                let (new_block, source_ty, resolved_source) =
+                    self.resolve_place(rhs_place, block, mir, type_solver, scopes);
+                block = new_block;
+                match resolved_source {
+                    Some(ResolvedPlace::Global(source_global, source_projections)) => {
+                        let _ = type_solver.check_assign_expr(
+                            op,
+                            expr_span,
+                            InferredTy::Concrete(target_ty),
+                            source_ty,
+                        );
+                        mir.push_instr(
+                            block,
+                            Instr::Transfer {
+                                target,
+                                target_projections: target_projections.to_vec(),
+                                source: source_global,
+                                source_projections,
+                            },
+                        );
+                    }
+                    Some(_) => {
+                        self.result_builder
+                            .add_error(BulkAssignUnsupportedRhsError {
+                                span: op.right.span,
+                            });
+                    }
+                    None => {
+                        // resolve_place already reported a NotDefinedError
+                    }
+                }
+            }
+            ast::ExprData::Repeat(repeat_expr) => {
+                self.features.check_enabled(
+                    PreviewFeature::BulkFill,
+                    op.right.span,
+                    &mut self.result_builder,
+                );
+                if !target_ty.is_array() {
+                    self.result_builder
+                        .add_error(BulkAssignUnsupportedRhsError {
+                            span: op.right.span,
+                        });
+                } else {
+                    let item_ty = self.ty_registry.array_ty_data(target_ty).item_ty;
+                    if item_ty != Ty::U8 && item_ty != Ty::I8 {
+                        self.result_builder
+                            .add_error(BulkFillUnsupportedItemTypeError {
+                                span: op.right.span,
+                                ty: item_ty.display(&self.ty_registry).into_detached(),
+                            });
+                    } else {
+                        let _ = type_solver.check_assign_expr(
+                            op,
+                            expr_span,
+                            InferredTy::Concrete(target_ty),
+                            InferredTy::Array(
+                                Box::new(InferredTy::Concrete(item_ty)),
+                                repeat_expr.count,
+                            ),
+                        );
+                        if repeat_expr.count == self.ty_registry.array_ty_data(target_ty).count {
+                            match as_8_bit_literal(&repeat_expr.item, item_ty) {
+                                Some(value) => {
+                                    mir.push_instr(
+                                        block,
+                                        Instr::Fill {
+                                            target,
+                                            projections: target_projections.to_vec(),
+                                            value,
+                                            count: repeat_expr.count,
+                                        },
+                                    );
+                                }
+                                None => {
+                                    self.result_builder
+                                        .add_error(BulkFillValueNotConstantError {
+                                            span: repeat_expr.item.span,
+                                        });
+                                }
+                            }
+                        }
+                        // else: count mismatch already reported above via check_assign_expr's
+                        // deferred TyMismatchError; don't also emit a mismatched-count Fill.
+                    }
+                }
+            }
+            _ => {
+                self.result_builder
+                    .add_error(BulkAssignUnsupportedRhsError {
+                        span: op.right.span,
+                    });
+            }
+        }
+
+        if needs_value {
+            self.result_builder
+                .add_error(BulkAssignValueNotUsableError { span: expr_span });
+            let target = mir.new_local(Ty::ERROR);
+            mir.push_instr(block, Instr::Undefined { target });
+            (block, InferredTy::Concrete(Ty::ERROR), Some(target))
+        } else {
+            (block, InferredTy::Concrete(Ty::UNIT), None)
+        }
+    }
+
     fn analyze_call(
         &mut self,
         expr: &ast::Expr,
@@ -1685,7 +1884,12 @@ impl Analyzer {
                             &mut self.result_builder,
                         );
                     }
-                    let field_ty = type_solver.check_field_access(field, place_span, projected_ty);
+                    let field_ty = type_solver.check_field_access(
+                        field,
+                        place_span,
+                        projected_ty,
+                        &self.ty_registry,
+                    );
                     (
                         field_ty,
                         field.span,
@@ -1709,6 +1913,7 @@ impl Analyzer {
                         place_span,
                         projected_ty,
                         index_expr_ty,
+                        &self.ty_registry,
                     );
                     (
                         item_ty,
@@ -1734,6 +1939,30 @@ impl Analyzer {
             PlaceId::Global(global) => Some(ResolvedPlace::Global(global, projections)),
         };
         (block, projected_ty, resolved_place)
+    }
+}
+
+fn as_8_bit_literal(expr: &ast::Expr, item_ty: Ty) -> Option<u8> {
+    match &expr.data {
+        ast::ExprData::Paren(inner) => as_8_bit_literal(inner, item_ty),
+        ast::ExprData::Integer(literal) => {
+            let max = if item_ty == Ty::I8 {
+                u32::from(i8::MAX.cast_unsigned())
+            } else {
+                u32::from(u8::MAX)
+            };
+            if literal.value <= max {
+                u8::try_from(literal.value).ok()
+            } else {
+                None
+            }
+        }
+        ast::ExprData::Unary(op) if op.kind == UnaryOpKind::Neg && item_ty == Ty::I8 => {
+            let value = as_8_bit_literal(&op.expr, item_ty)?;
+            let value = (-value.cast_signed()).cast_unsigned();
+            Some(value)
+        }
+        _ => None,
     }
 }
 

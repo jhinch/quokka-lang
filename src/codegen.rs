@@ -418,26 +418,44 @@ impl CodeGen {
         for mir_block in function.traverse_blocks() {
             let block = blocks[mir_block];
             for instruction in &function.blocks[mir_block].instructions {
-                if matches!(instruction, mir::Instr::Nop) {
-                    // big hack for now. Nop doesn't have a Ty and we ignore it later
-                    // so ignore it upfront
-                    continue;
+                match instruction {
+                    mir::Instr::Nop => {
+                        // currently we don't translate Nop in MIR to Nop in LIR
+                    }
+                    mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
+                        self.generate_from_transfer_or_fill(
+                            mir,
+                            instruction,
+                            block,
+                            lir,
+                            &InstrCtx {
+                                mir,
+                                function,
+                                globals,
+                                functions,
+                                blocks: &blocks,
+                            },
+                            &mut locals,
+                        );
+                    }
+                    _ => {
+                        let ty = self.ty_from_instr(mir, function, instruction);
+                        self.generate_from_instr(
+                            instruction,
+                            ty,
+                            block,
+                            lir,
+                            &InstrCtx {
+                                mir,
+                                function,
+                                globals,
+                                functions,
+                                blocks: &blocks,
+                            },
+                            &mut locals,
+                        );
+                    }
                 }
-                let ty = self.ty_from_instr(mir, function, instruction);
-                self.generate_from_instr(
-                    instruction,
-                    ty,
-                    block,
-                    lir,
-                    &InstrCtx {
-                        mir,
-                        function,
-                        globals,
-                        functions,
-                        blocks: &blocks,
-                    },
-                    &mut locals,
-                );
             }
             if let Some(phis) = locals.phi_source_r1s.get(block) {
                 for (local, &r8) in phis {
@@ -504,22 +522,27 @@ impl CodeGen {
                     projections,
                     ..
                 },
-            ) => {
-                let mut ty = mir.globals[*target].ty;
-                for projection in projections {
-                    ty = match projection {
-                        mir::PlaceProjection::Field(field) => {
-                            self.ty_registry.struct_ty_data(ty).fields[field].ty
-                        }
-                        mir::PlaceProjection::Index(_) => {
-                            self.ty_registry.array_ty_data(ty).item_ty
-                        }
-                    }
-                }
-                ty
-            }
+            ) => self.projected_ty(mir, *target, projections),
             (None, _) => unreachable!("{instruction:?}"),
         }
+    }
+
+    fn projected_ty(
+        &mut self,
+        mir: &mir::Mir,
+        target: mir::GlobalId,
+        projections: &[mir::PlaceProjection],
+    ) -> Ty {
+        let mut ty = mir.globals[target].ty;
+        for projection in projections {
+            ty = match projection {
+                mir::PlaceProjection::Field(field) => {
+                    self.ty_registry.struct_ty_data(ty).fields[field].ty
+                }
+                mir::PlaceProjection::Index(_) => self.ty_registry.array_ty_data(ty).item_ty,
+            }
+        }
+        ty
     }
 
     /// generate LIR from the MIR instruction.
@@ -613,6 +636,78 @@ impl CodeGen {
                 ),
             },
             ty => unimplemented!("{ty:?}"),
+        }
+    }
+
+    /// Lowers `Instr::Transfer`/`Instr::Fill` to a single [`lir::Instr::BulkCopy`]/
+    /// [`lir::Instr::BulkFill`] macro instruction (see those types for why this is one atomic
+    /// LIR instruction rather than a real multi-block loop). The analyzer only ever emits these
+    /// with empty projections (QUOK-86 v1 only supports whole-global copy/fill), so addressing
+    /// is always "whole global, offset 0".
+    fn generate_from_transfer_or_fill(
+        &mut self,
+        mir: &mir::Mir,
+        instruction: &mir::Instr,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx<'_>,
+        locals: &mut Locals,
+    ) {
+        match instruction {
+            mir::Instr::Transfer {
+                target,
+                target_projections,
+                source,
+                source_projections,
+            } => {
+                let (target_addr, bits) = self.projected_global_to_addr(
+                    *target,
+                    target_projections,
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                assert_eq!(bits, u3::new(0), "misaligned ty");
+                let target_addr = {
+                    let target_addr = target_addr.upcast_to_r16_without_move();
+                    let (target_addr_high, target_addr_low) = lir.insert_split(block, target_addr);
+                    let target_addr_low = lir.insert_ld8(block, target_addr_low);
+                    let target_addr_high = lir.insert_ld8(block, target_addr_high);
+                    lir.insert_join(block, target_addr_high, target_addr_low)
+                };
+                let (source_addr, bits) = self.projected_global_to_addr(
+                    *source,
+                    source_projections,
+                    block,
+                    lir,
+                    ctx,
+                    locals,
+                );
+                assert_eq!(bits, u3::new(0), "misaligned ty");
+
+                let ty = self.projected_ty(mir, *target, target_projections);
+                let count = lir.insert_ld16(
+                    block,
+                    Ld16Source::Literal(ty.bit_size(&self.ty_registry).padded_bytes()),
+                );
+                let (_z, _c) = lir.insert_bulk_copy(block, target_addr, source_addr, count);
+            }
+            mir::Instr::Fill {
+                target,
+                projections,
+                value,
+                count,
+            } => {
+                let (target_addr, bits) =
+                    self.projected_global_to_addr(*target, projections, block, lir, ctx, locals);
+                assert_eq!(bits, u3::new(0), "misaligned ty");
+                let value = lir.insert_ld8_value(block, *value);
+                let value = lir.insert_ld_a(block, value);
+                let count = lir.insert_ld16(block, Ld16Source::Literal(count.get()));
+                let (_z, _c) = lir.insert_bulk_fill(block, target_addr, count, value);
+            }
+            _ => unreachable!("generate_from_transfer_or_fill called with {instruction:?}"),
         }
     }
 
@@ -992,6 +1087,9 @@ impl CodeGen {
                 let r8 = lir.insert_move_a(block, a);
                 (*target, R1::R8(r8), mir::Condition::NotZero)
             }
+            mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
+                unimplemented!("transfer/fill handled separately")
+            }
         })
     }
 
@@ -1286,6 +1384,9 @@ impl CodeGen {
                 let r8 = lir.insert_move_a(block, a);
                 (*target, r8)
             }
+            mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
+                unimplemented!("transfer/fill handled separately")
+            }
         })
     }
 
@@ -1563,6 +1664,9 @@ impl CodeGen {
 
                 (*target, target_high, target_low)
             }
+            mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
+                unimplemented!("transfer/fill handled separately")
+            }
         })
     }
 
@@ -1823,19 +1927,25 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx,
     ) -> HLId {
-        lir.insert_ld_hl(
-            block,
-            match &ctx.globals[global] {
-                LoweredGlobal::Section(section) => Ld16Source::SectionAddr(SectionAddr {
-                    section: *section,
-                    offset: byte_offset,
-                }),
-                LoweredGlobal::Addr(addr) => Ld16Source::Literal(
-                    addr.checked_add(byte_offset)
-                        .expect("projection offset overflowed addr"),
-                ),
-            },
-        )
+        lir.insert_ld_hl(block, self.global_to_ld16_source(global, byte_offset, ctx))
+    }
+
+    fn global_to_ld16_source(
+        &self,
+        global: mir::GlobalId,
+        byte_offset: u16,
+        ctx: &InstrCtx,
+    ) -> Ld16Source {
+        match &ctx.globals[global] {
+            LoweredGlobal::Section(section) => Ld16Source::SectionAddr(SectionAddr {
+                section: *section,
+                offset: byte_offset,
+            }),
+            LoweredGlobal::Addr(addr) => Ld16Source::Literal(
+                addr.checked_add(byte_offset)
+                    .expect("projection offset overflowed addr"),
+            ),
+        }
     }
 
     fn projected_local_to_r8(

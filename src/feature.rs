@@ -23,6 +23,10 @@ pub enum PreviewFeature {
     ConstLoop,
     /// enable calling a function through a function-pointer local/global variable
     FnPtr,
+    /// enable whole-aggregate copy assignment (`dst = src`) lowering to a runtime copy loop
+    BulkCopy,
+    /// enable whole-aggregate fill assignment (`dst = [value; N]`) lowering to a runtime fill loop
+    BulkFill,
     /// enable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     Adce,
     /// enable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR

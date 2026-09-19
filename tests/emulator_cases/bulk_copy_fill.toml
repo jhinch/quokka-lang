@@ -1,0 +1,338 @@
+# QUOK-86: emulator behavioral coverage for whole-aggregate bulk copy/fill (the
+# `lir::Instr::BulkCopy`/`BulkFill` macro instructions), confirming the encoded loop actually
+# moves/fills the right bytes on real hardware semantics - not just that the LIR/regalloc output
+# looks right (see tests/cases/codegen/bulk_copy_fill.toml for that). Each case includes a
+# "sentinel" byte immediately after the copy/fill target so an off-by-one in the loop count would
+# be caught (the sentinel would be overwritten).
+
+[[case]]
+name = "bulk_copy_and_fill"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+const SRC: [u8; 5] = [10, 20, 30, 40, 50];
+
+#[address = 0xC000]
+global DST: [u8; 5];
+#[address = 0xC005]
+global COPY_SENTINEL: u8;
+
+#[address = 0xC100]
+global FILLED: [u8; 5];
+#[address = 0xC105]
+global FILL_SENTINEL: u8;
+
+fn main() {
+    COPY_SENTINEL = 99;
+    FILL_SENTINEL = 77;
+    DST = SRC;
+    FILLED = [42; 5];
+    checkpoint();
+}
+"""
+preview_features = ["bulk-copy", "bulk-fill"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [10, 20, 30, 40, 50]
+[[case.assertion]]
+addr = 0xC005
+expected = 99
+[[case.assertion]]
+addr = 0xC100
+expected = [42, 42, 42, 42, 42]
+[[case.assertion]]
+addr = 0xC105
+expected = 77
+
+# Struct-field projection on both the destination (fill, then copy overwriting the fill) and the
+# source of a bulk copy. `BAG_A.id` and `BAG_B.id` are checked to confirm the bulk op only ever
+# touches the projected field's own bytes, never the sibling field ahead of it in the struct.
+[[case]]
+name = "bulk_copy_and_fill_field_projection"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+struct Bag {
+    id: u8,
+    items: [u8; 5],
+}
+
+const NEW_ITEMS: [u8; 5] = [41, 42, 43, 44, 45];
+
+#[address = 0xC000]
+global BAG_A: Bag;
+#[address = 0xC006]
+global BAG_A_SENTINEL: u8;
+
+#[address = 0xC010]
+global BAG_B: Bag;
+
+#[address = 0xC020]
+global DST: [u8; 5];
+#[address = 0xC025]
+global DST_SENTINEL: u8;
+
+fn main() {
+    BAG_A.id = 55;
+    BAG_A_SENTINEL = 111;
+    BAG_A.items = [9; 5]; // fill into a field-projected destination
+
+    BAG_B.id = 66;
+    BAG_B.items[0] = 51;
+    BAG_B.items[1] = 52;
+    BAG_B.items[2] = 53;
+    BAG_B.items[3] = 54;
+    BAG_B.items[4] = 55;
+
+    DST_SENTINEL = 222;
+    DST = BAG_B.items; // copy from a field-projected source
+
+    BAG_A.items = NEW_ITEMS; // copy into a field-projected destination, overwriting the fill
+    checkpoint();
+}
+"""
+preview_features = ["bulk-copy", "bulk-fill"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 55
+[[case.assertion]]
+addr = 0xC001
+expected = [41, 42, 43, 44, 45]
+[[case.assertion]]
+addr = 0xC006
+expected = 111
+[[case.assertion]]
+addr = 0xC010
+expected = 66
+[[case.assertion]]
+addr = 0xC011
+expected = [51, 52, 53, 54, 55]
+[[case.assertion]]
+addr = 0xC020
+expected = [51, 52, 53, 54, 55]
+[[case.assertion]]
+addr = 0xC025
+expected = 222
+
+# Literal array-index projection on both the destination (fill each row, then copy overwriting
+# the middle row) and the source of a bulk copy. Rows 0 and 2 (either side of the overwritten
+# row 1) are asserted unchanged to catch an addressing bug that shifts into a neighboring row.
+[[case]]
+name = "bulk_copy_and_fill_index_projection"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+const NEW_ROW: [u8; 5] = [21, 22, 23, 24, 25];
+
+#[address = 0xC100]
+global GRID: [[u8; 5]; 3];
+#[address = 0xC10F]
+global GRID_SENTINEL: u8;
+
+#[address = 0xC110]
+global OUT_ROW: [u8; 5];
+#[address = 0xC115]
+global OUT_ROW_SENTINEL: u8;
+
+fn main() {
+    GRID_SENTINEL = 200;
+    GRID[0] = [10; 5]; // fill into an index-projected destination
+    GRID[1] = [20; 5];
+    GRID[2] = [30; 5];
+
+    GRID[1] = NEW_ROW; // copy into an index-projected destination, overwriting row 1's fill
+
+    OUT_ROW_SENTINEL = 201;
+    OUT_ROW = GRID[1]; // copy from an index-projected source
+    checkpoint();
+}
+"""
+preview_features = ["bulk-copy", "bulk-fill"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC100
+expected = [10, 10, 10, 10, 10]
+[[case.assertion]]
+addr = 0xC105
+expected = [21, 22, 23, 24, 25]
+[[case.assertion]]
+addr = 0xC10A
+expected = [30, 30, 30, 30, 30]
+[[case.assertion]]
+addr = 0xC10F
+expected = 200
+[[case.assertion]]
+addr = 0xC110
+expected = [21, 22, 23, 24, 25]
+[[case.assertion]]
+addr = 0xC115
+expected = 201
+
+# Same as the literal-index case above, but the destination row index is a runtime value (held
+# in a local), exercising the runtime address-computation path in `projected_global_to_addr`
+# rather than the compile-time-constant-offset path.
+[[case]]
+name = "bulk_copy_variable_index_projection"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+const NEW_ROW: [u8; 5] = [61, 62, 63, 64, 65];
+
+#[address = 0xC200]
+global GRID: [[u8; 5]; 3];
+#[address = 0xC20F]
+global GRID_SENTINEL: u8;
+
+fn main() {
+    GRID_SENTINEL = 210;
+    GRID[0] = [11; 5];
+    GRID[1] = [12; 5];
+    GRID[2] = [13; 5];
+
+    let i: u16 = 2;
+    GRID[i] = NEW_ROW; // copy into a runtime-index-projected destination
+    checkpoint();
+}
+"""
+preview_features = ["bulk-copy", "bulk-fill"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC200
+expected = [11, 11, 11, 11, 11]
+[[case.assertion]]
+addr = 0xC205
+expected = [12, 12, 12, 12, 12]
+[[case.assertion]]
+addr = 0xC20A
+expected = [61, 62, 63, 64, 65]
+[[case.assertion]]
+addr = 0xC20F
+expected = 210
+
+# A `BulkCopy`/`BulkFill` clobbers every general-purpose register (HL, DE, BC, A) and the Z/C
+# flags - anything live both before and after one must be spilled to the stack and correctly
+# reloaded. This is a regression test for register-spill-across-a-bulk-op bugs: five locals (three
+# `u8`, backed by R8 registers, and two `u16`, backed by R16 register pairs) are all loaded before
+# the bulk copy and used only after it, forcing every one of them to be spilled.
+[[case]]
+name = "bulk_copy_forces_register_spill_across_it"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+const SRC: [u8; 5] = [1, 2, 3, 4, 5];
+
+#[address = 0xC000]
+global DST: [u8; 5];
+
+global A: u8;
+global B: u8;
+global C: u8;
+global D: u16;
+global E: u16;
+
+#[address = 0xC010]
+global R_A: u8;
+#[address = 0xC011]
+global R_B: u8;
+#[address = 0xC012]
+global R_C: u8;
+#[address = 0xC013]
+global R_D: u16;
+#[address = 0xC015]
+global R_E: u16;
+
+fn main() {
+    A = 11;
+    B = 22;
+    C = 33;
+    D = 4444;
+    E = 5555;
+
+    let a = A;
+    let b = B;
+    let c = C;
+    let d = D;
+    let e = E;
+
+    DST = SRC; // bulk copy; a, b, c, d, e are all live across it and must be spilled
+
+    R_A = a;
+    R_B = b;
+    R_C = c;
+    R_D = d;
+    R_E = e;
+    checkpoint();
+}
+"""
+preview_features = ["bulk-copy"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC010
+expected = 11
+[[case.assertion]]
+addr = 0xC011
+expected = 22
+[[case.assertion]]
+addr = 0xC012
+expected = 33
+[[case.assertion]]
+addr = 0xC013
+expected = [0x5c, 0x11] # 4444, little-endian
+[[case.assertion]]
+addr = 0xC015
+expected = [0xb3, 0x15] # 5555, little-endian
+
+# Same regression as above, but for the zero flag: a comparison result (a `u1` backed by the Z
+# flag) live across a `BulkFill` must be spilled and correctly reloaded rather than clobbered by
+# the bulk op's own internal zero-test. Covers both a true and a false comparison, so a bug that
+# reloads a stuck/always-one flag would still be caught.
+[[case]]
+name = "bulk_fill_forces_flag_spill_across_it"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global FILLED: [u8; 5];
+
+global X: u8;
+global Y: u8;
+global Z: u8;
+
+#[address = 0xC010]
+global R_EQ: u1;
+#[address = 0xC011]
+global R_NEQ: u1;
+
+fn main() {
+    X = 5;
+    Y = 5;
+    Z = 9;
+
+    let eq = X == Y; // true, backed by the zero flag
+    let neq = X == Z; // false, backed by the zero flag
+
+    FILLED = [7; 5]; // bulk fill; eq and neq are both live across it and must be spilled
+
+    R_EQ = eq;
+    R_NEQ = neq;
+    checkpoint();
+}
+"""
+preview_features = ["bulk-fill"]
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC010
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC011
+expected = 0
+mask = 0b0000_0001

@@ -48,8 +48,13 @@ impl Adce {
         for block_id in function.traverse_blocks() {
             let block = &function.blocks[block_id];
             for (index, instruction) in block.instructions.iter().enumerate() {
-                if matches!(instruction, Instr::Load { .. } | Instr::Store { .. })
-                    && alive_instructions.insert((block_id, index))
+                if matches!(
+                    instruction,
+                    Instr::Load { .. }
+                        | Instr::Store { .. }
+                        | Instr::Transfer { .. }
+                        | Instr::Fill { .. }
+                ) && alive_instructions.insert((block_id, index))
                 {
                     queue.push_back(WorkItem::LiveInstr(block_id, index));
                 }

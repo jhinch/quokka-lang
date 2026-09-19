@@ -330,6 +330,41 @@ pub struct TyTooLargeForLocalVariableError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("unsupported right-hand side for a bulk aggregate assignment")]
+#[diagnostic()]
+pub struct BulkAssignUnsupportedRhsError {
+    #[label(
+        "aggregate is too large to copy element-by-element; expected a global/const or a `[value; N]` fill"
+    )]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("fill item type `{ty}` is not supported")]
+#[diagnostic()]
+pub struct BulkFillUnsupportedItemTypeError {
+    pub ty: TyDisplay<'static>,
+    #[label("only `u8`/`i8` array items are supported")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("fill value must be a compile-time constant")]
+#[diagnostic()]
+pub struct BulkFillValueNotConstantError {
+    #[label("not a compile-time constant")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("the result of a bulk copy/fill assignment cannot be used as a value")]
+#[diagnostic()]
+pub struct BulkAssignValueNotUsableError {
+    #[label("use this as a statement instead")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("const `{name}` has a cyclic dependency")]
 #[diagnostic()]
 pub struct CyclicConstDeclError {

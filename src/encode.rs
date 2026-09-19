@@ -1091,6 +1091,56 @@ impl ObjFileEncoder {
             lir::Instr::LdReturn8 { .. } => {}
             lir::Instr::LdReturn16 { .. } => {}
             lir::Instr::FreshA { .. } => {}
+            lir::Instr::BulkCopy {
+                target_addr, count, ..
+            } => {
+                assert_eq!(
+                    code.r16_registers[*target_addr].color.unwrap(),
+                    Color::DE,
+                    "BulkCopy target_addr expected DE"
+                );
+                assert_eq!(
+                    code.r16_registers[*count].color.unwrap(),
+                    Color::BC,
+                    "BulkCopy count expected BC"
+                );
+                let loop_start = bytes.len();
+                bytes.push(opcode::LD_A_HLI);
+                bytes.push(opcode::LD_DE_A);
+                bytes.push(opcode::INC16_DE);
+                bytes.push(opcode::DEC16_BC);
+                bytes.push(opcode::LD_A_C);
+                bytes.push(opcode::OR_A_B);
+                let jr_pos = bytes.len();
+                bytes.push(opcode::JR_NZ_E8);
+                let offset = i8::try_from(loop_start.cast_signed() - (jr_pos.cast_signed() + 2))
+                    .expect("bulk copy loop body should always fit a JR e8 offset");
+                bytes.push(offset.cast_unsigned());
+            }
+            lir::Instr::BulkFill { count, scratch, .. } => {
+                assert_eq!(
+                    code.r16_registers[*count].color.unwrap(),
+                    Color::BC,
+                    "BulkCopy count expected BC"
+                );
+                assert_eq!(
+                    code.r8_registers[*scratch].color.unwrap(),
+                    Color::D,
+                    "BulkCopy scratch expected D"
+                );
+                let loop_start = bytes.len();
+                bytes.push(opcode::LD_HLI_A);
+                bytes.push(opcode::DEC16_BC);
+                bytes.push(opcode::LD_D_A);
+                bytes.push(opcode::LD_A_C);
+                bytes.push(opcode::OR_A_B);
+                bytes.push(opcode::LD_A_D);
+                let jr_pos = bytes.len();
+                bytes.push(opcode::JR_NZ_E8);
+                let offset = i8::try_from(loop_start.cast_signed() - (jr_pos.cast_signed() + 2))
+                    .expect("bulk fill loop body should always fit a JR e8 offset");
+                bytes.push(offset.cast_unsigned());
+            }
         }
     }
 

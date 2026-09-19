@@ -1131,6 +1131,82 @@ pub enum Instr {
     /// Generally, you want to Ld8 from an existing register, but this handles cases where we
     /// destroy the registers value, but we don't get what it is.
     FreshA { target: AId },
+    /// A macro instruction for copying from the `[source_addr..source_addr+count]` to
+    /// the `[target_addr..target_addr+count]`
+    ///
+    /// Translates to the following instructions:
+    ///
+    /// ```text
+    /// LD A,[HLI]
+    /// LD [DE],A
+    /// INC DE
+    /// DEC BC
+    /// LD A,C
+    /// OR B
+    /// JR NZ,-8
+    /// ```
+    ///
+    /// where:
+    ///
+    /// - `target_addr` is colored `DE`
+    /// - `source_addr` is colored `HL`
+    /// - `count` is colored `BC`
+    /// - `scratch` is colored `A`
+    ///
+    /// The end result will leave:
+    ///
+    /// - `scratch` set to `0`
+    /// - `z` set to `0`
+    /// - `c` set to `0`
+    /// - `target_addr` set to its original value + the original value of `count`
+    /// - `source_addr` set to its original value + the original value of `count`
+    /// - `count` set to `0`
+    ///
+    BulkCopy {
+        z: ZeroId,
+        c: CarryId,
+        target_addr: R16Id,
+        source_addr: HLId,
+        count: R16Id,
+        scratch: AId,
+    },
+    /// A macro instruction for replacing all bytes in `[addr..addr+count]` with `value`.
+    ///
+    /// Translates to the following instructions:
+    ///
+    /// ```text
+    /// LD [HLI],A
+    /// DEC BC
+    /// LD D,A
+    /// LD A,C
+    /// OR B
+    /// LD A,D
+    /// JR NZ,-8
+    ///```
+    ///
+    /// where:
+    ///
+    /// - `addr` is colored `HL`
+    /// - `count` is colored `BC`
+    /// - `value` is colored `A`
+    /// - `scratch` is colored `D`
+    ///
+    /// The end result will leave:
+    ///
+    /// - `scratch` set to the value of `value`
+    /// - `z` set to 0
+    /// - `c` set to 0
+    /// - `addr` set to its original value + the original value of `count`
+    /// - `count` set to 0
+    /// - `value` remains unchanged
+    BulkFill {
+        z: ZeroId,
+        c: CarryId,
+        addr: HLId,
+        count: R16Id,
+        value: AId,
+        scratch: R8Id,
+    },
 }
 
 impl Instr {
@@ -1168,7 +1244,7 @@ impl Instr {
         self.redefined_r8()
             .into_iter()
             .map(VirtualReg::R8)
-            .chain(self.redefined_r16().into_iter().map(VirtualReg::R16))
+            .chain(self.redefined_r16().map(VirtualReg::R16))
     }
 
     pub fn register_uses(&self) -> impl Iterator<Item = VirtualReg> + '_ {
@@ -1199,8 +1275,15 @@ impl Instr {
                 | Instr::Ld8Dec { target, .. }
                 | Instr::PopAF { target, .. }
                 | Instr::LdReturn8 { target, .. }
-                | Instr::FreshA { target, .. } => match next {
+                | Instr::FreshA { target, .. }
+                | Instr::BulkCopy {
+                    scratch: target, ..
+                } => match next {
                     0 => Some(target.0),
+                    _ => None,
+                },
+                Instr::BulkFill { scratch, .. } => match next {
+                    0 => Some(*scratch),
                     _ => None,
                 },
                 Instr::Nop
@@ -1307,20 +1390,165 @@ impl Instr {
             | Instr::And { left, .. }
             | Instr::Or { left, .. }
             | Instr::Xor { left, .. } => Some(left.0),
-            _ => None,
+            Instr::Nop
+            | Instr::Ld8 { .. }
+            | Instr::Ld8Value { .. }
+            | Instr::Ld8Ptr { .. }
+            | Instr::Ld8HighPtr { .. }
+            | Instr::Ld8Inc { .. }
+            | Instr::Ld8Dec { .. }
+            | Instr::Ld16 { .. }
+            | Instr::LdSPValue { .. }
+            | Instr::Store { .. }
+            | Instr::StoreHigh { .. }
+            | Instr::StoreValue { .. }
+            | Instr::StoreInc { .. }
+            | Instr::StoreDec { .. }
+            | Instr::Cp { .. }
+            | Instr::DecPtr { .. }
+            | Instr::IncPtr { .. }
+            | Instr::Bit { .. }
+            | Instr::BitPtr { .. }
+            | Instr::ResPtr { .. }
+            | Instr::SetPtr { .. }
+            | Instr::RlPtr { .. }
+            | Instr::RlcPtr { .. }
+            | Instr::RrPtr { .. }
+            | Instr::RrcPtr { .. }
+            | Instr::SlaPtr { .. }
+            | Instr::SraPtr { .. }
+            | Instr::SrlPtr { .. }
+            | Instr::SwapPtr { .. }
+            | Instr::Ccf { .. }
+            | Instr::Scf { .. }
+            | Instr::Add16 { .. }
+            | Instr::AddSP { .. }
+            | Instr::LdSPE8 { .. }
+            | Instr::Dec16 { .. }
+            | Instr::Inc16 { .. }
+            | Instr::PushR16 { .. }
+            | Instr::PushAF { .. }
+            | Instr::PopR16 { .. }
+            | Instr::PopAF { .. }
+            | Instr::Join { .. }
+            | Instr::Split { .. }
+            | Instr::MoveZero { .. }
+            | Instr::MoveCarry { .. }
+            | Instr::LdReturn8 { .. }
+            | Instr::LdReturn16 { .. }
+            | Instr::FreshA { .. }
+            | Instr::BulkCopy { .. }
+            | Instr::BulkFill { .. } => None,
         }
     }
 
     /// The 16-bit register (if any) that an in-place-mutating instruction (`ADD HL,r16`,
     /// `DEC r16`, `INC r16`) redefines. See [`Instr::redefined_r8`] for why this is kept
     /// separate from [`Instr::target_r16`].
-    #[must_use]
-    pub fn redefined_r16(&self) -> Option<R16Id> {
-        match self {
-            Instr::Add16 { left, .. } => Some(left.0),
-            Instr::Dec16 { source } | Instr::Inc16 { source } => Some(*source),
-            _ => None,
-        }
+    pub fn redefined_r16(&self) -> impl Iterator<Item = R16Id> + '_ {
+        let mut next = 0;
+        std::iter::from_fn(move || {
+            let r16 = match self {
+                Instr::Add16 { left: addr, .. }
+                | Instr::Ld8Inc {
+                    source_addr: addr, ..
+                }
+                | Instr::Ld8Dec {
+                    source_addr: addr, ..
+                }
+                | Instr::StoreInc { addr, .. }
+                | Instr::StoreDec { addr, .. } => match next {
+                    0 => Some(addr.0),
+                    _ => None,
+                },
+                Instr::Dec16 { source } | Instr::Inc16 { source } => match next {
+                    0 => Some(*source),
+                    _ => None,
+                },
+                Instr::BulkCopy {
+                    target_addr,
+                    source_addr,
+                    count,
+                    ..
+                } => match next {
+                    0 => Some(*target_addr),
+                    1 => Some(source_addr.0),
+                    2 => Some(*count),
+                    _ => None,
+                },
+                Instr::BulkFill { addr, count, .. } => match next {
+                    0 => Some(addr.0),
+                    1 => Some(*count),
+                    _ => None,
+                },
+                Instr::Nop
+                | Instr::Ld8 { .. }
+                | Instr::Ld8Value { .. }
+                | Instr::Ld8Ptr { .. }
+                | Instr::Ld8HighPtr { .. }
+                | Instr::Ld16 { .. }
+                | Instr::LdSPValue { .. }
+                | Instr::Store { .. }
+                | Instr::StoreHigh { .. }
+                | Instr::StoreValue { .. }
+                | Instr::Adc { .. }
+                | Instr::Add { .. }
+                | Instr::Cp { .. }
+                | Instr::Dec { .. }
+                | Instr::DecPtr { .. }
+                | Instr::Inc { .. }
+                | Instr::IncPtr { .. }
+                | Instr::Sbc { .. }
+                | Instr::Sub { .. }
+                | Instr::And { .. }
+                | Instr::Cpl { .. }
+                | Instr::Or { .. }
+                | Instr::Xor { .. }
+                | Instr::Bit { .. }
+                | Instr::BitPtr { .. }
+                | Instr::Res { .. }
+                | Instr::ResPtr { .. }
+                | Instr::Set { .. }
+                | Instr::SetPtr { .. }
+                | Instr::Rl { .. }
+                | Instr::RlPtr { .. }
+                | Instr::Rlc { .. }
+                | Instr::RlcPtr { .. }
+                | Instr::Rr { .. }
+                | Instr::RrPtr { .. }
+                | Instr::Rrc { .. }
+                | Instr::RrcPtr { .. }
+                | Instr::Rla { .. }
+                | Instr::Rlca { .. }
+                | Instr::Rra { .. }
+                | Instr::Rrca { .. }
+                | Instr::Sla { .. }
+                | Instr::SlaPtr { .. }
+                | Instr::Sra { .. }
+                | Instr::SraPtr { .. }
+                | Instr::Srl { .. }
+                | Instr::SrlPtr { .. }
+                | Instr::Swap { .. }
+                | Instr::SwapPtr { .. }
+                | Instr::Ccf { .. }
+                | Instr::Scf { .. }
+                | Instr::AddSP { .. }
+                | Instr::LdSPE8 { .. }
+                | Instr::PushR16 { .. }
+                | Instr::PushAF { .. }
+                | Instr::PopR16 { .. }
+                | Instr::PopAF { .. }
+                | Instr::Join { .. }
+                | Instr::Split { .. }
+                | Instr::MoveZero { .. }
+                | Instr::MoveCarry { .. }
+                | Instr::LdReturn8 { .. }
+                | Instr::LdReturn16 { .. }
+                | Instr::FreshA { .. } => None,
+            }?;
+            next += 1;
+            Some(r16)
+        })
     }
 
     #[must_use]
@@ -1396,7 +1624,9 @@ impl Instr {
             | Instr::Add16 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
-            | Instr::FreshA { .. } => None,
+            | Instr::FreshA { .. }
+            | Instr::BulkCopy { .. }
+            | Instr::BulkFill { .. } => None,
         }
     }
 
@@ -1440,7 +1670,9 @@ impl Instr {
             | Instr::AddSP { z, .. }
             | Instr::LdSPE8 { z, .. }
             | Instr::PopAF { z, .. }
-            | Instr::MoveZero { z, .. } => Some(*z),
+            | Instr::MoveZero { z, .. }
+            | Instr::BulkCopy { z, .. }
+            | Instr::BulkFill { z, .. } => Some(*z),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1514,7 +1746,9 @@ impl Instr {
             | Instr::AddSP { c, .. }
             | Instr::LdSPE8 { c, .. }
             | Instr::PopAF { c, .. }
-            | Instr::MoveCarry { c, .. } => Some(*c),
+            | Instr::MoveCarry { c, .. }
+            | Instr::BulkCopy { c, .. }
+            | Instr::BulkFill { c, .. } => Some(*c),
             Instr::Nop
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
@@ -1635,6 +1869,10 @@ impl Instr {
                     0 => source.map(|source| source.0),
                     _ => None,
                 },
+                Instr::BulkFill { value, .. } => match next {
+                    0 => Some(value.0),
+                    _ => None,
+                },
                 Instr::Nop
                 | Instr::Ld8Value { .. }
                 | Instr::Ld8Ptr { .. }
@@ -1672,7 +1910,8 @@ impl Instr {
                 | Instr::PopAF { .. }
                 | Instr::LdReturn8 { .. }
                 | Instr::LdReturn16 { .. }
-                | Instr::FreshA { .. } => None,
+                | Instr::FreshA { .. }
+                | Instr::BulkCopy { .. } => None,
             }?;
             next += 1;
             Some(r8)
@@ -1729,6 +1968,22 @@ impl Instr {
                 | Instr::Split { source, .. }
                 | Instr::PushR16 { source, .. } => match next {
                     0 => Some(*source),
+                    _ => None,
+                },
+                Instr::BulkCopy {
+                    target_addr,
+                    source_addr,
+                    count,
+                    ..
+                } => match next {
+                    0 => Some(*target_addr),
+                    1 => Some(source_addr.0),
+                    2 => Some(*count),
+                    _ => None,
+                },
+                Instr::BulkFill { addr, count, .. } => match next {
+                    0 => Some(addr.0),
+                    1 => Some(*count),
                     _ => None,
                 },
                 Instr::Adc { right, .. }
@@ -1863,7 +2118,9 @@ impl Instr {
             | Instr::MoveCarry { .. }
             | Instr::LdReturn8 { .. }
             | Instr::LdReturn16 { .. }
-            | Instr::FreshA { .. } => None,
+            | Instr::FreshA { .. }
+            | Instr::BulkCopy { .. }
+            | Instr::BulkFill { .. } => None,
         }
     }
 
@@ -1940,7 +2197,9 @@ impl Instr {
             | Instr::MoveZero { .. }
             | Instr::LdReturn8 { .. }
             | Instr::LdReturn16 { .. }
-            | Instr::FreshA { .. } => None,
+            | Instr::FreshA { .. }
+            | Instr::BulkCopy { .. }
+            | Instr::BulkFill { .. } => None,
         }
     }
 }
@@ -2513,6 +2772,44 @@ impl Instr {
             }
             Instr::FreshA { target } => {
                 write!(f, "FRESH {}", target.display(lir, section))
+            }
+            Instr::BulkCopy {
+                z,
+                c,
+                target_addr,
+                source_addr,
+                count,
+                scratch,
+            } => {
+                write!(
+                    f,
+                    "BULKCOPY! {}, {}, {}, {}; {}, {}",
+                    target_addr.display(lir, section),
+                    source_addr.display(lir, section),
+                    count.display(lir, section),
+                    scratch.display(lir, section),
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section),
+                )
+            }
+            Instr::BulkFill {
+                z,
+                c,
+                addr,
+                count,
+                value,
+                scratch,
+            } => {
+                write!(
+                    f,
+                    "BULKFILL! {}, {}, {}, {}; {}, {}",
+                    addr.display(lir, section),
+                    value.display(lir, section),
+                    count.display(lir, section),
+                    scratch.display(lir, section),
+                    z.display_zero(lir, section),
+                    c.display_carry(lir, section),
+                )
             }
         })
     }
@@ -3357,6 +3654,58 @@ impl CodeSectionBuilder {
                 source,
             },
         );
+    }
+
+    /// Copies `count` bytes from `source_addr` to `target_addr`. See [`Instr::BulkCopy`].
+    #[must_use]
+    pub fn insert_bulk_copy(
+        &mut self,
+        block: BlockId,
+        target_addr: R16Id,
+        source_addr: HLId,
+        count: R16Id,
+    ) -> (ZeroId, CarryId) {
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        let scratch = self.new_a();
+        self.insert_instr(
+            block,
+            Instr::BulkCopy {
+                z,
+                c,
+                target_addr,
+                source_addr,
+                count,
+                scratch,
+            },
+        );
+        (z, c)
+    }
+
+    /// Fills `count` bytes at `[addr]` with `value`. See [`Instr::BulkFill`].
+    #[must_use]
+    pub fn insert_bulk_fill(
+        &mut self,
+        block: BlockId,
+        addr: HLId,
+        count: R16Id,
+        value: AId,
+    ) -> (ZeroId, CarryId) {
+        let z = self.new_zero_flag();
+        let c = self.new_carry_flag();
+        let scratch = self.new_r8_precolored(Color::D);
+        self.insert_instr(
+            block,
+            Instr::BulkFill {
+                z,
+                c,
+                addr,
+                count,
+                value,
+                scratch,
+            },
+        );
+        (z, c)
     }
 
     /// `ADC A,r8`

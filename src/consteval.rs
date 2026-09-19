@@ -26,7 +26,11 @@ pub fn evaluate(
         for instruction in function.blocks[block].instructions.iter() {
             match instruction {
                 Instr::Nop => {}
-                Instr::Undefined { .. } | Instr::ReturnValue { .. } | Instr::Store { .. } => {
+                Instr::Undefined { .. }
+                | Instr::ReturnValue { .. }
+                | Instr::Store { .. }
+                | Instr::Transfer { .. }
+                | Instr::Fill { .. } => {
                     unimplemented!("Unsupported instruction {instruction:?}")
                 }
                 Instr::Alloc { target } => {

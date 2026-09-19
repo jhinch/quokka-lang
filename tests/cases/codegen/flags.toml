@@ -674,3 +674,305 @@ START_SECTION ROM0
 
 END_SECTION
 """
+
+# `BulkFill`'s internal zero-test clobbers Z/C (and every general-purpose register) for its whole
+# duration, so a flag-backed (`u1`) local live across one forces the flag-spill path. See
+# `tests/emulator_cases/bulk_copy_fill.toml`'s `bulk_fill_forces_flag_spill_across_it` for the
+# equivalent runtime-correctness check; this case is for a human reviewer to inspect the actual
+# spill code.
+[[case]]
+name = "bulk_fill_forces_flag_spill_allocate_registers"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+preview_features = ["bulk-fill"]
+source.file = "flag_pressure_bulk_fill.q"
+expected_lir = """
+START_SECTION WRAM0
+FILLED::
+alloc 40 x bit
+END_SECTION
+
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+Y::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+Z::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+R_EQ::
+alloc 1 x bit
+END_SECTION
+
+START_SECTION WRAM0
+R_NEQ::
+alloc 1 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  ADD SP -1; z, c
+  LD HL, X+$0000
+  LD A, [HL]
+  LD HL, Y+$0000
+  LD B, [HL]
+  CP A, B; z, c
+  PUSH AF(high_in=?, z_in=z, c_in=?)
+  POP BC
+  RLC C; z, c
+  FRESH A
+  SBC A, A; z, c
+  LD E, A
+  LD HL, X+$0000
+  LD A, [HL]
+  LD HL, Z+$0000
+  LD B, [HL]
+  CP A, B; z, c
+  PUSH AF(high_in=?, z_in=z, c_in=?)
+  POP BC
+  RLC C; z, c
+  FRESH A
+  SBC A, A; z, c
+  LD HL SP+0; z, c
+  LD [HL], A
+  LD HL, FILLED+$0000
+  LD A, $07
+  LD BC, $0005
+  BULKFILL! HL, A, BC, D; z, c
+  LD HL, R_EQ+$0000
+  LD A, $ff
+  XOR A, E; z, c
+  PUSH AF(high_in=?, z_in=z, c_in=?)
+  POP BC
+  RLC C; z, c
+  FRESH A
+  SBC A, A; z, c
+  LD C, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  LD B, A
+  LD A, C
+  AND A, $01; z, c
+  OR A, B; z, c
+  LD HL, R_EQ+$0000
+  LD [HL], A
+  LD HL, R_NEQ+$0000
+  LD A, $ff
+  PUSH HL
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+4; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  POP HL
+  XOR A, B; z, c
+  PUSH AF(high_in=?, z_in=z, c_in=?)
+  POP BC
+  RLC C; z, c
+  FRESH A
+  SBC A, A; z, c
+  LD B, A
+  LD A, [HL]
+  AND A, $fe; z, c
+  LD C, A
+  LD A, B
+  AND A, $01; z, c
+  OR A, C; z, c
+  LD HL, R_NEQ+$0000
+  LD [HL], A
+  ADD SP 1; z, c
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""

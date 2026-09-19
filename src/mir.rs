@@ -20,6 +20,7 @@ use slotmap::{SecondaryMap, SlotMap, SparseSecondaryMap, new_key_type};
 use std::assert_matches;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
+use std::num::NonZeroU16;
 use std::ops::Not;
 
 new_key_type! {
@@ -171,6 +172,34 @@ impl Mir {
                                     write!(f, "{}", projection.display(self, function))?;
                                 }
                                 write!(f, " = {}", right.display(self, function))
+                            }
+                            Instr::Transfer {
+                                target,
+                                target_projections,
+                                source,
+                                source_projections,
+                            } => {
+                                write!(f, "transfer {}", target.display(self))?;
+                                for projection in target_projections {
+                                    write!(f, "{}", projection.display(self, function))?;
+                                }
+                                write!(f, " = {}", source.display(self))?;
+                                for projection in source_projections {
+                                    write!(f, "{}", projection.display(self, function))?;
+                                }
+                                Ok(())
+                            }
+                            Instr::Fill {
+                                target,
+                                projections,
+                                value,
+                                count,
+                            } => {
+                                write!(f, "fill {}", target.display(self))?;
+                                for projection in projections {
+                                    write!(f, "{}", projection.display(self, function))?;
+                                }
+                                write!(f, " = [{value}; {count}]")
                             }
                             Instr::Copy { target: _, source } => {
                                 write!(f, "copy {}", source.display(self, function))
@@ -796,6 +825,18 @@ pub enum Instr {
         projections: Vec<PlaceProjection>,
         right: Operand,
     },
+    Transfer {
+        target: GlobalId,
+        target_projections: Vec<PlaceProjection>,
+        source: GlobalId,
+        source_projections: Vec<PlaceProjection>,
+    },
+    Fill {
+        target: GlobalId,
+        projections: Vec<PlaceProjection>,
+        value: u8,
+        count: NonZeroU16,
+    },
     // unary
     /// `!source`
     Not { target: LocalId, source: LocalId },
@@ -898,7 +939,7 @@ impl Instr {
             | Instr::ShiftRight { target, .. }
             | Instr::Add { target, .. }
             | Instr::Sub { target, .. } => Some(*target),
-            Instr::Nop | Instr::Store { .. } => None,
+            Instr::Nop | Instr::Store { .. } | Instr::Transfer { .. } | Instr::Fill { .. } => None,
         }
     }
 
@@ -946,7 +987,9 @@ impl Instr {
                 this @ Instr::Load { .. }
                 | this @ Instr::Store { .. }
                 | this @ Instr::Read { .. }
-                | this @ Instr::Write { .. } => match (next, this) {
+                | this @ Instr::Write { .. }
+                | this @ Instr::Transfer { .. }
+                | this @ Instr::Fill { .. } => match (next, this) {
                     (
                         0,
                         Instr::Store {
@@ -968,7 +1011,8 @@ impl Instr {
                         Instr::Load { projections, .. }
                         | Instr::Store { projections, .. }
                         | Instr::Read { projections, .. }
-                        | Instr::Write { projections, .. },
+                        | Instr::Write { projections, .. }
+                        | Instr::Fill { projections, .. },
                     ) => {
                         let (index, local) = projections
                             .iter()
@@ -984,8 +1028,31 @@ impl Instr {
                         projections_offset = index + 1;
                         Some(local)
                     }
+                    (
+                        _,
+                        Instr::Transfer {
+                            target_projections,
+                            source_projections,
+                            ..
+                        },
+                    ) => {
+                        let (index, local) = source_projections
+                            .iter()
+                            .chain(target_projections.iter())
+                            .enumerate()
+                            .skip(projections_offset)
+                            .find_map(|(i, projection)| {
+                                if let PlaceProjection::Index(Operand::Local(local)) = projection {
+                                    Some((i, local))
+                                } else {
+                                    None
+                                }
+                            })?;
+                        projections_offset = index + 1;
+                        Some(local)
+                    }
                     _ => unreachable!(
-                        "Only load, store, read and write instructions reach this match"
+                        "Only load, store, read, write, transfer and fill instructions reach this match"
                     ),
                 },
             }?;

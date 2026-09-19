@@ -16,6 +16,8 @@
   - [Functions](reference/items/functions.md)
 - [Expressions](reference/expressions.md)
   - [Literal expressions](reference/expressions/literals.md)
+  - [Struct expressions](reference/expressions/structs.md)
+  - [Array expressions](reference/expressions/arrays.md)
   - [Path expressions](reference/expressions/paths.md)
   - [Operator expressions](reference/expressions/operators.md)
   - [Grouped expressions](reference/expressions/grouped.md)

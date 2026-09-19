@@ -80,9 +80,32 @@ impl TreeShake {
                             target: global,
                             projections,
                             ..
+                        }
+                        | Instr::Fill {
+                            target: global,
+                            projections,
+                            ..
                         } => {
                             used_globals.insert(*global);
                             for projection in projections {
+                                if let PlaceProjection::Index(Operand::FnPtr(fn_ptr)) = projection
+                                    && used_functions.insert(*fn_ptr)
+                                {
+                                    queue.push_back(*fn_ptr);
+                                }
+                            }
+                        }
+                        Instr::Transfer {
+                            target,
+                            target_projections,
+                            source,
+                            source_projections,
+                        } => {
+                            used_globals.insert(*target);
+                            used_globals.insert(*source);
+                            for projection in
+                                target_projections.iter().chain(source_projections.iter())
+                            {
                                 if let PlaceProjection::Index(Operand::FnPtr(fn_ptr)) = projection
                                     && used_functions.insert(*fn_ptr)
                                 {

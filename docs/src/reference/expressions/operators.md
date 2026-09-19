@@ -101,3 +101,27 @@ AssignExpression        =   PlaceExpression , "=" , Expression
 
 - Operates the same as respective operator but assigns result left operand
 - left operand must be a place expression
+
+### Bulk copy
+
+> [!WARNING]
+> Requires `bulk-copy` preview feature enabled.
+
+Assigning a whole array or struct value (`dst = src;`) is supported when both
+operands fit in a register (16 bits or fewer) using the same load/store
+mechanism as scalar assignment.
+
+For types larger than 16 bits, direct global-to-global or const-to-global are permitted
+provided the `bulk-copy` feature is enabled.
+
+```quokka
+global A: [u8; 20];
+global B: [u8; 20];
+
+fn main() {
+    A = B; // requires `bulk-copy`; runtime copy loop
+}
+```
+
+Literal array expressions as described in [array expressions](arrays.md) are also
+permitted via the `bulk-fill` feature.

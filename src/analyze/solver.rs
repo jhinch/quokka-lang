@@ -519,15 +519,24 @@ impl TypeSolver {
         field: &SpannedIdentifier,
         place_span: SourceSpan,
         place_ty: InferredTy,
+        ty_registry: &TyRegistry,
     ) -> InferredTy {
-        let field_ty = self.fresh_ty_var();
-        self.constraints.push_back(InferenceConstraint::HasField {
-            ty: place_ty,
-            place_span,
-            field: field.clone(),
-            field_ty,
-        });
-        InferredTy::Variable(field_ty)
+        match place_ty {
+            InferredTy::Concrete(place_ty) => {
+                let field_ty = self.resolve_field_access(place_ty, field, place_span, ty_registry);
+                InferredTy::Concrete(field_ty)
+            }
+            place_ty => {
+                let field_ty = self.fresh_ty_var();
+                self.constraints.push_back(InferenceConstraint::HasField {
+                    ty: place_ty,
+                    place_span,
+                    field: field.clone(),
+                    field_ty,
+                });
+                InferredTy::Variable(field_ty)
+            }
+        }
     }
 
     pub fn check_array_index(
@@ -536,6 +545,7 @@ impl TypeSolver {
         place_span: SourceSpan,
         place_ty: InferredTy,
         index_expr_ty: InferredTy,
+        ty_registry: &TyRegistry,
     ) -> InferredTy {
         self.constraints.push_back(InferenceConstraint::Equal {
             ty1: index_expr_ty,
@@ -543,13 +553,21 @@ impl TypeSolver {
             ty2: InferredTy::Concrete(Ty::U16),
             ty2_span: index.span,
         });
-        let item_ty = self.fresh_ty_var();
-        self.constraints.push_back(InferenceConstraint::IsArray {
-            ty: place_ty,
-            span: place_span,
-            item_ty,
-        });
-        InferredTy::Variable(item_ty)
+        match place_ty {
+            InferredTy::Concrete(place_ty) => {
+                let item_ty = self.resolve_array_index(place_ty, place_span, ty_registry);
+                InferredTy::Concrete(item_ty)
+            }
+            place_ty => {
+                let item_ty = self.fresh_ty_var();
+                self.constraints.push_back(InferenceConstraint::IsArray {
+                    ty: place_ty,
+                    span: place_span,
+                    item_ty,
+                });
+                InferredTy::Variable(item_ty)
+            }
+        }
     }
 
     pub fn solve(
@@ -617,29 +635,8 @@ impl TypeSolver {
                     self.inferrer.prune(&mut ty);
                     match ty.resolve(ty_registry) {
                         Some(ty) => {
-                            let concrete_field_ty = if ty == Ty::ERROR {
-                                Ty::ERROR
-                            } else if !ty.is_struct() {
-                                self.result_builder.add_error(NotStructError {
-                                    span: place_span,
-                                    ty: ty.display(ty_registry).into_detached(),
-                                });
-                                Ty::ERROR
-                            } else {
-                                let data = ty_registry.struct_ty_data(ty);
-                                match data.fields.get(&field.data) {
-                                    None => {
-                                        self.result_builder.add_error(FieldNotDefinedError {
-                                            struct_span: data.name.span,
-                                            ty: ty.display(ty_registry).into_detached(),
-                                            field: field.data,
-                                            field_span: field.span,
-                                        });
-                                        Ty::ERROR
-                                    }
-                                    Some(field_data) => field_data.ty,
-                                }
-                            };
+                            let concrete_field_ty =
+                                self.resolve_field_access(ty, &field, place_span, ty_registry);
                             self.inferrer
                                 .bind(field_ty, InferredTy::Concrete(concrete_field_ty));
                             None
@@ -660,18 +657,7 @@ impl TypeSolver {
                     self.inferrer.prune(&mut ty);
                     match ty.resolve(ty_registry) {
                         Some(ty) => {
-                            let concrete_item_ty = if ty == Ty::ERROR {
-                                Ty::ERROR
-                            } else if !ty.is_array() {
-                                self.result_builder.add_error(NotArrayError {
-                                    span,
-                                    ty: ty.display(ty_registry).into_detached(),
-                                });
-                                Ty::ERROR
-                            } else {
-                                let data = ty_registry.array_ty_data(ty);
-                                data.item_ty
-                            };
+                            let concrete_item_ty = self.resolve_array_index(ty, span, ty_registry);
                             self.inferrer
                                 .bind(item_ty, InferredTy::Concrete(concrete_item_ty));
                             None
@@ -791,6 +777,53 @@ impl TypeSolver {
                 )
             })
             .collect())
+    }
+
+    fn resolve_array_index(&mut self, ty: Ty, span: SourceSpan, ty_registry: &TyRegistry) -> Ty {
+        if ty == Ty::ERROR {
+            Ty::ERROR
+        } else if !ty.is_array() {
+            self.result_builder.add_error(NotArrayError {
+                span,
+                ty: ty.display(ty_registry).into_detached(),
+            });
+            Ty::ERROR
+        } else {
+            let data = ty_registry.array_ty_data(ty);
+            data.item_ty
+        }
+    }
+
+    fn resolve_field_access(
+        &mut self,
+        ty: Ty,
+        field: &SpannedIdentifier,
+        place_span: SourceSpan,
+        ty_registry: &TyRegistry,
+    ) -> Ty {
+        if ty == Ty::ERROR {
+            Ty::ERROR
+        } else if !ty.is_struct() {
+            self.result_builder.add_error(NotStructError {
+                span: place_span,
+                ty: ty.display(ty_registry).into_detached(),
+            });
+            Ty::ERROR
+        } else {
+            let data = ty_registry.struct_ty_data(ty);
+            match data.fields.get(&field.data) {
+                None => {
+                    self.result_builder.add_error(FieldNotDefinedError {
+                        struct_span: data.name.span,
+                        ty: ty.display(ty_registry).into_detached(),
+                        field: field.data.clone(),
+                        field_span: field.span,
+                    });
+                    Ty::ERROR
+                }
+                Some(field_data) => field_data.ty,
+            }
+        }
     }
 }
 

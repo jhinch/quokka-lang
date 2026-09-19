@@ -1064,6 +1064,36 @@ fn restrict_from_instruction(
         Instr::FreshA { target } => {
             graph.constrain_colors_to(VirtualReg::from(*target), Color::acc());
         }
+        Instr::BulkCopy {
+            z,
+            c,
+            target_addr,
+            source_addr,
+            count,
+            scratch,
+        } => {
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*target_addr), ColorSet::just(Color::DE));
+            graph.constrain_colors_to(VirtualReg::from(*source_addr), Color::r16_ptr());
+            graph.constrain_colors_to(VirtualReg::from(*count), ColorSet::just(Color::BC));
+            graph.constrain_colors_to(VirtualReg::from(*scratch), Color::acc());
+        }
+        Instr::BulkFill {
+            z,
+            c,
+            addr,
+            count,
+            value,
+            scratch,
+        } => {
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*c), Color::c());
+            graph.constrain_colors_to(VirtualReg::from(*addr), ColorSet::just(Color::HL));
+            graph.constrain_colors_to(VirtualReg::from(*count), ColorSet::just(Color::BC));
+            graph.constrain_colors_to(VirtualReg::from(*value), Color::acc());
+            graph.constrain_colors_to(VirtualReg::from(*scratch), ColorSet::just(Color::D));
+        }
     }
 }
 

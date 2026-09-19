@@ -1644,6 +1644,23 @@ fn rewrite_instruction(
         Instr::MoveZero { z_in, .. } => {
             *z_in = sub_zero(*z_in);
         }
+        Instr::BulkCopy {
+            target_addr,
+            source_addr,
+            count,
+            ..
+        } => {
+            *target_addr = sub_r16(*target_addr);
+            *source_addr = sub_hl(*source_addr);
+            *count = sub_r16(*count);
+        }
+        Instr::BulkFill {
+            addr, count, value, ..
+        } => {
+            *addr = sub_hl(*addr);
+            *count = sub_r16(*count);
+            *value = sub_a(*value);
+        }
     }
     instruction
 }
