@@ -28,9 +28,13 @@
 // IO Registers
 //
 
-#[address = 0xFF26]
-global rAUDENA: u8;
-const AUDIO_OFF: u8 = 0;
+#[address = 0xFF00]
+global rJOYP: u8;
+const JOYP_GET_BUTTONS: u8 = 0x00_01_0000;
+const JOYP_GET_CTRL_PAD: u8 = 0x00_10_0000;
+// Currently these are not shifted to the high nibble similar to hardware.inc as Quokka doesn't have SWAP support
+const PAD_LEFT: u8 = 0b0000_0010;
+const PAD_RIGHT: u8 = 0b0000_0001;
 
 #[address = 0xFF44]
 global rLY: u8;
@@ -354,7 +358,14 @@ const PADDLE_INDEX: u16 = 0;
 
 // Globals
 
-global COUNTER: u8;
+// In gb-asm-tutorial, these are stored in half the number of
+// bytes as they store the d-pad in the high nibble. Unfortunately
+// Quokka doesn't support syntax for SWAP so to work around this
+// we just store it in double the amount of bytes
+global CURRENT_BUTTONS: u8;
+global CURRENT_D_PAD: u8;
+global NEW_BUTTONS: u8;
+global NEW_D_PAD: u8;
 
 //
 // Code
@@ -380,9 +391,6 @@ fn main() {
     OAM[PADDLE_INDEX].tile_index = 0;
     OAM[PADDLE_INDEX].flags = 0;
 
-    // setup counters initial state
-    COUNTER = 0;
-
     // Turn on LCD and setup the palette
     rLCDC = LCDC_ON | LCDC_BG_ON | LCDC_OBJ_ON;
     rBGP = BG_PALETTE;
@@ -398,13 +406,19 @@ fn main() {
         // wait until its safe to modify VRAM/OAM
         wait_for_vblank();
 
-        let counter = COUNTER + 1;
-        COUNTER = counter;
-        if counter != 15 then {
-            continue;
+        update_keys();
+
+        if CURRENT_D_PAD & PAD_LEFT != 0 then {
+            let x = OAM[PADDLE_INDEX].x - 1;
+            if x != 15 then {
+                OAM[PADDLE_INDEX].x = x;
+            }
+        } else if CURRENT_D_PAD & PAD_RIGHT != 0 then {
+            let x = OAM[PADDLE_INDEX].x + 1;
+            if x != 105 then {
+                OAM[PADDLE_INDEX].x = x;
+            }
         }
-        COUNTER = 0;
-        OAM[PADDLE_INDEX].x += 1;
     }
 }
 
@@ -446,4 +460,28 @@ fn clear_oam() {
 
         index += 1;
     }
+}
+
+fn update_keys() {
+    rJOYP = JOYP_GET_BUTTONS;
+    waste_16_m_cycles();
+    let current_buttons = (rJOYP | 0xF0) ^ 0xFF;
+
+    rJOYP = JOYP_GET_CTRL_PAD;
+    waste_16_m_cycles();
+    let current_d_pad = (rJOYP | 0xF0) ^ 0xFF;
+
+    //NEW_BUTTONS = (CURRENT_BUTTONS ^ current_buttons) & current_buttons;
+    CURRENT_BUTTONS = current_buttons;
+
+    //NEW_D_PAD = (CURRENT_D_PAD ^ current_d_pad) & current_d_pad;
+    CURRENT_D_PAD = current_d_pad;
+}
+
+// technically this is 18 cycles currently as we don't optimize high loads
+// so it will use `LD A, [n16]` instead of `LDH a, [n8]`. However this should
+// still work the same for now
+fn waste_16_m_cycles() {
+    let a = rJOYP;
+    let a = rJOYP;
 }
