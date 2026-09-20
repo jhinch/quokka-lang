@@ -94,7 +94,13 @@ fn initialize_advertises_semantic_tokens_legend() {
     let capabilities = &response(&messages, 1)["result"]["capabilities"];
     assert_eq!(
         capabilities["semanticTokensProvider"]["legend"],
-        json!({ "tokenTypes": ["operator", "number", "keyword", "comment"], "tokenModifiers": [] })
+        json!({
+            "tokenTypes": [
+                "operator", "number", "keyword", "comment", "variable", "function", "type",
+                "decorator"
+            ],
+            "tokenModifiers": ["declaration", "readonly", "static"],
+        })
     );
     assert_eq!(capabilities["semanticTokensProvider"]["full"], json!(true));
     assert_eq!(capabilities["textDocumentSync"], json!(1));
@@ -119,7 +125,8 @@ fn semantic_tokens_are_delta_encoded_from_open_buffer() {
         json!([
             // [delta_line, delta_start, length, type, modifiers]
             0, 0, 3, 2, 0, // `let`
-            0, 6, 1, 0, 0, // `=`
+            0, 4, 1, 4, 1, // `x`, variable + declaration
+            0, 2, 1, 0, 0, // `=`
             0, 2, 2, 1, 0, // `12`
             1, 2, 6, 2, 0, // `return`, absolute column on a new line
             0, 7, 1, 1, 0, // `3`

@@ -5,8 +5,9 @@ use lsp_server::{
 use lsp_types::{
     Code, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, Full, Location,
     LspNotificationMethod, LspRequestMethod, Position, PublishDiagnosticsParams, Range,
-    SemanticToken, SemanticTokenTypes, SemanticTokens, SemanticTokensLegend, SemanticTokensOptions,
-    ServerCapabilities, TextDocumentContentChangeEvent, TextDocumentSyncKind, Uri,
+    SemanticToken, SemanticTokenModifiers, SemanticTokenTypes, SemanticTokens,
+    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
+    TextDocumentContentChangeEvent, TextDocumentSyncKind, Uri,
 };
 use quokka_lang::lex;
 use quokka_lang::pipeline::PipelineConfig;
@@ -29,14 +30,22 @@ enum TokenType {
     Number,
     Keyword,
     Comment,
+    Variable,
+    Function,
+    Type,
+    Decorator,
 }
 
 impl TokenType {
-    const ALL: [TokenType; 4] = [
+    const ALL: [TokenType; 8] = [
         TokenType::Operator,
         TokenType::Number,
         TokenType::Keyword,
         TokenType::Comment,
+        TokenType::Variable,
+        TokenType::Function,
+        TokenType::Type,
+        TokenType::Decorator,
     ];
 
     fn lsp_type(self) -> SemanticTokenTypes {
@@ -45,17 +54,53 @@ impl TokenType {
             TokenType::Number => SemanticTokenTypes::Number,
             TokenType::Keyword => SemanticTokenTypes::Keyword,
             TokenType::Comment => SemanticTokenTypes::Comment,
+            TokenType::Variable => SemanticTokenTypes::Variable,
+            TokenType::Function => SemanticTokenTypes::Function,
+            TokenType::Type => SemanticTokenTypes::Type,
+            TokenType::Decorator => SemanticTokenTypes::Decorator,
+        }
+    }
+}
+
+/// The semantic token modifiers this server emits. The discriminant is the bit position in a
+/// token's modifier bitset, which is also the index into the legend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TokenModifier {
+    Declaration,
+    Readonly,
+    Static,
+}
+
+impl TokenModifier {
+    const ALL: [TokenModifier; 3] = [
+        TokenModifier::Declaration,
+        TokenModifier::Readonly,
+        TokenModifier::Static,
+    ];
+
+    fn lsp_modifier(self) -> SemanticTokenModifiers {
+        match self {
+            TokenModifier::Declaration => SemanticTokenModifiers::Declaration,
+            TokenModifier::Readonly => SemanticTokenModifiers::Readonly,
+            TokenModifier::Static => SemanticTokenModifiers::Static,
         }
     }
 
-    fn legend() -> SemanticTokensLegend {
-        SemanticTokensLegend {
-            token_types: Self::ALL
-                .iter()
-                .map(|ty| ty.lsp_type().as_str().to_owned())
-                .collect(),
-            token_modifiers: Vec::new(),
-        }
+    fn bit(self) -> u32 {
+        1 << self as u32
+    }
+}
+
+fn legend() -> SemanticTokensLegend {
+    SemanticTokensLegend {
+        token_types: TokenType::ALL
+            .iter()
+            .map(|ty| ty.lsp_type().as_str().to_owned())
+            .collect(),
+        token_modifiers: TokenModifier::ALL
+            .iter()
+            .map(|modifier| String::from(modifier.lsp_modifier()))
+            .collect(),
     }
 }
 
@@ -75,7 +120,7 @@ impl Execute for LspCommand {
             text_document_sync: Some(TextDocumentSyncKind::Full.into()),
             semantic_tokens_provider: Some(
                 SemanticTokensOptions {
-                    legend: TokenType::legend(),
+                    legend: legend(),
                     full: Some(Full::Bool(true)),
                     ..Default::default()
                 }
@@ -446,7 +491,141 @@ fn convert_diagnostic(
     }
 }
 
-fn classify(kind: lex::TokenKind) -> Option<TokenType> {
+/// What the previous significant token says about the identifier that may follow it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Context {
+    None,
+    /// After a declaring keyword (`fn`, `let`, `const`, `global`, `struct`): the next identifier is the
+    /// name being declared.
+    Declaring(Declaration),
+    /// After the name of a `let`, `const` or `global`: a `:` introduces its type.
+    DeclaredName,
+    /// After the `:` of a declaration or a `->`: the next identifier is a type.
+    Type,
+    /// After the name of a `struct`: a `{` opens its field list.
+    StructName,
+    /// After `#`.
+    Hash,
+    /// After `#[`: the next identifier is the attribute name.
+    AttributeOpen,
+    /// After the attribute name: `=` introduces a value.
+    AttributeName,
+    /// After `#[name =`: the next identifier is an attribute value.
+    AttributeValue,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Declaration {
+    Fn,
+    Let,
+    Const,
+    Global,
+    Struct,
+}
+
+/// Classifies tokens one at a time by remembering just enough of what came before.
+///
+/// This works from the token stream alone, so unlike a parser-based approach it keeps working on
+/// programs that do not parse. The trade-off is that it cannot resolve names: every identifier
+/// that is not in a recognized declaration, type or attribute position is a plain variable.
+struct Classifier {
+    context: Context,
+    /// Whether the previous tokens are inside the braces of a `struct` declaration, where every
+    /// `:` introduces a field's type.
+    in_struct_body: bool,
+}
+
+impl Classifier {
+    fn new() -> Self {
+        Self {
+            context: Context::None,
+            in_struct_body: false,
+        }
+    }
+
+    /// Classifies the next token, returning its type and modifier bitset if it is highlighted.
+    fn classify(&mut self, kind: lex::TokenKind) -> Option<(TokenType, u32)> {
+        use lex::TokenKind;
+
+        // Comments can appear anywhere and say nothing about what follows.
+        if kind == TokenKind::Comment {
+            return Some((TokenType::Comment, 0));
+        }
+
+        let previous = std::mem::replace(&mut self.context, Context::None);
+        // Items cannot appear inside a struct body, so a declaring keyword means the body was left
+        // unclosed (most likely mid-edit) and must not affect the rest of the file.
+        if matches!(
+            kind,
+            TokenKind::Fn
+                | TokenKind::Let
+                | TokenKind::Const
+                | TokenKind::Global
+                | TokenKind::Struct
+        ) {
+            self.in_struct_body = false;
+        }
+        match kind {
+            TokenKind::Fn => self.context = Context::Declaring(Declaration::Fn),
+            TokenKind::Let => self.context = Context::Declaring(Declaration::Let),
+            TokenKind::Const => self.context = Context::Declaring(Declaration::Const),
+            TokenKind::Global => self.context = Context::Declaring(Declaration::Global),
+            TokenKind::Struct => self.context = Context::Declaring(Declaration::Struct),
+            TokenKind::Colon if previous == Context::DeclaredName || self.in_struct_body => {
+                self.context = Context::Type
+            }
+            TokenKind::LeftBrace if previous == Context::StructName => self.in_struct_body = true,
+            TokenKind::RightBrace => self.in_struct_body = false,
+            TokenKind::MinusGreaterThan => self.context = Context::Type,
+            TokenKind::Hash => self.context = Context::Hash,
+            TokenKind::LeftBracket if previous == Context::Hash => {
+                self.context = Context::AttributeOpen
+            }
+            TokenKind::Equal if previous == Context::AttributeName => {
+                self.context = Context::AttributeValue
+            }
+            TokenKind::Ident => return self.classify_ident(previous),
+            _ => {}
+        }
+        classify_static(kind).map(|ty| (ty, 0))
+    }
+
+    fn classify_ident(&mut self, previous: Context) -> Option<(TokenType, u32)> {
+        let declaration = TokenModifier::Declaration.bit();
+        match previous {
+            Context::Declaring(declaring) => {
+                match declaring {
+                    Declaration::Fn => {}
+                    Declaration::Struct => self.context = Context::StructName,
+                    _ => self.context = Context::DeclaredName,
+                }
+                Some(match declaring {
+                    Declaration::Fn => (TokenType::Function, declaration),
+                    Declaration::Struct => (TokenType::Type, declaration),
+                    Declaration::Let => (TokenType::Variable, declaration),
+                    Declaration::Const => (
+                        TokenType::Variable,
+                        declaration | TokenModifier::Readonly.bit(),
+                    ),
+                    Declaration::Global => (
+                        TokenType::Variable,
+                        declaration | TokenModifier::Static.bit(),
+                    ),
+                })
+            }
+            Context::Type => Some((TokenType::Type, 0)),
+            Context::AttributeOpen => {
+                self.context = Context::AttributeName;
+                Some((TokenType::Decorator, 0))
+            }
+            // Attribute values are not variables, and there is nothing better to call them.
+            Context::AttributeValue => None,
+            _ => Some((TokenType::Variable, 0)),
+        }
+    }
+}
+
+fn classify_static(kind: lex::TokenKind) -> Option<TokenType> {
     match kind {
         lex::TokenKind::Equal
         | lex::TokenKind::EqualEqual
@@ -503,9 +682,10 @@ fn semantic_tokens(text: &str) -> Vec<SemanticToken> {
     let mut data = Vec::new();
     let mut prev_line = 0;
     let mut prev_start = 0;
+    let mut classifier = Classifier::new();
     for token in lex::Lexer::from(text) {
         let Ok(token) = token else { break };
-        let Some(token_type) = classify(token.kind()) else {
+        let Some((token_type, modifiers)) = classifier.classify(token.kind()) else {
             continue;
         };
         let (line, start) = position(text, &line_starts, token.span().offset());
@@ -520,7 +700,7 @@ fn semantic_tokens(text: &str) -> Vec<SemanticToken> {
             delta_start,
             length: utf16_len(token.text()),
             token_type: token_type as u32,
-            token_modifiers_bitset: 0,
+            token_modifiers_bitset: modifiers,
         });
         prev_line = line;
         prev_start = start;
@@ -559,13 +739,49 @@ mod tests {
     use super::*;
 
     fn tok(delta_line: u32, delta_start: u32, length: u32, ty: TokenType) -> SemanticToken {
+        tok_mod(delta_line, delta_start, length, ty, &[])
+    }
+
+    fn tok_mod(
+        delta_line: u32,
+        delta_start: u32,
+        length: u32,
+        ty: TokenType,
+        modifiers: &[TokenModifier],
+    ) -> SemanticToken {
         SemanticToken {
             delta_line,
             delta_start,
             length,
             token_type: ty as u32,
-            token_modifiers_bitset: 0,
+            token_modifiers_bitset: modifiers.iter().fold(0, |bits, m| bits | m.bit()),
         }
+    }
+
+    /// Classifies `text` into `(source text, type, modifiers)` triples for readable assertions.
+    fn classified(text: &str) -> Vec<(&str, TokenType, Vec<TokenModifier>)> {
+        let mut classifier = Classifier::new();
+        lex::Lexer::from(text)
+            .map_while(Result::ok)
+            .filter_map(|token| {
+                let (ty, bits) = classifier.classify(token.kind())?;
+                let modifiers = TokenModifier::ALL
+                    .into_iter()
+                    .filter(|m| bits & m.bit() != 0)
+                    .collect();
+                let start = token.span().offset();
+                Some((&text[start..start + token.text().len()], ty, modifiers))
+            })
+            .filter(|(_, ty, _)| {
+                matches!(
+                    ty,
+                    TokenType::Variable
+                        | TokenType::Function
+                        | TokenType::Type
+                        | TokenType::Decorator
+                )
+            })
+            .collect()
     }
 
     #[test]
@@ -574,7 +790,8 @@ mod tests {
             semantic_tokens("let x = 12;"),
             vec![
                 tok(0, 0, 3, TokenType::Keyword),
-                tok(0, 6, 1, TokenType::Operator),
+                tok_mod(0, 4, 1, TokenType::Variable, &[TokenModifier::Declaration]),
+                tok(0, 2, 1, TokenType::Operator),
                 tok(0, 2, 2, TokenType::Number),
             ]
         );
@@ -586,11 +803,146 @@ mod tests {
             semantic_tokens("let x = 1;\n\n  return 2;"),
             vec![
                 tok(0, 0, 3, TokenType::Keyword),
-                tok(0, 6, 1, TokenType::Operator),
+                tok_mod(0, 4, 1, TokenType::Variable, &[TokenModifier::Declaration]),
+                tok(0, 2, 1, TokenType::Operator),
                 tok(0, 2, 1, TokenType::Number),
                 tok(2, 2, 6, TokenType::Keyword),
                 tok(0, 7, 1, TokenType::Number),
             ]
+        );
+    }
+
+    #[test]
+    fn fn_name_is_a_function_declaration() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("fn add() -> u8 { }"),
+            vec![
+                ("add", TokenType::Function, vec![Declaration]),
+                ("u8", TokenType::Type, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn struct_name_is_a_type_declaration() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("struct Point { x: u8 }\nlet p: Point;"),
+            vec![
+                ("Point", TokenType::Type, vec![Declaration]),
+                ("x", TokenType::Variable, vec![]),
+                ("u8", TokenType::Type, vec![]),
+                ("p", TokenType::Variable, vec![Declaration]),
+                ("Point", TokenType::Type, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn unclosed_struct_body_does_not_leak_into_later_items() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("struct S { a: u8,\nfn f() { g = S { a: b }; }"),
+            vec![
+                ("S", TokenType::Type, vec![Declaration]),
+                ("a", TokenType::Variable, vec![]),
+                ("u8", TokenType::Type, vec![]),
+                ("f", TokenType::Function, vec![Declaration]),
+                ("g", TokenType::Variable, vec![]),
+                ("S", TokenType::Variable, vec![]),
+                ("a", TokenType::Variable, vec![]),
+                ("b", TokenType::Variable, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn let_const_and_global_declare_variables_with_modifiers() {
+        use TokenModifier::*;
+        assert_eq!(
+            classified("global g: u8; const c: u16 = 1; let l: i8 = 2;"),
+            vec![
+                ("g", TokenType::Variable, vec![Declaration, Static]),
+                ("u8", TokenType::Type, vec![]),
+                ("c", TokenType::Variable, vec![Declaration, Readonly]),
+                ("u16", TokenType::Type, vec![]),
+                ("l", TokenType::Variable, vec![Declaration]),
+                ("i8", TokenType::Type, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn other_identifiers_are_variables() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("let a = 1; a = a + b;"),
+            vec![
+                ("a", TokenType::Variable, vec![Declaration]),
+                ("a", TokenType::Variable, vec![]),
+                ("a", TokenType::Variable, vec![]),
+                ("b", TokenType::Variable, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn colon_outside_a_declaration_does_not_start_a_type() {
+        assert_eq!(
+            classified("x = S { f: y };"),
+            vec![
+                ("x", TokenType::Variable, vec![]),
+                ("S", TokenType::Variable, vec![]),
+                ("f", TokenType::Variable, vec![]),
+                ("y", TokenType::Variable, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn attribute_names_are_decorators() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("#[entrypoint]\n#[address = 0x0150]\n#[inline = always]\nfn main() {}"),
+            vec![
+                ("entrypoint", TokenType::Decorator, vec![]),
+                ("address", TokenType::Decorator, vec![]),
+                ("inline", TokenType::Decorator, vec![]),
+                ("main", TokenType::Function, vec![Declaration]),
+            ]
+        );
+    }
+
+    #[test]
+    fn comments_do_not_disturb_context() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("fn // note\n main() {}"),
+            vec![("main", TokenType::Function, vec![Declaration])]
+        );
+    }
+
+    #[test]
+    fn context_does_not_leak_past_the_declared_name() {
+        use TokenModifier::Declaration;
+        assert_eq!(
+            classified("fn f() { g(); }"),
+            vec![
+                ("f", TokenType::Function, vec![Declaration]),
+                ("g", TokenType::Variable, vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn incomplete_declarations_still_classify() {
+        use TokenModifier::Declaration;
+        // Nothing follows the keyword, or a keyword follows it; neither may panic or leak.
+        assert_eq!(classified("let"), vec![]);
+        assert_eq!(
+            classified("let let x"),
+            vec![("x", TokenType::Variable, vec![Declaration])]
         );
     }
 
