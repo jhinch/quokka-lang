@@ -6,6 +6,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+assert_cmd = "2.2.2"
 bindgen = "0.73.2"
 cc = "1.4.6"
 clap = { version = "4.6.6", features = ["derive"] }
@@ -13,6 +14,8 @@ derive_more = { version = "2.1.1", features = ["from"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 libtest-mimic = "0.8.2"
+lsp-server = "0.10.0"
+lsp-types = { package = "gen-lsp-types", version = "0.11.0", features = ["url"] }
 miette = { version = "7.6.0", features = ["fancy"] }
 owo-colors = "4.3.0"
 ron = "0.12.2"
@@ -35,6 +38,10 @@ name = "quokka-lang"
 version.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "quokka"
+path = "src/main.rs"
+
 [[test]]
 name = "spec_tests"
 path = "tests/spec_tests.rs"
@@ -55,6 +62,8 @@ clap.workspace = true
 derive_more.workspace = true
 indexmap.workspace = true
 lasso.workspace = true
+lsp-server.workspace = true
+lsp-types.workspace = true
 miette.workspace = true
 owo-colors.workspace = true
 ron.workspace = true
@@ -73,3 +82,4 @@ libtest-mimic.workspace = true
 tempfile.workspace = true
 toml_edit.workspace = true
 quokka-lang-sameboy.workspace = true
+assert_cmd.workspace = true
