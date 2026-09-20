@@ -12,10 +12,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global P: Point
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     v#1: u8 = load P.x
@@ -83,10 +82,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global P: Point
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     p#1: Point = load P
@@ -195,7 +193,7 @@ struct Inner {
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -244,10 +242,9 @@ global Foo: u8;
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global Foo: u8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

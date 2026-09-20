@@ -474,7 +474,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -503,7 +502,7 @@ f -> u8:
     #RET: u8 = copy x#11
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -533,7 +532,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -566,7 +564,7 @@ f -> u8:
     #RET: u8 = copy x#13
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -596,7 +594,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -625,7 +622,7 @@ f -> u8:
     #RET: u8 = copy x#10
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -657,7 +654,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -690,7 +686,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -722,7 +718,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -755,7 +750,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -787,7 +782,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -824,7 +818,7 @@ f -> u8:
     #RET: u8 = copy x#14
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -855,7 +849,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -887,7 +880,7 @@ f -> u8:
     #RET: u8 = copy x#13
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -912,7 +905,6 @@ fn f() -> u8 {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
 
 f -> u8:
@@ -942,7 +934,7 @@ f -> u8:
     #RET: u8 = copy x#11
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

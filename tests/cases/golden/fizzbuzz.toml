@@ -812,13 +812,9 @@ name = "analyze"
 kind = "analyzer"
 source.file = "fizzbuzz.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global MOD_x: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global MOD_y: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 15]
 
 x_mod_y -> u8:
@@ -882,7 +878,7 @@ fizzbuzz -> u8:
     #RET: u8 = copy #16
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     i#1: u16 = copy 0
@@ -917,13 +913,9 @@ kind = "analyzer"
 optimize = true
 source.file = "fizzbuzz.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global MOD_x: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global MOD_y: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 15]
 
 x_mod_y -> u8:
@@ -987,7 +979,7 @@ fizzbuzz -> u8:
     #RET: u8 = copy #16
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     i#1: u16 = copy 0

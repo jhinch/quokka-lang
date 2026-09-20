@@ -8,10 +8,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -85,10 +84,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: [u8; 3]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0

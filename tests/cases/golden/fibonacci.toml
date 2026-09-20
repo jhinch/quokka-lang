@@ -668,9 +668,7 @@ name = "analyze"
 kind = "analyzer"
 source.file = "fibonacci.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global FIBONACCI_N: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 10]
 
 fibonacci -> u8:
@@ -708,7 +706,7 @@ fibonacci -> u8:
     #RET: u8 = copy b#15
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     i#1: u16 = copy 0
@@ -743,9 +741,7 @@ kind = "analyzer"
 optimize = true
 source.file = "fibonacci.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global FIBONACCI_N: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULTS: [u8; 10]
 
 fibonacci -> u8:
@@ -783,7 +779,7 @@ fibonacci -> u8:
     #RET: u8 = copy b#15
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     i#1: u16 = copy 0

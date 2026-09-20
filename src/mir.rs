@@ -93,7 +93,11 @@ impl Mir {
             writeln!(f)?;
             for function in self.functions.values() {
                 if function.attrs != FnDeclAttributes::default() {
-                    writeln!(f, "@{:?}", function.attrs)?;
+                    writeln!(
+                        f,
+                        "@{}",
+                        serde_json::to_string(&function.attrs).map_err(|_| fmt::Error)?
+                    )?;
                 }
                 writeln!(
                     f,
@@ -680,7 +684,13 @@ impl Global {
         fmt::from_fn(move |f| {
             match &self.attrs {
                 GlobalAttributes::Rom(attrs) => {
-                    writeln!(f, "@{:?}", attrs)?;
+                    if attrs != &Default::default() {
+                        writeln!(
+                            f,
+                            "@{}",
+                            serde_json::to_string(attrs).map_err(|_| fmt::Error)?
+                        )?;
+                    }
                     writeln!(
                         f,
                         "const {}: {} = {:?}",
@@ -690,7 +700,13 @@ impl Global {
                     )?;
                 }
                 GlobalAttributes::Ram(attrs) => {
-                    writeln!(f, "@{:?}", attrs)?;
+                    if attrs != &Default::default() {
+                        writeln!(
+                            f,
+                            "@{}",
+                            serde_json::to_string(attrs).map_err(|_| fmt::Error)?
+                        )?;
+                    }
                     writeln!(
                         f,
                         "global {}: {}",

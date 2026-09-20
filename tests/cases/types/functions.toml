@@ -12,7 +12,7 @@ helper -> unit:
   .bb1:
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     call helper, .bb2
@@ -63,7 +63,7 @@ helper -> u8:
     #RET: u8 = copy #2
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     call helper, .bb2
@@ -101,7 +101,6 @@ fn get_a() -> Point {
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: Point
 
 get_a -> Point:
@@ -110,7 +109,7 @@ get_a -> Point:
     #RET: Point = copy #2
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

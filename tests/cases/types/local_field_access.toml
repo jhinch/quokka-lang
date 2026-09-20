@@ -33,10 +33,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global P: Point
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     p#1: Point = load P
@@ -72,10 +71,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global P: Point
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     p#1: Point = load P
@@ -112,10 +110,9 @@ fn main() {
 }
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global P: Point
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     v#1: u8 = load P.x
@@ -134,10 +131,9 @@ const A: u8 = {
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { region: Auto, address: None }
 const A: u8 = [7]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

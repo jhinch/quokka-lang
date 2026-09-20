@@ -99,7 +99,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -113,7 +113,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: true, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true,"no_startup_code":true}
 main -> unit:
   .bb1:
     return
@@ -127,7 +127,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Always, region: Auto, address: None }
+@{"entrypoint":true,"inline":"always"}
 main -> unit:
   .bb1:
     return
@@ -141,7 +141,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Never, region: Auto, address: None }
+@{"entrypoint":true,"inline":"never"}
 main -> unit:
   .bb1:
     return
@@ -155,7 +155,7 @@ source = """
 fn main() {}
 """
 expected_mir = """
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Expect, region: Auto, address: None }
+@{"entrypoint":true,"inline":"expect"}
 main -> unit:
   .bb1:
     return
@@ -208,10 +208,10 @@ global A: u8;
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: VRam, address: None }
+@{"region":"vram"}
 global A: u8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -253,10 +253,10 @@ const A: u8 = 1;
 fn main() {}
 """
 expected_mir = """
-@ConstDeclAttributes { region: Rom0, address: None }
+@{"region":"rom0"}
 const A: u8 = [1]
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

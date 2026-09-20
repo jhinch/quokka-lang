@@ -486,9 +486,7 @@ name = "analyze"
 kind = "analyzer"
 source.file = "collatz.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 collatz_steps -> u16:
@@ -529,7 +527,7 @@ collatz_steps -> u16:
     n#20: u16 = phi n#11 <- .bb8, n#15 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 27
@@ -547,9 +545,7 @@ kind = "analyzer"
 optimize = true
 source.file = "collatz.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global N: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 collatz_steps -> u16:
@@ -590,7 +586,7 @@ collatz_steps -> u16:
     n#20: u16 = phi n#11 <- .bb8, n#15 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 27

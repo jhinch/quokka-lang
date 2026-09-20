@@ -18,10 +18,9 @@ global A: u2;
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: u2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return
@@ -47,10 +46,9 @@ global A: u4;
 fn main() {}
 """
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: u4
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     return

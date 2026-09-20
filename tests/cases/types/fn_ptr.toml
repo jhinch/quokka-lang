@@ -25,7 +25,7 @@ helper -> unit:
   .bb1:
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     call helper, .bb2
@@ -47,7 +47,7 @@ helper -> unit:
   .bb1:
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     f#1: fn() -> unit = copy helper
@@ -84,7 +84,7 @@ helper -> unit:
   .bb1:
     return
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     f#1: fn() -> unit = copy helper

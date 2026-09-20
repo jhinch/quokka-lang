@@ -973,9 +973,7 @@ name = "analyze"
 kind = "analyzer"
 source.file = "bubble_sort.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global DATA: [u8; 8]
-@GlobalDeclAttributes { region: Auto, address: None }
 global SWAP_COUNT: u8
 
 bubble_sort -> u8:
@@ -1042,7 +1040,7 @@ bubble_sort -> u8:
     i#37: u16 = copy i#36
     jump .bb8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -1082,9 +1080,7 @@ kind = "analyzer"
 optimize = true
 source.file = "bubble_sort.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global DATA: [u8; 8]
-@GlobalDeclAttributes { region: Auto, address: None }
 global SWAP_COUNT: u8
 
 bubble_sort -> u8:
@@ -1151,7 +1147,7 @@ bubble_sort -> u8:
     i#37: u16 = copy i#36
     jump .bb8
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0

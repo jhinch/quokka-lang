@@ -840,11 +840,8 @@ name = "analyze"
 kind = "analyzer"
 source.file = "binary_search.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global SORTED: [u8; 8]
-@GlobalDeclAttributes { region: Auto, address: None }
 global TARGET: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global FOUND_INDEX: u16
 
 binary_search -> u16:
@@ -888,7 +885,7 @@ binary_search -> u16:
     low#20: u16 = phi low#16 <- .bb12, low#5 <- .bb13
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0
@@ -930,11 +927,8 @@ kind = "analyzer"
 optimize = true
 source.file = "binary_search.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global SORTED: [u8; 8]
-@GlobalDeclAttributes { region: Auto, address: None }
 global TARGET: u8
-@GlobalDeclAttributes { region: Auto, address: None }
 global FOUND_INDEX: u16
 
 binary_search -> u16:
@@ -978,7 +972,7 @@ binary_search -> u16:
     low#20: u16 = phi low#16 <- .bb12, low#5 <- .bb13
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 0

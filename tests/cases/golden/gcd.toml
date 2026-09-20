@@ -408,11 +408,8 @@ name = "analyze"
 kind = "analyzer"
 source.file = "gcd.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global B: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 gcd -> u16:
@@ -443,7 +440,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 1071
@@ -463,11 +460,8 @@ kind = "analyzer"
 optimize = true
 source.file = "gcd.q"
 expected_mir = """
-@GlobalDeclAttributes { region: Auto, address: None }
 global A: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global B: u16
-@GlobalDeclAttributes { region: Auto, address: None }
 global RESULT: u16
 
 gcd -> u16:
@@ -498,7 +492,7 @@ gcd -> u16:
     a#12: u16 = phi a#9 <- .bb8, a#7 <- .bb9
     jump .bb2
 
-@FnDeclAttributes { entrypoint: true, no_startup_code: false, inline: Auto, region: Auto, address: None }
+@{"entrypoint":true}
 main -> unit:
   .bb1:
     #1: u16 = copy 1071

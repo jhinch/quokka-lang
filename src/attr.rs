@@ -6,22 +6,26 @@ use serde::de::value::{StrDeserializer, U32Deserializer, UnitDeserializer};
 use std::fmt;
 use std::marker::PhantomData;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    value == &T::default()
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FnDeclAttributes {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub entrypoint: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub no_startup_code: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "InlineKind::is_auto")]
     pub inline: InlineKind,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "RomRegionKind::is_auto")]
     pub region: RomRegionKind,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<u16>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum InlineKind {
     #[default]
@@ -31,16 +35,23 @@ pub enum InlineKind {
     Expect,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+impl InlineKind {
+    #[must_use]
+    pub fn is_auto(&self) -> bool {
+        matches!(self, InlineKind::Auto)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConstDeclAttributes {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "RomRegionKind::is_auto")]
     pub region: RomRegionKind,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<u16>,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RomRegionKind {
     #[default]
@@ -49,16 +60,23 @@ pub enum RomRegionKind {
     Rom0,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+impl RomRegionKind {
+    #[must_use]
+    pub fn is_auto(&self) -> bool {
+        matches!(self, RomRegionKind::Auto)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalDeclAttributes {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "RamRegionKind::is_auto")]
     pub region: RamRegionKind,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<u16>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RamRegionKind {
     #[default]
@@ -71,11 +89,18 @@ pub enum RamRegionKind {
     Oam,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+impl RamRegionKind {
+    #[must_use]
+    pub fn is_auto(&self) -> bool {
+        matches!(self, RamRegionKind::Auto)
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct StructDeclAttributes {}
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldDeclAttributes {}
 
