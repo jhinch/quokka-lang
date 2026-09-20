@@ -135,6 +135,7 @@ impl<'de> From<&'de str> for Parser<'de> {
 
 impl<'de> Parser<'de> {
     fn consume_token(&mut self) -> Result<Token<'de>, Error> {
+        self.consume_comments()?;
         match self.lexer.next().transpose()? {
             Some(token) => Ok(token),
             None => unimplemented!("parsed beyond EOF"),
@@ -142,6 +143,7 @@ impl<'de> Parser<'de> {
     }
 
     fn peek_token(&mut self) -> Result<&Token<'de>, Error> {
+        self.consume_comments()?;
         match self.lexer.peek() {
             Some(Ok(token)) => Ok(token),
             Some(Err(e)) => Err(Error::Lex(e.clone())),
@@ -176,6 +178,19 @@ impl Parser<'_> {
 
     pub fn enable_features(&mut self, features: PreviewFeatureSet) {
         self.features.extend(features);
+    }
+
+    fn consume_comments(&mut self) -> Result<(), Error> {
+        loop {
+            break match self.lexer.peek() {
+                Some(Ok(token)) if token.kind() == TokenKind::Comment => {
+                    self.lexer.next().transpose()?;
+                    continue;
+                }
+                Some(Err(e)) => Err(Error::Lex(e.clone())),
+                _ => Ok(()),
+            };
+        }
     }
 
     fn chomp(&mut self) -> Result<(), Error> {

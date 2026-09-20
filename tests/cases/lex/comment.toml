@@ -5,6 +5,7 @@ source = """
 // hello world
 """
 expected_tokens = """
+Comment:// hello world
 Eof:
 """
 
@@ -16,6 +17,7 @@ source = """
 a
 """
 expected_tokens = """
+Comment:// hello world
 Ident:a
 Eof:
 """
@@ -28,6 +30,7 @@ a // trailing comment
 """
 expected_tokens = """
 Ident:a
+Comment:// trailing comment
 Eof:
 """
 
@@ -37,6 +40,7 @@ kind = "lexer"
 source = "a // trailing comment"
 expected_tokens = """
 Ident:a
+Comment:// trailing comment
 Eof:
 """
 
@@ -49,6 +53,7 @@ b
 """
 expected_tokens = """
 Ident:a
+Comment:// comment
 Ident:b
 Eof:
 """
@@ -61,6 +66,7 @@ source = """
 a
 """
 expected_tokens = """
+Comment://
 Ident:a
 Eof:
 """

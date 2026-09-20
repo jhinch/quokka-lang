@@ -39,10 +39,12 @@ impl HighlighterState for QuokkaHighlighterState {
                     | lex::TokenKind::Yield
                     | lex::TokenKind::Continue
                     | lex::TokenKind::Asm => {
+                        // clear previous styles
                         parts.push(
                             owo_colors::Style::default()
                                 .style(&line[offset..token.span().offset()]),
                         );
+                        // set new styles
                         let next_offset = token.span().offset() + token.span().len();
                         parts.push(
                             owo_colors::Style::default()
@@ -52,14 +54,31 @@ impl HighlighterState for QuokkaHighlighterState {
                         offset = next_offset;
                     }
                     lex::TokenKind::Number => {
+                        // clear previous styles
                         parts.push(
                             owo_colors::Style::default()
                                 .style(&line[offset..token.span().offset()]),
                         );
+                        // set new styles
                         let next_offset = token.span().offset() + token.span().len();
                         parts.push(
                             owo_colors::Style::default()
                                 .blue()
+                                .style(&line[token.span().offset()..next_offset]),
+                        );
+                        offset = next_offset;
+                    }
+                    lex::TokenKind::Comment => {
+                        // clear previous styles
+                        parts.push(
+                            owo_colors::Style::default()
+                                .style(&line[offset..token.span().offset()]),
+                        );
+                        // set new styles
+                        let next_offset = token.span().offset() + token.span().len();
+                        parts.push(
+                            owo_colors::Style::default()
+                                .dimmed()
                                 .style(&line[token.span().offset()..next_offset]),
                         );
                         offset = next_offset;

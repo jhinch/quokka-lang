@@ -144,6 +144,7 @@ pub enum TokenKind {
     Const,
     Asm,
     // other
+    Comment,
     Eof,
 }
 
@@ -203,6 +204,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Const => "const",
             TokenKind::Asm => "asm",
             TokenKind::Underscore => "_",
+            TokenKind::Comment => "<comment>",
             TokenKind::Eof => "<EOF>",
         })
     }
@@ -432,15 +434,16 @@ impl<'de> Lexer<'de> {
                     }
                 }
                 '/' if self.remaining.as_str().starts_with("/") => {
-                    // comment, skip until the end of the line
-                    let skip_len = self
+                    // comment, extend token to end of the line
+                    let additional_len = self
                         .remaining
                         .as_str()
                         .find('\n')
                         .unwrap_or(self.remaining.as_str().len());
-                    self.offset += skip_len;
-                    self.remaining = self.remaining.as_str()[skip_len..].chars();
-                    continue;
+                    self.offset += additional_len;
+                    let len = c.len_utf8() + additional_len;
+                    self.remaining = self.remaining.as_str()[additional_len..].chars();
+                    self.token(TokenKind::Comment, offset, len)
                 }
                 '0' => {
                     let additional_len = match self.remaining.clone().next() {
