@@ -28,16 +28,23 @@ enum TokenType {
     Operator,
     Number,
     Keyword,
+    Comment,
 }
 
 impl TokenType {
-    const ALL: [TokenType; 3] = [TokenType::Operator, TokenType::Number, TokenType::Keyword];
+    const ALL: [TokenType; 4] = [
+        TokenType::Operator,
+        TokenType::Number,
+        TokenType::Keyword,
+        TokenType::Comment,
+    ];
 
     fn lsp_type(self) -> SemanticTokenTypes {
         match self {
             TokenType::Operator => SemanticTokenTypes::Operator,
             TokenType::Number => SemanticTokenTypes::Number,
             TokenType::Keyword => SemanticTokenTypes::Keyword,
+            TokenType::Comment => SemanticTokenTypes::Comment,
         }
     }
 
@@ -468,6 +475,7 @@ fn classify(kind: lex::TokenKind) -> Option<TokenType> {
         | lex::TokenKind::PipeEqual
         | lex::TokenKind::CarrotEqual => Some(TokenType::Operator),
         lex::TokenKind::Number => Some(TokenType::Number),
+        lex::TokenKind::Comment => Some(TokenType::Comment),
         lex::TokenKind::Fn
         | lex::TokenKind::Let
         | lex::TokenKind::Loop

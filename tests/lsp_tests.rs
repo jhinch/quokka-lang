@@ -94,7 +94,7 @@ fn initialize_advertises_semantic_tokens_legend() {
     let capabilities = &response(&messages, 1)["result"]["capabilities"];
     assert_eq!(
         capabilities["semanticTokensProvider"]["legend"],
-        json!({ "tokenTypes": ["operator", "number", "keyword"], "tokenModifiers": [] })
+        json!({ "tokenTypes": ["operator", "number", "keyword", "comment"], "tokenModifiers": [] })
     );
     assert_eq!(capabilities["semanticTokensProvider"]["full"], json!(true));
     assert_eq!(capabilities["textDocumentSync"], json!(1));
