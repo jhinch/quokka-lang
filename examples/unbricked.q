@@ -41,6 +41,7 @@ global rLCDC: u8;
 const LCDC_OFF: u8 = 0b0000_0000;
 const LCDC_ON: u8 = 0b1000_0000;
 const LCDC_BG_ON: u8 = 0b0000_0001;
+const LCDC_OBJ_ON: u8 = 0b0000_0010;
 
 
 #[address = 0xFF47]
@@ -51,11 +52,25 @@ global rBGP: u8;
 //
 
 #[region = vram]
+#[address = 0x8000]
+global VRAM_SPRITE_TILES: [u8; 16];
+
+#[region = vram]
 #[address = 0x9000]
 global VRAM_BG_TILES: [u8; 416];
 #[region = vram]
 #[address = 0x9800]
 global VRAM_BG_TILEMAP: [u8; 576];
+
+#[region = oam]
+global OAM: [Sprite; 40];
+
+struct Sprite {
+    y: u8,
+    x: u8,
+    tile_index: u8,
+    flags: u8,
+}
 
 //
 // Tiles and Tilemap
@@ -152,37 +167,36 @@ const BG_TILES: [u8; 416] = [
     0x22,0xFF,
     0x55,0xFF,
     0xFF,0xFF,
-  
+
     // Logo (duck)
 
+    0x00,0xFF,
+    0x00,0xFF,
+    0x00,0xFF,
+    0x00,0xFF,
+    0x00,0xFF,
+    0x03,0xFC,
+    0x03,0xFC,
+    0x03,0xFC,
+
+    0x00,0xFF,
+    0x00,0xFF,
+    0x00,0xFF,
+    0xFF,0x00,
+    0xFF,0x00,
+    0xCF,0x30,
+    0xCF,0x30,
+    0xC3,0x00,
 
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
-    0x03,0xFC,
-    0x03,0xFC,
-    0x03,0xFC,
-  
-    0x00,0xFF,
-    0x00,0xFF,
-    0x00,0xFF,
-    0xFF,0x00,
-    0xFF,0x00,
-    0xCF,0x30,
-    0xCF,0x30,
-    0xC3,0x00,
-  
-    0x00,0xFF,
-    0x00,0xFF,
-    0x00,0xFF,
-    0x00,0xFF,
-    0x00,0xFF,
     0xC0,0x3F,
     0xC0,0x3F,
     0xC0,0x3F,
-  
+
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
@@ -191,7 +205,7 @@ const BG_TILES: [u8; 416] = [
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
-  
+
     0x03,0xFC,
     0x00,0xFC,
     0x00,0xFC,
@@ -200,7 +214,7 @@ const BG_TILES: [u8; 416] = [
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
-  
+
     0xC3,0x00,
     0xFF,0x00,
     0xFF,0x00,
@@ -209,7 +223,7 @@ const BG_TILES: [u8; 416] = [
     0xFF,0x00,
     0xFF,0x00,
     0xC0,0x03,
-  
+
     0xC0,0x3F,
     0xC0,0x3F,
     0xC0,0x3F,
@@ -218,7 +232,7 @@ const BG_TILES: [u8; 416] = [
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
-  
+
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
@@ -227,7 +241,7 @@ const BG_TILES: [u8; 416] = [
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
-  
+
     0x00,0xFF,
     0x00,0xFC,
     0x00,0xFC,
@@ -236,7 +250,7 @@ const BG_TILES: [u8; 416] = [
     0x0F,0xF0,
     0x0F,0xF0,
     0x0F,0xF0,
-  
+
     0xC0,0x03,
     0x30,0x0F,
     0x30,0x0F,
@@ -245,7 +259,7 @@ const BG_TILES: [u8; 416] = [
     0xC0,0x30,
     0xC0,0x30,
     0xC0,0x30,
-  
+
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
@@ -254,7 +268,7 @@ const BG_TILES: [u8; 416] = [
     0x00,0x00,
     0x00,0x00,
     0x00,0x00,
-  
+
     0x00,0xFF,
     0x00,0xFF,
     0x00,0xFF,
@@ -263,7 +277,7 @@ const BG_TILES: [u8; 416] = [
     0xF0,0x03,
     0xF0,0x03,
     0xF0,0x03,
-  
+
     0x0F,0xF0,
     0x0F,0xF0,
     0x0F,0xF0,
@@ -272,7 +286,7 @@ const BG_TILES: [u8; 416] = [
     0x03,0xFC,
     0x03,0xFC,
     0x00,0xFF,
-  
+
     0xC0,0x30,
     0xF0,0x00,
     0xF0,0x00,
@@ -281,7 +295,7 @@ const BG_TILES: [u8; 416] = [
     0xFF,0x00,
     0xFF,0x00,
     0x00,0xFF,
-  
+
     0x00,0x00,
     0x3F,0x00,
     0x3F,0x00,
@@ -290,7 +304,7 @@ const BG_TILES: [u8; 416] = [
     0xFF,0x00,
     0xFF,0x00,
     0x00,0xFF,
-  
+
     0xF0,0x03,
     0xC0,0x03,
     0xC0,0x03,
@@ -322,6 +336,26 @@ const BG_TILEMAP: [u8; 576] = [
 	0x04, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x07, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0,0,0,0,0,0,0,0,0,0,0,0,
 ];
 
+const SPRITE_TILES: [u8; 16] = [
+    // Paddle
+    0xFF,0x7E,
+    0x81,0x81,
+    0xFF,0x7E,
+    0x00,0x00,
+    0x00,0x00,
+    0x00,0x00,
+    0x00,0x00,
+    0x00,0x00,
+];
+
+// Sprite indexes
+
+const PADDLE_INDEX: u16 = 0;
+
+// Globals
+
+global COUNTER: u8;
+
 //
 // Code
 //
@@ -336,10 +370,42 @@ fn main() {
     // setup VRAM how we need it
     VRAM_BG_TILES = BG_TILES;
     VRAM_BG_TILEMAP = BG_TILEMAP;
+    VRAM_SPRITE_TILES = SPRITE_TILES;
+
+    clear_oam();
+
+    // set up paddle's initial state
+    OAM[PADDLE_INDEX].y = 128 + 16;
+    OAM[PADDLE_INDEX].x = 16 + 8;
+    OAM[PADDLE_INDEX].tile_index = 0;
+    OAM[PADDLE_INDEX].flags = 0;
+
+    // setup counters initial state
+    COUNTER = 0;
 
     // Turn on LCD and setup the palette
-    rLCDC = LCDC_ON | LCDC_BG_ON;
+    rLCDC = LCDC_ON | LCDC_BG_ON | LCDC_OBJ_ON;
     rBGP = BG_PALETTE;
+
+    loop {
+        // wait for when we are rendering
+        wait_for_not_vblank();
+
+        // We don't actually anything to do during rendering atm.
+        // This will change in the future as rendering is a good time
+        // to do game logic and update a shadow OAM
+
+        // wait until its safe to modify VRAM/OAM
+        wait_for_vblank();
+
+        let counter = COUNTER + 1;
+        COUNTER = counter;
+        if counter != 15 then {
+            continue;
+        }
+        COUNTER = 0;
+        OAM[PADDLE_INDEX].x += 1;
+    }
 }
 
 fn wait_for_vblank() {
@@ -347,5 +413,37 @@ fn wait_for_vblank() {
         if rLY >= LY_VBLANK then {
             break;
         }
+    }
+}
+
+fn wait_for_not_vblank() {
+    loop {
+        if rLY < LY_VBLANK then {
+            break;
+        }
+    }
+}
+
+fn clear_oam() {
+    // ideally, we would do the following:
+    // ```
+    //      OAM = [Sprite { y: 0, x: 0, tile_index: 0, flags: 0, }; 40];
+    // ```
+    // Unfortunately, bulk-fill only supports raw bytes currently, not arbitrary constants.
+    // We could model OAM as a byte array and use that, but instead, it is more typesafe to
+    // model it with structs and just accept that clearing OAM (which only is used at startup)
+    // takes a little bit longer
+    let index = 0;
+    loop {
+        if index >= 40 then {
+            break;
+        }
+
+        OAM[index].y = 0;
+        OAM[index].x = 0;
+        OAM[index].tile_index = 0;
+        OAM[index].flags = 0;
+
+        index += 1;
     }
 }
