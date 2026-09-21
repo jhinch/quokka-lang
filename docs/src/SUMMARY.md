@@ -28,6 +28,7 @@
   - [Function call expressions](reference/expressions/function-calls.md)
   - [ASM block expressions](reference/expressions/asm-blocks.md)
   - [Array index expressions](reference/expressions/array-index.md)
+  - [Bit cast expressions](reference/expressions/bit-casts.md)
 - [Statements](reference/statements.md)
   - [Let statements](reference/statements/lets.md)
   - [Return statements](reference/statements/returns.md)
