@@ -6,7 +6,6 @@ Expression              = ExpressionWithoutBlock
                         ;
 ExpressionWithBlock     = BlockExpression
                         | IfExpressionWithBlock
-                        | AsmBlockExpression
                         | LoopExpression
                         ;
 ExpressionWithoutBlock  = GroupedExpression

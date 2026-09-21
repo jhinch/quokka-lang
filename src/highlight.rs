@@ -37,8 +37,7 @@ impl HighlighterState for QuokkaHighlighterState {
                     | lex::TokenKind::Const
                     | lex::TokenKind::Global
                     | lex::TokenKind::Yield
-                    | lex::TokenKind::Continue
-                    | lex::TokenKind::Asm => {
+                    | lex::TokenKind::Continue => {
                         // clear previous styles
                         parts.push(
                             owo_colors::Style::default()

@@ -667,8 +667,7 @@ fn classify_static(kind: lex::TokenKind) -> Option<TokenType> {
         | lex::TokenKind::Else
         | lex::TokenKind::Struct
         | lex::TokenKind::Global
-        | lex::TokenKind::Const
-        | lex::TokenKind::Asm => Some(TokenType::Keyword),
+        | lex::TokenKind::Const => Some(TokenType::Keyword),
         _ => None,
     }
 }

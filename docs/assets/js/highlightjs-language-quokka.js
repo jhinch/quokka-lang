@@ -2,7 +2,7 @@
     function quokkaGrammar(hljs) {
         return {
             name: 'Quokka',
-            keywords: 'asm break const continue else fn global if let loop return struct then yield',
+            keywords: 'break const continue else fn global if let loop return struct then yield',
             contains: [
                 hljs.C_LINE_COMMENT_MODE,
                 {

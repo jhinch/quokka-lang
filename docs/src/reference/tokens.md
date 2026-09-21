@@ -10,27 +10,14 @@
 
 ```ebnf
 Keyword             =   StandardKeyword
-                    |   AsmKeyword
                     ;
 Reserved            =   Keyword
                     |   UnusedReserved
                     ;
-StandardKeyword     =   "asm" | "const" | "else" | "fn"
+StandardKeyword     =   "const" | "else" | "fn"
                     |   "global" | "if" | "let" | "loop"
                     |   "struct" | "then" | "yield" | "break"
                     |   "return" | "continue"
-                    ;
-AsmKeyword          =   "ADC" | "ADD" | "AND" | "BIT" | "CALL"
-                    |   "CCF" | "CP" | "CPL" | "DAA" | "DEC"
-                    |   "DI" | "EI" | "HALT" | "INC" | "JP"
-                    |   "JR" | "LD" | "LDH" | "NOP" | "OR"
-                    |   "POP" | "PUSH" | "RES" | "RET" | "RETI"
-                    |   "RL" | "RLA" | "RLC" | "RLCA" | "RR"
-                    |   "RRA" | "RRC" | "RRCA" | "RST" | "SBC"
-                    |   "SCF" | "SET" | "SLA" | "SRA" | "SRL"
-                    |   "STOP" | "SUB" | "SWAP" | "XOR" | "A"
-                    |   "HL" | "SP" | "Z" | "NZ" | "C"
-                    |   "NC"
                     ;
 UnusedReserved      =   "as" | "while" | "do" | "match" | "case"
                     |   "enum" | "false" | "true" | "for" | "switch"

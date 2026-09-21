@@ -140,14 +140,3 @@ expected_tokens = """
 Const:const
 Eof:
 """
-
-[[case]]
-name = "asm"
-kind = "lexer"
-source = """
-asm
-"""
-expected_tokens = """
-Asm:asm
-Eof:
-"""

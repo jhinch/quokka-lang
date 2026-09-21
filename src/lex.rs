@@ -142,7 +142,6 @@ pub enum TokenKind {
     Struct,
     Global,
     Const,
-    Asm,
     // other
     Comment,
     Eof,
@@ -202,7 +201,6 @@ impl fmt::Display for TokenKind {
             TokenKind::Struct => "struct",
             TokenKind::Global => "global",
             TokenKind::Const => "const",
-            TokenKind::Asm => "asm",
             TokenKind::Underscore => "_",
             TokenKind::Comment => "<comment>",
             TokenKind::Eof => "<EOF>",
@@ -520,7 +518,6 @@ impl<'de> Lexer<'de> {
                         "struct" => self.token(TokenKind::Struct, offset, len),
                         "global" => self.token(TokenKind::Global, offset, len),
                         "const" => self.token(TokenKind::Const, offset, len),
-                        "asm" => self.token(TokenKind::Asm, offset, len),
                         "_" => self.token(TokenKind::Underscore, offset, len),
                         _ => self.token(TokenKind::Ident, offset, len),
                     }

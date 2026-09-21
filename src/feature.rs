@@ -11,8 +11,6 @@ pub enum PreviewFeature {
     LocalArray,
     /// enable use of field access expressions on local variables at runtime.
     LocalFieldAccess,
-    /// enable ASM block expressions
-    InlineAsm,
     /// enable custom entrypoint attribute support
     CustomEntrypoint,
     /// enable no startup code augmentation of entrypoint

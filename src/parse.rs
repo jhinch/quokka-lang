@@ -667,12 +667,6 @@ impl Parser<'_> {
                     let body = self.parse_body()?;
                     ExprData::from(Loop { body })
                 }
-                TokenKind::Asm => {
-                    let lhs_token = self.consume_token()?;
-                    self.features
-                        .require_enabled(PreviewFeature::InlineAsm, lhs_token.span())?;
-                    todo!("parse inline-asm");
-                }
                 // unary prefix expression
                 kind @ (TokenKind::Bang | TokenKind::Minus) => {
                     self.chomp()?;
