@@ -195,6 +195,7 @@ impl Analyzer {
             'outer: while let Some(ty) = processing_stack.pop_front() {
                 let mut bit_size = BitCount::new(0);
                 let mut fields = IndexMap::new();
+                let mut internally_padded = false;
                 for (field_name, field_ty, field_ty_span, field_attrs) in &type_fields[&ty] {
                     let mut array_item_ty = *field_ty;
                     while array_item_ty.is_array() {
@@ -223,7 +224,12 @@ impl Analyzer {
                         recursive_types.insert(ty);
                         continue 'outer;
                     }
-                    let field_bit_size = field_ty.bit_size(&self.ty_registry).padded();
+                    let field_bit_size = {
+                        let field_bit_size = field_ty.bit_size(&self.ty_registry);
+                        let field_bit_size_padded = field_bit_size.padded();
+                        internally_padded |= field_bit_size != field_bit_size_padded;
+                        field_bit_size_padded
+                    };
                     if field_name.data == Identifier::unnamed() {
                         if *field_ty != Ty::ERROR && !field_ty.is_unsigned_int() {
                             let mut expected = Vec::new();
@@ -249,6 +255,7 @@ impl Analyzer {
                                     },
                                 });
                         }
+                        internally_padded = true;
                     } else {
                         fields.insert(
                             field_name.data.clone(),
@@ -263,8 +270,12 @@ impl Analyzer {
                     }
                     bit_size += field_bit_size;
                 }
-                self.ty_registry
-                    .complete_struct_registration(ty, fields, bit_size);
+                self.ty_registry.complete_struct_registration(
+                    ty,
+                    fields,
+                    internally_padded,
+                    bit_size,
+                );
                 unprocessed_types.shift_remove(&ty);
             }
         }

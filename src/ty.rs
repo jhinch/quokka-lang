@@ -47,6 +47,7 @@ impl TyRegistry {
                     .insert_entry(StructTyData {
                         name,
                         fields: IndexMap::new(),
+                        internally_padded: false,
                         bit_size: BitCount::MAX,
                     })
                     .index();
@@ -69,6 +70,7 @@ impl TyRegistry {
         &mut self,
         ty: Ty,
         fields: IndexMap<Identifier, StructFieldTyData>,
+        internally_padded: bool,
         bit_size: BitCount,
     ) {
         assert!(ty.is_struct(), "{ty:?} not a struct");
@@ -80,6 +82,7 @@ impl TyRegistry {
             "bit_size must be smaller than BitCount::MAX"
         );
         data.fields = fields;
+        data.internally_padded = internally_padded;
         data.bit_size = bit_size;
     }
 
@@ -220,6 +223,23 @@ impl Ty {
         }
     }
 
+    #[must_use]
+    pub fn is_internally_padded(self, registry: &TyRegistry) -> bool {
+        match self {
+            ty if ty.is_array() => {
+                let data = registry.array_ty_data(ty);
+
+                if data.item_ty.is_internally_padded(registry) {
+                    return true;
+                }
+                let bit_size = data.item_ty.bit_size(registry);
+                bit_size != bit_size.padded()
+            }
+            ty if ty.is_struct() => registry.struct_ty_data(ty).internally_padded,
+            _ => false,
+        }
+    }
+
     const fn index(self) -> usize {
         (self.0 & Ty::INDEX_MASK) as usize
     }
@@ -257,6 +277,7 @@ impl fmt::Debug for Ty {
 pub struct StructTyData {
     pub name: SpannedIdentifier,
     pub fields: IndexMap<Identifier, StructFieldTyData>,
+    pub internally_padded: bool,
     pub bit_size: BitCount,
 }
 
@@ -499,7 +520,7 @@ mod tests {
     fn bit_size_of_struct_uses_registered_bit_size() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Foo")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(40));
+        registry.complete_struct_registration(ty, IndexMap::new(), false, BitCount::new(40));
         assert_eq!(ty.bit_size(&registry), 40);
     }
 
@@ -598,7 +619,7 @@ mod tests {
                 attrs: FieldDeclAttributes::default(),
             },
         );
-        registry.complete_struct_registration(ty, fields, BitCount::new(8));
+        registry.complete_struct_registration(ty, fields, false, BitCount::new(8));
         let data = registry.struct_ty_data(ty);
         assert_eq!(data.bit_size, 8);
         assert!(data.fields.contains_key(&Identifier::from("x")));
@@ -608,7 +629,7 @@ mod tests {
     #[should_panic(expected = "not a struct")]
     fn complete_struct_registration_panics_on_non_struct_ty() {
         let mut registry = TyRegistry::default();
-        registry.complete_struct_registration(Ty::U8, IndexMap::new(), BitCount::new(8));
+        registry.complete_struct_registration(Ty::U8, IndexMap::new(), false, BitCount::new(8));
     }
 
     #[test]
@@ -616,8 +637,8 @@ mod tests {
     fn complete_struct_registration_panics_when_already_completed() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Foo")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(8));
-        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(8));
+        registry.complete_struct_registration(ty, IndexMap::new(), false, BitCount::new(8));
+        registry.complete_struct_registration(ty, IndexMap::new(), false, BitCount::new(8));
     }
 
     #[test]
@@ -638,7 +659,7 @@ mod tests {
     fn display_of_struct_uses_name() {
         let mut registry = TyRegistry::default();
         let ty = registry.register_struct(ident("Point")).unwrap();
-        registry.complete_struct_registration(ty, IndexMap::new(), BitCount::new(16));
+        registry.complete_struct_registration(ty, IndexMap::new(), false, BitCount::new(16));
         assert_eq!(format!("{}", ty.display(&registry)), "Point");
     }
 
