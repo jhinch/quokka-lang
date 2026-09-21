@@ -926,57 +926,46 @@ x_mod_y -> u8:
     result#3: u8 = phi result#2 <- .bb1, result#7 <- .bb5
     #4: u8 = load MOD_y
     #5: u1 = lt result#3, #4
-    jumpif #5 != 0, .bb4, .bb5
-  .bb4:
-    jump .bb3
+    jumpif #5 != 0, .bb3, .bb5
+  .bb3:
+    #RET: u8 = copy result#3
+    return
   .bb5:
     #6: u8 = load MOD_y
     result#7: u8 = sub result#3, #6
     jump .bb2
-  .bb3:
-    #RET: u8 = copy result#3
-    return
 
 fizzbuzz -> u8:
   .bb1:
     #2: u8 = load N
     store MOD_x = #2
-    #3: u8 = copy 3
-    store MOD_y = #3
+    store MOD_y = 3
     call x_mod_y, .bb2
   .bb2:
     mod3#4: u8 = returnvalue
-    #5: u8 = copy 5
-    store MOD_y = #5
+    store MOD_y = 5
     call x_mod_y, .bb3
   .bb3:
     mod5#6: u8 = returnvalue
-    #7: u8 = copy 0
-    #8: u1 = eq mod3#4, #7
+    #8: u1 = eq mod3#4, 0
     jumpif #8 != 0, .bb4, .bb5
   .bb4:
-    #9: u8 = copy 0
-    #10: u1 = eq mod5#6, #9
+    #10: u1 = eq mod5#6, 0
     jumpif #10 != 0, .bb6, .bb7
   .bb5:
-    #13: u8 = copy 0
-    #14: u1 = eq mod5#6, #13
+    #14: u1 = eq mod5#6, 0
     jumpif #14 != 0, .bb12, .bb13
   .bb6:
-    #11: u8 = copy 3
-    #RET: u8 = copy #11
+    #RET: u8 = copy 3
     return
   .bb7:
-    #12: u8 = copy 1
-    #RET: u8 = copy #12
+    #RET: u8 = copy 1
     return
   .bb12:
-    #15: u8 = copy 2
-    #RET: u8 = copy #15
+    #RET: u8 = copy 2
     return
   .bb13:
-    #16: u8 = copy 0
-    #RET: u8 = copy #16
+    #RET: u8 = copy 0
     return
 
 @{"entrypoint":true}
@@ -987,24 +976,19 @@ main -> unit:
     jump .bb2
   .bb2:
     i#3: u16 = phi i#1 <- .bb1, i#9 <- .bb8
-    #4: u16 = copy 15
-    #5: u1 = eq i#3, #4
+    #5: u1 = eq i#3, 15
     n#6: u8 = phi n#2 <- .bb1, n#11 <- .bb8
-    jumpif #5 != 0, .bb4, .bb5
-  .bb4:
-    jump .bb3
+    jumpif #5 != 0, .bb3, .bb5
+  .bb3:
+    return
   .bb5:
     store N = n#6
     call fizzbuzz, .bb8
-  .bb3:
-    return
   .bb8:
     #7: u8 = returnvalue
     store RESULTS[i#3] = #7
-    #8: u16 = copy 1
-    i#9: u16 = add i#3, #8
-    #10: u8 = copy 1
-    n#11: u8 = add n#6, #10
+    i#9: u16 = add i#3, 1
+    n#11: u8 = add n#6, 1
     jump .bb2
 """
 
@@ -1048,22 +1032,21 @@ fizzbuzz::
   LD r8#10, [HL]
   LD HL, MOD_x+$0000
   LD [HL], r8#10
-  LD r8#11, $03
   LD HL, MOD_y+$0000
-  LD [HL], r8#11
-  CALL x_mod_y; return=.bb8
+  LD [HL], $03
+  CALL x_mod_y; return=.bb7
 
 main::
 .bb3:
-  LD r8#38, $00
-  LD r8#39, $00
-  LD r8#40, r8#39
-  LD r8#41, r8#38
-  LD r8#42, $01
-  LD r8#37, r8#42
-  LD r8#35, r8#41
-  LD r8#36, r8#40
-  JP .bb16
+  LD r8#29, $00
+  LD r8#30, $00
+  LD r8#31, r8#30
+  LD r8#32, r8#29
+  LD r8#33, $01
+  LD r8#28, r8#33
+  LD r8#26, r8#32
+  LD r8#27, r8#31
+  JP .bb15
 
 .bb4:
   LD HL, MOD_y+$0000
@@ -1074,125 +1057,106 @@ main::
   JP c#2, .bb5; else=.bb6
 
 .bb5:
-  JP .bb7
+  LD r8#5, r8#1
+  LD A, r8#5
+  RET
 
 .bb6:
   LD HL, MOD_y+$0000
-  LD r8#5, [HL]
+  LD r8#7, [HL]
   LD A, r8#1
-  SUB A, r8#5; z, c
-  LD r8#7, A
-  LD r8#1, r8#7
+  SUB A, r8#7; z, c
+  LD r8#9, A
+  LD r8#1, r8#9
   JP .bb4
 
 .bb7:
-  LD r8#8, r8#1
-  LD A, r8#8
-  RET
+  LD A, RETURN
+  LD r8#12, A
+  LD HL, MOD_y+$0000
+  LD [HL], $05
+  CALL x_mod_y; return=.bb8
 
 .bb8:
   LD A, RETURN
-  LD r8#13, A
-  LD r8#14, $05
-  LD HL, MOD_y+$0000
-  LD [HL], r8#14
-  CALL x_mod_y; return=.bb9
+  LD r8#14, A
+  LD A, r8#12
+  CP A, $00; z, c
+  (out=z#4,in=z)
+  JP z#4, .bb9; else=.bb10
 
 .bb9:
-  LD A, RETURN
-  LD r8#16, A
-  LD r8#17, $00
-  LD A, r8#13
-  CP A, r8#17; z, c
-  (out=z#4,in=z)
-  JP z#4, .bb10; else=.bb11
+  LD A, r8#14
+  CP A, $00; z, c
+  (out=z#6,in=z)
+  JP z#6, .bb11; else=.bb12
 
 .bb10:
-  LD r8#19, $00
-  LD A, r8#16
-  CP A, r8#19; z, c
-  (out=z#6,in=z)
-  JP z#6, .bb12; else=.bb13
+  LD A, r8#14
+  CP A, $00; z, c
+  (out=z#8,in=z)
+  JP z#8, .bb13; else=.bb14
 
 .bb11:
-  LD r8#21, $00
-  LD A, r8#16
-  CP A, r8#21; z, c
-  (out=z#8,in=z)
-  JP z#8, .bb14; else=.bb15
+  LD r8#18, $03
+  LD A, r8#18
+  RET
 
 .bb12:
-  LD r8#23, $03
-  LD r8#24, r8#23
-  LD A, r8#24
+  LD r8#20, $01
+  LD A, r8#20
   RET
 
 .bb13:
-  LD r8#26, $01
-  LD r8#27, r8#26
-  LD A, r8#27
+  LD r8#22, $02
+  LD A, r8#22
   RET
 
 .bb14:
-  LD r8#29, $02
-  LD r8#30, r8#29
-  LD A, r8#30
+  LD r8#24, $00
+  LD A, r8#24
   RET
 
 .bb15:
-  LD r8#32, $00
-  LD r8#33, r8#32
-  LD A, r8#33
-  RET
+  LD r8#34, $0f
+  LD r8#35, $00
+  LD A, r8#26
+  SUB A, r8#34; z, c
+  LD A, r8#27
+  SBC A, r8#35; z, c
+  (out=z#11,in=z)
+  JP z#11, .bb16; else=.bb17
 
 .bb16:
-  LD r8#43, $0f
-  LD r8#44, $00
-  LD r8#45, r8#44
-  LD r8#46, r8#43
-  LD A, r8#35
-  SUB A, r8#46; z, c
-  LD A, r8#36
-  SBC A, r8#45; z, c
-  (out=z#11,in=z)
-  JP z#11, .bb17; else=.bb18
-
-.bb17:
-  JP .bb19
-
-.bb18:
-  LD HL, N+$0000
-  LD [HL], r8#37
-  CALL fizzbuzz; return=.bb20
-
-.bb19:
   RET
 
-.bb20:
+.bb17:
+  LD HL, N+$0000
+  LD [HL], r8#28
+  CALL fizzbuzz; return=.bb18
+
+.bb18:
   LD A, RETURN
-  LD r8#50, A
-  (out=r16#9;high_in=r8#36;low_in=r8#35)
+  LD r8#39, A
+  (out=r16#9;high_in=r8#27;low_in=r8#26)
   LD HL, RESULTS+$0000
   ADD HL, r16#9; c
-  LD [HL], r8#50
-  LD r8#51, $01
-  LD r8#52, $00
-  LD r8#53, r8#52
-  LD r8#54, r8#51
-  LD A, r8#35
-  ADD A, r8#54; z, c
-  LD r8#56, A
-  LD A, r8#36
-  ADC A, r8#53; z, c
-  LD r8#58, A
-  LD r8#59, $01
-  LD A, r8#37
-  ADD A, r8#59; z, c
-  LD r8#61, A
-  LD r8#37, r8#61
-  LD r8#35, r8#56
-  LD r8#36, r8#58
-  JP .bb16
+  LD [HL], r8#39
+  LD r8#40, $01
+  LD r8#41, $00
+  LD A, r8#26
+  ADD A, r8#40; z, c
+  LD r8#43, A
+  LD A, r8#27
+  ADC A, r8#41; z, c
+  LD r8#45, A
+  LD A, r8#28
+  ADD A, $01; z, c
+  LD r8#47, A
+  LD r8#28, r8#47
+  LD r8#26, r8#43
+  LD r8#27, r8#45
+  JP .bb15
 
 END_SECTION
 
@@ -1420,10 +1384,9 @@ fizzbuzz::
   LD A, [HL]
   LD HL, MOD_x+$0000
   LD [HL], A
-  LD A, $03
   LD HL, MOD_y+$0000
-  LD [HL], A
-  CALL x_mod_y; return=.bb8
+  LD [HL], $03
+  CALL x_mod_y; return=.bb7
 
 main::
 .bb3:
@@ -1439,7 +1402,7 @@ main::
   LD A, B
   LD HL SP+0; z, c
   LD [HL], A
-  JP .bb16
+  JP .bb15
 
 .bb4:
   LD HL, MOD_y+$0000
@@ -1448,7 +1411,7 @@ main::
   JP c, .bb5; else=.bb6
 
 .bb5:
-  JP .bb7
+  RET
 
 .bb6:
   LD HL, MOD_y+$0000
@@ -1457,60 +1420,52 @@ main::
   JP .bb4
 
 .bb7:
-  RET
+  LD HL SP+0; z, c
+  LD [HL], A
+  LD HL, MOD_y+$0000
+  LD [HL], $05
+  CALL x_mod_y; return=.bb8
 
 .bb8:
-  LD HL SP+0; z, c
-  LD [HL], A
-  LD A, $05
-  LD HL, MOD_y+$0000
-  LD [HL], A
-  CALL x_mod_y; return=.bb9
-
-.bb9:
   LD B, A
-  LD C, $00
   LD HL SP+0; z, c
   LD A, [HL]
-  CP A, C; z, c
-  JP z, .bb10; else=.bb11
+  CP A, $00; z, c
+  JP z, .bb9; else=.bb10
+
+.bb9:
+  LD A, B
+  CP A, $00; z, c
+  JP z, .bb11; else=.bb12
 
 .bb10:
-  LD C, $00
   LD A, B
-  CP A, C; z, c
-  JP z, .bb12; else=.bb13
+  CP A, $00; z, c
+  JP z, .bb13; else=.bb14
 
 .bb11:
-  LD C, $00
-  LD A, B
-  CP A, C; z, c
-  JP z, .bb14; else=.bb15
-
-.bb12:
   LD A, $03
   ADD SP 1; z, c
   RET
 
-.bb13:
+.bb12:
   LD A, $01
   ADD SP 1; z, c
   RET
 
-.bb14:
+.bb13:
   LD A, $02
   ADD SP 1; z, c
   RET
 
-.bb15:
+.bb14:
   LD A, $00
   ADD SP 1; z, c
   RET
 
-.bb16:
+.bb15:
   LD C, $0f
-  LD A, $00
-  LD B, A
+  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
   SUB A, C; z, c
@@ -1520,25 +1475,22 @@ main::
   POP AF(high_out=A); z, c
   LD A, C
   SBC A, B; z, c
-  JP z, .bb17; else=.bb18
+  JP z, .bb16; else=.bb17
+
+.bb16:
+  ADD SP 3; z, c
+  RET
 
 .bb17:
-  JP .bb19
-
-.bb18:
   LD HL, N+$0000
   PUSH HL
   LD HL SP+4; z, c
   LD A, [HL]
   POP HL
   LD [HL], A
-  CALL fizzbuzz; return=.bb20
+  CALL fizzbuzz; return=.bb18
 
-.bb19:
-  ADD SP 3; z, c
-  RET
-
-.bb20:
+.bb18:
   LD HL SP+1; z, c
   LD C, [HL]
   LD HL SP+0; z, c
@@ -1547,8 +1499,7 @@ main::
   ADD HL, BC; c
   LD [HL], A
   LD C, $01
-  LD A, $00
-  LD B, A
+  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
   ADD A, C; z, c
@@ -1560,10 +1511,9 @@ main::
   LD A, D
   ADC A, B; z, c
   LD B, A
-  LD D, $01
   LD HL SP+2; z, c
   LD A, [HL]
-  ADD A, D; z, c
+  ADD A, $01; z, c
   LD HL SP+2; z, c
   LD [HL], A
   LD A, C
@@ -1572,7 +1522,7 @@ main::
   LD A, B
   LD HL SP+0; z, c
   LD [HL], A
-  JP .bb16
+  JP .bb15
 
 END_SECTION
 

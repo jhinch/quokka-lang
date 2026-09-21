@@ -555,42 +555,33 @@ collatz_steps -> u16:
     jump .bb2
   .bb2:
     n#4: u16 = phi n#2 <- .bb1, n#20 <- .bb10
-    #5: u16 = copy 1
-    #6: u1 = eq n#4, #5
+    #6: u1 = eq n#4, 1
     steps#18: u16 = phi steps#3 <- .bb1, steps#19 <- .bb10
-    jumpif #6 != 0, .bb4, .bb5
-  .bb4:
-    jump .bb3
-  .bb5:
-    #7: u16 = copy 1
-    #8: u16 = bitand n#4, #7
-    #9: u16 = copy 0
-    is_even#10: u1 = eq #8, #9
-    jumpif is_even#10 != 0, .bb8, .bb9
+    jumpif #6 != 0, .bb3, .bb5
   .bb3:
     #RET: u16 = copy steps#18
     return
+  .bb5:
+    #8: u16 = bitand n#4, 1
+    is_even#10: u1 = eq #8, 0
+    jumpif is_even#10 != 0, .bb8, .bb9
   .bb8:
     n#11: u16 = shiftright n#4
     jump .bb10
   .bb9:
     #12: u16 = add n#4, n#4
     #13: u16 = add #12, n#4
-    #14: u16 = copy 1
-    n#15: u16 = add #13, #14
+    n#15: u16 = add #13, 1
     jump .bb10
   .bb10:
-    #16: u16 = copy 1
-    steps#17: u16 = copy steps#18
-    steps#19: u16 = add steps#18, #16
+    steps#19: u16 = add steps#18, 1
     n#20: u16 = phi n#11 <- .bb8, n#15 <- .bb9
     jump .bb2
 
 @{"entrypoint":true}
 main -> unit:
   .bb1:
-    #1: u16 = copy 27
-    store N = #1
+    store N = 27
     call collatz_steps, .bb2
   .bb2:
     #2: u16 = returnvalue
@@ -633,124 +624,107 @@ collatz_steps::
 
 main::
 .bb2:
-  LD r8#66, $1b
-  LD r8#67, $00
-  LD r8#68, r8#67
-  LD r8#69, r8#66
+  LD r8#54, $1b
+  LD r8#55, $00
   LD HL, N+$0000
-  LD A, r8#69
+  LD A, r8#54
   LD [HL++], A
-  LD [HL], r8#68
-  CALL collatz_steps; return=.bb10
+  LD [HL], r8#55
+  CALL collatz_steps; return=.bb9
 
 .bb3:
   LD r8#14, $01
   LD r8#15, $00
-  LD r8#16, r8#15
-  LD r8#17, r8#14
   LD A, r8#1
-  SUB A, r8#17; z, c
+  SUB A, r8#14; z, c
   LD A, r8#2
-  SBC A, r8#16; z, c
+  SBC A, r8#15; z, c
   (out=z#3,in=z)
   JP z#3, .bb4; else=.bb5
 
 .bb4:
-  JP .bb6
+  LD r8#18, r8#4
+  LD r8#19, r8#3
+  LD C, r8#19
+  LD B, r8#18
+  RET
 
 .bb5:
-  LD r8#20, $01
-  LD r8#21, $00
-  LD r8#22, r8#21
-  LD r8#23, r8#20
+  LD r8#22, $01
+  LD r8#23, $00
   LD A, r8#1
-  AND A, r8#23; z, c
+  AND A, r8#22; z, c
   LD r8#25, A
   LD A, r8#2
-  AND A, r8#22; z, c
+  AND A, r8#23; z, c
   LD r8#27, A
   LD r8#28, $00
   LD r8#29, $00
-  LD r8#30, r8#29
-  LD r8#31, r8#28
   LD A, r8#25
-  SUB A, r8#31; z, c
+  SUB A, r8#28; z, c
   LD A, r8#27
-  SBC A, r8#30; z, c
+  SBC A, r8#29; z, c
   (out=z#8,in=z)
-  JP z#8, .bb7; else=.bb8
+  JP z#8, .bb6; else=.bb7
 
 .bb6:
-  LD r8#34, r8#4
-  LD r8#35, r8#3
-  LD C, r8#35
-  LD B, r8#34
-  RET
+  LD r8#32, r8#2
+  SRL r8#32; z, c
+  LD r8#33, r8#1
+  RR r8#33; z, c
+  LD r8#5, r8#33
+  LD r8#6, r8#32
+  JP .bb8
 
 .bb7:
-  LD r8#38, r8#2
-  SRL r8#38; z, c
-  LD r8#39, r8#1
-  RR r8#39; z, c
-  LD r8#5, r8#39
-  LD r8#6, r8#38
-  JP .bb9
-
-.bb8:
   LD A, r8#1
   ADD A, r8#1; z, c
-  LD r8#41, A
+  LD r8#35, A
   LD A, r8#2
   ADC A, r8#2; z, c
-  LD r8#43, A
-  LD A, r8#41
+  LD r8#37, A
+  LD A, r8#35
   ADD A, r8#1; z, c
-  LD r8#45, A
-  LD A, r8#43
+  LD r8#39, A
+  LD A, r8#37
   ADC A, r8#2; z, c
+  LD r8#41, A
+  LD r8#42, $01
+  LD r8#43, $00
+  LD A, r8#39
+  ADD A, r8#42; z, c
+  LD r8#45, A
+  LD A, r8#41
+  ADC A, r8#43; z, c
   LD r8#47, A
+  LD r8#5, r8#45
+  LD r8#6, r8#47
+  JP .bb8
+
+.bb8:
   LD r8#48, $01
   LD r8#49, $00
-  LD r8#50, r8#49
-  LD r8#51, r8#48
-  LD A, r8#45
-  ADD A, r8#51; z, c
-  LD r8#53, A
-  LD A, r8#47
-  ADC A, r8#50; z, c
-  LD r8#55, A
-  LD r8#5, r8#53
-  LD r8#6, r8#55
-  JP .bb9
-
-.bb9:
-  LD r8#56, $01
-  LD r8#57, $00
-  LD r8#58, r8#57
-  LD r8#59, r8#56
-  LD r8#60, r8#4
-  LD r8#61, r8#3
   LD A, r8#3
-  ADD A, r8#59; z, c
-  LD r8#63, A
+  ADD A, r8#48; z, c
+  LD r8#51, A
   LD A, r8#4
-  ADC A, r8#58; z, c
-  LD r8#65, A
+  ADC A, r8#49; z, c
+  LD r8#53, A
   LD r8#1, r8#5
   LD r8#2, r8#6
-  LD r8#3, r8#63
-  LD r8#4, r8#65
+  LD r8#3, r8#51
+  LD r8#4, r8#53
   JP .bb3
 
-.bb10:
+.bb9:
   LD BC, RETURN
   (high_out=B;low_out=C;in=BC)
-  LD r8#73, C
-  LD r8#74, B
+  LD r8#59, C
+  LD r8#60, B
   LD HL, RESULT+$0000
-  LD A, r8#73
+  LD A, r8#59
   LD [HL++], A
-  LD [HL], r8#74
+  LD [HL], r8#60
   RET
 
 END_SECTION
@@ -964,13 +938,13 @@ collatz_steps::
   LD B, A
   LD A, [HL]
   LD H, $00
-  LD E, $00
+  LD D, $00
   LD C, B
-  LD D, A
+  LD E, A
   LD B, H
   LD HL SP+0; z, c
   LD [HL], B
-  LD A, E
+  LD A, D
   LD HL SP+1; z, c
   LD [HL], A
   JP .bb3
@@ -982,38 +956,18 @@ main::
   LD HL, N+$0000
   LD [HL++], A
   LD [HL], B
-  CALL collatz_steps; return=.bb10
+  CALL collatz_steps; return=.bb9
 
 .bb3:
   LD B, $01
-  LD E, $00
+  LD D, $00
   LD A, C
   SUB A, B; z, c
-  LD A, D
-  SBC A, E; z, c
+  LD A, E
+  SBC A, D; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
-  JP .bb6
-
-.bb5:
-  LD E, $01
-  LD B, $00
-  LD A, C
-  AND A, E; z, c
-  LD E, A
-  LD A, D
-  AND A, B; z, c
-  LD B, A
-  LD L, $00
-  LD H, $00
-  LD A, E
-  SUB A, L; z, c
-  LD A, B
-  SBC A, H; z, c
-  JP z, .bb7; else=.bb8
-
-.bb6:
   LD HL SP+1; z, c
   LD B, [HL]
   LD HL SP+0; z, c
@@ -1021,66 +975,79 @@ main::
   ADD SP 2; z, c
   RET
 
-.bb7:
+.bb5:
+  LD B, $01
+  LD D, $00
+  LD A, C
+  AND A, B; z, c
+  LD B, A
+  LD A, E
+  AND A, D; z, c
+  LD D, A
+  LD L, $00
+  LD H, $00
+  LD A, B
+  SUB A, L; z, c
   LD A, D
+  SBC A, H; z, c
+  JP z, .bb6; else=.bb7
+
+.bb6:
+  LD A, E
   SRL A; z, c
   LD B, C
   RR B; z, c
-  LD C, B
-  LD E, A
-  JP .bb9
-
-.bb8:
-  LD A, C
-  ADD A, C; z, c
+  LD E, B
   LD B, A
-  LD A, D
-  ADC A, D; z, c
-  LD E, A
-  LD A, B
+  JP .bb8
+
+.bb7:
+  LD A, C
   ADD A, C; z, c
   LD B, A
   LD A, E
-  ADC A, D; z, c
-  LD C, A
-  LD E, $01
-  LD D, $00
+  ADC A, E; z, c
+  LD D, A
   LD A, B
-  ADD A, E; z, c
+  ADD A, C; z, c
+  LD B, A
+  LD A, D
+  ADC A, E; z, c
+  LD C, A
+  LD D, $01
+  LD E, $00
+  LD A, B
+  ADD A, D; z, c
   LD B, A
   LD A, C
-  ADC A, D; z, c
-  LD C, B
-  LD E, A
-  JP .bb9
+  ADC A, E; z, c
+  LD E, B
+  LD B, A
+  JP .bb8
 
-.bb9:
-  LD A, $01
-  LD B, $00
-  LD D, B
-  LD B, A
-  LD HL SP+1; z, c
-  LD A, [HL]
+.bb8:
+  LD D, $01
+  LD C, $00
   LD HL SP+0; z, c
   LD A, [HL]
-  LD HL SP+0; z, c
-  LD A, [HL]
-  ADD A, B; z, c
-  LD B, A
+  ADD A, D; z, c
+  LD D, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+3; z, c
   LD H, [HL]
   POP AF(high_out=A); z, c
   LD A, H
-  ADC A, D; z, c
-  LD D, E
+  ADC A, C; z, c
+  LD C, E
+  LD E, B
+  LD B, D
   LD HL SP+0; z, c
   LD [HL], B
   LD HL SP+1; z, c
   LD [HL], A
   JP .bb3
 
-.bb10:
+.bb9:
   LD HL, RESULT+$0000
   LD A, C
   LD [HL++], A

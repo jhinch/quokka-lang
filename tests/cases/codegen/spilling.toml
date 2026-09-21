@@ -9,6 +9,7 @@
 name = "r8_pressure_forces_spill_codegen"
 kind = "codegen"
 optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune"]
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
 START_SECTION WRAM0
@@ -337,6 +338,7 @@ END_SECTION
 name = "r8_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
@@ -674,6 +676,7 @@ END_SECTION
 name = "r16_pressure_forces_spill_codegen"
 kind = "codegen"
 optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune"]
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
 START_SECTION WRAM0
@@ -982,6 +985,7 @@ END_SECTION
 name = "r16_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
@@ -1331,8 +1335,8 @@ END_SECTION
 name = "bulk_copy_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
-preview_features = ["bulk-copy"]
 source.file = "spilling_bulk_copy_pressure.q"
 expected_lir = """
 START_SECTION ROM0

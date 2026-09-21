@@ -6,7 +6,6 @@
 [[case]]
 name = "bulk_copy_codegen"
 kind = "codegen"
-preview_features = ["bulk-copy"]
 source = """
 global A: [u8; 4];
 global B: [u8; 4];
@@ -228,7 +227,6 @@ END_SECTION
 name = "bulk_copy_allocate_registers"
 kind = "codegen"
 allocate_registers = true
-preview_features = ["bulk-copy"]
 source = """
 global A: [u8; 4];
 global B: [u8; 4];
@@ -448,7 +446,6 @@ END_SECTION
 name = "bulk_copy_large_allocate_registers"
 kind = "codegen"
 allocate_registers = true
-preview_features = ["bulk-copy"]
 source = """
 global A: [u8; 300];
 global B: [u8; 300];
@@ -667,7 +664,6 @@ END_SECTION
 [[case]]
 name = "bulk_fill_codegen"
 kind = "codegen"
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 4];
 
@@ -880,7 +876,6 @@ END_SECTION
 name = "bulk_fill_allocate_registers"
 kind = "codegen"
 allocate_registers = true
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 4];
 
@@ -1092,7 +1087,6 @@ END_SECTION
 name = "bulk_fill_large_allocate_registers"
 kind = "codegen"
 allocate_registers = true
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 300];
 

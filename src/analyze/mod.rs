@@ -1594,9 +1594,9 @@ impl Analyzer {
 
     /// Analyzes the right-hand side of a whole-aggregate assignment into `dest_global` (a bare
     /// global identifier whose type, `dest_ty`, is too large to fit in a local). Lowers a
-    /// global-to-global copy to `Instr::Transfer` (gated on `bulk-copy`) and a constant array
-    /// fill to `Instr::Fill` (gated on `bulk-fill`); anything else is a dedicated diagnostic
-    /// rather than falling through to the (invalid) local-materializing path.
+    /// global-to-global copy to `Instr::Transfer` and a constant array fill to `Instr::Fill`;
+    /// anything else is a dedicated diagnostic rather than falling through to the (invalid)
+    /// local-materializing path.
     #[allow(clippy::too_many_arguments)]
     fn analyze_bulk_assign_expr(
         &mut self,
@@ -1618,11 +1618,6 @@ impl Analyzer {
 
         match &op.right.data {
             ast::ExprData::Place(rhs_place) => {
-                self.features.check_enabled(
-                    PreviewFeature::BulkCopy,
-                    op.right.span,
-                    &mut self.result_builder,
-                );
                 let (new_block, source_ty, resolved_source) =
                     self.resolve_place(rhs_place, block, mir, type_solver, scopes);
                 block = new_block;
@@ -1656,11 +1651,6 @@ impl Analyzer {
                 }
             }
             ast::ExprData::Repeat(repeat_expr) => {
-                self.features.check_enabled(
-                    PreviewFeature::BulkFill,
-                    op.right.span,
-                    &mut self.result_builder,
-                );
                 if !target_ty.is_array() {
                     self.result_builder
                         .add_error(BulkAssignUnsupportedRhsError {

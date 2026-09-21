@@ -23,16 +23,12 @@ pub enum PreviewFeature {
     ConstLoop,
     /// enable calling a function through a function-pointer local/global variable
     FnPtr,
-    /// enable whole-aggregate copy assignment (`dst = src`) lowering to a runtime copy loop
-    BulkCopy,
-    /// enable whole-aggregate fill assignment (`dst = [value; N]`) lowering to a runtime fill loop
-    BulkFill,
-    /// enable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
-    Adce,
-    /// enable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
-    Sccp,
-    /// enable prune (nop and basic block) optimization pass on MIR
-    Prune,
+    /// disable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
+    NoAdce,
+    /// disable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
+    NoSccp,
+    /// disable prune (nop and basic block) optimization pass on MIR
+    NoPrune,
     /// disable tree shake (functions and globals) optimization pass on MIR
     NoTreeShake,
 }
@@ -51,17 +47,18 @@ impl PreviewFeature {
     /// preview features that opt in to an optimization pass on MIR.
     #[must_use]
     pub fn optimization_features() -> &'static [PreviewFeature] {
-        &[
-            PreviewFeature::Adce,
-            PreviewFeature::Sccp,
-            PreviewFeature::Prune,
-        ]
+        &[]
     }
 
     /// preview features that opt out of a default MIR optimization behavior.
     #[must_use]
     pub fn optimization_opt_out_features() -> &'static [PreviewFeature] {
-        &[PreviewFeature::NoTreeShake]
+        &[
+            PreviewFeature::NoAdce,
+            PreviewFeature::NoSccp,
+            PreviewFeature::NoPrune,
+            PreviewFeature::NoTreeShake,
+        ]
     }
 }
 

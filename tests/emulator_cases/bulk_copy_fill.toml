@@ -31,7 +31,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-copy", "bulk-fill"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
@@ -94,7 +93,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-copy", "bulk-fill"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
@@ -152,7 +150,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-copy", "bulk-fill"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC100
@@ -200,7 +197,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-copy", "bulk-fill"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC200
@@ -271,7 +267,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-copy"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC010
@@ -326,7 +321,6 @@ fn main() {
     checkpoint();
 }
 """
-preview_features = ["bulk-fill"]
 await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC010

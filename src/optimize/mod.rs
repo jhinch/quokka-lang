@@ -37,16 +37,16 @@ impl Optimizer {
 
     fn initialize_optimizations(&self) -> Vec<Box<dyn Optimize>> {
         let mut optimizations = Vec::<Box<dyn Optimize>>::new();
-        if self.features.is_enabled(PreviewFeature::Adce) {
+        if !self.features.is_enabled(PreviewFeature::NoAdce) {
             optimizations.push(Box::new(adce::Adce));
         }
-        if self.features.is_enabled(PreviewFeature::Sccp) {
+        if !self.features.is_enabled(PreviewFeature::NoSccp) {
             optimizations.push(Box::new(sccp::Sccp));
         }
         if !self.features.is_enabled(PreviewFeature::NoTreeShake) {
             optimizations.push(Box::new(tree_shake::TreeShake));
         }
-        if self.features.is_enabled(PreviewFeature::Prune) {
+        if !self.features.is_enabled(PreviewFeature::NoPrune) {
             optimizations.push(Box::new(prune::Prune));
         }
         optimizations
@@ -269,27 +269,39 @@ mod tests {
 
     // --- Optimizer::optimize (feature gating + round-based fixpoint) ---
 
+    fn optimizer_with(features: &[PreviewFeature]) -> Optimizer {
+        let mut optimizer = Optimizer::default();
+        for &feature in features {
+            optimizer.enable_feature(feature);
+        }
+        optimizer
+    }
+
     #[test]
-    fn optimizer_with_no_features_enabled_is_a_noop() {
+    fn optimizer_with_every_pass_opted_out_is_a_noop() {
         let (mut mir, ty_registry) = single_function_mir(function_with_dead_add_and_nop());
         let before = instr_count(&mir);
-        Optimizer::default()
+        optimizer_with(PreviewFeature::optimization_opt_out_features())
             .optimize(&ty_registry, &mut mir)
             .unwrap();
         assert_eq!(instr_count(&mir), before);
         assert_eq!(
             nop_count(&mir),
             1,
-            "the literal Nop is untouched without Prune enabled"
+            "the literal Nop is untouched with every pass opted out"
         );
     }
 
     #[test]
-    fn optimizer_only_runs_explicitly_enabled_passes() {
+    fn optimizer_only_runs_passes_that_are_not_opted_out() {
         let (mut mir, ty_registry) = single_function_mir(function_with_dead_add_and_nop());
-        let mut optimizer = Optimizer::default();
-        optimizer.enable_feature(PreviewFeature::Prune);
-        optimizer.optimize(&ty_registry, &mut mir).unwrap();
+        optimizer_with(&[
+            PreviewFeature::NoAdce,
+            PreviewFeature::NoSccp,
+            PreviewFeature::NoTreeShake,
+        ])
+        .optimize(&ty_registry, &mut mir)
+        .unwrap();
         // Prune removes the literal Nop but cannot know the Add is dead (that's Adce's job)
         assert_eq!(nop_count(&mir), 0);
         let has_dead_add = mir
@@ -307,10 +319,9 @@ mod tests {
     #[test]
     fn optimizer_combines_adce_and_prune_across_rounds_to_fully_clean_up() {
         let (mut mir, ty_registry) = single_function_mir(function_with_dead_add_and_nop());
-        let mut optimizer = Optimizer::default();
-        optimizer.enable_feature(PreviewFeature::Adce);
-        optimizer.enable_feature(PreviewFeature::Prune);
-        optimizer.optimize(&ty_registry, &mut mir).unwrap();
+        optimizer_with(&[PreviewFeature::NoSccp, PreviewFeature::NoTreeShake])
+            .optimize(&ty_registry, &mut mir)
+            .unwrap();
         assert_eq!(nop_count(&mir), 0);
         let has_dead_add = mir
             .functions

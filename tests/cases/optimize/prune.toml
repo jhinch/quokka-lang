@@ -2,7 +2,7 @@
 name = "prune_alone_does_not_touch_ordinary_compiled_mir"
 kind = "analyzer"
 optimize = true
-preview_features = ["prune"]
+preview_features = ["no-adce", "no-sccp"]
 source = """
 global N: u8;
 
@@ -52,7 +52,7 @@ main -> unit:
 name = "adce_then_prune_fully_removes_a_dead_branch_in_one_round"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce", "prune"]
+preview_features = ["no-sccp"]
 source = """
 global N: u8;
 
@@ -92,7 +92,7 @@ main -> unit:
 name = "diamond_blocks_with_empty_branch_trims_empty_block"
 kind = "analyzer"
 optimize = true
-preview_features = ["prune"]
+preview_features = ["no-adce", "no-sccp"]
 source = """
 global N: u8;
 

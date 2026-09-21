@@ -2,7 +2,7 @@
 name = "folds_constant_arithmetic_into_a_literal"
 kind = "analyzer"
 optimize = true
-preview_features = ["sccp"]
+preview_features = ["no-adce", "no-prune"]
 source = """
 global N: u8;
 
@@ -42,7 +42,7 @@ main -> unit:
 name = "folds_comparison_against_an_immutable_const_and_prunes_the_branch"
 kind = "analyzer"
 optimize = true
-preview_features = ["sccp"]
+preview_features = ["no-adce", "no-prune"]
 source = """
 const K: u8 = 5;
 
@@ -82,7 +82,7 @@ main -> unit:
 name = "phi_folds_to_a_literal_when_every_arm_agrees"
 kind = "analyzer"
 optimize = true
-preview_features = ["sccp"]
+preview_features = ["no-adce", "no-prune"]
 source = """
 global N: u8;
 
@@ -134,7 +134,7 @@ main -> unit:
 name = "rewrites_a_comparisons_literal_operand_directly_into_the_instruction"
 kind = "analyzer"
 optimize = true
-preview_features = ["sccp"]
+preview_features = ["no-adce", "no-prune"]
 source = """
 global N: u8;
 

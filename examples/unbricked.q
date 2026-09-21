@@ -443,7 +443,7 @@ fn clear_oam() {
     // ```
     //      OAM = [Sprite { y: 0, x: 0, tile_index: 0, flags: 0, }; 40];
     // ```
-    // Unfortunately, bulk-fill only supports raw bytes currently, not arbitrary constants.
+    // Unfortunately, bulk fill only supports raw bytes currently, not arbitrary constants.
     // We could model OAM as a byte array and use that, but instead, it is more typesafe to
     // model it with structs and just accept that clearing OAM (which only is used at startup)
     // takes a little bit longer

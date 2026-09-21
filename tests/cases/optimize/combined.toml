@@ -2,7 +2,6 @@
 name = "all_three_passes_converge_on_a_branchy_function"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce", "sccp", "prune"]
 source = """
 global N: u8;
 
@@ -44,7 +43,6 @@ main -> unit:
 name = "all_three_passes_converge_on_a_loop"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce", "sccp", "prune"]
 source = """
 global N: u8;
 

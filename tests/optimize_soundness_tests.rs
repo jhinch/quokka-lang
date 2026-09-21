@@ -14,9 +14,9 @@
 //! source code would miss.
 //!
 //! For every case, one trial is generated per individual opt-in optimization feature (see
-//! [`PreviewFeature::optimization_features`]), one per individual opt-out feature (see
-//! [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in optimization
-//! feature enabled together.
+//! [`PreviewFeature::optimization_features`], currently empty), one per individual opt-out
+//! feature (see [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in
+//! optimization feature enabled together (i.e. the default optimizer configuration).
 //!
 //! Limitations: `consteval::evaluate` does not support function calls or `Store`, so every target
 //! function is a single, side-effect-free function that only reads globals and returns a value

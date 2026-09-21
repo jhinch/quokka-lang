@@ -2,7 +2,7 @@
 name = "keeps_transfer_and_fill_even_when_results_are_unused"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce", "bulk-copy", "bulk-fill"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global A: [u8; 20];
 global B: [u8; 20];
@@ -30,7 +30,7 @@ main -> unit:
 name = "removes_dead_straight_line_computation"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global N: u8;
 
@@ -68,7 +68,7 @@ main -> unit:
 name = "keeps_load_and_store_even_when_results_are_unused"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global N: u8;
 global M: u8;
@@ -108,7 +108,7 @@ main -> unit:
 name = "collapses_branch_whose_result_is_discarded"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global N: u8;
 
@@ -154,7 +154,7 @@ main -> unit:
 name = "preserves_branch_that_controls_the_return_value"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global N: u8;
 
@@ -206,7 +206,7 @@ main -> unit:
 name = "collapses_return_if_when_else_arm_is_dead"
 kind = "analyzer"
 optimize = true
-preview_features = ["adce"]
+preview_features = ["no-sccp", "no-prune"]
 source = """
 global N: u8;
 

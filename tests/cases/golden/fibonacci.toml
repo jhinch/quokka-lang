@@ -747,16 +747,13 @@ global RESULTS: [u8; 10]
 fibonacci -> u8:
   .bb1:
     n#2: u8 = load FIBONACCI_N
-    #3: u8 = copy 0
-    #4: u1 = eq n#2, #3
+    #4: u1 = eq n#2, 0
     jumpif #4 != 0, .bb2, .bb3
   .bb2:
-    #5: u8 = copy 0
-    #RET: u8 = copy #5
+    #RET: u8 = copy 0
     return
   .bb3:
-    #6: u8 = copy 1
-    n#7: u8 = add n#2, #6
+    n#7: u8 = add n#2, 1
     a#8: u8 = copy 0
     b#9: u8 = copy 1
     i#10: u8 = copy 2
@@ -767,17 +764,14 @@ fibonacci -> u8:
     #13: u1 = ge i#11, n#12
     a#14: u8 = phi a#8 <- .bb3, b#15 <- .bb9
     b#15: u8 = phi b#9 <- .bb3, c#16 <- .bb9
-    jumpif #13 != 0, .bb8, .bb9
-  .bb8:
-    jump .bb7
-  .bb9:
-    c#16: u8 = add a#14, b#15
-    #17: u8 = copy 1
-    i#18: u8 = add i#11, #17
-    jump .bb6
+    jumpif #13 != 0, .bb7, .bb9
   .bb7:
     #RET: u8 = copy b#15
     return
+  .bb9:
+    c#16: u8 = add a#14, b#15
+    i#18: u8 = add i#11, 1
+    jump .bb6
 
 @{"entrypoint":true}
 main -> unit:
@@ -787,24 +781,19 @@ main -> unit:
     jump .bb2
   .bb2:
     i#3: u16 = phi i#1 <- .bb1, i#9 <- .bb8
-    #4: u16 = copy 10
-    #5: u1 = eq i#3, #4
+    #5: u1 = eq i#3, 10
     n#6: u8 = phi n#2 <- .bb1, n#11 <- .bb8
-    jumpif #5 != 0, .bb4, .bb5
-  .bb4:
-    jump .bb3
+    jumpif #5 != 0, .bb3, .bb5
+  .bb3:
+    return
   .bb5:
     store FIBONACCI_N = n#6
     call fibonacci, .bb8
-  .bb3:
-    return
   .bb8:
     #7: u8 = returnvalue
     store RESULTS[i#3] = #7
-    #8: u16 = copy 1
-    i#9: u16 = add i#3, #8
-    #10: u8 = copy 1
-    n#11: u8 = add n#6, #10
+    i#9: u16 = add i#3, 1
+    n#11: u8 = add n#6, 1
     jump .bb2
 """
 
@@ -829,119 +818,104 @@ fibonacci::
 .bb1:
   LD HL, FIBONACCI_N+$0000
   LD r8#4, [HL]
-  LD r8#5, $00
   LD A, r8#4
-  CP A, r8#5; z, c
+  CP A, $00; z, c
   (out=z#2,in=z)
   JP z#2, .bb3; else=.bb4
 
 main::
 .bb2:
+  LD r8#24, $00
+  LD r8#25, $00
+  LD r8#26, r8#25
+  LD r8#27, r8#24
   LD r8#28, $00
-  LD r8#29, $00
-  LD r8#30, r8#29
-  LD r8#31, r8#28
-  LD r8#32, $00
-  LD r8#27, r8#32
-  LD r8#25, r8#31
-  LD r8#26, r8#30
-  JP .bb9
+  LD r8#23, r8#28
+  LD r8#21, r8#27
+  LD r8#22, r8#26
+  JP .bb8
 
 .bb3:
-  LD r8#7, $00
-  LD r8#8, r8#7
-  LD A, r8#8
+  LD r8#6, $00
+  LD A, r8#6
   RET
 
 .bb4:
-  LD r8#10, $01
   LD A, r8#4
-  ADD A, r8#10; z, c
-  LD r8#12, A
-  LD r8#13, $00
-  LD r8#14, $01
-  LD r8#15, $02
-  LD r8#1, r8#15
-  LD r8#2, r8#13
-  LD r8#3, r8#14
+  ADD A, $01; z, c
+  LD r8#9, A
+  LD r8#10, $00
+  LD r8#11, $01
+  LD r8#12, $02
+  LD r8#1, r8#12
+  LD r8#2, r8#10
+  LD r8#3, r8#11
   JP .bb5
 
 .bb5:
-  LD r8#16, r8#12
+  LD r8#13, r8#9
   LD A, r8#1
-  CP A, r8#16; z, c
+  CP A, r8#13; z, c
   (out=c#4,in=c)
   JP nc#4, .bb6; else=.bb7
 
 .bb6:
-  JP .bb8
+  LD r8#15, r8#3
+  LD A, r8#15
+  RET
 
 .bb7:
   LD A, r8#2
   ADD A, r8#3; z, c
-  LD r8#19, A
-  LD r8#20, $01
+  LD r8#18, A
   LD A, r8#1
-  ADD A, r8#20; z, c
-  LD r8#22, A
-  LD r8#1, r8#22
+  ADD A, $01; z, c
+  LD r8#20, A
+  LD r8#1, r8#20
   LD r8#2, r8#3
-  LD r8#3, r8#19
+  LD r8#3, r8#18
   JP .bb5
 
 .bb8:
-  LD r8#23, r8#3
-  LD A, r8#23
-  RET
+  LD r8#29, $0a
+  LD r8#30, $00
+  LD A, r8#21
+  SUB A, r8#29; z, c
+  LD A, r8#22
+  SBC A, r8#30; z, c
+  (out=z#9,in=z)
+  JP z#9, .bb9; else=.bb10
 
 .bb9:
-  LD r8#33, $0a
-  LD r8#34, $00
-  LD r8#35, r8#34
-  LD r8#36, r8#33
-  LD A, r8#25
-  SUB A, r8#36; z, c
-  LD A, r8#26
-  SBC A, r8#35; z, c
-  (out=z#9,in=z)
-  JP z#9, .bb10; else=.bb11
-
-.bb10:
-  JP .bb12
-
-.bb11:
-  LD HL, FIBONACCI_N+$0000
-  LD [HL], r8#27
-  CALL fibonacci; return=.bb13
-
-.bb12:
   RET
 
-.bb13:
+.bb10:
+  LD HL, FIBONACCI_N+$0000
+  LD [HL], r8#23
+  CALL fibonacci; return=.bb11
+
+.bb11:
   LD A, RETURN
-  LD r8#40, A
-  (out=r16#3;high_in=r8#26;low_in=r8#25)
+  LD r8#34, A
+  (out=r16#3;high_in=r8#22;low_in=r8#21)
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
-  LD [HL], r8#40
-  LD r8#41, $01
-  LD r8#42, $00
-  LD r8#43, r8#42
-  LD r8#44, r8#41
-  LD A, r8#25
-  ADD A, r8#44; z, c
-  LD r8#46, A
-  LD A, r8#26
-  ADC A, r8#43; z, c
-  LD r8#48, A
-  LD r8#49, $01
-  LD A, r8#27
-  ADD A, r8#49; z, c
-  LD r8#51, A
-  LD r8#27, r8#51
-  LD r8#25, r8#46
-  LD r8#26, r8#48
-  JP .bb9
+  LD [HL], r8#34
+  LD r8#35, $01
+  LD r8#36, $00
+  LD A, r8#21
+  ADD A, r8#35; z, c
+  LD r8#38, A
+  LD A, r8#22
+  ADC A, r8#36; z, c
+  LD r8#40, A
+  LD A, r8#23
+  ADD A, $01; z, c
+  LD r8#42, A
+  LD r8#23, r8#42
+  LD r8#21, r8#38
+  LD r8#22, r8#40
+  JP .bb8
 
 END_SECTION
 
@@ -1150,8 +1124,7 @@ fibonacci::
 .bb1:
   LD HL, FIBONACCI_N+$0000
   LD A, [HL]
-  LD B, $00
-  CP A, B; z, c
+  CP A, $00; z, c
   JP z, .bb3; else=.bb4
 
 main::
@@ -1168,49 +1141,43 @@ main::
   LD A, B
   LD HL SP+0; z, c
   LD [HL], A
-  JP .bb9
+  JP .bb8
 
 .bb3:
   LD A, $00
   RET
 
 .bb4:
-  LD B, $01
-  ADD A, B; z, c
-  LD D, A
-  LD H, $00
-  LD E, $01
-  LD C, $02
+  ADD A, $01; z, c
+  LD E, A
+  LD C, $00
+  LD D, $01
+  LD B, $02
   JP .bb5
 
 .bb5:
-  LD A, C
-  CP A, D; z, c
+  LD A, B
+  CP A, E; z, c
   JP nc, .bb6; else=.bb7
 
 .bb6:
-  JP .bb8
+  LD A, D
+  RET
 
 .bb7:
-  LD A, H
-  ADD A, E; z, c
-  LD B, A
-  LD H, $01
   LD A, C
-  ADD A, H; z, c
-  LD C, A
-  LD H, E
-  LD E, B
+  ADD A, D; z, c
+  LD H, A
+  LD A, B
+  ADD A, $01; z, c
+  LD B, A
+  LD C, D
+  LD D, H
   JP .bb5
 
 .bb8:
-  LD A, E
-  RET
-
-.bb9:
   LD C, $0a
-  LD A, $00
-  LD B, A
+  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
   SUB A, C; z, c
@@ -1220,25 +1187,22 @@ main::
   POP AF(high_out=A); z, c
   LD A, C
   SBC A, B; z, c
-  JP z, .bb10; else=.bb11
+  JP z, .bb9; else=.bb10
+
+.bb9:
+  ADD SP 3; z, c
+  RET
 
 .bb10:
-  JP .bb12
-
-.bb11:
   LD HL, FIBONACCI_N+$0000
   PUSH HL
   LD HL SP+4; z, c
   LD A, [HL]
   POP HL
   LD [HL], A
-  CALL fibonacci; return=.bb13
+  CALL fibonacci; return=.bb11
 
-.bb12:
-  ADD SP 3; z, c
-  RET
-
-.bb13:
+.bb11:
   LD HL SP+1; z, c
   LD C, [HL]
   LD HL SP+0; z, c
@@ -1247,8 +1211,7 @@ main::
   ADD HL, BC; c
   LD [HL], A
   LD C, $01
-  LD A, $00
-  LD B, A
+  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
   ADD A, C; z, c
@@ -1260,10 +1223,9 @@ main::
   LD A, D
   ADC A, B; z, c
   LD B, A
-  LD D, $01
   LD HL SP+2; z, c
   LD A, [HL]
-  ADD A, D; z, c
+  ADD A, $01; z, c
   LD HL SP+2; z, c
   LD [HL], A
   LD A, C
@@ -1272,7 +1234,7 @@ main::
   LD A, B
   LD HL SP+0; z, c
   LD [HL], A
-  JP .bb9
+  JP .bb8
 
 END_SECTION
 

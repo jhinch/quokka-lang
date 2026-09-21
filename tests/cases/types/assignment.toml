@@ -62,27 +62,8 @@ main -> unit:
 """
 
 [[case]]
-name = "assign_oversized_struct_global_to_global_without_preview"
+name = "assign_oversized_struct_global_to_global"
 kind = "analyzer"
-source = """
-struct Point {
-    x: u16,
-    y: u16,
-}
-global A: Point;
-global B: Point;
-fn main() {
-    A = B;
-}
-"""
-expected_errors = [
-    "Preview feature error: use --preview bulk-copy @ [95:96]",
-]
-
-[[case]]
-name = "assign_oversized_struct_global_to_global_with_preview"
-kind = "analyzer"
-preview_features = ["bulk-copy"]
 source = """
 struct Point {
     x: u16,
@@ -106,9 +87,8 @@ main -> unit:
 """
 
 [[case]]
-name = "assign_oversized_array_global_to_global_with_preview"
+name = "assign_oversized_array_global_to_global"
 kind = "analyzer"
-preview_features = ["bulk-copy"]
 source = """
 global A: [u8; 20];
 global B: [u8; 20];
@@ -130,7 +110,6 @@ main -> unit:
 [[case]]
 name = "assign_oversized_global_copy_mismatched_type"
 kind = "analyzer"
-preview_features = ["bulk-copy"]
 source = """
 struct Point {
     x: u16,
@@ -149,7 +128,6 @@ expected_errors = [
 [[case]]
 name = "assign_oversized_global_copy_array_literal_unsupported"
 kind = "analyzer"
-preview_features = ["bulk-copy"]
 source = """
 global A: [u8; 20];
 fn main() {
@@ -161,22 +139,8 @@ expected_errors = [
 ]
 
 [[case]]
-name = "assign_oversized_global_fill_without_preview"
+name = "assign_oversized_global_fill"
 kind = "analyzer"
-source = """
-global A: [u8; 20];
-fn main() {
-    A = [0; 20];
-}
-"""
-expected_errors = [
-    "Preview feature error: use --preview bulk-fill @ [40:47]",
-]
-
-[[case]]
-name = "assign_oversized_global_fill_with_preview"
-kind = "analyzer"
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 20];
 fn main() {
@@ -194,9 +158,8 @@ main -> unit:
 """
 
 [[case]]
-name = "assign_oversized_global_fill_negative_i8_with_preview"
+name = "assign_oversized_global_fill_negative_i8"
 kind = "analyzer"
-preview_features = ["bulk-fill"]
 source = """
 global A: [i8; 20];
 fn main() {
@@ -216,7 +179,6 @@ main -> unit:
 [[case]]
 name = "assign_oversized_global_fill_non_u8_item_type"
 kind = "analyzer"
-preview_features = ["bulk-fill"]
 source = """
 global A: [u16; 20];
 fn main() {
@@ -230,7 +192,6 @@ expected_errors = [
 [[case]]
 name = "assign_oversized_global_fill_non_constant_value"
 kind = "analyzer"
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 20];
 fn main() {
@@ -245,7 +206,6 @@ expected_errors = [
 [[case]]
 name = "assign_oversized_global_fill_count_mismatch"
 kind = "analyzer"
-preview_features = ["bulk-fill"]
 source = """
 global A: [u8; 20];
 fn main() {
@@ -259,7 +219,6 @@ expected_errors = [
 [[case]]
 name = "assign_oversized_global_copy_value_not_usable"
 kind = "analyzer"
-preview_features = ["bulk-copy"]
 source = """
 struct Point {
     x: u16,

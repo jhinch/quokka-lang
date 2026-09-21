@@ -113,7 +113,7 @@ kind = "analyzer"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
 # optimize (optional) enables optimization on MIR. Defaults to false.
-# Individual optimizations may still require preview_features if still in preview
+# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via preview_features
 optimize = true
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
@@ -146,7 +146,7 @@ kind = "codegen"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
 # optimize (optional) enables optimization on MIR. Defaults to false.
-# Individual optimizations may still require preview_features if still in preview
+# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via preview_features
 optimize = true
 # allocate_registers (optional) enables register allocation on LIR. Defaults to false.
 allocate_registers = true
