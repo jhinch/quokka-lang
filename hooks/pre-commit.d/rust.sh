@@ -21,7 +21,8 @@ if [ -z "$DIRTY_STAGED_FILES" ]; then
     cargo clippy --fix --allow-dirty --workspace --locked
     cargo fmt --all
 
-    git diff --name-only --cached | xargs -r git add
+    # exclude deleted files: they are already staged and `git add` fails on missing paths
+    git diff --name-only --cached --diff-filter=d -z | xargs -0 -r git add
 fi
 
 cargo fmt --all --check
