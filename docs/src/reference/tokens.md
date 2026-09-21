@@ -14,14 +14,14 @@ Keyword             =   StandardKeyword
 Reserved            =   Keyword
                     |   UnusedReserved
                     ;
-StandardKeyword     =   "const" | "else" | "fn"
+StandardKeyword     =   "as" | "const" | "else" | "fn"
                     |   "global" | "if" | "let" | "loop"
                     |   "struct" | "then" | "yield" | "break"
                     |   "return" | "continue"
                     ;
-UnusedReserved      =   "as" | "while" | "do" | "match" | "case"
+UnusedReserved      =   "while" | "do" | "match" | "case"
                     |   "enum" | "false" | "true" | "for" | "switch"
-                    | "in" | "void" | "to" | "mod" | "root"
+                    |   "in" | "void" | "to" | "mod" | "root"
                     ;
 ```
 

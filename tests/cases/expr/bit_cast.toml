@@ -1,0 +1,779 @@
+# Tests for bit cast expressions (`expr as Type`), gated behind the `bit-cast` preview feature.
+
+[[case]]
+name = "bit_cast_simple"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as u16
+"""
+expected_ast = """
+Expr(
+  span: (0, 8),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 1),
+      )),
+    ),
+    ty: TyRef(
+      span: (5, 3),
+      data: Simple(("u16", (5, 3))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_integer_literal"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+1 as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 7),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 1),
+      data: Integer(IntegerLiteral(
+        value: 1,
+      )),
+    ),
+    ty: TyRef(
+      span: (5, 2),
+      data: Simple(("u8", (5, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_chained"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as u16 as i16
+"""
+expected_ast = """
+Expr(
+  span: (0, 15),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 8),
+      data: BitCast(BitCast(
+        expr: Expr(
+          span: (0, 1),
+          data: Place(Place(
+            name: ("a", (0, 1)),
+            span: (0, 1),
+          )),
+        ),
+        ty: TyRef(
+          span: (5, 3),
+          data: Simple(("u16", (5, 3))),
+        ),
+      )),
+    ),
+    ty: TyRef(
+      span: (12, 3),
+      data: Simple(("i16", (12, 3))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_array_type"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as [u8; 2]
+"""
+expected_ast = """
+Expr(
+  span: (0, 12),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 1),
+      )),
+    ),
+    ty: TyRef(
+      span: (5, 7),
+      data: Array(TyRef(
+        span: (6, 2),
+        data: Simple(("u8", (6, 2))),
+      ), 2),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_struct_type"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as BytePair
+"""
+expected_ast = """
+Expr(
+  span: (0, 13),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 1),
+      )),
+    ),
+    ty: TyRef(
+      span: (5, 8),
+      data: Simple(("BytePair", (5, 8))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_field_access_binds_tighter"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a.b as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 9),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 3),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 3),
+        projections: [
+          Field(("b", (2, 1))),
+        ],
+      )),
+    ),
+    ty: TyRef(
+      span: (7, 2),
+      data: Simple(("u8", (7, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_function_call_binds_tighter"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+f() as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 9),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 3),
+      data: Call(Call(
+        callee: Place(
+          name: ("f", (0, 1)),
+          span: (0, 1),
+        ),
+      )),
+    ),
+    ty: TyRef(
+      span: (7, 2),
+      data: Simple(("u8", (7, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_array_index_binds_tighter"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a[0] as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 4),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 4),
+        projections: [
+          Index(Expr(
+            span: (2, 1),
+            data: Integer(IntegerLiteral(
+              value: 0,
+            )),
+          )),
+        ],
+      )),
+    ),
+    ty: TyRef(
+      span: (8, 2),
+      data: Simple(("u8", (8, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_binds_tighter_than_add"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a + b as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 11),
+  data: Arithmetic(ArithmeticOp(
+    kind: Add,
+    left: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 1),
+      )),
+    ),
+    right: Expr(
+      span: (4, 7),
+      data: BitCast(BitCast(
+        expr: Expr(
+          span: (4, 1),
+          data: Place(Place(
+            name: ("b", (4, 1)),
+            span: (4, 1),
+          )),
+        ),
+        ty: TyRef(
+          span: (9, 2),
+          data: Simple(("u8", (9, 2))),
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_binds_tighter_than_comparison"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as u8 == b
+"""
+expected_ast = """
+Expr(
+  span: (0, 12),
+  data: Comparison(ComparisonOp(
+    kind: Eq,
+    left: Expr(
+      span: (0, 7),
+      data: BitCast(BitCast(
+        expr: Expr(
+          span: (0, 1),
+          data: Place(Place(
+            name: ("a", (0, 1)),
+            span: (0, 1),
+          )),
+        ),
+        ty: TyRef(
+          span: (5, 2),
+          data: Simple(("u8", (5, 2))),
+        ),
+      )),
+    ),
+    right: Expr(
+      span: (11, 1),
+      data: Place(Place(
+        name: ("b", (11, 1)),
+        span: (11, 1),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_prefix_neg_binds_tighter"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+-a as i8
+"""
+expected_ast = """
+Expr(
+  span: (0, 8),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 2),
+      data: Unary(UnaryOp(
+        kind: Neg,
+        expr: Expr(
+          span: (1, 1),
+          data: Place(Place(
+            name: ("a", (1, 1)),
+            span: (1, 1),
+          )),
+        ),
+      )),
+    ),
+    ty: TyRef(
+      span: (6, 2),
+      data: Simple(("i8", (6, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_prefix_not_binds_tighter"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+!a as bool
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 2),
+      data: Unary(UnaryOp(
+        kind: Not,
+        expr: Expr(
+          span: (1, 1),
+          data: Place(Place(
+            name: ("a", (1, 1)),
+            span: (1, 1),
+          )),
+        ),
+      )),
+    ),
+    ty: TyRef(
+      span: (6, 4),
+      data: Simple(("bool", (6, 4))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_parenthesized_operand"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+(a + b) as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 13),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 7),
+      data: Paren(Expr(
+        span: (1, 5),
+        data: Arithmetic(ArithmeticOp(
+          kind: Add,
+          left: Expr(
+            span: (1, 1),
+            data: Place(Place(
+              name: ("a", (1, 1)),
+              span: (1, 1),
+            )),
+          ),
+          right: Expr(
+            span: (5, 1),
+            data: Place(Place(
+              name: ("b", (5, 1)),
+              span: (5, 1),
+            )),
+          ),
+        )),
+      )),
+    ),
+    ty: TyRef(
+      span: (11, 2),
+      data: Simple(("u8", (11, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_postfix_shift_operand"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a << as u8
+"""
+expected_ast = """
+Expr(
+  span: (0, 10),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 4),
+      data: Unary(UnaryOp(
+        kind: ShiftLeft,
+        expr: Expr(
+          span: (0, 1),
+          data: Place(Place(
+            name: ("a", (0, 1)),
+            span: (0, 1),
+          )),
+        ),
+      )),
+    ),
+    ty: TyRef(
+      span: (8, 2),
+      data: Simple(("u8", (8, 2))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_without_preview"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a as u16
+"""
+expected_errors = [
+    "Preview feature error: use --preview bit-cast @ [2:4]",
+]
+expected_ast = """
+Expr(
+  span: (0, 8),
+  data: BitCast(BitCast(
+    expr: Expr(
+      span: (0, 1),
+      data: Place(Place(
+        name: ("a", (0, 1)),
+        span: (0, 1),
+      )),
+    ),
+    ty: TyRef(
+      span: (5, 3),
+      data: Simple(("u16", (5, 3))),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "bit_cast_missing_type"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as
+"""
+expected_errors = [
+    "Syntax error: found <EOF> when expecting <ident> @ [5:5]",
+]
+
+[[case]]
+name = "bit_cast_missing_operand"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+as u16
+"""
+expected_errors = [
+    "Syntax error: found as when expecting <number>, <ident>, (, [, !, -, if or loop @ [0:2]",
+]
+
+[[case]]
+name = "bit_cast_non_type_rhs"
+kind = "parser"
+entrypoint = "expr"
+preview_features = [ "bit-cast" ]
+source = """
+a as 1
+"""
+expected_errors = [
+    "Syntax error: found <number> when expecting <ident> @ [5:6]",
+]
+
+# Valid: the example from the bit-casts reference page.
+[[case]]
+name = "bit_cast_reference_example"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct BytePair {
+    low: u8,
+    high: u8,
+}
+
+fn main() {
+    let a: u16 = 512;
+    let b = a as u16;
+    let c = b as i16;
+    let d = c as BytePair;
+    let e = d as [u8; 2];
+}
+"""
+
+# Valid: a value can always be cast to the type it already is.
+[[case]]
+name = "bit_cast_to_same_type"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b = a as u8;
+}
+"""
+
+[[case]]
+name = "bit_cast_integer_literal_inferred_from_target"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a = 255 as i8;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+"""
+
+[[case]]
+name = "bit_cast_signed_unsigned_roundtrip"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: i8 = -1;
+    let b = a as u8;
+    let c = b as i8;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+"""
+
+[[case]]
+name = "bit_cast_array_to_u16"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: [u8; 2] = [1, 2];
+    let b = a as u16;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+"""
+
+[[case]]
+name = "bit_cast_size_mismatch_widen"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b = a as u16;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_size_mismatch_narrow"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: u16 = 1;
+    let b = a as u8;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_size_mismatch_struct"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct BytePair {
+    low: u8,
+    high: u8,
+}
+
+fn main() {
+    let a: u8 = 1;
+    let b = a as BytePair;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_zero_sized_destination"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct Empty {}
+fn main() {
+    let a: Empty = Empty {};
+    let b = a as Empty;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_zero_length_array_destination"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: [u8; 0] = [];
+    let b = a as [u8; 0];
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_padded_struct_to_int"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct Padded {
+    one: u8,
+    _: u8,
+}
+fn main() {
+    let a: Padded = Padded { one: 1 };
+    let b = a as u16;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_int_to_padded_struct"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct Padded {
+    one: u8,
+    _: u8,
+}
+fn main() {
+    let a: u16 = 1;
+    let b = a as Padded;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_padded_struct_to_same_type"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+struct Padded {
+    one: u8,
+    _: u8,
+}
+fn main() {
+    let a: Padded = Padded { one: 1 };
+    let b = a as Padded;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+"""
+
+[[case]]
+name = "bit_cast_narrow_int_padding"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: u4 = 1;
+    let b = a as u8;
+}
+"""
+expected_errors = [
+    "invalid"
+]
+
+[[case]]
+name = "bit_cast_unknown_type"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
+source = """
+fn main() {
+    let a: u8 = 1;
+    let b = a as Missing;
+}
+"""
+expected_errors = [
+    "invalid"
+]

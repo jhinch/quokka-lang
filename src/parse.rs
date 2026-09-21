@@ -724,6 +724,7 @@ impl Parser<'_> {
                 TokenKind::LessThanPercent => OpKind::Unary(UnaryOpKind::RotateLeft),
                 TokenKind::GreaterThanGreaterThan => OpKind::Unary(UnaryOpKind::ShiftRight),
                 TokenKind::GreaterThanPercent => OpKind::Unary(UnaryOpKind::RotateRight),
+                TokenKind::As => OpKind::BitCast,
                 // infix
                 TokenKind::Equal => OpKind::Assign(AssignOpKind::Assign),
                 TokenKind::EqualEqual => OpKind::Comparison(ComparisonOpKind::Eq),
@@ -827,6 +828,18 @@ impl Parser<'_> {
                                 kind,
                                 expr: Box::new(lhs),
                             }),
+                            OpKind::BitCast => {
+                                self.features.check_enabled(
+                                    PreviewFeature::BitCast,
+                                    op_token.span(),
+                                    &mut self.result_builder,
+                                );
+                                let ty = self.parse_ty_ref()?;
+                                ExprData::from(BitCast {
+                                    expr: Box::new(lhs),
+                                    ty,
+                                })
+                            }
                             _ => unimplemented!("{kind:?} is not a postfix op"),
                         }
                     }
@@ -895,7 +908,7 @@ impl Parser<'_> {
 
 fn prefix_binding_power(op: OpKind) -> u8 {
     match op {
-        OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg) => 18,
+        OpKind::Unary(UnaryOpKind::Not | UnaryOpKind::Neg) => 19,
         _ => unimplemented!("{op:?} is not a prefix op"),
     }
 }
@@ -908,8 +921,9 @@ fn postfix_binding_power(op: OpKind) -> Option<u8> {
             | UnaryOpKind::RotateLeft
             | UnaryOpKind::RotateRight,
         ) => 15,
-        OpKind::FunctionCall => 19,
-        OpKind::FieldAccess | OpKind::ArrayIndex => 20,
+        OpKind::BitCast => 18,
+        OpKind::FunctionCall => 20,
+        OpKind::FieldAccess | OpKind::ArrayIndex => 21,
         _ => return None,
     })
 }

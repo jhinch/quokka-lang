@@ -270,6 +270,7 @@ pub enum ExprData {
     If(If),
     Loop(Loop),
     Call(Call),
+    BitCast(BitCast),
     Paren(Box<Expr>),
 }
 
@@ -332,6 +333,7 @@ pub enum OpKind {
     FieldAccess,
     ArrayIndex,
     FunctionCall,
+    BitCast,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -428,6 +430,12 @@ pub struct Loop {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Call {
     pub callee: Place,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct BitCast {
+    pub expr: Box<Expr>,
+    pub ty: TyRef,
 }
 
 #[cfg(test)]

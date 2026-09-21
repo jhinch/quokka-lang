@@ -71,13 +71,11 @@ impl Token<'_> {
 
     pub fn check_unused_reserved(&self) -> Result<(), Error> {
         match self.text {
-            "as" | "while" | "do" | "match" | "case" | "enum" | "false" | "true" | "for"
-            | "switch" | "in" | "void" | "to" | "mod" | "root" => {
-                Err(Error::from(ReservedWordError {
-                    span: self.span(),
-                    reserved: self.text.to_string(),
-                }))
-            }
+            "while" | "do" | "match" | "case" | "enum" | "false" | "true" | "for" | "switch"
+            | "in" | "void" | "to" | "mod" | "root" => Err(Error::from(ReservedWordError {
+                span: self.span(),
+                reserved: self.text.to_string(),
+            })),
             _ => Ok(()),
         }
     }
@@ -142,6 +140,7 @@ pub enum TokenKind {
     Struct,
     Global,
     Const,
+    As,
     // other
     Comment,
     Eof,
@@ -201,6 +200,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Struct => "struct",
             TokenKind::Global => "global",
             TokenKind::Const => "const",
+            TokenKind::As => "as",
             TokenKind::Underscore => "_",
             TokenKind::Comment => "<comment>",
             TokenKind::Eof => "<EOF>",
@@ -518,6 +518,7 @@ impl<'de> Lexer<'de> {
                         "struct" => self.token(TokenKind::Struct, offset, len),
                         "global" => self.token(TokenKind::Global, offset, len),
                         "const" => self.token(TokenKind::Const, offset, len),
+                        "as" => self.token(TokenKind::As, offset, len),
                         "_" => self.token(TokenKind::Underscore, offset, len),
                         _ => self.token(TokenKind::Ident, offset, len),
                     }

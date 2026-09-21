@@ -37,6 +37,7 @@ impl HighlighterState for QuokkaHighlighterState {
                     | lex::TokenKind::Const
                     | lex::TokenKind::Global
                     | lex::TokenKind::Yield
+                    | lex::TokenKind::As
                     | lex::TokenKind::Continue => {
                         // clear previous styles
                         parts.push(

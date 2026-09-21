@@ -1397,6 +1397,9 @@ impl Analyzer {
                 mir.push_instr(return_block, Instr::ReturnValue { target });
                 (return_block, return_ty, target)
             }
+            ast::ExprData::BitCast(bit_cast) => {
+                todo!("{bit_cast:?}")
+            }
             ast::ExprData::Paren(expr) => self.analyze_expr(expr, block, mir, type_solver, scopes),
         }
     }

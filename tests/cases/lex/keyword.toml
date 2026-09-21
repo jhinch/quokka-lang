@@ -140,3 +140,14 @@ expected_tokens = """
 Const:const
 Eof:
 """
+
+[[case]]
+name = "as"
+kind = "lexer"
+source = """
+as
+"""
+expected_tokens = """
+As:as
+Eof:
+"""
