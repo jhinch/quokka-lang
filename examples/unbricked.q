@@ -57,7 +57,7 @@ global rBGP: u8;
 
 #[region = vram]
 #[address = 0x8000]
-global VRAM_SPRITE_TILES: [u8; 16];
+global VRAM_SPRITE_TILES: [u8; 32];
 
 #[region = vram]
 #[address = 0x9000]
@@ -340,7 +340,7 @@ const BG_TILEMAP: [u8; 576] = [
 	0x04, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x07, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0,0,0,0,0,0,0,0,0,0,0,0,
 ];
 
-const SPRITE_TILES: [u8; 16] = [
+const SPRITE_TILES: [u8; 32] = [
     // Paddle
     0xFF,0x7E,
     0x81,0x81,
@@ -350,11 +350,28 @@ const SPRITE_TILES: [u8; 16] = [
     0x00,0x00,
     0x00,0x00,
     0x00,0x00,
+
+    // ball
+    0x18,0x18,
+    0x24,0x3C,
+    0x42,0x7E,
+    0x42,0x7E,
+    0x24,0x3C,
+    0x18,0x18,
+    0x00,0x00,
+    0x00,0x00,
 ];
 
 // Sprite indexes
 
 const PADDLE_INDEX: u16 = 0;
+const BALL_INDEX: u16 = 1;
+
+const PADDLE_TILE_INDEX: u8 = 0;
+const BALL_TILE_INDEX: u8 = 1;
+
+const OAM_OFFSET_X: u8 = 8;
+const OAM_OFFSET_Y: u8 = 16;
 
 // Globals
 
@@ -366,6 +383,9 @@ global CURRENT_BUTTONS: u8;
 global CURRENT_D_PAD: u8;
 global NEW_BUTTONS: u8;
 global NEW_D_PAD: u8;
+
+global BALL_MOMENTUM_X: i8;
+global BALL_MOMENTUM_Y: i8;
 
 //
 // Code
@@ -385,11 +405,22 @@ fn main() {
 
     clear_oam();
 
+    // setup initial sprites
+
     // set up paddle's initial state
-    OAM[PADDLE_INDEX].y = 128 + 16;
-    OAM[PADDLE_INDEX].x = 16 + 8;
-    OAM[PADDLE_INDEX].tile_index = 0;
+    OAM[PADDLE_INDEX].y = 128 + OAM_OFFSET_Y;
+    OAM[PADDLE_INDEX].x = 16 + OAM_OFFSET_X;
+    OAM[PADDLE_INDEX].tile_index = PADDLE_TILE_INDEX;
     OAM[PADDLE_INDEX].flags = 0;
+    // set up ball's initial state
+    OAM[BALL_INDEX].y = 100 + OAM_OFFSET_Y;
+    OAM[BALL_INDEX].x = 32 + OAM_OFFSET_X;
+    OAM[BALL_INDEX].tile_index = BALL_TILE_INDEX;
+    OAM[BALL_INDEX].flags = 0;
+
+    // setup game state
+    BALL_MOMENTUM_X = 1;
+    BALL_MOMENTUM_Y = -1;
 
     // Turn on LCD and setup the palette
     rLCDC = LCDC_ON | LCDC_BG_ON | LCDC_OBJ_ON;
@@ -405,6 +436,56 @@ fn main() {
 
         // wait until its safe to modify VRAM/OAM
         wait_for_vblank();
+
+        // add ball momentum
+        OAM[BALL_INDEX].y += BALL_MOMENTUM_Y as u8;
+        OAM[BALL_INDEX].x += BALL_MOMENTUM_X as u8;
+
+        // bounce on top
+        GET_TILE_Y = OAM[BALL_INDEX].y - (OAM_OFFSET_Y + 1);
+        GET_TILE_X = OAM[BALL_INDEX].x - OAM_OFFSET_X;
+        IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
+        if is_wall_tile() then {
+            BALL_MOMENTUM_Y = 1;
+        }
+
+        // bounce on right
+        GET_TILE_Y = OAM[BALL_INDEX].y - OAM_OFFSET_Y;
+        // The -8 to account for the size of the ball, a fix for a bug present in the ASM version
+        GET_TILE_X = OAM[BALL_INDEX].x - (OAM_OFFSET_X - 1 - 8);
+        IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
+        if is_wall_tile() then {
+            BALL_MOMENTUM_X = -1;
+        }
+
+        // bounce on left
+        GET_TILE_Y = OAM[BALL_INDEX].y - OAM_OFFSET_Y;
+        GET_TILE_X = OAM[BALL_INDEX].x - (OAM_OFFSET_X + 1);
+        IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
+        if is_wall_tile() then {
+            BALL_MOMENTUM_X = 1;
+        }
+
+        // bounce on bottom
+        GET_TILE_Y = OAM[BALL_INDEX].y - (OAM_OFFSET_Y - 1);
+        GET_TILE_X = OAM[BALL_INDEX].x - OAM_OFFSET_X;
+        IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
+        if is_wall_tile() then {
+            BALL_MOMENTUM_Y = -1;
+        }
+
+        // paddle collision
+        if OAM[BALL_INDEX].y + 6 == OAM[PADDLE_INDEX].y then {
+            let ball_x = OAM[BALL_INDEX].x;
+            let paddle_x = OAM[PADDLE_INDEX].x;
+            paddle_x -= 8;
+            if ball_x > paddle_x then {
+                paddle_x += 8 + 16;
+                if ball_x <= paddle_x then {
+                    BALL_MOMENTUM_Y = -1;
+                }
+            }
+        }
 
         update_keys();
 
@@ -471,10 +552,10 @@ fn update_keys() {
     waste_16_m_cycles();
     let current_d_pad = (rJOYP | 0xF0) ^ 0xFF;
 
-    //NEW_BUTTONS = (CURRENT_BUTTONS ^ current_buttons) & current_buttons;
+    NEW_BUTTONS = (CURRENT_BUTTONS ^ current_buttons) & current_buttons;
     CURRENT_BUTTONS = current_buttons;
 
-    //NEW_D_PAD = (CURRENT_D_PAD ^ current_d_pad) & current_d_pad;
+    NEW_D_PAD = (CURRENT_D_PAD ^ current_d_pad) & current_d_pad;
     CURRENT_D_PAD = current_d_pad;
 }
 
@@ -484,4 +565,43 @@ fn update_keys() {
 fn waste_16_m_cycles() {
     let a = rJOYP;
     let a = rJOYP;
+}
+
+global GET_TILE_X: u8;
+global GET_TILE_Y: u8;
+// returns (X / 8) + (Y / 8) * 32
+fn get_tile_by_pixel() -> u16 {
+    let y = GET_TILE_Y;
+    // we need to divide by 8 but then multiply by 32
+    // so first do / 8 * 8 which simply zeros out the bottom 3 bits
+    y &= 0b11111000;
+    // now multiplying by 4 by doubling twice
+    // A 16-bit variable is used to have enough space
+    let y = [y, 0] as u16;
+    y += y;
+    y += y;
+    // divide by 8 by shifting right 3 times
+    let x = GET_TILE_X >> >> >>;
+    // ideally, we would use the same trick as the ASM tutorial
+    // to add a A to an r16 without using an additional register
+    // by doing add a, l; ld l, a; adc a, h; sub a, l; ld h, a
+    // but we don't have access to the carry flag in quokka.
+    // instead, we to convert x to a 16-bit variable and then
+    // add it, using an additional register
+    let x = [x, 0] as u16;
+    return y + x;
+}
+
+global IS_WALL_TILE_DATA: u8;
+fn is_wall_tile() -> u1 {
+    // the GB ASM tutorial uses a series of
+    // cp a, $xx; ret z
+    // to avoid modifying any registers other than
+    // zero and carry flags
+    // However, as Quokka currently unconditionally
+    // spills all registers across method calls
+    // we can simply. In the future once we implement
+    // inlining, we might be able to be fancier here
+    // to make it as efficient
+    return IS_WALL_TILE_DATA < 0x08 && IS_WALL_TILE_DATA != 0x03;
 }
