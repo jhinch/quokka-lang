@@ -611,3 +611,82 @@ Statement(
   )),
 )
 """
+
+[[case]]
+name = "if_statement_followed_by_statement_separated_by_comment"
+kind = "parser"
+entrypoint = "statement"
+source = """
+loop {
+    if 1 then {
+        2;
+    }
+
+    // bounce on right
+    3;
+}
+"""
+expected_ast = """
+Statement(
+  span: (0, 72),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 72),
+      data: Loop(Loop(
+        body: Block(
+          span: (5, 67),
+          statements: [
+            Statement(
+              span: (11, 52),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (11, 52),
+                  data: If(If(
+                    condition: Expr(
+                      span: (14, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 1,
+                      )),
+                    ),
+                    true_block: Expr(
+                      span: (21, 18),
+                      data: Block(Block(
+                        span: (21, 18),
+                        statements: [
+                          Statement(
+                            span: (31, 2),
+                            data: Expr(ExprSmt(
+                              value: Expr(
+                                span: (31, 1),
+                                data: Integer(IntegerLiteral(
+                                  value: 2,
+                                )),
+                              ),
+                            )),
+                          ),
+                        ],
+                      )),
+                    ),
+                    false_block: None,
+                  )),
+                ),
+              )),
+            ),
+            Statement(
+              span: (68, 2),
+              data: Expr(ExprSmt(
+                value: Expr(
+                  span: (68, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 3,
+                  )),
+                ),
+              )),
+            ),
+          ],
+        ),
+      )),
+    ),
+  )),
+)
+"""

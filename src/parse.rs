@@ -121,6 +121,11 @@ pub struct Parser<'de> {
     lexer: lex::Lexer<'de>,
     features: PreviewFeatureSet,
     result_builder: MultiResultBuilder,
+    /// the token kind of the last non-comment token consumed via [`Parser::consume_token`].
+    ///
+    /// This is used rather than `lexer.current()` to handle the case where comment tokens
+    /// are present between non-comment tokens.
+    last_token_kind: Option<TokenKind>,
 }
 
 impl<'de> From<&'de str> for Parser<'de> {
@@ -129,6 +134,7 @@ impl<'de> From<&'de str> for Parser<'de> {
             lexer: lex::Lexer::from(value),
             features: PreviewFeatureSet::default(),
             result_builder: MultiResultBuilder::default(),
+            last_token_kind: None,
         }
     }
 }
@@ -137,7 +143,10 @@ impl<'de> Parser<'de> {
     fn consume_token(&mut self) -> Result<Token<'de>, Error> {
         self.consume_comments()?;
         match self.lexer.next().transpose()? {
-            Some(token) => Ok(token),
+            Some(token) => {
+                self.last_token_kind = Some(token.kind());
+                Ok(token)
+            }
             None => unimplemented!("parsed beyond EOF"),
         }
     }
@@ -165,9 +174,7 @@ impl<'de> Parser<'de> {
     }
 
     fn is_proceeding_block(&self) -> bool {
-        self.lexer
-            .current()
-            .is_some_and(|token| token.kind() == TokenKind::RightBrace)
+        self.last_token_kind == Some(TokenKind::RightBrace)
     }
 }
 
