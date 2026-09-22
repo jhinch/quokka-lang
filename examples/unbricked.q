@@ -446,6 +446,7 @@ fn main() {
         GET_TILE_X = OAM[BALL_INDEX].x - OAM_OFFSET_X;
         IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
         if is_wall_tile() then {
+            check_and_handle_brick();
             BALL_MOMENTUM_Y = 1;
         }
 
@@ -455,6 +456,7 @@ fn main() {
         GET_TILE_X = OAM[BALL_INDEX].x - (OAM_OFFSET_X - 1 - 8);
         IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
         if is_wall_tile() then {
+            check_and_handle_brick();
             BALL_MOMENTUM_X = -1;
         }
 
@@ -463,6 +465,7 @@ fn main() {
         GET_TILE_X = OAM[BALL_INDEX].x - (OAM_OFFSET_X + 1);
         IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
         if is_wall_tile() then {
+            check_and_handle_brick();
             BALL_MOMENTUM_X = 1;
         }
 
@@ -471,6 +474,7 @@ fn main() {
         GET_TILE_X = OAM[BALL_INDEX].x - OAM_OFFSET_X;
         IS_WALL_TILE_DATA = VRAM_BG_TILEMAP[get_tile_by_pixel()];
         if is_wall_tile() then {
+            check_and_handle_brick();
             BALL_MOMENTUM_Y = -1;
         }
 
@@ -604,4 +608,20 @@ fn is_wall_tile() -> u1 {
     // inlining, we might be able to be fancier here
     // to make it as efficient
     return IS_WALL_TILE_DATA < 0x08 && IS_WALL_TILE_DATA != 0x03;
+}
+
+const BRICK_LEFT: u8 = 0x05;
+const BRICK_RIGHT: u8 = 0x06;
+const BLANK_TILE: u8 = 0x08;
+fn check_and_handle_brick() {
+    let index = get_tile_by_pixel();
+    if VRAM_BG_TILEMAP[index] == BRICK_LEFT then {
+         VRAM_BG_TILEMAP[index] = BLANK_TILE;
+         index += 1;
+         VRAM_BG_TILEMAP[index] = BLANK_TILE;
+    } else if VRAM_BG_TILEMAP[index] == BRICK_RIGHT then {
+         VRAM_BG_TILEMAP[index] = BLANK_TILE;
+         index -= 1;
+         VRAM_BG_TILEMAP[index] = BLANK_TILE;
+    }
 }
