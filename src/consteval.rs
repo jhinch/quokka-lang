@@ -97,6 +97,19 @@ pub fn evaluate(
                     );
                     local_slots[*target].set(source);
                 }
+                Instr::BitCast { target, source } => {
+                    let mut source = Value::from_operand(
+                        &local_slots,
+                        function,
+                        function.locals[*target].ty,
+                        ty_registry,
+                        &Operand::Local(*source),
+                    );
+                    let target_ty = function.locals[*target].ty;
+                    source =
+                        Value::from_bytes(target_ty, ty_registry, source.into_vec().as_slice());
+                    local_slots[*target].set(source);
+                }
                 Instr::Not { target, source } => {
                     let mut source = Value::from_operand(
                         &local_slots,

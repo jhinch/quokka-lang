@@ -208,6 +208,9 @@ impl Mir {
                             Instr::Copy { target: _, source } => {
                                 write!(f, "copy {}", source.display(self, function))
                             }
+                            Instr::BitCast { target: _, source } => {
+                                write!(f, "bitcast {}", source.display(function))
+                            }
                             Instr::Not { target: _, source } => {
                                 write!(f, "not {}", source.display(function))
                             }
@@ -853,6 +856,8 @@ pub enum Instr {
         value: u8,
         count: NonZeroU16,
     },
+    /// bit cast the of `source` to the `target`
+    BitCast { target: LocalId, source: LocalId },
     // unary
     /// `!source`
     Not { target: LocalId, source: LocalId },
@@ -940,6 +945,7 @@ impl Instr {
             | Instr::Read { target, .. }
             | Instr::Write { target, .. }
             | Instr::Copy { target, .. }
+            | Instr::BitCast { target, .. }
             | Instr::Not { target, .. }
             | Instr::Neg { target, .. }
             | Instr::Eq { target, .. }
@@ -974,7 +980,8 @@ impl Instr {
                     (0, Operand::Local(local)) => Some(local),
                     _ => None,
                 },
-                Instr::Not { source, .. }
+                Instr::BitCast { source, .. }
+                | Instr::Not { source, .. }
                 | Instr::Neg { source, .. }
                 | Instr::RotateLeft { source, .. }
                 | Instr::RotateRight { source, .. }

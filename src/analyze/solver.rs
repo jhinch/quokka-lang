@@ -1,17 +1,19 @@
 use crate::analyze::error::{
     BreakExprUnexpectedError, DuplicateFieldExprError, EmptyArrayExprError, FieldNotDefinedError,
-    MissingFieldExprError, NotArrayError, NotFnPtrError, NotIntError, NotSignedIntError,
-    NotStructError, OversizedArrayExprError, ReturnExprMissingError, ReturnExprUnexpectedError,
-    TyMismatchError, TyTooLargeForLocalVariableError, TypeUnresolvedError, YieldUnexpectedError,
+    InvalidBitCastError, MissingFieldExprError, NotArrayError, NotFnPtrError, NotIntError,
+    NotSignedIntError, NotStructError, OversizedArrayExprError, ReturnExprMissingError,
+    ReturnExprUnexpectedError, TyMismatchError, TyTooLargeForLocalVariableError,
+    TypeUnresolvedError, YieldUnexpectedError,
 };
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
-    ArithmeticOp, ArrayExpr, AssignOp, BreakSmt, Call, ComparisonOp, ComparisonOpKind, ConstDecl,
-    Expr, If, IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt, SpannedIdentifier,
-    StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
+    ArithmeticOp, ArrayExpr, AssignOp, BitCast, BreakSmt, Call, ComparisonOp, ComparisonOpKind,
+    ConstDecl, Expr, If, IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt,
+    SpannedIdentifier, StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
 };
 use crate::mir::{FunctionBuilder, LocalId};
 use crate::multi::{MultiError, MultiResultBuilder};
+use crate::num::BitCount;
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
@@ -396,6 +398,25 @@ impl TypeSolver {
         InferredTy::Variable(return_ty)
     }
 
+    pub fn check_bit_cast_expr(
+        &mut self,
+        bit_cast: &BitCast,
+        _: SourceSpan,
+        left_ty: InferredTy,
+        right_ty: InferredTy,
+    ) -> InferredTy {
+        let return_ty = self.fresh_ty_var();
+
+        self.constraints
+            .push_back(InferenceConstraint::IsValidBitCast {
+                ty1: left_ty,
+                ty1_span: bit_cast.expr.span,
+                ty2: right_ty,
+                ty2_span: bit_cast.ty.span,
+            });
+        InferredTy::Variable(return_ty)
+    }
+
     pub fn check_struct_expr_fields(
         &mut self,
         expr: &StructExpr,
@@ -717,6 +738,45 @@ impl TypeSolver {
                         None => Some(InferenceConstraint::IsRegisterSized { ty, span }),
                     }
                 }
+                InferenceConstraint::IsValidBitCast {
+                    mut ty1,
+                    ty1_span,
+                    mut ty2,
+                    ty2_span,
+                } => {
+                    self.inferrer.prune(&mut ty1);
+                    self.inferrer.prune(&mut ty2);
+                    match (ty1.resolve(ty_registry), ty2.resolve(ty_registry)) {
+                        (Some(ty1), Some(ty2)) => {
+                            if ty1 != Ty::ERROR
+                                && ty2 != Ty::ERROR
+                                && (ty2.bit_size(ty_registry) == BitCount::new(0)
+                                    || ty1.bit_size(ty_registry) != ty2.bit_size(ty_registry)
+                                    || (ty1 != ty2
+                                        && (ty1.is_internally_padded(ty_registry)
+                                            || ty2.is_internally_padded(ty_registry))))
+                            {
+                                self.result_builder.add_error(InvalidBitCastError {
+                                    ty1: InferredTy::Concrete(ty1)
+                                        .display(ty_registry)
+                                        .into_detached(),
+                                    ty1_span,
+                                    ty2: InferredTy::Concrete(ty2)
+                                        .display(ty_registry)
+                                        .into_detached(),
+                                    ty2_span,
+                                });
+                            }
+                            None
+                        }
+                        _ => Some(InferenceConstraint::IsValidBitCast {
+                            ty1,
+                            ty1_span,
+                            ty2,
+                            ty2_span,
+                        }),
+                    }
+                }
             };
             match constraint {
                 None => {
@@ -744,6 +804,21 @@ impl TypeSolver {
                         self.inferrer.prune(&mut ty1);
                         self.inferrer.prune(&mut ty2);
                         self.result_builder.add_error(TyMismatchError {
+                            ty1: ty1.display(ty_registry).into_detached(),
+                            ty1_span,
+                            ty2: ty2.display(ty_registry).into_detached(),
+                            ty2_span,
+                        });
+                    }
+                    InferenceConstraint::IsValidBitCast {
+                        mut ty1,
+                        ty1_span,
+                        mut ty2,
+                        ty2_span,
+                    } => {
+                        self.inferrer.prune(&mut ty1);
+                        self.inferrer.prune(&mut ty2);
+                        self.result_builder.add_error(InvalidBitCastError {
                             ty1: ty1.display(ty_registry).into_detached(),
                             ty1_span,
                             ty2: ty2.display(ty_registry).into_detached(),
@@ -862,5 +937,11 @@ enum InferenceConstraint {
     IsRegisterSized {
         ty: InferredTy,
         span: SourceSpan,
+    },
+    IsValidBitCast {
+        ty1: InferredTy,
+        ty1_span: SourceSpan,
+        ty2: InferredTy,
+        ty2_span: SourceSpan,
     },
 }

@@ -64,6 +64,7 @@ impl TreeShake {
                         | Instr::Undefined { .. }
                         | Instr::Alloc { .. }
                         | Instr::ReturnValue { .. }
+                        | Instr::BitCast { .. }
                         | Instr::Phi { .. }
                         | Instr::Not { .. }
                         | Instr::Neg { .. }

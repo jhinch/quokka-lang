@@ -304,6 +304,20 @@ impl Sccp {
             // for now, reads and writes are Bottom even though they can be implemented
             Instr::Read { .. } => ResolvedValue::Bottom,
             Instr::Write { .. } => ResolvedValue::Bottom,
+            Instr::BitCast { target, source } => {
+                let target_ty = function.locals[*target].ty;
+                match self.resolve_local(*source, values).clone() {
+                    ResolvedValue::Value(value) => {
+                        let bytes = value.into_vec();
+                        ResolvedValue::Value(Value::from_bytes(
+                            target_ty,
+                            ty_registry,
+                            bytes.as_slice(),
+                        ))
+                    }
+                    value => value,
+                }
+            }
             Instr::Not { source, .. } => match self.resolve_local(*source, values).clone() {
                 ResolvedValue::Value(value) => ResolvedValue::Value(!value),
                 value => value,
@@ -313,27 +327,21 @@ impl Sccp {
                 value => value,
             },
             Instr::RotateLeft { source, .. } => match self.resolve_local(*source, values).clone() {
-                ResolvedValue::Value(value) => {
-                    ResolvedValue::Value(value.clone().rotate_left_one())
-                }
+                ResolvedValue::Value(value) => ResolvedValue::Value(value.rotate_left_one()),
                 value => value,
             },
             Instr::RotateRight { source, .. } => {
                 match self.resolve_local(*source, values).clone() {
-                    ResolvedValue::Value(value) => {
-                        ResolvedValue::Value(value.clone().rotate_right_one())
-                    }
+                    ResolvedValue::Value(value) => ResolvedValue::Value(value.rotate_right_one()),
                     value => value,
                 }
             }
             Instr::ShiftLeft { source, .. } => match self.resolve_local(*source, values).clone() {
-                ResolvedValue::Value(value) => ResolvedValue::Value(value.clone().shift_left_one()),
+                ResolvedValue::Value(value) => ResolvedValue::Value(value.shift_left_one()),
                 value => value,
             },
             Instr::ShiftRight { source, .. } => match self.resolve_local(*source, values).clone() {
-                ResolvedValue::Value(value) => {
-                    ResolvedValue::Value(value.clone().shift_right_one())
-                }
+                ResolvedValue::Value(value) => ResolvedValue::Value(value.shift_right_one()),
                 value => value,
             },
             Instr::Eq { left, right, .. } => {

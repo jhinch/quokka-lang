@@ -1409,7 +1409,18 @@ impl Analyzer {
                 (return_block, return_ty, target)
             }
             ast::ExprData::BitCast(bit_cast) => {
-                todo!("{bit_cast:?}")
+                let (block, source_ty, source) =
+                    self.analyze_expr(&bit_cast.expr, block, mir, type_solver, scopes);
+                let target_ty = self.resolve_ty_ref(&bit_cast.ty);
+                type_solver.check_bit_cast_expr(
+                    bit_cast,
+                    expr.span,
+                    source_ty,
+                    InferredTy::Concrete(target_ty),
+                );
+                let target = mir.new_local(target_ty);
+                mir.push_instr(block, Instr::BitCast { target, source });
+                (block, InferredTy::Concrete(target_ty), target)
             }
             ast::ExprData::Paren(expr) => self.analyze_expr(expr, block, mir, type_solver, scopes),
         }

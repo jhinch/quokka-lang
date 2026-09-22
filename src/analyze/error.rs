@@ -170,6 +170,18 @@ pub struct TyMismatchError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`{ty1}` cannot be cast to `{ty2}`")]
+#[diagnostic()]
+pub struct InvalidBitCastError {
+    #[label("has type `{ty1}`")]
+    pub ty1_span: SourceSpan,
+    pub ty1: InferredTyDisplay<'static>,
+    #[label("invalid cast")]
+    pub ty2_span: SourceSpan,
+    pub ty2: InferredTyDisplay<'static>,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("`{ty}` is not an integer type")]
 #[diagnostic()]
 pub struct NotIntError {

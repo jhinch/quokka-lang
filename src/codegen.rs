@@ -964,6 +964,7 @@ impl CodeGen {
                 (*target, R1::Bit(r8, bit), mir::Condition::NotZero)
             }
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitCast { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (flag, condition) = locals.r1s[*source];
                 (*target, flag, !condition)
@@ -1286,6 +1287,7 @@ impl CodeGen {
                 (*target, r8)
             }
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitCast { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let a = lir.insert_ld_a(block, locals.r8s[*source]);
                 lir.insert_cpl(block, a);
@@ -1483,6 +1485,7 @@ impl CodeGen {
                 unimplemented!("{instruction:?} should not be produced for 16-bit target")
             }
             mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::BitCast { .. } => todo!("{instruction:?}"),
             mir::Instr::Not { target, source } => {
                 let (source_high, source_low) =
                     self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
