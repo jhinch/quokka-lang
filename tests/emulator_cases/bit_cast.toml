@@ -1,0 +1,225 @@
+[[case]]
+name = "u8_to_i8_preserves_bit_pattern"
+preview_features = [ "bit-cast" ]
+source = """
+global A: i8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = -1;
+    let v = A;
+    OUT = v as u8;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF
+
+[[case]]
+name = "u8_roundtrip_through_i8"
+preview_features = [ "bit-cast" ]
+source = """
+global A: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 200;
+    let v = A;
+    let w = v as i8;
+    OUT = w as u8;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 200
+
+[[case]]
+name = "u16_roundtrip_through_i16"
+preview_features = [ "bit-cast" ]
+source = """
+global A: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0xBEEF;
+    let v = A;
+    let w = v as i16;
+    OUT = w as u16;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xEF, 0xBE]
+
+[[case]]
+name = "bit_cast_to_same_type_is_identity"
+preview_features = [ "bit-cast" ]
+source = """
+global A: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 42;
+    let v = A;
+    OUT = v as u8;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 42
+
+[[case]]
+name = "u1_to_u1_is_identity"
+preview_features = [ "bit-cast" ]
+source = """
+global A: u1;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 1;
+    let v = A;
+    OUT = v as u1;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "reference_example_chain_u16_to_array"
+preview_features = [ "bit-cast" ]
+source = """
+struct BytePair {
+    low: u8,
+    high: u8,
+}
+
+global A: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 2];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x1234;
+    let a = A;
+    let b = a as u16;
+    let c = b as i16;
+    let d = c as BytePair;
+    let e = d as [u8; 2];
+    OUT = e;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12]
+
+[[case]]
+name = "u16_to_struct_decomposes_into_fields"
+preview_features = [ "bit-cast" ]
+source = """
+struct BytePair {
+    low: u8,
+    high: u8,
+}
+
+global A: u16;
+global P: BytePair;
+
+#[address = 0xC000]
+global OUT_LOW: u8;
+#[address = 0xC001]
+global OUT_HIGH: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0xABCD;
+    let v = A;
+    P = v as BytePair;
+    OUT_LOW = P.low;
+    OUT_HIGH = P.high;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xCD
+[[case.assertion]]
+addr = 0xC001
+expected = 0xAB
+
+[[case]]
+name = "array_to_u16_combines_little_endian"
+preview_features = [ "bit-cast" ]
+source = """
+global A: [u8; 2];
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A[0] = 0x78;
+    A[1] = 0x56;
+    let v = A;
+    OUT = v as u16;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x78, 0x56]
