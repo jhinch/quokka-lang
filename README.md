@@ -21,8 +21,8 @@ The compilation goes through following phases:
 - Code gen (lowering MIR to LIR)
 - Phi elimination (Happens concurrently with code gen)
 - Register allocation
-- Object file creation (Currently, not implemented)
-- Linking (Currently, not implemented)
+- Object file creation
+- Linking (Currently delegates to RGBDS)
 
 ## Spec Tests
 
