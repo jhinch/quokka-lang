@@ -815,7 +815,7 @@ dependencies = [
 
 [[package]]
 name = "quokka-lang"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -844,11 +844,11 @@ dependencies = [
 
 [[package]]
 name = "quokka-lang-obj"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "quokka-lang-sameboy"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "quokka-lang-sameboy-sys",
  "tracing",
@@ -856,7 +856,7 @@ dependencies = [
 
 [[package]]
 name = "quokka-lang-sameboy-sys"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bindgen",
  "cc",
@@ -864,7 +864,7 @@ dependencies = [
 
 [[package]]
 name = "quokka-lang-slotkeyset"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "indexmap",
  "slotmap",
