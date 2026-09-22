@@ -8,7 +8,7 @@ use crate::analyze::error::{
 use crate::analyze::infer::{InferredTy, Inferrer, TyVar, UnificationError};
 use crate::ast::{
     ArithmeticOp, ArrayExpr, AssignOp, BitCast, BreakSmt, Call, ComparisonOp, ComparisonOpKind,
-    ConstDecl, Expr, If, IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt,
+    ConstDecl, Expr, ExprData, If, IntegerLiteral, LetSmt, LogicalOp, RepeatExpr, ReturnSmt,
     SpannedIdentifier, StructExpr, UnaryOp, UnaryOpKind, YieldSmt,
 };
 use crate::mir::{FunctionBuilder, LocalId};
@@ -406,6 +406,20 @@ impl TypeSolver {
         right_ty: InferredTy,
     ) -> InferredTy {
         let return_ty = self.fresh_ty_var();
+
+        if is_int_literal_expr(&bit_cast.expr) {
+            // Integer literals have no inherent type of their own, so infer
+            // them directly as the bit cast's target type. This makes
+            // `3 as u8` (and `-3 as i8`, `(3) as u8`, etc., since unary/paren
+            // wrappers reuse the literal's own type variable) type check as
+            // a (trivial) same-type bit cast.
+            self.constraints.push_back(InferenceConstraint::Equal {
+                ty1: left_ty.clone(),
+                ty1_span: bit_cast.expr.span,
+                ty2: right_ty.clone(),
+                ty2_span: bit_cast.ty.span,
+            });
+        }
 
         self.constraints
             .push_back(InferenceConstraint::IsValidBitCast {
@@ -899,6 +913,20 @@ impl TypeSolver {
                 Some(field_data) => field_data.ty,
             }
         }
+    }
+}
+
+/// Returns true if `expr` is an integer literal, optionally wrapped in
+/// parentheses and/or unary operators (e.g. `-3`, `(3)`, `-(3)`). All of
+/// these forms reuse the literal's own type variable rather than
+/// introducing a fresh one, so a caller that wants to treat the literal's
+/// type as still-unresolved can look through this wrapping.
+fn is_int_literal_expr(expr: &Expr) -> bool {
+    match &expr.data {
+        ExprData::Integer(_) => true,
+        ExprData::Paren(inner) => is_int_literal_expr(inner),
+        ExprData::Unary(unary) => is_int_literal_expr(&unary.expr),
+        _ => false,
     }
 }
 

@@ -582,7 +582,6 @@ main -> unit:
 name = "bit_cast_integer_literal_inferred_from_target"
 kind = "analyzer"
 preview_features = [ "bit-cast" ]
-ignored = "analyzer does not lower bit casts yet (todo!() in analyze_expr)"
 source = """
 fn main() {
     let a = 255 as i8;
@@ -591,7 +590,47 @@ fn main() {
 expected_mir = """
 @{"entrypoint":true}
 main -> unit:
+  .bb1:
+    #1: i8 = copy 255
+    a#2: i8 = bitcast #1
+    return
 """
+
+[[case]]
+name = "bit_cast_negative_integer_literal_inferred_from_target"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+source = """
+fn main() {
+    let a = -3 as i8;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    #1: i8 = copy 3
+    #2: i8 = neg #1
+    a#3: i8 = bitcast #2
+    return
+"""
+
+[[case]]
+name = "bit_cast_integer_literal_to_non_int_type"
+kind = "analyzer"
+preview_features = [ "bit-cast" ]
+source = """
+struct BytePair {
+    low: u8,
+    high: u8,
+}
+fn main() {
+    let a = 1 as BytePair;
+}
+"""
+expected_errors = [
+    "`BytePair` is not an integer type @ [71:72]",
+]
 
 [[case]]
 name = "bit_cast_signed_unsigned_roundtrip"
