@@ -21,8 +21,6 @@ pub enum PreviewFeature {
     ConstLoop,
     /// enable calling a function through a function-pointer local/global variable
     FnPtr,
-    /// enable bit cast expressions
-    BitCast,
     /// disable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     NoAdce,
     /// disable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR

@@ -836,11 +836,6 @@ impl Parser<'_> {
                                 expr: Box::new(lhs),
                             }),
                             OpKind::BitCast => {
-                                self.features.check_enabled(
-                                    PreviewFeature::BitCast,
-                                    op_token.span(),
-                                    &mut self.result_builder,
-                                );
                                 let ty = self.parse_ty_ref()?;
                                 ExprData::from(BitCast {
                                     expr: Box::new(lhs),

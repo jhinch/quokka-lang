@@ -5,9 +5,6 @@ BitCastExpression   =   Expression  , "as" , TypeUse
                     ;
 ```
 
-> [!WARNING]
-> Requires `bit-cast` preview feature enabled.
-
 A bit cast expression transmutes the value on the left hand side to the type on the right hand side, producing a
 value that is bit-identical.
 

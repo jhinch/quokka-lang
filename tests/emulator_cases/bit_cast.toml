@@ -1,6 +1,5 @@
 [[case]]
 name = "u8_to_i8_preserves_bit_pattern"
-preview_features = [ "bit-cast" ]
 source = """
 global A: i8;
 
@@ -25,7 +24,6 @@ expected = 0xFF
 
 [[case]]
 name = "u8_roundtrip_through_i8"
-preview_features = [ "bit-cast" ]
 source = """
 global A: u8;
 
@@ -51,7 +49,6 @@ expected = 200
 
 [[case]]
 name = "u16_roundtrip_through_i16"
-preview_features = [ "bit-cast" ]
 source = """
 global A: u16;
 
@@ -77,7 +74,6 @@ expected = [0xEF, 0xBE]
 
 [[case]]
 name = "bit_cast_to_same_type_is_identity"
-preview_features = [ "bit-cast" ]
 source = """
 global A: u8;
 
@@ -102,7 +98,6 @@ expected = 42
 
 [[case]]
 name = "u1_to_u1_is_identity"
-preview_features = [ "bit-cast" ]
 source = """
 global A: u1;
 
@@ -128,7 +123,6 @@ mask = 0b0000_0001
 
 [[case]]
 name = "reference_example_chain_u16_to_array"
-preview_features = [ "bit-cast" ]
 source = """
 struct BytePair {
     low: u8,
@@ -162,7 +156,6 @@ expected = [0x34, 0x12]
 
 [[case]]
 name = "u16_to_struct_decomposes_into_fields"
-preview_features = [ "bit-cast" ]
 source = """
 struct BytePair {
     low: u8,
@@ -200,7 +193,6 @@ expected = 0xAB
 
 [[case]]
 name = "array_to_u16_combines_little_endian"
-preview_features = [ "bit-cast" ]
 source = """
 global A: [u8; 2];
 

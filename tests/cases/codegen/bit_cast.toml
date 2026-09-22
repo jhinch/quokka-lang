@@ -2,7 +2,6 @@
 name = "bit_cast_u1_identity"
 kind = "codegen"
 allocate_registers = true
-preview_features = [ "bit-cast" ]
 source = """
 global IN: u1;
 global OUT: u1;
@@ -237,7 +236,6 @@ END_SECTION
 name = "bit_cast_u8_to_i8"
 kind = "codegen"
 allocate_registers = true
-preview_features = [ "bit-cast" ]
 source = """
 global IN: u8;
 global OUT: i8;
@@ -461,7 +459,6 @@ END_SECTION
 name = "bit_cast_u16_to_i16"
 kind = "codegen"
 allocate_registers = true
-preview_features = [ "bit-cast" ]
 source = """
 global IN: u16;
 global OUT: i16;
@@ -687,7 +684,6 @@ END_SECTION
 name = "bit_cast_struct_to_u16"
 kind = "codegen"
 allocate_registers = true
-preview_features = [ "bit-cast" ]
 source = """
 struct BytePair {
     low: u8,
@@ -918,7 +914,6 @@ END_SECTION
 name = "bit_cast_array_to_u16"
 kind = "codegen"
 allocate_registers = true
-preview_features = [ "bit-cast" ]
 source = """
 global IN: [u8; 2];
 global OUT: u16;
