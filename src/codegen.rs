@@ -964,7 +964,9 @@ impl CodeGen {
                 );
                 (*target, R1::Bit(r8, bit), mir::Condition::NotZero)
             }
-            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Write { .. } => {
+                unimplemented!("{instruction:?} should not be produced for u1 target")
+            }
             mir::Instr::BitCast { target, source } => {
                 let (flag, condition) = locals.r1s[*source];
                 (*target, flag, condition)
@@ -1290,7 +1292,7 @@ impl CodeGen {
                 assert_eq!(u3, u3::new(0), "misaligned 8-bit ty");
                 (*target, r8)
             }
-            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Write { .. } => todo!("{instruction:?} u8"),
             mir::Instr::BitCast { target, source } => (*target, locals.r8s[*source]),
             mir::Instr::Not { target, source } => {
                 let a = lir.insert_ld_a(block, locals.r8s[*source]);
@@ -1488,7 +1490,38 @@ impl CodeGen {
             mir::Instr::Read { .. } => {
                 unimplemented!("{instruction:?} should not be produced for 16-bit target")
             }
-            mir::Instr::Write { .. } => todo!("{instruction:?}"),
+            mir::Instr::Write {
+                target,
+                left,
+                projections,
+                right,
+            } => {
+                let bit_offset = self.projected_local_offset(*target, projections, block, lir, ctx);
+                let (source_high, source_low) =
+                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                assert_eq!(
+                    bit_offset.bits(),
+                    u3::new(0),
+                    "Currently narrow int writes are not supported for {instruction:?}"
+                );
+                match bit_offset.bytes() {
+                    0 => {
+                        // replace low byte, keep high byte
+                        let target_low =
+                            lir.insert_ld8_operand(block, self.r8_to_operand(right, locals));
+                        let target_high = lir.insert_ld8(block, source_high);
+                        (*target, target_high, target_low)
+                    }
+                    1 => {
+                        // replace high byte, keep low byte
+                        let target_high =
+                            lir.insert_ld8_operand(block, self.r8_to_operand(right, locals));
+                        let target_low = lir.insert_ld8(block, source_low);
+                        (*target, target_high, target_low)
+                    }
+                    _ => unimplemented!("cannot support bit_offset {bit_offset} > 16-bit"),
+                }
+            }
             mir::Instr::BitCast { target, source } => {
                 let (high, low) = locals.r16s[*source];
                 (*target, high, low)
@@ -1958,15 +1991,14 @@ impl CodeGen {
         }
     }
 
-    fn projected_local_to_r8(
+    fn projected_local_offset(
         &mut self,
         local: mir::LocalId,
         projections: &[mir::PlaceProjection],
         _block: BlockId,
         _lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
-        locals: &Locals,
-    ) -> (R8Id, u3) {
+    ) -> BitCount {
         let mut bit_offset = BitCount::new(0);
         let local_ty = ctx.function.locals[local].ty;
         let mut ty = local_ty;
@@ -1989,6 +2021,20 @@ impl CodeGen {
                 }
             }
         }
+        bit_offset
+    }
+
+    fn projected_local_to_r8(
+        &mut self,
+        local: mir::LocalId,
+        projections: &[mir::PlaceProjection],
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx<'_>,
+        locals: &Locals,
+    ) -> (R8Id, u3) {
+        let bit_offset = self.projected_local_offset(local, projections, block, lir, ctx);
+        let local_ty = ctx.function.locals[local].ty;
         let r8 = if local_ty.bit_size(&self.ty_registry).into_u32() <= 8 {
             assert_eq!(bit_offset.bytes(), 0);
             locals.r8s[local]

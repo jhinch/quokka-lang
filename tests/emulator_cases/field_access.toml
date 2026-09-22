@@ -1,17 +1,3 @@
-# Covers `FieldAccessExpression` on a global struct (a full language feature) and on a local struct
-# (gated behind the `local-field-access` preview feature - see
-# docs/src/reference/expressions/field-access.md).
-#
-# `local_field_read` previously crashed: reading a field from a local whose *overall* type spans
-# more than a single byte picked which register to read from based on the *field's* size (any u8
-# field, including the second field of a two-`u8` struct) rather than the *local's* overall size,
-# so reading the second field of a local struct either failed an internal assertion or would have
-# silently read the wrong byte. See `src/codegen.rs`'s `projected_local_to_r8`.
-#
-# `local_field_write` is `ignored`: writing to a field of a local struct is entirely unimplemented
-# in codegen.rs (same underlying gap as `array_index.toml`'s local-array write case - nothing lowers
-# `Write` with a `Field` projection on a local).
-
 [[case]]
 name = "global_struct_field_read"
 source = """
@@ -138,7 +124,6 @@ expected = [10, 20]
 
 [[case]]
 name = "local_field_write"
-ignored = "Writing to a field of a local struct is entirely unimplemented in codegen.rs - it hits `not yet implemented: Write { .. }`. See the comment at the top of this file. Un-ignore once codegen.rs lowers Write projections on locals."
 preview_features = ["local-field-access"]
 source = """
 struct Point { x: u8, y: u8 }
@@ -166,4 +151,77 @@ addr = 0xC000
 expected = 99
 [[case.assertion]]
 addr = 0xC001
-expected = 2 # writing x must not disturb y
+expected = 2 # writing x (low byte) must not disturb y (high byte)
+
+[[case]]
+name = "local_field_write_high_byte_does_not_corrupt_low_byte"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_Y: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    let p: Point = Point { x: 1, y: 2 };
+    p.y = 99;
+    OUT_X = p.x;
+    OUT_Y = p.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1 # writing y (high byte) must not disturb x (low byte)
+[[case.assertion]]
+addr = 0xC001
+expected = 99
+
+[[case]]
+name = "local_field_write_does_not_corrupt_source_local"
+preview_features = ["local-field-access"]
+source = """
+struct Point { x: u8, y: u8 }
+global P: Point;
+
+#[address = 0xC000]
+global OUT_X: u8;
+#[address = 0xC001]
+global OUT_Y: u8;
+#[address = 0xC002]
+global P_OUT: [u8; 2];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    P.x = 10;
+    P.y = 20;
+    let p = P;
+    p.x = 88;
+    p.y = 99;
+    OUT_X = p.x;
+    OUT_Y = p.y;
+    P_OUT[0] = P.x;
+    P_OUT[1] = P.y;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 88
+[[case.assertion]]
+addr = 0xC001
+expected = 99
+[[case.assertion]]
+addr = 0xC002
+expected = [10, 20] # writing the local copy's fields must not reach back into the global
