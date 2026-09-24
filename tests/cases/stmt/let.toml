@@ -346,7 +346,7 @@ source = """
 let x = 1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [10:10]",
+    "Syntax error: found end of file when expecting `;` @ [10:10]",
 ]
 
 [[case]]
@@ -357,7 +357,7 @@ source = """
 let x 1;
 """
 expected_errors = [
-    "Syntax error: found <number> when expecting = @ [6:7]",
+    "Syntax error: found number `1` when expecting `=` @ [6:7]",
 ]
 
 [[case]]
@@ -368,5 +368,5 @@ source = """
 let x = ;
 """
 expected_errors = [
-    "Syntax error: found ; when expecting <number>, <ident>, (, [, !, -, if or loop @ [8:9]",
+    "Syntax error: found `;` when expecting an expression @ [8:9]",
 ]

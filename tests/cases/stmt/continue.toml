@@ -20,7 +20,7 @@ source = """
 continue
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [9:9]",
+    "Syntax error: found end of file when expecting `;` @ [9:9]",
 ]
 
 [[case]]
@@ -31,5 +31,5 @@ source = """
 continue 1;
 """
 expected_errors = [
-    "Syntax error: found <number> when expecting ; @ [9:10]",
+    "Syntax error: found number `1` when expecting `;` @ [9:10]",
 ]

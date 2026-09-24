@@ -352,7 +352,7 @@ source = """
 Foo { a: 1 b: 2 }
 """
 expected_errors = [
-    "Syntax error: found <ident> when expecting =, ==, !=, &, &&, &=, |, ||, |=, +, +=, -, -=, ^, ^=, <, <=, <<, <%, >, >=, >> or >% @ [11:12]",
+    "Syntax error: found identifier `b` when expecting an operator or end of expression @ [11:12]",
 ]
 
 [[case]]
@@ -363,7 +363,7 @@ source = """
 Foo { a 1 }
 """
 expected_errors = [
-    "Syntax error: found <number> when expecting : @ [8:9]",
+    "Syntax error: found number `1` when expecting `:` @ [8:9]",
 ]
 
 [[case]]
@@ -374,7 +374,7 @@ source = """
 Foo { a: }
 """
 expected_errors = [
-    "Syntax error: found } when expecting <number>, <ident>, (, [, !, -, if or loop @ [9:10]",
+    "Syntax error: found `}` when expecting an expression @ [9:10]",
 ]
 
 [[case]]
@@ -385,7 +385,7 @@ source = """
 Foo { a: 1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting , @ [11:11]",
+    "Syntax error: found end of file when expecting `,` @ [11:11]",
 ]
 
 [[case]]
@@ -413,7 +413,7 @@ source = """
 Foo { , a: 1 }
 """
 expected_errors = [
-    "Syntax error: found , when expecting <ident> @ [6:7]",
+    "Syntax error: found `,` when expecting an identifier @ [6:7]",
 ]
 
 [[case]]
@@ -424,7 +424,7 @@ source = """
 Foo { a: 1,, b: 2 }
 """
 expected_errors = [
-    "Syntax error: found , when expecting <ident> @ [11:12]",
+    "Syntax error: found `,` when expecting an identifier @ [11:12]",
 ]
 
 [[case]]
@@ -435,7 +435,7 @@ source = """
 Foo { : 1 }
 """
 expected_errors = [
-    "Syntax error: found : when expecting <ident> @ [6:7]",
+    "Syntax error: found `:` when expecting an identifier @ [6:7]",
 ]
 
 [[case]]
@@ -506,7 +506,7 @@ source = """
 Foo { struct: 1 }
 """
 expected_errors = [
-    "Syntax error: found struct when expecting <ident> @ [6:12]",
+    "Syntax error: found `struct` when expecting an identifier @ [6:12]",
 ]
 
 [[case]]

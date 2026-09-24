@@ -103,7 +103,7 @@ source = """
 const A: u8 = 1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [16:16]",
+    "Syntax error: found end of file when expecting `;` @ [16:16]",
 ]
 
 [[case]]
@@ -114,7 +114,7 @@ source = """
 const A = 1;
 """
 expected_errors = [
-    "Syntax error: found = when expecting : @ [8:9]",
+    "Syntax error: found `=` when expecting `:` @ [8:9]",
 ]
 
 [[case]]

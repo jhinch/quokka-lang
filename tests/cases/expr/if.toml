@@ -437,7 +437,7 @@ if 1 {
 }
 """
 expected_errors = [
-    "Syntax error: found { when expecting =, ==, !=, &, &&, &=, |, ||, |=, +, +=, -, -=, ^, ^=, <, <=, <<, <%, >, >=, >> or >% @ [5:6]",
+    "Syntax error: found `{` when expecting an operator or end of expression @ [5:6]",
 ]
 
 [[case]]
@@ -448,7 +448,7 @@ source = """
 if then 1
 """
 expected_errors = [
-    "Syntax error: found then when expecting <number>, <ident>, (, [, !, -, if or loop @ [3:7]",
+    "Syntax error: found `then` when expecting an expression @ [3:7]",
 ]
 
 [[case]]

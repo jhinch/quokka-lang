@@ -221,7 +221,7 @@ source = """
 return 1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [9:9]",
+    "Syntax error: found end of file when expecting `;` @ [9:9]",
 ]
 
 [[case]]
@@ -232,7 +232,7 @@ source = """
 return {}
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [10:10]",
+    "Syntax error: found end of file when expecting `;` @ [10:10]",
 ]
 
 [[case]]
@@ -243,5 +243,5 @@ source = """
 return
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting <number>, <ident>, (, [, !, -, if or loop @ [7:7]",
+    "Syntax error: found end of file when expecting an expression @ [7:7]",
 ]

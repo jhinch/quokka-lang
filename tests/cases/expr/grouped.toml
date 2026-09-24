@@ -142,5 +142,5 @@ source = """
 (1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ) @ [3:3]",
+    "Syntax error: found end of file when expecting `)` @ [3:3]",
 ]

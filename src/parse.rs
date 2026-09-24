@@ -44,25 +44,123 @@ pub enum Error {
 pub struct SyntaxError {
     #[label("this token")]
     pub span: SourceSpan,
-    pub unexpected: TokenKind,
-    pub expected: ExpectedTokens,
+    pub unexpected: Unexpected,
+    pub expected: Expected,
 }
 
-#[derive(Debug)]
-pub struct ExpectedTokens(Vec<TokenKind>);
+impl SyntaxError {
+    /// Creates a syntax error for `token` not matching what the parser expected.
+    ///
+    /// Modeled on serde's `Error::invalid_type(unexp, exp)`: the found token and the
+    /// expectation are each rendered by their own type, so a fallback branch can describe an
+    /// expectation in words rather than listing every token kind it would have accepted.
+    fn new(token: &Token<'_>, expected: impl Into<Expected>) -> Self {
+        SyntaxError {
+            span: token.span(),
+            unexpected: Unexpected::from(token),
+            expected: expected.into(),
+        }
+    }
+}
 
-impl fmt::Display for ExpectedTokens {
+/// What the parser found instead of what it expected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Unexpected {
+    /// A token whose kind alone describes it, such as a keyword or punctuation.
+    Token(TokenKind),
+    /// An identifier, along with its name.
+    Ident(String),
+    /// A number literal, along with its source text.
+    Number(String),
+    /// The end of the source.
+    Eof,
+}
+
+impl From<&Token<'_>> for Unexpected {
+    fn from(token: &Token<'_>) -> Self {
+        match token.kind() {
+            TokenKind::Ident => Unexpected::Ident(token.text().to_owned()),
+            TokenKind::Number => Unexpected::Number(token.text().to_owned()),
+            TokenKind::Eof => Unexpected::Eof,
+            kind => Unexpected::Token(kind),
+        }
+    }
+}
+
+impl fmt::Display for Unexpected {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0.as_slice() {
-            [] => f.write_str("nothing"),
-            [token] => write!(f, "{token}"),
-            [first, middle @ .., last] => {
-                write!(f, "{first}")?;
-                for token in middle {
-                    write!(f, ", {token}")?;
+        match self {
+            Unexpected::Token(kind) => write!(f, "{}", DescribeTokenKind(*kind)),
+            Unexpected::Ident(name) => write!(f, "identifier `{name}`"),
+            Unexpected::Number(text) => write!(f, "number `{text}`"),
+            Unexpected::Eof => f.write_str("end of file"),
+        }
+    }
+}
+
+/// What the parser expected to find.
+///
+/// Short, specific expectations are best expressed as [`Expected::OneOf`] so the user sees
+/// exactly which tokens would have been accepted. When that list would be long and made up of
+/// low-level token kinds (the start of an expression, any operator), use
+/// [`Expected::Description`] with a human phrase instead.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expected {
+    /// One of the listed token kinds.
+    OneOf(Vec<TokenKind>),
+    /// A description of the expected syntax, such as "an expression".
+    Description(&'static str),
+}
+
+impl From<TokenKind> for Expected {
+    fn from(kind: TokenKind) -> Self {
+        Expected::OneOf(vec![kind])
+    }
+}
+
+impl<const N: usize> From<[TokenKind; N]> for Expected {
+    fn from(kinds: [TokenKind; N]) -> Self {
+        Expected::OneOf(kinds.to_vec())
+    }
+}
+
+impl From<&'static str> for Expected {
+    fn from(description: &'static str) -> Self {
+        Expected::Description(description)
+    }
+}
+
+impl fmt::Display for Expected {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expected::Description(description) => f.write_str(description),
+            Expected::OneOf(kinds) => match kinds.as_slice() {
+                [] => f.write_str("nothing"),
+                [kind] => write!(f, "{}", DescribeTokenKind(*kind)),
+                [first, middle @ .., last] => {
+                    write!(f, "one of {}", DescribeTokenKind(*first))?;
+                    for kind in middle {
+                        write!(f, ", {}", DescribeTokenKind(*kind))?;
+                    }
+                    write!(f, " or {}", DescribeTokenKind(*last))
                 }
-                write!(f, " or {last}")
-            }
+            },
+        }
+    }
+}
+
+/// Renders a token kind for a diagnostic: tokens with fixed text are quoted, while token kinds
+/// that stand for a class of text are named.
+struct DescribeTokenKind(TokenKind);
+
+impl fmt::Display for DescribeTokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            TokenKind::Ident => f.write_str("an identifier"),
+            TokenKind::Number => f.write_str("a number"),
+            TokenKind::Comment => f.write_str("a comment"),
+            TokenKind::Eof => f.write_str("end of file"),
+            kind => write!(f, "`{kind}`"),
         }
     }
 }
@@ -165,11 +263,7 @@ impl<'de> Parser<'de> {
         if token.kind() == kind {
             self.consume_token()
         } else {
-            Err(Error::Syntax(SyntaxError {
-                span: token.span(),
-                unexpected: token.kind(),
-                expected: ExpectedTokens(vec![kind]),
-            }))
+            Err(Error::Syntax(SyntaxError::new(token, kind)))
         }
     }
 
@@ -302,12 +396,11 @@ impl Parser<'_> {
                     data,
                 }
             }
-            unexpected => {
-                return Err(Error::from(SyntaxError {
-                    span: token.span(),
-                    unexpected,
-                    expected: ExpectedTokens(vec![TokenKind::Ident, TokenKind::Number]),
-                }));
+            _ => {
+                return Err(Error::from(SyntaxError::new(
+                    token,
+                    [TokenKind::Ident, TokenKind::Number],
+                )));
             }
         })
     }
@@ -320,17 +413,16 @@ impl Parser<'_> {
             TokenKind::Global => ItemData::from(self.parse_global_decl()?),
             TokenKind::Const => ItemData::from(self.parse_const_decl()?),
             TokenKind::Struct => ItemData::from(self.parse_struct_decl()?),
-            unexpected => {
-                return Err(Error::from(SyntaxError {
-                    span: token.span(),
-                    unexpected,
-                    expected: ExpectedTokens(vec![
+            _ => {
+                return Err(Error::from(SyntaxError::new(
+                    token,
+                    [
                         TokenKind::Fn,
                         TokenKind::Global,
                         TokenKind::Const,
                         TokenKind::Struct,
-                    ]),
-                }));
+                    ],
+                )));
             }
         };
         Ok(Item { attributes, data })
@@ -688,21 +780,8 @@ impl Parser<'_> {
                     let expr = Box::new(self.parse_expr_above(bp)?);
                     ExprData::from(UnaryOp { kind, expr })
                 }
-                unexpected => {
-                    return Err(Error::from(SyntaxError {
-                        span: lhs_token.span(),
-                        unexpected,
-                        expected: ExpectedTokens(vec![
-                            TokenKind::Number,
-                            TokenKind::Ident,
-                            TokenKind::LeftParen,
-                            TokenKind::LeftBracket,
-                            TokenKind::Bang,
-                            TokenKind::Minus,
-                            TokenKind::If,
-                            TokenKind::Loop,
-                        ]),
-                    }));
+                _ => {
+                    return Err(Error::from(SyntaxError::new(lhs_token, "an expression")));
                 }
             };
             let end_span = self.lexer.current().unwrap().span();
@@ -752,40 +831,12 @@ impl Parser<'_> {
                 TokenKind::LessThanEqual => OpKind::Comparison(ComparisonOpKind::Le),
                 TokenKind::GreaterThan => OpKind::Comparison(ComparisonOpKind::Gt),
                 TokenKind::GreaterThanEqual => OpKind::Comparison(ComparisonOpKind::Ge),
-                unexpected => {
-                    let span = op_token.span();
+                _ => {
+                    let error = SyntaxError::new(op_token, "an operator or end of expression");
                     if self.is_proceeding_block() {
                         break;
                     }
-                    return Err(Error::from(SyntaxError {
-                        span,
-                        unexpected,
-                        expected: ExpectedTokens(vec![
-                            TokenKind::Equal,
-                            TokenKind::EqualEqual,
-                            TokenKind::BangEqual,
-                            TokenKind::Ampersand,
-                            TokenKind::AmpersandAmpersand,
-                            TokenKind::AmpersandEqual,
-                            TokenKind::Pipe,
-                            TokenKind::PipePipe,
-                            TokenKind::PipeEqual,
-                            TokenKind::Plus,
-                            TokenKind::PlusEqual,
-                            TokenKind::Minus,
-                            TokenKind::MinusEqual,
-                            TokenKind::Carrot,
-                            TokenKind::CarrotEqual,
-                            TokenKind::LessThan,
-                            TokenKind::LessThanEqual,
-                            TokenKind::LessThanLessThan,
-                            TokenKind::LessThanPercent,
-                            TokenKind::GreaterThan,
-                            TokenKind::GreaterThanEqual,
-                            TokenKind::GreaterThanGreaterThan,
-                            TokenKind::GreaterThanPercent,
-                        ]),
-                    }));
+                    return Err(Error::from(error));
                 }
             };
 

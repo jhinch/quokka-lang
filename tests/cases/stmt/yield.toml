@@ -169,7 +169,7 @@ source = """
 yield;
 """
 expected_errors = [
-    "Syntax error: found ; when expecting <number>, <ident>, (, [, !, -, if or loop @ [5:6]",
+    "Syntax error: found `;` when expecting an expression @ [5:6]",
 ]
 
 [[case]]
@@ -180,7 +180,7 @@ source = """
 yield 1
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [8:8]",
+    "Syntax error: found end of file when expecting `;` @ [8:8]",
 ]
 
 [[case]]
@@ -191,5 +191,5 @@ source = """
 yield {}
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting ; @ [9:9]",
+    "Syntax error: found end of file when expecting `;` @ [9:9]",
 ]

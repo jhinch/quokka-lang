@@ -456,7 +456,7 @@ source = """
 a as
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting <ident> @ [5:5]",
+    "Syntax error: found end of file when expecting an identifier @ [5:5]",
 ]
 
 [[case]]
@@ -467,7 +467,7 @@ source = """
 as u16
 """
 expected_errors = [
-    "Syntax error: found as when expecting <number>, <ident>, (, [, !, -, if or loop @ [0:2]",
+    "Syntax error: found `as` when expecting an expression @ [0:2]",
 ]
 
 [[case]]
@@ -478,7 +478,7 @@ source = """
 a as 1
 """
 expected_errors = [
-    "Syntax error: found <number> when expecting <ident> @ [5:6]",
+    "Syntax error: found number `1` when expecting an identifier @ [5:6]",
 ]
 
 # Valid: the example from the bit-casts reference page.

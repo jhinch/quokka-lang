@@ -176,5 +176,5 @@ source = """
 fn main() {
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting } @ [12:12]",
+    "Syntax error: found end of file when expecting `}` @ [12:12]",
 ]

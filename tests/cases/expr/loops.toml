@@ -200,7 +200,7 @@ source = """
 loop
 """
 expected_errors = [
-    "Syntax error: found <EOF> when expecting { @ [5:5]",
+    "Syntax error: found end of file when expecting `{` @ [5:5]",
 ]
 
 [[case]]

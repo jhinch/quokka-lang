@@ -69,7 +69,7 @@ source = """
 let x = 1;
 """
 expected_errors = [
-    "Syntax error: found let when expecting fn, global, const or struct @ [0:3]",
+    "Syntax error: found `let` when expecting one of `fn`, `global`, `const` or `struct` @ [0:3]",
 ]
 expected_ast = """
 Root(
@@ -87,8 +87,8 @@ fn ok() {}
 weird_token
 """
 expected_errors = [
-    "Syntax error: found <number> when expecting fn, global, const or struct @ [0:1]",
-    "Syntax error: found <ident> when expecting fn, global, const or struct @ [17:28]",
+    "Syntax error: found number `1` when expecting one of `fn`, `global`, `const` or `struct` @ [0:1]",
+    "Syntax error: found identifier `weird_token` when expecting one of `fn`, `global`, `const` or `struct` @ [17:28]",
 ]
 expected_ast = """
 Root(
