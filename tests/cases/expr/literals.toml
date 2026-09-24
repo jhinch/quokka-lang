@@ -150,7 +150,7 @@ source = """
 0x
 """
 expected_errors = [
-    "Invalid number. Empty @ [0:2]",
+    "Invalid number literal: expected at least one digit @ [0:2]",
 ]
 
 [[case]]
@@ -161,7 +161,7 @@ source = """
 0o
 """
 expected_errors = [
-    "Invalid number. Empty @ [0:2]",
+    "Invalid number literal: expected at least one digit @ [0:2]",
 ]
 
 [[case]]
@@ -172,7 +172,18 @@ source = """
 0b
 """
 expected_errors = [
-    "Invalid number. Empty @ [0:2]",
+    "Invalid number literal: expected at least one digit @ [0:2]",
+]
+
+[[case]]
+name = "hex_only_underscore"
+kind = "parser"
+entrypoint = "expr"
+source = """
+0x_
+"""
+expected_errors = [
+    "Invalid number literal: expected at least one digit @ [0:3]",
 ]
 
 [[case]]
@@ -183,7 +194,7 @@ source = """
 4294967296
 """
 expected_errors = [
-    "Invalid number. PosOverflow @ [0:10]",
+    "Invalid number literal: value is too large, the maximum is 4294967295 @ [0:10]",
 ]
 
 [[case]]
@@ -194,5 +205,5 @@ source = """
 0x100000000
 """
 expected_errors = [
-    "Invalid number. PosOverflow @ [0:11]",
+    "Invalid number literal: value is too large, the maximum is 4294967295 @ [0:11]",
 ]
