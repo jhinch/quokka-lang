@@ -65,7 +65,7 @@ source = """
 global A: u8
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [13:13]",
+    "Syntax error: missing `;` after `global A` declaration @ [12:12]",
 ]
 
 [[case]]
@@ -118,3 +118,29 @@ fn main() {}
 expected_errors = [
     "cannot find type `NotAType` @ [10:18]",
 ]
+
+[[case]]
+name = "missing_semicolon_before_next_global"
+kind = "parser"
+source = """
+global A: u8
+global B: u8;
+"""
+expected_errors = [
+    "Syntax error: missing `;` after `global A` declaration @ [12:12]",
+]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: GlobalDecl(GlobalDecl(
+        name: ("B", (20, 1)),
+        ty: TyRef(
+          span: (23, 2),
+          data: Simple(("u8", (23, 2))),
+        ),
+      )),
+    ),
+  ],
+)
+"""

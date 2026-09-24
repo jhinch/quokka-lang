@@ -337,7 +337,7 @@ source = """
 [1 2]
 """
 expected_errors = [
-    "Syntax error: found number `2` when expecting an operator or end of expression @ [3:4]",
+    "Syntax error: missing `,` between array items @ [2:2]",
 ]
 
 [[case]]
@@ -370,7 +370,7 @@ source = """
 [1, 2
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `,` @ [6:6]",
+    "Syntax error: found end of file when expecting one of `,` or `]` @ [6:6]",
 ]
 
 [[case]]
@@ -381,7 +381,7 @@ source = """
 [1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `,` @ [3:3]",
+    "Syntax error: found end of file when expecting one of `,`, `;` or `]` @ [3:3]",
 ]
 
 [[case]]
@@ -780,3 +780,83 @@ main -> unit:
   .bb1:
     return
 """
+
+[[case]]
+name = "missing_comma_between_later_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2 3]
+"""
+expected_errors = [
+    "Syntax error: missing `,` between array items @ [5:5]",
+]
+
+[[case]]
+name = "missing_comma_between_identifier_items"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[a b]
+"""
+expected_errors = [
+    "Syntax error: missing `,` between array items @ [2:2]",
+]
+
+[[case]]
+name = "missing_semicolon_in_repeat_expr_suggests_repeat"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[0 4]
+"""
+expected_errors = [
+    "Syntax error: missing `,` between array items @ [2:2]",
+]
+
+[[case]]
+name = "missing_comma_after_item_ending_in_block"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[loop { break 1; } 2]
+"""
+expected_errors = [
+    "Syntax error: missing `,` between array items @ [18:18]",
+]
+
+[[case]]
+name = "missing_comma_between_items_multiline"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[
+    1
+    2,
+]
+"""
+expected_errors = [
+    "Syntax error: missing `,` between array items @ [7:7]",
+]
+
+[[case]]
+name = "unexpected_token_after_first_item_lists_accepted_tokens"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1 }
+"""
+expected_errors = [
+    "Syntax error: found `}` when expecting one of `,`, `;` or `]` @ [3:4]",
+]
+
+[[case]]
+name = "unexpected_token_after_later_item_lists_accepted_tokens"
+kind = "parser"
+entrypoint = "expr"
+source = """
+[1, 2 }
+"""
+expected_errors = [
+    "Syntax error: found `}` when expecting one of `,` or `]` @ [6:7]",
+]

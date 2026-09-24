@@ -183,7 +183,7 @@ source = """
 break 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [8:8]",
+    "Syntax error: missing `;` after `break` statement @ [7:7]",
 ]
 
 [[case]]
@@ -194,5 +194,5 @@ source = """
 break {}
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [9:9]",
+    "Syntax error: missing `;` after `break` statement @ [8:8]",
 ]

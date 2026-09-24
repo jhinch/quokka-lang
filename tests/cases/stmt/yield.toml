@@ -180,7 +180,7 @@ source = """
 yield 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [8:8]",
+    "Syntax error: missing `;` after `yield` statement @ [7:7]",
 ]
 
 [[case]]
@@ -191,5 +191,5 @@ source = """
 yield {}
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [9:9]",
+    "Syntax error: missing `;` after `yield` statement @ [8:8]",
 ]

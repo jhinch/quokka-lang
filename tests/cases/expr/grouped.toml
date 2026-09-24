@@ -144,3 +144,14 @@ source = """
 expected_errors = [
     "Syntax error: found end of file when expecting `)` @ [3:3]",
 ]
+
+[[case]]
+name = "adjacent_expressions_in_group"
+kind = "parser"
+entrypoint = "expr"
+source = """
+(1 2)
+"""
+expected_errors = [
+    "Syntax error: found number `2` when expecting `)` @ [3:4]",
+]

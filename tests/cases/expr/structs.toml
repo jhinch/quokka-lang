@@ -352,7 +352,7 @@ source = """
 Foo { a: 1 b: 2 }
 """
 expected_errors = [
-    "Syntax error: found identifier `b` when expecting an operator or end of expression @ [11:12]",
+    "Syntax error: missing `,` between struct fields @ [10:10]",
 ]
 
 [[case]]
@@ -385,7 +385,7 @@ source = """
 Foo { a: 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `,` @ [11:11]",
+    "Syntax error: found end of file when expecting one of `,` or `}` @ [11:11]",
 ]
 
 [[case]]
@@ -959,4 +959,29 @@ expected_errors = [
     "field `z` is not defined on `Point` @ [97:98]",
     "field `y` is missing in struct expression @ [108:109]",
     "`u16` is not equal to `u8` @ [22:24]",
+]
+
+[[case]]
+name = "missing_comma_between_fields_multiline"
+kind = "parser"
+entrypoint = "expr"
+source = """
+Foo {
+    a: 1
+    b: 2,
+}
+"""
+expected_errors = [
+    "Syntax error: missing `,` between struct fields @ [14:14]",
+]
+
+[[case]]
+name = "unexpected_token_after_field_lists_accepted_tokens"
+kind = "parser"
+entrypoint = "expr"
+source = """
+Foo { a: 1 2 }
+"""
+expected_errors = [
+    "Syntax error: found number `2` when expecting one of `,` or `}` @ [11:12]",
 ]

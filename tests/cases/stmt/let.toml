@@ -346,7 +346,7 @@ source = """
 let x = 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [10:10]",
+    "Syntax error: missing `;` after `let x` statement @ [9:9]",
 ]
 
 [[case]]

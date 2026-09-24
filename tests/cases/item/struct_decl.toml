@@ -93,7 +93,7 @@ struct Point {
 }
 """
 expected_errors = [
-    "Syntax error: found identifier `y` when expecting `,` @ [29:30]",
+    "Syntax error: missing `,` between struct fields @ [24:24]",
 ]
 
 [[case]]
@@ -353,3 +353,17 @@ Root(
   ],
 )
 """
+
+[[case]]
+name = "missing_comma_between_fields_multiline"
+kind = "parser"
+entrypoint = "item"
+source = """
+struct P {
+    x: u8
+    y: u8,
+}
+"""
+expected_errors = [
+    "Syntax error: missing `,` between struct fields @ [20:20]",
+]

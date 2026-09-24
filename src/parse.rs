@@ -17,6 +17,9 @@ pub enum Error {
     Syntax(#[from] SyntaxError),
     #[error(transparent)]
     #[diagnostic(transparent)]
+    MissingSeparator(#[from] MissingSeparatorError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     Preview(#[from] PreviewFeatureError),
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -165,6 +168,142 @@ impl fmt::Display for DescribeTokenKind {
     }
 }
 
+/// A separator (`,` or `;`) is missing between two adjacent list items or statements, or at the
+/// end of a declaration or statement.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: missing `{separator}` {context}")]
+#[diagnostic()]
+pub struct MissingSeparatorError {
+    /// A zero-width span where the separator should go, just after the preceding token.
+    #[label(primary, "add `{separator}` here")]
+    pub span: SourceSpan,
+    /// The token that follows where the separator should be, if there is one worth pointing at.
+    #[label("{next_label}")]
+    pub next_span: Option<SourceSpan>,
+    pub next_label: &'static str,
+    pub separator: TokenKind,
+    pub context: SeparatorContext,
+    #[help]
+    pub help: Option<&'static str>,
+}
+
+/// Where a separator was expected, used to describe a [`MissingSeparatorError`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SeparatorContext {
+    /// Between the items of an array expression.
+    ArrayItems,
+    /// Between the fields of a struct expression or struct declaration.
+    StructFields,
+    /// At the end of a declaration or statement.
+    After(Terminated),
+}
+
+impl SeparatorContext {
+    fn next_label(&self) -> &'static str {
+        match self {
+            SeparatorContext::ArrayItems => "next item",
+            SeparatorContext::StructFields => "next field",
+            SeparatorContext::After(Terminated::Global(_) | Terminated::Const(_)) => {
+                "next declaration"
+            }
+            SeparatorContext::After(_) => "next statement",
+        }
+    }
+
+    /// Whether `kind` following the preceding item suggests the separator was left out, rather
+    /// than something else being wrong.
+    fn is_missing_before(&self, kind: TokenKind) -> bool {
+        match self {
+            SeparatorContext::ArrayItems => can_start_expr(kind),
+            SeparatorContext::StructFields => {
+                matches!(
+                    kind,
+                    TokenKind::Ident | TokenKind::Underscore | TokenKind::Hash
+                )
+            }
+            SeparatorContext::After(_) => {
+                matches!(kind, TokenKind::RightBrace | TokenKind::Eof)
+                    || can_start_statement_or_item(kind)
+            }
+        }
+    }
+}
+
+impl fmt::Display for SeparatorContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SeparatorContext::ArrayItems => f.write_str("between array items"),
+            SeparatorContext::StructFields => f.write_str("between struct fields"),
+            SeparatorContext::After(terminated) => write!(f, "after {terminated}"),
+        }
+    }
+}
+
+/// A declaration or statement that must be terminated by a `;`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Terminated {
+    Global(Identifier),
+    Const(Identifier),
+    Let(Identifier),
+    Return,
+    Break,
+    Yield,
+    Continue,
+    Expr,
+}
+
+impl fmt::Display for Terminated {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Terminated::Global(name) => write!(f, "`global {name}` declaration"),
+            Terminated::Const(name) => write!(f, "`const {name}` declaration"),
+            Terminated::Let(name) => write!(f, "`let {name}` statement"),
+            Terminated::Return => f.write_str("`return` statement"),
+            Terminated::Break => f.write_str("`break` statement"),
+            Terminated::Yield => f.write_str("`yield` statement"),
+            Terminated::Continue => f.write_str("`continue` statement"),
+            Terminated::Expr => f.write_str("expression"),
+        }
+    }
+}
+
+/// Whether a token of `kind` can begin an expression.
+fn can_start_expr(kind: TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::Number
+            | TokenKind::Ident
+            | TokenKind::Underscore
+            | TokenKind::LeftBracket
+            | TokenKind::LeftParen
+            | TokenKind::If
+            | TokenKind::Loop
+            | TokenKind::Bang
+            | TokenKind::Minus
+    )
+}
+
+/// Whether a token of `kind` can begin a statement or an item.
+///
+/// `{` is deliberately excluded: after an expression it more often means a missing `then` than
+/// a missing `;` before a block.
+fn can_start_statement_or_item(kind: TokenKind) -> bool {
+    can_start_expr(kind)
+        || matches!(
+            kind,
+            TokenKind::Let
+                | TokenKind::Return
+                | TokenKind::Break
+                | TokenKind::Yield
+                | TokenKind::Continue
+                | TokenKind::Fn
+                | TokenKind::Global
+                | TokenKind::Const
+                | TokenKind::Struct
+                | TokenKind::Hash
+        )
+}
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("Syntax error: cannot chain comparisons")]
 #[diagnostic()]
@@ -224,6 +363,8 @@ pub struct Parser<'de> {
     /// This is used rather than `lexer.current()` to handle the case where comment tokens
     /// are present between non-comment tokens.
     last_token_kind: Option<TokenKind>,
+    /// the span of the last non-comment token consumed via [`Parser::consume_token`].
+    last_token_span: Option<SourceSpan>,
 }
 
 impl<'de> From<&'de str> for Parser<'de> {
@@ -233,6 +374,7 @@ impl<'de> From<&'de str> for Parser<'de> {
             features: PreviewFeatureSet::default(),
             result_builder: MultiResultBuilder::default(),
             last_token_kind: None,
+            last_token_span: None,
         }
     }
 }
@@ -243,6 +385,7 @@ impl<'de> Parser<'de> {
         match self.lexer.next().transpose()? {
             Some(token) => {
                 self.last_token_kind = Some(token.kind());
+                self.last_token_span = Some(token.span());
                 Ok(token)
             }
             None => unimplemented!("parsed beyond EOF"),
@@ -265,6 +408,55 @@ impl<'de> Parser<'de> {
         } else {
             Err(Error::Syntax(SyntaxError::new(token, kind)))
         }
+    }
+
+    /// Expects `separator` after the item or statement just parsed.
+    ///
+    /// When it's absent and the next token suggests it was simply left out (see
+    /// [`SeparatorContext::is_missing_before`]), this reports a [`MissingSeparatorError`] pointing
+    /// at where the separator belongs. Otherwise it falls back to a [`SyntaxError`] listing
+    /// everything that would have been accepted in `expected`.
+    fn expect_separator(
+        &mut self,
+        separator: TokenKind,
+        context: SeparatorContext,
+        expected: impl Into<Expected>,
+        help: Option<&'static str>,
+    ) -> Result<Token<'de>, Error> {
+        let token = self.peek_token()?;
+        let kind = token.kind();
+        if kind == separator {
+            return self.consume_token();
+        }
+        if !context.is_missing_before(kind) {
+            return Err(Error::from(SyntaxError::new(token, expected)));
+        }
+        let next_span = match kind {
+            TokenKind::RightBrace | TokenKind::Eof => None,
+            _ => Some(token.span()),
+        };
+        let previous_end = self
+            .last_token_span
+            .map(|span| span.offset() + span.len())
+            .unwrap_or_default();
+        Err(Error::from(MissingSeparatorError {
+            span: SourceSpan::new(previous_end.into(), 0),
+            next_span,
+            next_label: context.next_label(),
+            separator,
+            context,
+            help,
+        }))
+    }
+
+    /// Expects the `;` that ends a declaration or statement.
+    fn expect_terminator(&mut self, terminated: Terminated) -> Result<Token<'de>, Error> {
+        self.expect_separator(
+            TokenKind::Semicolon,
+            SeparatorContext::After(terminated),
+            TokenKind::Semicolon,
+            None,
+        )
     }
 
     fn is_proceeding_block(&self) -> bool {
@@ -432,7 +624,11 @@ impl Parser<'_> {
         while self.lexer.peek().is_some()
             && !matches!(
                 self.peek_token()?.kind(),
-                TokenKind::Fn | TokenKind::Global | TokenKind::Struct | TokenKind::Eof
+                TokenKind::Fn
+                    | TokenKind::Global
+                    | TokenKind::Const
+                    | TokenKind::Struct
+                    | TokenKind::Eof
             )
         {
             self.chomp()?;
@@ -491,7 +687,7 @@ impl Parser<'_> {
         let name = self.parse_identifier()?;
         self.expect(TokenKind::Colon)?;
         let ty = self.parse_ty_ref()?;
-        self.expect(TokenKind::Semicolon)?;
+        self.expect_terminator(Terminated::Global(name.data.clone()))?;
 
         Ok(GlobalDecl { name, ty })
     }
@@ -503,7 +699,7 @@ impl Parser<'_> {
         let ty = self.parse_ty_ref()?;
         self.expect(TokenKind::Equal)?;
         let value = self.parse_expr_or_block()?;
-        self.expect(TokenKind::Semicolon)?;
+        self.expect_terminator(Terminated::Const(name.data.clone()))?;
 
         Ok(ConstDecl { name, ty, value })
     }
@@ -517,7 +713,12 @@ impl Parser<'_> {
         while self.peek_token()?.kind() != TokenKind::RightBrace {
             fields.push(self.parse_field_decl()?);
             if self.peek_token()?.kind() != TokenKind::RightBrace {
-                self.expect(TokenKind::Comma)?;
+                self.expect_separator(
+                    TokenKind::Comma,
+                    SeparatorContext::StructFields,
+                    [TokenKind::Comma, TokenKind::RightBrace],
+                    None,
+                )?;
             }
         }
         self.expect(TokenKind::RightBrace)?;
@@ -606,7 +807,7 @@ impl Parser<'_> {
         };
         self.expect(TokenKind::Equal)?;
         let value = self.parse_expr_or_block()?;
-        self.expect(TokenKind::Semicolon)?;
+        self.expect_terminator(Terminated::Let(name.data.clone()))?;
 
         Ok(LetSmt { name, ty, value })
     }
@@ -618,7 +819,7 @@ impl Parser<'_> {
             None
         } else {
             let value = self.parse_expr_or_block()?;
-            self.expect(TokenKind::Semicolon)?;
+            self.expect_terminator(Terminated::Return)?;
             Some(value)
         };
         Ok(ReturnSmt { value })
@@ -631,7 +832,7 @@ impl Parser<'_> {
             None
         } else {
             let value = self.parse_expr_or_block()?;
-            self.expect(TokenKind::Semicolon)?;
+            self.expect_terminator(Terminated::Break)?;
             Some(value)
         };
         Ok(BreakSmt { value })
@@ -640,20 +841,20 @@ impl Parser<'_> {
     fn parse_yield(&mut self) -> Result<YieldSmt, Error> {
         self.expect(TokenKind::Yield)?;
         let value = self.parse_expr_or_block()?;
-        self.expect(TokenKind::Semicolon)?;
+        self.expect_terminator(Terminated::Yield)?;
         Ok(YieldSmt { value })
     }
 
     fn parse_continue(&mut self) -> Result<ContinueSmt, Error> {
         self.expect(TokenKind::Continue)?;
-        self.expect(TokenKind::Semicolon)?;
+        self.expect_terminator(Terminated::Continue)?;
         Ok(ContinueSmt)
     }
 
     fn parse_expr_smt(&mut self) -> Result<ExprSmt, Error> {
         let value = self.parse_expr_or_block()?;
         if !self.is_proceeding_block() {
-            self.expect(TokenKind::Semicolon)?;
+            self.expect_terminator(Terminated::Expr)?;
         }
         Ok(ExprSmt { value })
     }
@@ -698,7 +899,12 @@ impl Parser<'_> {
                             let value = self.parse_expr_above(0)?;
                             fields.push(StructExprField { name, value });
                             if self.peek_token()?.kind() != TokenKind::RightBrace {
-                                self.expect(TokenKind::Comma)?;
+                                self.expect_separator(
+                                    TokenKind::Comma,
+                                    SeparatorContext::StructFields,
+                                    [TokenKind::Comma, TokenKind::RightBrace],
+                                    None,
+                                )?;
                             }
                         }
                         self.expect(TokenKind::RightBrace)?;
@@ -725,7 +931,28 @@ impl Parser<'_> {
                     } else {
                         let mut items = vec![first];
                         while self.peek_token()?.kind() != TokenKind::RightBracket {
-                            self.expect(TokenKind::Comma)?;
+                            if items.len() == 1 {
+                                // a repeat expression is still possible after the first item
+                                let help = (self.peek_token()?.kind() == TokenKind::Number)
+                                    .then_some("to repeat an item, use `;` instead: `[0; 4]`");
+                                self.expect_separator(
+                                    TokenKind::Comma,
+                                    SeparatorContext::ArrayItems,
+                                    [
+                                        TokenKind::Comma,
+                                        TokenKind::Semicolon,
+                                        TokenKind::RightBracket,
+                                    ],
+                                    help,
+                                )?;
+                            } else {
+                                self.expect_separator(
+                                    TokenKind::Comma,
+                                    SeparatorContext::ArrayItems,
+                                    [TokenKind::Comma, TokenKind::RightBracket],
+                                    None,
+                                )?;
+                            }
                             if self.peek_token()?.kind() == TokenKind::RightBracket {
                                 break;
                             }
@@ -831,6 +1058,9 @@ impl Parser<'_> {
                 TokenKind::LessThanEqual => OpKind::Comparison(ComparisonOpKind::Le),
                 TokenKind::GreaterThan => OpKind::Comparison(ComparisonOpKind::Gt),
                 TokenKind::GreaterThanEqual => OpKind::Comparison(ComparisonOpKind::Ge),
+                // Anything that could start another expression, statement or item ends this
+                // expression, leaving the enclosing construct to report the missing separator.
+                kind if can_start_statement_or_item(kind) => break,
                 _ => {
                     let error = SyntaxError::new(op_token, "an operator or end of expression");
                     if self.is_proceeding_block() {

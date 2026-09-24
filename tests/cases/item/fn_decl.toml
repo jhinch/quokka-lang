@@ -323,3 +323,86 @@ fn main() {}
 expected_errors = [
     "`checkpoint` cannot be placed at address $0104: overlaps the cartridge header ($0100-$014F) @ [23:33]",
 ]
+
+[[case]]
+name = "missing_semicolon_between_lets"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    let x: u8 = 1
+    let y: u8 = 2;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after `let x` statement @ [29:29]",
+]
+
+[[case]]
+name = "missing_semicolon_between_assignments"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    x = 1
+    y = 2;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [21:21]",
+]
+
+[[case]]
+name = "missing_semicolon_between_calls"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    f()
+    g();
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [19:19]",
+]
+
+[[case]]
+name = "missing_semicolon_before_return"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    x = 1
+    return;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [21:21]",
+]
+
+[[case]]
+name = "missing_semicolon_before_closing_brace"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    x = 1
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [21:21]",
+]
+
+[[case]]
+name = "missing_semicolon_before_comment"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    let x: u8 = 1 // one
+    let y: u8 = 2;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after `let x` statement @ [29:29]",
+]

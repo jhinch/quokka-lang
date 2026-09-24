@@ -221,7 +221,7 @@ source = """
 return 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [9:9]",
+    "Syntax error: missing `;` after `return` statement @ [8:8]",
 ]
 
 [[case]]
@@ -232,7 +232,7 @@ source = """
 return {}
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [10:10]",
+    "Syntax error: missing `;` after `return` statement @ [9:9]",
 ]
 
 [[case]]

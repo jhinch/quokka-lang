@@ -103,7 +103,7 @@ source = """
 const A: u8 = 1
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [16:16]",
+    "Syntax error: missing `;` after `const A` declaration @ [15:15]",
 ]
 
 [[case]]
@@ -1710,4 +1710,64 @@ const A: u4 = [8]
 main -> unit:
   .bb1:
     return
+"""
+
+[[case]]
+name = "missing_semicolon_before_next_item"
+kind = "parser"
+source = """
+const A: u8 = 1
+fn main() {}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after `const A` declaration @ [15:15]",
+]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: FnDecl(FnDecl(
+        signature: FnSig(
+          name: ("main", (19, 4)),
+        ),
+        body: Block(
+          span: (26, 2),
+          statements: [],
+        ),
+      )),
+    ),
+  ],
+)
+"""
+
+[[case]]
+name = "missing_semicolon_before_next_const"
+kind = "parser"
+source = """
+const A: u8 = 1
+const B: u8 = 2;
+"""
+expected_errors = [
+    "Syntax error: missing `;` after `const A` declaration @ [15:15]",
+]
+expected_ast = """
+Root(
+  items: [
+    Item(
+      data: ConstDecl(ConstDecl(
+        name: ("B", (22, 1)),
+        ty: TyRef(
+          span: (25, 2),
+          data: Simple(("u8", (25, 2))),
+        ),
+        value: Expr(
+          span: (30, 1),
+          data: Integer(IntegerLiteral(
+            value: 2,
+          )),
+        ),
+      )),
+    ),
+  ],
+)
 """

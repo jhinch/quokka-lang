@@ -228,7 +228,7 @@ source = """
 1 + 2
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [6:6]",
+    "Syntax error: missing `;` after expression @ [5:5]",
 ]
 
 [[case]]
@@ -239,5 +239,5 @@ source = """
 x
 """
 expected_errors = [
-    "Syntax error: found end of file when expecting `;` @ [2:2]",
+    "Syntax error: missing `;` after expression @ [1:1]",
 ]

@@ -263,3 +263,14 @@ a().b
 expected_errors = [
     "Syntax error: field access requires struct @ [3:5]",
 ]
+
+[[case]]
+name = "adjacent_expressions_in_index"
+kind = "parser"
+entrypoint = "expr"
+source = """
+a[1 2]
+"""
+expected_errors = [
+    "Syntax error: found number `2` when expecting `]` @ [4:5]",
+]
