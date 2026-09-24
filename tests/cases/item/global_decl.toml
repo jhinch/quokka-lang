@@ -54,7 +54,40 @@ source = """
 global A;
 """
 expected_errors = [
-    "Syntax error: found `;` when expecting `:` @ [8:9]",
+    "Syntax error: missing type annotation in `global A` declaration @ [8:8]",
+]
+
+[[case]]
+name = "missing_type_colon"
+kind = "parser"
+entrypoint = "item"
+source = """
+global A u8;
+"""
+expected_errors = [
+    "Syntax error: missing `:` before the type in `global A` declaration @ [8:8]",
+]
+
+[[case]]
+name = "missing_type_colon_array"
+kind = "parser"
+entrypoint = "item"
+source = """
+global A [u8; 2];
+"""
+expected_errors = [
+    "Syntax error: missing `:` before the type in `global A` declaration @ [8:8]",
+]
+
+[[case]]
+name = "missing_type_colon_not_followed_by_type"
+kind = "parser"
+entrypoint = "item"
+source = """
+global A = 1;
+"""
+expected_errors = [
+    "Syntax error: found `=` when expecting `:` @ [9:10]",
 ]
 
 [[case]]

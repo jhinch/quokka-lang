@@ -114,7 +114,40 @@ source = """
 const A = 1;
 """
 expected_errors = [
-    "Syntax error: found `=` when expecting `:` @ [8:9]",
+    "Syntax error: missing type annotation in `const A` declaration @ [7:7]",
+]
+
+[[case]]
+name = "missing_type_and_value"
+kind = "parser"
+entrypoint = "item"
+source = """
+const A;
+"""
+expected_errors = [
+    "Syntax error: missing type annotation in `const A` declaration @ [7:7]",
+]
+
+[[case]]
+name = "missing_type_colon"
+kind = "parser"
+entrypoint = "item"
+source = """
+const A u8 = 1;
+"""
+expected_errors = [
+    "Syntax error: missing `:` before the type in `const A` declaration @ [7:7]",
+]
+
+[[case]]
+name = "missing_type_colon_not_followed_by_type"
+kind = "parser"
+entrypoint = "item"
+source = """
+const A 1;
+"""
+expected_errors = [
+    "Syntax error: found number `1` when expecting `:` @ [8:9]",
 ]
 
 [[case]]

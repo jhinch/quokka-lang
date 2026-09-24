@@ -20,6 +20,9 @@ pub enum Error {
     MissingSeparator(#[from] MissingSeparatorError),
     #[error(transparent)]
     #[diagnostic(transparent)]
+    MissingTypeAnnotation(#[from] MissingTypeAnnotationError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     Preview(#[from] PreviewFeatureError),
     #[error(transparent)]
     #[diagnostic(transparent)]
@@ -196,6 +199,8 @@ pub enum SeparatorContext {
     StructFields,
     /// At the end of a declaration or statement.
     After(Terminated),
+    /// Between the name and the type of a declaration or statement.
+    BeforeType(Terminated),
 }
 
 impl SeparatorContext {
@@ -207,6 +212,7 @@ impl SeparatorContext {
                 "next declaration"
             }
             SeparatorContext::After(_) => "next statement",
+            SeparatorContext::BeforeType(_) => "type",
         }
     }
 
@@ -225,6 +231,7 @@ impl SeparatorContext {
                 matches!(kind, TokenKind::RightBrace | TokenKind::Eof)
                     || can_start_statement_or_item(kind)
             }
+            SeparatorContext::BeforeType(_) => can_start_ty_ref(kind),
         }
     }
 }
@@ -235,11 +242,16 @@ impl fmt::Display for SeparatorContext {
             SeparatorContext::ArrayItems => f.write_str("between array items"),
             SeparatorContext::StructFields => f.write_str("between struct fields"),
             SeparatorContext::After(terminated) => write!(f, "after {terminated}"),
+            SeparatorContext::BeforeType(terminated) => {
+                write!(f, "before the type in {terminated}")
+            }
         }
     }
 }
 
 /// A declaration or statement that must be terminated by a `;`.
+///
+/// Also names the declaration or statement that a type annotation belongs to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Terminated {
     Global(Identifier),
@@ -265,6 +277,22 @@ impl fmt::Display for Terminated {
             Terminated::Expr => f.write_str("expression"),
         }
     }
+}
+
+/// A `global` or `const` declaration has no `: Type` after its name.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: missing type annotation in {declared}")]
+#[diagnostic(help("`global` and `const` declarations must state their type, e.g. `: u8`"))]
+pub struct MissingTypeAnnotationError {
+    /// A zero-width span where the annotation should go, just after the declaration's name.
+    #[label("add `: <type>` here")]
+    pub span: SourceSpan,
+    pub declared: Terminated,
+}
+
+/// Whether a token of `kind` can begin a type reference.
+fn can_start_ty_ref(kind: TokenKind) -> bool {
+    matches!(kind, TokenKind::Ident | TokenKind::LeftBracket)
 }
 
 /// Whether a token of `kind` can begin an expression.
@@ -435,12 +463,8 @@ impl<'de> Parser<'de> {
             TokenKind::RightBrace | TokenKind::Eof => None,
             _ => Some(token.span()),
         };
-        let previous_end = self
-            .last_token_span
-            .map(|span| span.offset() + span.len())
-            .unwrap_or_default();
         Err(Error::from(MissingSeparatorError {
-            span: SourceSpan::new(previous_end.into(), 0),
+            span: self.span_after_last_token(),
             next_span,
             next_label: context.next_label(),
             separator,
@@ -457,6 +481,40 @@ impl<'de> Parser<'de> {
             TokenKind::Semicolon,
             None,
         )
+    }
+
+    /// Expects the `:` that starts the type annotation of `declared`, right after its name.
+    ///
+    /// When the next token is one of `after_type`, i.e. what would follow the whole annotation,
+    /// the annotation was left out entirely and this reports a [`MissingTypeAnnotationError`].
+    /// When the next token looks like a type, only the `:` was left out and this reports a
+    /// [`MissingSeparatorError`]. Otherwise it falls back to a [`SyntaxError`].
+    fn expect_type_annotation(
+        &mut self,
+        declared: Terminated,
+        after_type: &[TokenKind],
+    ) -> Result<Token<'de>, Error> {
+        if after_type.contains(&self.peek_token()?.kind()) {
+            return Err(Error::from(MissingTypeAnnotationError {
+                span: self.span_after_last_token(),
+                declared,
+            }));
+        }
+        self.expect_separator(
+            TokenKind::Colon,
+            SeparatorContext::BeforeType(declared),
+            TokenKind::Colon,
+            None,
+        )
+    }
+
+    /// A zero-width span just after the last consumed token.
+    fn span_after_last_token(&self) -> SourceSpan {
+        let previous_end = self
+            .last_token_span
+            .map(|span| span.offset() + span.len())
+            .unwrap_or_default();
+        SourceSpan::new(previous_end.into(), 0)
     }
 
     fn is_proceeding_block(&self) -> bool {
@@ -685,7 +743,10 @@ impl Parser<'_> {
     fn parse_global_decl(&mut self) -> Result<GlobalDecl, Error> {
         self.expect(TokenKind::Global)?;
         let name = self.parse_identifier()?;
-        self.expect(TokenKind::Colon)?;
+        self.expect_type_annotation(
+            Terminated::Global(name.data.clone()),
+            &[TokenKind::Semicolon],
+        )?;
         let ty = self.parse_ty_ref()?;
         self.expect_terminator(Terminated::Global(name.data.clone()))?;
 
@@ -695,7 +756,10 @@ impl Parser<'_> {
     fn parse_const_decl(&mut self) -> Result<ConstDecl, Error> {
         self.expect(TokenKind::Const)?;
         let name = self.parse_identifier()?;
-        self.expect(TokenKind::Colon)?;
+        self.expect_type_annotation(
+            Terminated::Const(name.data.clone()),
+            &[TokenKind::Equal, TokenKind::Semicolon],
+        )?;
         let ty = self.parse_ty_ref()?;
         self.expect(TokenKind::Equal)?;
         let value = self.parse_expr_or_block()?;
@@ -799,8 +863,10 @@ impl Parser<'_> {
     fn parse_local_decl(&mut self) -> Result<LetSmt, Error> {
         self.expect(TokenKind::Let)?;
         let name = self.parse_identifier()?;
-        let ty = if self.peek_token()?.kind() == TokenKind::Colon {
-            self.expect(TokenKind::Colon)?;
+        let kind = self.peek_token()?.kind();
+        let ty = if kind == TokenKind::Colon || can_start_ty_ref(kind) {
+            // the type is optional, so there is no annotation to be missing, only its `:`
+            self.expect_type_annotation(Terminated::Let(name.data.clone()), &[])?;
             Some(self.parse_ty_ref()?)
         } else {
             None

@@ -361,6 +361,28 @@ expected_errors = [
 ]
 
 [[case]]
+name = "missing_type_colon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x u8 = 1;
+"""
+expected_errors = [
+    "Syntax error: missing `:` before the type in `let x` statement @ [5:5]",
+]
+
+[[case]]
+name = "missing_type_colon_array"
+kind = "parser"
+entrypoint = "statement"
+source = """
+let x [u8; 2] = [1, 2];
+"""
+expected_errors = [
+    "Syntax error: missing `:` before the type in `let x` statement @ [5:5]",
+]
+
+[[case]]
 name = "missing_value"
 kind = "parser"
 entrypoint = "statement"
