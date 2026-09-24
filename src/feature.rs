@@ -21,6 +21,9 @@ pub enum PreviewFeature {
     ConstLoop,
     /// enable calling a function through a function-pointer local/global variable
     FnPtr,
+    /// enable canonicalization of associative/commutative MIR instructions, grouping literal
+    /// operands towards the end of a chain so later passes (e.g. SCCP) can fold them
+    Canonicalize,
     /// disable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     NoAdce,
     /// disable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
@@ -45,7 +48,7 @@ impl PreviewFeature {
     /// preview features that opt in to an optimization pass on MIR.
     #[must_use]
     pub fn optimization_features() -> &'static [PreviewFeature] {
-        &[]
+        &[PreviewFeature::Canonicalize]
     }
 
     /// preview features that opt out of a default MIR optimization behavior.

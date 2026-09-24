@@ -1,0 +1,1227 @@
+[[case]]
+name = "add_add_chain_moves_the_literal_to_the_outer_instruction"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "mixed_add_sub_chain_swaps_the_operand_and_its_opcode"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = sub n#2, m#4
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_sub_chain_reassociates"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n - 5;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = sub n#2, m#4
+    b#7: u8 = sub a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_chain_reassociates_same_opcode_only"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n | 1;
+    let a = n & 0x3C;
+    let b = a & m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 1
+    m#4: u8 = bitor n#2, #3
+    #5: u8 = copy 60
+    a#6: u8 = bitand n#2, m#4
+    b#7: u8 = bitand a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_then_bitor_chain_is_left_untouched"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n | 1;
+    let a = n & 5;
+    let b = a | m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 1
+    m#4: u8 = bitor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = bitand n#2, #5
+    b#7: u8 = bitor a#6, m#4
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "already_canonical_chain_with_literal_on_the_outer_instruction_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + m;
+    let b = a + 5;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    a#5: u8 = add n#2, m#4
+    #6: u8 = copy 5
+    b#7: u8 = add a#5, #6
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "chain_with_no_literal_operand_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let p = n | 1;
+    let a = n + m;
+    let b = a + p;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 1
+    p#6: u8 = bitor n#2, #5
+    a#7: u8 = add n#2, m#4
+    b#8: u8 = add a#7, p#6
+    #RET: u8 = copy b#8
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "inner_target_used_more_than_once_blocks_the_rewrite"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = a + m;
+    let c = a + b;
+    return c;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, #5
+    b#7: u8 = add a#6, m#4
+    c#8: u8 = add a#6, b#7
+    #RET: u8 = copy c#8
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "chain_link_in_the_right_operand_of_a_commutative_op_is_reassociated"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = m + a;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "non_adjacent_chain_link_across_an_unrelated_instruction_is_reassociated"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let filler = m | 1;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    #7: u8 = copy 1
+    filler#8: u8 = bitor m#4, #7
+    b#9: u8 = add a#6, #5
+    #RET: u8 = copy b#9
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "chain_link_in_subs_right_operand_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = m - a;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, #5
+    b#7: u8 = sub m#4, a#6
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "other_operand_defined_after_the_inner_instruction_blocks_the_rewrite"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    let m = n ^ 3;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    a#4: u8 = add n#2, #3
+    #5: u8 = copy 3
+    m#6: u8 = bitxor n#2, #5
+    b#7: u8 = add a#4, m#6
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "inner_instruction_in_a_dominating_block_is_reassociated"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn g() {}
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    g();
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+g -> unit:
+  .bb1:
+    return
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    call g, .bb2
+  .bb2:
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "other_operand_defined_in_a_dominating_block_is_reassociated"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn g() {}
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    g();
+    let a = n + 5;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+g -> unit:
+  .bb1:
+    return
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    call g, .bb2
+  .bb2:
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "other_operand_defined_in_a_later_block_than_the_inner_instruction_blocks_the_rewrite"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn g() {}
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    g();
+    let m = n ^ 3;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+g -> unit:
+  .bb1:
+    return
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    a#4: u8 = add n#2, #3
+    call g, .bb2
+  .bb2:
+    #5: u8 = copy 3
+    m#6: u8 = bitxor n#2, #5
+    b#7: u8 = add a#4, m#6
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "chain_spanning_a_branch_diamond_is_reassociated"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    if n == 0 then {
+        N = 1;
+    }
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    #7: u8 = copy 0
+    #8: u1 = eq n#2, #7
+    jumpif #8 != 0, .bb2, .bb3
+  .bb2:
+    #9: u8 = copy 1
+    store N = #9
+    jump .bb3
+  .bb3:
+    nop
+    nop
+    b#12: u8 = add a#6, #5
+    #RET: u8 = copy b#12
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "phi_operand_that_does_not_dominate_the_inner_instruction_blocks_the_rewrite"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    let k = n;
+    if n == 0 then {
+        k = n ^ 1;
+    } else {
+        k = n ^ 2;
+    }
+    let b = a + k;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    a#4: u8 = add n#2, #3
+    nop
+    #6: u8 = copy 0
+    #7: u1 = eq n#2, #6
+    jumpif #7 != 0, .bb2, .bb3
+  .bb2:
+    #8: u8 = copy 1
+    k#9: u8 = bitxor n#2, #8
+    jump .bb4
+  .bb3:
+    #10: u8 = copy 2
+    k#11: u8 = bitxor n#2, #10
+    jump .bb4
+  .bb4:
+    nop
+    k#13: u8 = phi k#9 <- .bb2, k#11 <- .bb3
+    b#14: u8 = add a#4, k#13
+    #RET: u8 = copy b#14
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_add_constants_fold"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 3;
+    let b = a + 5;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = add n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = add n#2, 8
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_sub_constants_fold_into_a_sum"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - 3;
+    let b = a - 5;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = sub n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = sub n#2, 8
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_sub_constants_fold_with_wrapping"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 3;
+    let b = a - 5;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = add n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = add n#2, 254
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_add_constants_fold_into_a_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - 3;
+    let b = a + 5;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = sub n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = sub n#2, 254
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_bitand_constants_fold"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0x3C;
+    let b = a & 0x0F;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 60
+    a#4: u8 = bitand n#2, #3
+    #5: u8 = copy 15
+    b#6: u8 = bitand n#2, 12
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_constants_fold_across_both_bytes"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global W: u16;
+
+fn f() -> u16 {
+    let w = W;
+    let a = w + 0xFF00;
+    let b = a + 0x0200;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global W: u16
+
+f -> u16:
+  .bb1:
+    w#2: u16 = load W
+    #3: u16 = copy 65280
+    a#4: u16 = add w#2, #3
+    #5: u16 = copy 512
+    b#6: u16 = add w#2, 256
+    #RET: u16 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_constants_fold_with_signed_wrapping"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global S: i8;
+
+fn f() -> i8 {
+    let s = S;
+    let a = s + 100;
+    let b = a + 100;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global S: i8
+
+f -> i8:
+  .bb1:
+    s#2: i8 = load S
+    #3: i8 = copy 100
+    a#4: i8 = add s#2, #3
+    #5: i8 = copy 100
+    b#6: i8 = add s#2, 200
+    #RET: i8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "swap_then_fold_groups_both_constants_across_a_non_constant_operand"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 7;
+    let a = n + 3;
+    let b = a + m;
+    let c = b + 5;
+    return c;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 7
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 3
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    #8: u8 = copy 5
+    c#9: u8 = add a#6, 8
+    #RET: u8 = copy c#9
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_on_the_left_of_a_commutative_op_folds"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 3;
+    let b = 5 + a;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = add n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = add n#2, 8
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "fold_leaves_an_inner_target_with_other_uses_intact"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 3;
+    let b = a + 5;
+    let c = a ^ b;
+    return c;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    a#4: u8 = add n#2, #3
+    #5: u8 = copy 5
+    b#6: u8 = add n#2, 8
+    c#7: u8 = bitxor a#4, b#6
+    #RET: u8 = copy c#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_chain_collapses_to_a_single_instruction_with_the_full_optimizer"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 7;
+    let a = n + 3;
+    let b = a + m;
+    let c = b - 1;
+    let d = c + 5;
+    return d;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    m#4: u8 = bitxor n#2, 7
+    a#6: u8 = add n#2, m#4
+    d#11: u8 = add a#6, 7
+    #RET: u8 = copy d#11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""

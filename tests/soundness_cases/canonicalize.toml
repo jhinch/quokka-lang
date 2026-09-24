@@ -1,0 +1,159 @@
+[[case]]
+name = "add_add_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    let b = a + n;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "mixed_add_sub_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_sub_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 7;
+    let a = n - 5;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n | 1;
+    let a = n & 0x3C;
+    let b = a & m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n & 0xF0;
+    let a = n | 0x03;
+    let b = a | m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_chain_reassociates_soundly"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n | 1;
+    let a = n ^ 0x3C;
+    let b = a ^ m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "three_link_add_chain_converges_across_rounds"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    let b = a + 10;
+    let c = b + n;
+    return c;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "multi_use_inner_target_is_left_unchanged"
+values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 9;
+    let a = n + 5;
+    let b = a + m;
+    let c = a + b;
+    return c;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""

@@ -7,6 +7,7 @@ use std::ops::{BitOr, BitOrAssign};
 use tracing::instrument;
 
 pub mod adce;
+pub mod canonicalize;
 pub mod graph;
 pub mod prune;
 pub mod sccp;
@@ -37,6 +38,9 @@ impl Optimizer {
 
     fn initialize_optimizations(&self) -> Vec<Box<dyn Optimize>> {
         let mut optimizations = Vec::<Box<dyn Optimize>>::new();
+        if self.features.is_enabled(PreviewFeature::Canonicalize) {
+            optimizations.push(Box::new(canonicalize::Canonicalize));
+        }
         if !self.features.is_enabled(PreviewFeature::NoAdce) {
             optimizations.push(Box::new(adce::Adce));
         }
