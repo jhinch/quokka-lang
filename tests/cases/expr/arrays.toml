@@ -516,7 +516,7 @@ source = """
 [1; 0]
 """
 expected_errors = [
-    "Invalid number. Zero @ [4:5]",
+    "Invalid number literal: value must not be zero @ [4:5]",
 ]
 
 [[case]]
@@ -527,7 +527,7 @@ source = """
 [1; 70000]
 """
 expected_errors = [
-    "Invalid number. PosOverflow @ [4:9]",
+    "Invalid number literal: value is too large, the maximum is 65535 @ [4:9]",
 ]
 
 [[case]]

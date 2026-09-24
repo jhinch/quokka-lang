@@ -47,25 +47,28 @@ impl Token<'_> {
     pub fn try_parse_u32(&self) -> Result<u32, Error> {
         let (text, radix) = self.number_text_and_radix();
         u32::from_str_radix(text.as_ref(), radix).map_err(|source| {
-            Error::from(InvalidNumberError {
-                span: self.span(),
-                kind: *source.kind(),
-            })
+            let kind = match source.kind() {
+                IntErrorKind::Empty => InvalidNumberKind::NoDigits,
+                IntErrorKind::PosOverflow => InvalidNumberKind::TooLarge { max: u32::MAX },
+                _ => InvalidNumberKind::InvalidDigit,
+            };
+            self.invalid_number(kind)
         })
     }
 
     pub fn try_parse_non_zero_u16(&self) -> Result<NonZeroU16, Error> {
         let value = u16::try_from(self.try_parse_u32()?).map_err(|_| {
-            Error::from(InvalidNumberError {
-                span: self.span(),
-                kind: IntErrorKind::PosOverflow,
+            self.invalid_number(InvalidNumberKind::TooLarge {
+                max: u16::MAX.into(),
             })
         })?;
-        NonZeroU16::try_from(value).map_err(|_| {
-            Error::from(InvalidNumberError {
-                span: self.span(),
-                kind: IntErrorKind::Zero,
-            })
+        NonZeroU16::try_from(value).map_err(|_| self.invalid_number(InvalidNumberKind::Zero))
+    }
+
+    fn invalid_number(&self, kind: InvalidNumberKind) -> Error {
+        Error::from(InvalidNumberError {
+            span: self.span(),
+            kind,
         })
     }
 
@@ -234,12 +237,37 @@ pub struct UnexpectedCharError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
-#[error("Invalid number. {kind:?}")]
+#[error("Invalid number literal: {kind}")]
 #[diagnostic()]
 pub struct InvalidNumberError {
     #[label("this number")]
     pub span: SourceSpan,
-    pub kind: IntErrorKind,
+    pub kind: InvalidNumberKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InvalidNumberKind {
+    /// A radix prefix such as `0x` with no digits after it.
+    NoDigits,
+    /// A digit that is not valid for the literal's radix.
+    InvalidDigit,
+    /// The value does not fit in the type the literal is parsed as.
+    TooLarge { max: u32 },
+    /// A zero where only non-zero values are allowed, such as an array length.
+    Zero,
+}
+
+impl fmt::Display for InvalidNumberKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InvalidNumberKind::NoDigits => f.write_str("expected at least one digit"),
+            InvalidNumberKind::InvalidDigit => f.write_str("contains an invalid digit"),
+            InvalidNumberKind::TooLarge { max } => {
+                write!(f, "value is too large, the maximum is {max}")
+            }
+            InvalidNumberKind::Zero => f.write_str("value must not be zero"),
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
@@ -635,7 +663,26 @@ mod tests {
     fn parse_u32_overflow_returns_error() {
         let mut lexer = Lexer::from("4294967296");
         let token = lexer.next().unwrap().unwrap();
-        assert!(token.try_parse_u32().is_err());
+        assert!(matches!(
+            token.try_parse_u32(),
+            Err(Error::InvalidNumber(InvalidNumberError {
+                kind: InvalidNumberKind::TooLarge { max: u32::MAX },
+                ..
+            }))
+        ));
+    }
+
+    #[test]
+    fn parse_non_zero_u16_overflow_returns_error() {
+        let mut lexer = Lexer::from("65536");
+        let token = lexer.next().unwrap().unwrap();
+        assert!(matches!(
+            token.try_parse_non_zero_u16(),
+            Err(Error::InvalidNumber(InvalidNumberError {
+                kind: InvalidNumberKind::TooLarge { max: 65535 },
+                ..
+            }))
+        ));
     }
 
     #[test]
@@ -649,7 +696,13 @@ mod tests {
     fn parse_non_zero_u16_zero_returns_error() {
         let mut lexer = Lexer::from("0");
         let token = lexer.next().unwrap().unwrap();
-        assert!(token.try_parse_non_zero_u16().is_err());
+        assert!(matches!(
+            token.try_parse_non_zero_u16(),
+            Err(Error::InvalidNumber(InvalidNumberError {
+                kind: InvalidNumberKind::Zero,
+                ..
+            }))
+        ));
     }
 
     #[test]
