@@ -1,7 +1,7 @@
 # Struct expressions
 
 ```ebnf
-StructExpression    = Identifier , "{" , [ StructField ] , "}"
+StructExpression    = Identifier , "{" , [ StructExprFields ] , "}"
                     ;
 StructExprFields    =   StructExprField , { "," , StructExprField } , [ "," ]
                     ;
