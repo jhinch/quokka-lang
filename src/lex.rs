@@ -522,7 +522,7 @@ impl<'de> Lexer<'de> {
                     self.remaining = self.remaining.as_str()[additional_len..].chars();
                     self.token(TokenKind::Number, offset, c.len_utf8() + additional_len)
                 }
-                c if c.is_whitespace() => continue,
+                c if c.is_ascii_whitespace() => continue,
                 c if unicode_ident::is_xid_start(c) || c == '_' => {
                     let additional_len = self
                         .remaining
