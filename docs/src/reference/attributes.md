@@ -8,8 +8,8 @@ AttributeValue  =   Identifier
 ```
 
 ```quokka
-#[this_attribute]
-#[that_attribute]
-fn main() {
+#[region = rom0]
+#[address = 0x0150]
+fn checkpoint() {
 }
 ```

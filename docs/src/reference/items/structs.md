@@ -28,7 +28,7 @@ Multiple padding fields can be defined.
 > [!WARNING]
 > This example uses `u2`, which requires the `narrow-int` preview feature enabled.
 
-```quokka
+```quokka,preview=narrow-int
 // 32-bit struct
 struct Padded {
     one: u2, // bit 0-1 used, bit 2-7 padding

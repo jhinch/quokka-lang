@@ -38,7 +38,7 @@ fn main() {
 
 The default entrypoint function is named `main`. This can be customized using the `#[entrypoint]` attribute
 
-```quokka
+```quokka,preview=custom-entrypoint
 #[entrypoint]
 fn my_entrypoint() {
     // program goes here
@@ -66,7 +66,7 @@ from the resulting ROM and the entrypoint will be executed immediately proceedin
 When the `#[no_startup_code]` attribute is present on the entrypoint function, the entrypoint function must never
 return, looping infinitely.
 
-```quokka
+```quokka,preview=no-startup-code
 #[no_startup_code]
 fn main() -> never {
     loop {}

@@ -16,7 +16,7 @@ named field.
 Accessing a field of a [local variable](../statements/lets.md) at runtime
 requires the `local-field-access` preview feature to be enabled:
 
-```quokka
+```quokka,preview=local-field-access
 struct Point { x: u8, y: u8 }
 global P: Point;
 

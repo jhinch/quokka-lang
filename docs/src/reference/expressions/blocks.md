@@ -13,9 +13,9 @@ the result is unit.
 
 ```quokka
 fn main() {
-    {
+    let x: u8 = {
         yield 1;
-    }
+    };
 }
 ```
 

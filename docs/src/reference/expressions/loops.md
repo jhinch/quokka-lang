@@ -13,7 +13,7 @@ LoopExpression      =     "loop" , BlockExpression
 Using a `loop` expression inside a [const item](../items/const-items.md)'s
 initializer requires the `const-loop` preview feature to be enabled:
 
-```quokka
+```quokka,preview=const-loop
 const SUM: u8 = {
     let i = 0;
     let sum = 0;

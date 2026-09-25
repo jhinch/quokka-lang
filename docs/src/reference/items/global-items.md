@@ -26,7 +26,7 @@ Object Attribute Memory (OAM), I/O registers, and High RAM.
 global JOYPAD: u8;
 
 #[region = oam]
-global SPRITES[Sprite; 40];
+global SPRITES: [Sprite; 40];
 
 struct Sprite {
     y: u8,

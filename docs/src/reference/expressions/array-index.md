@@ -17,7 +17,7 @@ index expression must be a `u16`.
 Indexing a [local variable](../statements/lets.md) at runtime requires the
 `local-array` preview feature to be enabled:
 
-```quokka
+```quokka,preview=local-array
 global A: [u8; 2];
 
 fn main() {

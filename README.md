@@ -323,3 +323,22 @@ mask = 0b0000_0001
 [[case]]
 # ...
 ```
+
+## Documentation Example Tests
+
+Every ` ```quokka ` code block in the [mdBook sources](docs/src) is compiled to ensure the examples in the
+documentation stay in sync with the compiler. Each example goes through the same pipeline as `quokka build`, up to
+(but not including) linking. Examples which don't define an entrypoint have an empty `fn main() {}` appended so that
+fragments demonstrating items can be compiled on their own.
+
+```bash
+cargo test --test doc_tests
+```
+
+Each test is named after the markdown file and line of the opening code fence, e.g. `reference/items/structs.md:15`.
+Code blocks are configured through comma-separated attributes in the fence's info string:
+
+- ` ```quokka ` the example must compile
+- ` ```quokka,preview=narrow-int ` the example must compile with the given preview feature enabled. Repeat the
+  attribute to enable multiple preview features
+- ` ```quokka,ignore ` the example is illustrative only and is not compiled
