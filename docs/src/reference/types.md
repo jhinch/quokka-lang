@@ -17,8 +17,9 @@ Every expression, local and global variable, constant has an associated type.
 There are four main categories of types:
 
 - Primitive types
-- User-defined types (structs)
+- User-defined structure types (`struct` types)
 - Array types
+- Function pointer types
 
 ## Primitive types
 
@@ -35,4 +36,12 @@ There are four main categories of types:
 
 ## Array types
 
-## User-defined types
+i.e. `[ItemType; Count]`
+
+## User-defined structure types (`struct` types)
+
+See [Structs](items/structs.md)
+
+## Function pointer types
+
+See [Functions](items/functions.md)
