@@ -1,6 +1,6 @@
 # Comments
 
 ```ebnf
-Comment =     "//" , { ? Any Unicode character ? - ? LF ? } , ? LF ?
+Comment =     "//" , { ? Any Unicode character ? - ? LF ? } , ( ? LF ? | ? EOF ? )
         ;
 ```

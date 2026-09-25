@@ -3,7 +3,6 @@
 ```ebnf
 OperatorExpression      =   NotExpression
                         |   NegateExpression
-                        |   BooleanExpression
                         |   LogicalExpression
                         |   ArithmeticExpression
                         |   ComparisonExpression
@@ -56,22 +55,18 @@ AssignExpression        =   PlaceExpression , "=" , Expression
 - `-` negates
 - results in integer
 
-## Boolean operators
+## Logical operators
 
 - Operands must be booleans
 - `&&` evaluates right operand if left is true
 - `||` evaluates right operand if left is false
 - Results in boolean
 
-## Logical operators
+## Arithmetic operators
 
 - `&` is bitwise AND
 - `|` is bitwise OR
 - `^` is bitwise XOR
-- Results in integer
-
-## Arithmetic operators
-
 - `+` adds
 - `-` subs
 - Results in integer
