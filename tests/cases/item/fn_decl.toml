@@ -129,7 +129,7 @@ Root(
 name = "fn_with_attribute"
 kind = "parser"
 source = """
-#[no_startup_code]
+#[entrypoint]
 fn main() -> never {
     loop {}
 }
@@ -140,29 +140,29 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          span: (0, 18),
-          name: ("no_startup_code", (2, 15)),
+          span: (0, 13),
+          name: ("entrypoint", (2, 10)),
         ),
       ],
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", (22, 4)),
+          name: ("main", (17, 4)),
           ty: Some(TyRef(
-            span: (32, 5),
-            data: Simple(("never", (32, 5))),
+            span: (27, 5),
+            data: Simple(("never", (27, 5))),
           )),
         ),
         body: Block(
-          span: (38, 15),
+          span: (33, 15),
           statements: [
             Statement(
-              span: (44, 7),
+              span: (39, 7),
               data: Expr(ExprSmt(
                 value: Expr(
-                  span: (44, 7),
+                  span: (39, 7),
                   data: Loop(Loop(
                     body: Block(
-                      span: (49, 2),
+                      span: (44, 2),
                       statements: [],
                     ),
                   )),
@@ -181,7 +181,7 @@ Root(
 name = "fn_with_multiple_attributes"
 kind = "parser"
 source = """
-#[no_startup_code]
+#[inline = never]
 #[entrypoint]
 fn main() -> never {
     loop {}
@@ -193,33 +193,37 @@ Root(
     Item(
       attributes: [
         AttributeDecl(
-          span: (0, 18),
-          name: ("no_startup_code", (2, 15)),
+          span: (0, 17),
+          name: ("inline", (2, 6)),
+          value: Some(AttributeValue(
+            span: (11, 5),
+            data: Ident("never"),
+          )),
         ),
         AttributeDecl(
-          span: (19, 13),
-          name: ("entrypoint", (21, 10)),
+          span: (18, 13),
+          name: ("entrypoint", (20, 10)),
         ),
       ],
       data: FnDecl(FnDecl(
         signature: FnSig(
-          name: ("main", (36, 4)),
+          name: ("main", (35, 4)),
           ty: Some(TyRef(
-            span: (46, 5),
-            data: Simple(("never", (46, 5))),
+            span: (45, 5),
+            data: Simple(("never", (45, 5))),
           )),
         ),
         body: Block(
-          span: (52, 15),
+          span: (51, 15),
           statements: [
             Statement(
-              span: (58, 7),
+              span: (57, 7),
               data: Expr(ExprSmt(
                 value: Expr(
-                  span: (58, 7),
+                  span: (57, 7),
                   data: Loop(Loop(
                     body: Block(
-                      span: (63, 2),
+                      span: (62, 2),
                       statements: [],
                     ),
                   )),

@@ -72,13 +72,10 @@ mod tests {
 
     #[test]
     fn parses_multiple_preview_features() {
-        let cmd = analyze(&["-p", "example-preview", "-p", "no-startup-code", "file.q"]).unwrap();
+        let cmd = analyze(&["-p", "example-preview", "-p", "narrow-int", "file.q"]).unwrap();
         assert_eq!(
             cmd.preview_features,
-            vec![
-                PreviewFeature::ExamplePreview,
-                PreviewFeature::NoStartupCode
-            ]
+            vec![PreviewFeature::ExamplePreview, PreviewFeature::NarrowInt]
         );
     }
 

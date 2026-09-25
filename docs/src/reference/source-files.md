@@ -56,19 +56,3 @@ The entrypoint function is resolved using the following steps:
 
 The startup code are additional instructions added to the resulting ROM which allows for the entrypoint function to
 behave like a regular quokka function. The exact instructions are unspecified.
-
-> [!WARNING]
-> Requires `no-startup-code` preview feature enabled.
-
-When the entrypoint function is annotated with the `#[no_startup_code]` attribute, the default startup code is omitted
-from the resulting ROM and the entrypoint will be executed immediately proceeding the boot ROM.
-
-When the `#[no_startup_code]` attribute is present on the entrypoint function, the entrypoint function must never
-return, looping infinitely.
-
-```quokka,preview=no-startup-code
-#[no_startup_code]
-fn main() -> never {
-    loop {}
-}
-```

@@ -15,8 +15,6 @@ fn is_default<T: Default + PartialEq>(value: &T) -> bool {
 pub struct FnDeclAttributes {
     #[serde(default, skip_serializing_if = "is_default")]
     pub entrypoint: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub no_startup_code: bool,
     #[serde(default, skip_serializing_if = "InlineKind::is_auto")]
     pub inline: InlineKind,
     #[serde(default, skip_serializing_if = "RomRegionKind::is_auto")]
@@ -519,24 +517,6 @@ mod tests {
         let actual =
             FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
         assert_eq!(actual.entrypoint, true);
-    }
-
-    #[test]
-    fn no_startup_code_absent() {
-        let actual = FnDeclAttributes::deserialize(Deserializer::new(&[])).unwrap();
-        assert_eq!(actual.no_startup_code, false);
-    }
-
-    #[test]
-    fn no_startup_code_present() {
-        let attributes = vec![ast::AttributeDecl {
-            name: SpannedIdentifier::new("no_startup_code", SourceSpan::from(2..17)),
-            span: SourceSpan::from(0..18),
-            value: None,
-        }];
-        let actual =
-            FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
-        assert_eq!(actual.no_startup_code, true);
     }
 
     #[test]

@@ -13,8 +13,6 @@ pub enum PreviewFeature {
     LocalFieldAccess,
     /// enable custom entrypoint attribute support
     CustomEntrypoint,
-    /// enable no startup code augmentation of entrypoint
-    NoStartupCode,
     /// enable use of the sub-byte unsigned integer types (u2, u4)
     NarrowInt,
     /// enable use of `loop` expressions inside constant declarations
@@ -221,14 +219,11 @@ mod tests {
 
     #[test]
     fn from_iter_enables_all_features() {
-        let set: PreviewFeatureSet = [
-            PreviewFeature::ExamplePreview,
-            PreviewFeature::NoStartupCode,
-        ]
-        .into_iter()
-        .collect();
+        let set: PreviewFeatureSet = [PreviewFeature::ExamplePreview, PreviewFeature::NarrowInt]
+            .into_iter()
+            .collect();
         assert!(set.is_enabled(PreviewFeature::ExamplePreview));
-        assert!(set.is_enabled(PreviewFeature::NoStartupCode));
+        assert!(set.is_enabled(PreviewFeature::NarrowInt));
         assert!(!set.is_enabled(PreviewFeature::CustomEntrypoint));
     }
 
@@ -236,13 +231,10 @@ mod tests {
     fn extend_adds_features_without_duplicates() {
         let mut set = PreviewFeatureSet::default();
         set.enable(PreviewFeature::ExamplePreview);
-        set.extend([
-            PreviewFeature::ExamplePreview,
-            PreviewFeature::NoStartupCode,
-        ]);
+        set.extend([PreviewFeature::ExamplePreview, PreviewFeature::NarrowInt]);
         assert_eq!(set.features.len(), 2);
         assert!(set.is_enabled(PreviewFeature::ExamplePreview));
-        assert!(set.is_enabled(PreviewFeature::NoStartupCode));
+        assert!(set.is_enabled(PreviewFeature::NarrowInt));
     }
 
     #[test]

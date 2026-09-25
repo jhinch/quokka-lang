@@ -106,20 +106,6 @@ main -> unit:
 """
 
 [[case]]
-name = "no_startup_code_on_fn"
-kind = "analyzer"
-source = """
-#[no_startup_code]
-fn main() {}
-"""
-expected_mir = """
-@{"entrypoint":true,"no_startup_code":true}
-main -> unit:
-  .bb1:
-    return
-"""
-
-[[case]]
 name = "inline_always_on_fn"
 kind = "analyzer"
 source = """
