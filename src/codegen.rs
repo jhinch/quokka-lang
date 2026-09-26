@@ -1482,9 +1482,9 @@ impl CodeGen {
             }
             mir::Instr::Copy { target, source } => {
                 let (source_high, source_low) =
-                    self.r16_from_operand(source, block, lir, ctx, locals);
-                let target_high = lir.insert_ld8(block, source_high);
-                let target_low = lir.insert_ld8(block, source_low);
+                    self.r16_to_operand(source, block, lir, ctx, locals);
+                let target_high = lir.insert_ld8_operand(block, source_high);
+                let target_low = lir.insert_ld8_operand(block, source_low);
                 (*target, target_high, target_low)
             }
             mir::Instr::Read { .. } => {
@@ -1497,8 +1497,7 @@ impl CodeGen {
                 right,
             } => {
                 let bit_offset = self.projected_local_offset(*target, projections, block, lir, ctx);
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*left];
                 assert_eq!(
                     bit_offset.bits(),
                     u3::new(0),
@@ -1527,8 +1526,7 @@ impl CodeGen {
                 (*target, high, low)
             }
             mir::Instr::Not { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
                 let a = lir.insert_ld_a(block, source_low);
                 lir.insert_cpl(block, a);
                 let target_low = lir.insert_move_a(block, a);
@@ -1538,8 +1536,7 @@ impl CodeGen {
                 (*target, target_high, target_low)
             }
             mir::Instr::Neg { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
                 let a = lir.insert_ld_a(block, source_low);
                 lir.insert_cpl(block, a);
                 let target_low = lir.insert_move_a(block, a);
@@ -1552,8 +1549,7 @@ impl CodeGen {
                 (*target, target_high, target_low)
             }
             mir::Instr::RotateLeft { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
 
                 let high_copy = lir.insert_ld8(block, source_high);
                 let (_z, c) = lir.insert_sla(block, high_copy);
@@ -1567,8 +1563,7 @@ impl CodeGen {
                 (*target, target_high, target_low)
             }
             mir::Instr::RotateRight { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
 
                 let low_copy = lir.insert_ld8(block, source_low);
                 let (_z, c) = lir.insert_sra(block, low_copy);
@@ -1582,8 +1577,7 @@ impl CodeGen {
                 (*target, target_high, target_low)
             }
             mir::Instr::ShiftLeft { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
 
                 let target_low = lir.insert_ld8(block, source_low);
                 let (_z, c) = lir.insert_sla(block, target_low);
@@ -1594,8 +1588,7 @@ impl CodeGen {
                 (*target, target_high, target_low)
             }
             mir::Instr::ShiftRight { target, source } => {
-                let (source_high, source_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*source), block, lir, ctx, locals);
+                let (source_high, source_low) = locals.r16s[*source];
                 let target_high = lir.insert_ld8(block, source_high);
                 let (_z, c) = if ctx.function.locals[*target].ty.is_signed_int() {
                     lir.insert_sra(block, target_high)
@@ -1617,16 +1610,15 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+                let (left_high, left_low) = locals.r16s[*left];
 
                 let a = lir.insert_ld_a(block, left_low);
-                let (_z, _c) = lir.insert_and(block, a, Operand8::Reg(right_low));
+                let (_z, _c) = lir.insert_and(block, a, right_low);
                 let target_low = lir.insert_move_a(block, a);
 
                 let a = lir.insert_ld_a(block, left_high);
-                let (_z, _c) = lir.insert_and(block, a, Operand8::Reg(right_high));
+                let (_z, _c) = lir.insert_and(block, a, right_high);
                 let target_high = lir.insert_move_a(block, a);
 
                 (*target, target_high, target_low)
@@ -1636,16 +1628,15 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+                let (left_high, left_low) = locals.r16s[*left];
 
                 let a = lir.insert_ld_a(block, left_low);
-                let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(right_low));
+                let (_z, _c) = lir.insert_or(block, a, right_low);
                 let target_low = lir.insert_move_a(block, a);
 
                 let a = lir.insert_ld_a(block, left_high);
-                let (_z, _c) = lir.insert_or(block, a, Operand8::Reg(right_high));
+                let (_z, _c) = lir.insert_or(block, a, right_high);
                 let target_high = lir.insert_move_a(block, a);
 
                 (*target, target_high, target_low)
@@ -1655,16 +1646,15 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+                let (left_high, left_low) = locals.r16s[*left];
 
                 let a = lir.insert_ld_a(block, left_low);
-                let (_z, _c) = lir.insert_xor(block, a, Operand8::Reg(right_low));
+                let (_z, _c) = lir.insert_xor(block, a, right_low);
                 let target_low = lir.insert_move_a(block, a);
 
                 let a = lir.insert_ld_a(block, left_high);
-                let (_z, _c) = lir.insert_xor(block, a, Operand8::Reg(right_high));
+                let (_z, _c) = lir.insert_xor(block, a, right_high);
                 let target_high = lir.insert_move_a(block, a);
 
                 (*target, target_high, target_low)
@@ -1674,16 +1664,15 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+                let (left_high, left_low) = locals.r16s[*left];
 
                 let a = lir.insert_ld_a(block, left_low);
-                let (_z, c_in) = lir.insert_add(block, a, Operand8::Reg(right_low));
+                let (_z, c_in) = lir.insert_add(block, a, right_low);
                 let target_low = lir.insert_move_a(block, a);
 
                 let a = lir.insert_ld_a(block, left_high);
-                let (_z, _c) = lir.insert_adc(block, a, Operand8::Reg(right_high), c_in);
+                let (_z, _c) = lir.insert_adc(block, a, right_high, c_in);
                 let target_high = lir.insert_move_a(block, a);
 
                 (*target, target_high, target_low)
@@ -1693,16 +1682,15 @@ impl CodeGen {
                 left,
                 right,
             } => {
-                let (right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
-                let (left_high, left_low) =
-                    self.r16_from_operand(&mir::Operand::Local(*left), block, lir, ctx, locals);
+                let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+                let (left_high, left_low) = locals.r16s[*left];
 
                 let a = lir.insert_ld_a(block, left_low);
-                let (_z, c_in) = lir.insert_sub(block, a, Operand8::Reg(right_low));
+                let (_z, c_in) = lir.insert_sub(block, a, right_low);
                 let target_low = lir.insert_move_a(block, a);
 
                 let a = lir.insert_ld_a(block, left_high);
-                let (_z, _c) = lir.insert_sbc(block, a, Operand8::Reg(right_high), c_in);
+                let (_z, _c) = lir.insert_sbc(block, a, right_high, c_in);
                 let target_high = lir.insert_move_a(block, a);
 
                 (*target, target_high, target_low)
@@ -1724,28 +1712,32 @@ impl CodeGen {
         }
     }
 
-    fn r16_from_operand(
+    /// Returns the `(high, low)` byte operands of a 16-bit operand. Literals stay as
+    /// `Operand8::Literal` so byte-pair ops can use their `n8` immediate forms.
+    fn r16_to_operand(
         &self,
         right: &mir::Operand,
         block: BlockId,
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx<'_>,
         locals: &Locals,
-    ) -> (R8Id, R8Id) {
+    ) -> (Operand8, Operand8) {
         match right {
-            mir::Operand::Local(right) => locals.r16s[*right],
+            mir::Operand::Local(right) => {
+                let (high, low) = locals.r16s[*right];
+                (Operand8::Reg(high), Operand8::Reg(low))
+            }
             mir::Operand::Literal(right) => {
                 #[allow(clippy::cast_possible_truncation)]
                 let value = right.value as u16;
                 let [low, high] = value.to_le_bytes();
-                let low = lir.insert_ld8_value(block, low);
-                let high = lir.insert_ld8_value(block, high);
-                (high, low)
+                (Operand8::Literal(high), Operand8::Literal(low))
             }
             mir::Operand::FnPtr(function) => {
                 let fn_addr = ctx.functions[*function];
                 let r16 = lir.insert_ld16(block, Ld16Source::FnAddr(fn_addr));
-                lir.insert_split(block, r16)
+                let (high, low) = lir.insert_split(block, r16);
+                (Operand8::Reg(high), Operand8::Reg(low))
             }
         }
     }
@@ -1871,14 +1863,19 @@ impl CodeGen {
         locals: &Locals,
     ) -> (ZeroId, CarryId) {
         let is_signed = ctx.function.locals[left].ty.is_signed_int();
-        let (mut right_high, right_low) = self.r16_from_operand(right, block, lir, ctx, locals);
+        let (mut right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
         if is_signed {
-            let a = lir.insert_ld_a(block, right_high);
-            let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0b1000_0000));
-            right_high = lir.insert_move_a(block, a);
+            right_high = match right_high {
+                Operand8::Reg(right_high) => {
+                    let a = lir.insert_ld_a(block, right_high);
+                    let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0b1000_0000));
+                    Operand8::Reg(lir.insert_move_a(block, a))
+                }
+                Operand8::Literal(value) => Operand8::Literal(value ^ 0b1000_0000),
+                Operand8::Ptr(_) => unimplemented!("r16_to_operand doesn't produce Operand8::Ptr"),
+            };
         }
-        let (mut left_high, left_low) =
-            self.r16_from_operand(&mir::Operand::Local(left), block, lir, ctx, locals);
+        let (mut left_high, left_low) = locals.r16s[left];
         if is_signed {
             let a = lir.insert_ld_a(block, left_high);
             let (_z, _c) = lir.insert_xor(block, a, Operand8::Literal(0b1000_0000));
@@ -1886,10 +1883,10 @@ impl CodeGen {
         }
 
         let a = lir.insert_ld_a(block, left_low);
-        let (_z, c_in) = lir.insert_sub(block, a, Operand8::Reg(right_low));
+        let (_z, c_in) = lir.insert_sub(block, a, right_low);
 
         let a = lir.insert_ld_a(block, left_high);
-        lir.insert_sbc(block, a, Operand8::Reg(right_high), c_in)
+        lir.insert_sbc(block, a, right_high, c_in)
     }
 
     fn projected_global_to_addr(

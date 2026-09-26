@@ -827,12 +827,10 @@ main::
 .bb2:
   LD r8#24, $00
   LD r8#25, $00
-  LD r8#26, r8#25
-  LD r8#27, r8#24
-  LD r8#28, $00
-  LD r8#23, r8#28
-  LD r8#21, r8#27
-  LD r8#22, r8#26
+  LD r8#26, $00
+  LD r8#23, r8#26
+  LD r8#21, r8#25
+  LD r8#22, r8#24
   JP .bb8
 
 .bb3:
@@ -877,12 +875,10 @@ main::
   JP .bb5
 
 .bb8:
-  LD r8#29, $0a
-  LD r8#30, $00
   LD A, r8#21
-  SUB A, r8#29; z, c
+  SUB A, $0a; z, c
   LD A, r8#22
-  SBC A, r8#30; z, c
+  SBC A, $00; z, c
   (out=z#9,in=z)
   JP z#9, .bb9; else=.bb10
 
@@ -896,25 +892,23 @@ main::
 
 .bb11:
   LD A, RETURN
-  LD r8#34, A
+  LD r8#30, A
   (out=r16#3;high_in=r8#22;low_in=r8#21)
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
-  LD [HL], r8#34
-  LD r8#35, $01
-  LD r8#36, $00
+  LD [HL], r8#30
   LD A, r8#21
-  ADD A, r8#35; z, c
-  LD r8#38, A
+  ADD A, $01; z, c
+  LD r8#32, A
   LD A, r8#22
-  ADC A, r8#36; z, c
-  LD r8#40, A
+  ADC A, $00; z, c
+  LD r8#34, A
   LD A, r8#23
   ADD A, $01; z, c
-  LD r8#42, A
-  LD r8#23, r8#42
-  LD r8#21, r8#38
-  LD r8#22, r8#40
+  LD r8#36, A
+  LD r8#23, r8#36
+  LD r8#21, r8#32
+  LD r8#22, r8#34
   JP .bb8
 
 END_SECTION
@@ -1130,8 +1124,8 @@ fibonacci::
 main::
 .bb2:
   ADD SP -3; z, c
-  LD C, $00
   LD B, $00
+  LD C, $00
   LD A, $00
   LD HL SP+2; z, c
   LD [HL], A
@@ -1176,17 +1170,15 @@ main::
   JP .bb5
 
 .bb8:
-  LD C, $0a
-  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
-  SUB A, C; z, c
+  SUB A, $0a; z, c
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD C, [HL]
+  LD B, [HL]
   POP AF(high_out=A); z, c
-  LD A, C
-  SBC A, B; z, c
+  LD A, B
+  SBC A, $00; z, c
   JP z, .bb9; else=.bb10
 
 .bb9:
@@ -1210,18 +1202,16 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $01
-  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
-  ADD A, C; z, c
+  ADD A, $01; z, c
   LD C, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD D, [HL]
+  LD B, [HL]
   POP AF(high_out=A); z, c
-  LD A, D
-  ADC A, B; z, c
+  LD A, B
+  ADC A, $00; z, c
   LD B, A
   LD HL SP+2; z, c
   LD A, [HL]

@@ -1,0 +1,1090 @@
+# Covers u16/i16 binary operators whose right operand is a literal. Codegen lowers these to byte
+# pairs using the `n8` immediate forms (`ADD`/`ADC`/`SUB`/`SBC`/`AND`/`OR`/`XOR A,n8`), so the cases
+# pick literals whose bytes are 0x00/0xFF in each position and left operands that exercise the
+# carry/borrow between the low and high byte. Each case also asserts the left operand's local wasn't
+# corrupted by computing the result.
+
+[[case]]
+name = "add_u16_literal_low_byte_carry"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x12FF;
+    let left = LEFT;
+    let result = left + 0x0001;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x13] # 0x1300
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0x12] # 0x12FF
+
+[[case]]
+name = "add_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left + 0x00FF;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x33, 0x13] # 0x1333
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "add_u16_literal_high_byte_only"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left + 0x0100;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x13] # 0x1334
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "add_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left + 0xFF00;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x11] # 0x1134
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "add_u16_literal_wraps_to_zero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFFFF;
+    let left = LEFT;
+    let result = left + 0x0001;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x00] # 0x0000
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0xFF] # 0xFFFF
+
+[[case]]
+name = "sub_u16_literal_low_byte_borrow"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1200;
+    let left = LEFT;
+    let result = left - 0x0001;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0x11] # 0x11FF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x12] # 0x1200
+
+[[case]]
+name = "sub_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left - 0x00FF;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x35, 0x11] # 0x1135
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "sub_u16_literal_high_byte_only"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left - 0x0100;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x11] # 0x1134
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "sub_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    let result = left - 0xFF00;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x13] # 0x1334
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "sub_u16_literal_wraps_below_zero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0000;
+    let left = LEFT;
+    let result = left - 0x0001;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0xFF] # 0xFFFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x00] # 0x0000
+
+[[case]]
+name = "bitand_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left & 0x00FF;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xA5, 0x00] # 0x00A5
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitand_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left & 0xFF00;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x5A] # 0x5A00
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitand_u16_literal_mixed_bytes"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left & 0x0FF0;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xA0, 0x0A] # 0x0AA0
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitor_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left | 0x00FF;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0x5A] # 0x5AFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitor_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left | 0xFF00;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xA5, 0xFF] # 0xFFA5
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitor_u16_literal_mixed_bytes"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left | 0x0FF0;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xF5, 0x5F] # 0x5FF5
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitxor_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left ^ 0x00FF;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x5A, 0x5A] # 0x5A5A
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitxor_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left ^ 0xFF00;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xA5, 0xA5] # 0xA5A5
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "bitxor_u16_literal_mixed_bytes"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x5AA5;
+    let left = LEFT;
+    let result = left ^ 0x0FF0;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x55, 0x55] # 0x5555
+[[case.assertion]]
+addr = 0xC002
+expected = [0xA5, 0x5A] # 0x5AA5
+
+[[case]]
+name = "lt_u16_literal_low_byte_borrow_true"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x12FF;
+    let left = LEFT;
+    OUT = left < 0x1300;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0x12] # 0x12FF
+
+[[case]]
+name = "lt_u16_literal_low_byte_borrow_false"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1300;
+    let left = LEFT;
+    OUT = left < 0x12FF;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x13] # 0x1300
+
+[[case]]
+name = "lt_u16_literal_high_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFEFF;
+    let left = LEFT;
+    OUT = left < 0xFF00;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0xFE] # 0xFEFF
+
+[[case]]
+name = "ge_u16_literal_equal"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    OUT = left >= 0x1234;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "ge_u16_literal_low_byte_borrow"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x12FF;
+    let left = LEFT;
+    OUT = left >= 0x1300;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0x12] # 0x12FF
+
+[[case]]
+name = "gt_u16_literal_low_byte_ff"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0100;
+    let left = LEFT;
+    OUT = left > 0x00FF;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x01] # 0x0100
+
+[[case]]
+name = "le_u16_literal_equal"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00FF;
+    let left = LEFT;
+    OUT = left <= 0x00FF;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0x00] # 0x00FF
+
+[[case]]
+name = "eq_u16_literal_equal"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF00;
+    let left = LEFT;
+    OUT = left == 0xFF00;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0xFF] # 0xFF00
+
+[[case]]
+name = "eq_u16_literal_high_byte_differs"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234;
+    let left = LEFT;
+    OUT = left == 0x1334;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "ne_u16_literal_equal"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00FF;
+    let left = LEFT;
+    OUT = left != 0x00FF;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0x00] # 0x00FF
+
+[[case]]
+name = "lt_i16_literal_negative_less_than_negative"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = -300;
+    let left = LEFT;
+    OUT = left < -2;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xD4, 0xFE] # 0xFED4
+
+[[case]]
+name = "lt_i16_literal_positive_less_than_negative"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 5;
+    let left = LEFT;
+    OUT = left < -2;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x05, 0x00] # 0x0005
+
+[[case]]
+name = "lt_i16_literal_negative_less_than_positive"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = -1;
+    let left = LEFT;
+    OUT = left < 256;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0xFF] # 0xFFFF
+
+[[case]]
+name = "ge_i16_literal_positive_ge_negative"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 256;
+    let left = LEFT;
+    OUT = left >= -1;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x01] # 0x0100
+
+[[case]]
+name = "ge_i16_literal_min_ge_max"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = -32768;
+    let left = LEFT;
+    OUT = left >= 32767;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0x00, 0x80] # 0x8000
+
+[[case]]
+name = "gt_i16_literal_max_gt_min"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+#[address = 0xC001]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 32767;
+    let left = LEFT;
+    OUT = left > -32768;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = [0xFF, 0x7F] # 0x7FFF

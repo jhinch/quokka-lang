@@ -447,16 +447,14 @@ main::
 .bb1:
   LD r8#1, $00
   LD r8#2, $00
-  LD r8#3, r8#2
-  LD r8#4, r8#1
-  LD r8#5, $03
-  (out=r16#1;high_in=r8#3;low_in=r8#4)
+  LD r8#3, $03
+  (out=r16#1;high_in=r8#1;low_in=r8#2)
   LD HL, SPRITES+$0000
   ADD HL, r16#1; c
   ADD HL, r16#1; c
   ADD HL, r16#1; c
   ADD HL, r16#1; c
-  LD [HL], r8#5
+  LD [HL], r8#3
   RET
 
 END_SECTION

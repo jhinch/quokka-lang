@@ -1040,12 +1040,10 @@ main::
 .bb3:
   LD r8#29, $00
   LD r8#30, $00
-  LD r8#31, r8#30
-  LD r8#32, r8#29
-  LD r8#33, $01
-  LD r8#28, r8#33
-  LD r8#26, r8#32
-  LD r8#27, r8#31
+  LD r8#31, $01
+  LD r8#28, r8#31
+  LD r8#26, r8#30
+  LD r8#27, r8#29
   JP .bb15
 
 .bb4:
@@ -1118,12 +1116,10 @@ main::
   RET
 
 .bb15:
-  LD r8#34, $0f
-  LD r8#35, $00
   LD A, r8#26
-  SUB A, r8#34; z, c
+  SUB A, $0f; z, c
   LD A, r8#27
-  SBC A, r8#35; z, c
+  SBC A, $00; z, c
   (out=z#11,in=z)
   JP z#11, .bb16; else=.bb17
 
@@ -1137,25 +1133,23 @@ main::
 
 .bb18:
   LD A, RETURN
-  LD r8#39, A
+  LD r8#35, A
   (out=r16#9;high_in=r8#27;low_in=r8#26)
   LD HL, RESULTS+$0000
   ADD HL, r16#9; c
-  LD [HL], r8#39
-  LD r8#40, $01
-  LD r8#41, $00
+  LD [HL], r8#35
   LD A, r8#26
-  ADD A, r8#40; z, c
-  LD r8#43, A
+  ADD A, $01; z, c
+  LD r8#37, A
   LD A, r8#27
-  ADC A, r8#41; z, c
-  LD r8#45, A
+  ADC A, $00; z, c
+  LD r8#39, A
   LD A, r8#28
   ADD A, $01; z, c
-  LD r8#47, A
-  LD r8#28, r8#47
-  LD r8#26, r8#43
-  LD r8#27, r8#45
+  LD r8#41, A
+  LD r8#28, r8#41
+  LD r8#26, r8#37
+  LD r8#27, r8#39
   JP .bb15
 
 END_SECTION
@@ -1391,8 +1385,8 @@ fizzbuzz::
 main::
 .bb3:
   ADD SP -3; z, c
-  LD C, $00
   LD B, $00
+  LD C, $00
   LD A, $01
   LD HL SP+2; z, c
   LD [HL], A
@@ -1464,17 +1458,15 @@ main::
   RET
 
 .bb15:
-  LD C, $0f
-  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
-  SUB A, C; z, c
+  SUB A, $0f; z, c
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD C, [HL]
+  LD B, [HL]
   POP AF(high_out=A); z, c
-  LD A, C
-  SBC A, B; z, c
+  LD A, B
+  SBC A, $00; z, c
   JP z, .bb16; else=.bb17
 
 .bb16:
@@ -1498,18 +1490,16 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD C, $01
-  LD B, $00
   LD HL SP+1; z, c
   LD A, [HL]
-  ADD A, C; z, c
+  ADD A, $01; z, c
   LD C, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD D, [HL]
+  LD B, [HL]
   POP AF(high_out=A); z, c
-  LD A, D
-  ADC A, B; z, c
+  LD A, B
+  ADC A, $00; z, c
   LD B, A
   LD HL SP+2; z, c
   LD A, [HL]
