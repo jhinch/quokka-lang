@@ -1,5 +1,5 @@
 //! Crate designed for reading, writing and manipulating object files compatible with RGBDS
-//! Crate was written as a clean-room based off the [reference documentation](https://rgbds.gbdev.io/docs/v1.0.3/rgbds.5).
+//! Crate was written as a clean-room based off the [reference documentation](https://rgbds.gbdev.io/docs/v1.0.4/rgbds.5).
 
 mod file;
 mod read;
