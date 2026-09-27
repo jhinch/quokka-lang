@@ -261,6 +261,7 @@ pub enum Terminated {
     Break,
     Yield,
     Continue,
+    Breakpoint,
     Expr,
 }
 
@@ -274,6 +275,7 @@ impl fmt::Display for Terminated {
             Terminated::Break => f.write_str("`break` statement"),
             Terminated::Yield => f.write_str("`yield` statement"),
             Terminated::Continue => f.write_str("`continue` statement"),
+            Terminated::Breakpoint => f.write_str("`breakpoint` statement"),
             Terminated::Expr => f.write_str("expression"),
         }
     }
@@ -324,6 +326,7 @@ fn can_start_statement_or_item(kind: TokenKind) -> bool {
                 | TokenKind::Break
                 | TokenKind::Yield
                 | TokenKind::Continue
+                | TokenKind::Breakpoint
                 | TokenKind::Fn
                 | TokenKind::Global
                 | TokenKind::Const
@@ -851,6 +854,7 @@ impl Parser<'_> {
             TokenKind::Break => StatementData::from(self.parse_break()?),
             TokenKind::Yield => StatementData::from(self.parse_yield()?),
             TokenKind::Continue => StatementData::from(self.parse_continue()?),
+            TokenKind::Breakpoint => StatementData::from(self.parse_breakpoint()?),
             _ => StatementData::from(self.parse_expr_smt()?),
         };
         let end_span = self.lexer.current().unwrap().span();
@@ -915,6 +919,12 @@ impl Parser<'_> {
         self.expect(TokenKind::Continue)?;
         self.expect_terminator(Terminated::Continue)?;
         Ok(ContinueSmt)
+    }
+
+    fn parse_breakpoint(&mut self) -> Result<BreakpointSmt, Error> {
+        self.expect(TokenKind::Breakpoint)?;
+        self.expect_terminator(Terminated::Breakpoint)?;
+        Ok(BreakpointSmt)
     }
 
     fn parse_expr_smt(&mut self) -> Result<ExprSmt, Error> {

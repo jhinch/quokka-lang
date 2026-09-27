@@ -662,6 +662,7 @@ fn classify_static(kind: lex::TokenKind) -> Option<TokenType> {
         | lex::TokenKind::Yield
         | lex::TokenKind::Return
         | lex::TokenKind::Continue
+        | lex::TokenKind::Breakpoint
         | lex::TokenKind::If
         | lex::TokenKind::Then
         | lex::TokenKind::Else

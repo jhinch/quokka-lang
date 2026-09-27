@@ -21,6 +21,17 @@ Eof:
 """
 
 [[case]]
+name = "breakpoint"
+kind = "lexer"
+source = """
+breakpoint
+"""
+expected_tokens = """
+Breakpoint:breakpoint
+Eof:
+"""
+
+[[case]]
 name = "break"
 kind = "lexer"
 source = """

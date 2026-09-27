@@ -19,6 +19,8 @@ pub enum PreviewFeature {
     ConstLoop,
     /// enable calling a function through a function-pointer local/global variable
     FnPtr,
+    /// enable the `breakpoint` statement, which emits an `LD B, B` software breakpoint
+    Breakpoint,
     /// enable canonicalization of associative/commutative MIR instructions, grouping literal
     /// operands towards the end of a chain so later passes (e.g. SCCP) can fold them
     Canonicalize,

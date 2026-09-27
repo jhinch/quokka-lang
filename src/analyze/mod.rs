@@ -777,6 +777,21 @@ impl Analyzer {
                 // dandling block for the unreachable subsequent code
                 (mir.new_block(), StatementTy::Never)
             }
+            ast::StatementData::Breakpoint(_) => {
+                self.features.check_enabled(
+                    PreviewFeature::Breakpoint,
+                    statement.span,
+                    &mut self.result_builder,
+                );
+                if scopes.const_decl_scope().is_some() {
+                    self.result_builder.add_error(BreakpointInConstError {
+                        span: statement.span,
+                    });
+                } else {
+                    mir.push_instr(block, Instr::Breakpoint);
+                }
+                (block, StatementTy::Unit)
+            }
             ast::StatementData::Yield(stmt) => {
                 let block = match scopes.block_scope() {
                     Some(block_scope) => {

@@ -115,6 +115,7 @@ impl Mir {
                         }
                         match instruction {
                             Instr::Nop => write!(f, "nop"),
+                            Instr::Breakpoint => write!(f, "breakpoint"),
                             Instr::Undefined { target: _ } => write!(f, "undefined"),
                             Instr::Alloc { target: _ } => write!(f, "alloc"),
                             Instr::ReturnValue { target: _ } => write!(f, "returnvalue"),
@@ -799,6 +800,9 @@ impl Local {
 pub enum Instr {
     /// no-op instruction. Useful for optimization phase to avoid modifying indices.
     Nop,
+    /// Software breakpoint (`LD B, B`). Has no semantic effect, but is never removed by
+    /// optimization and must not be reordered relative to surrounding instructions.
+    Breakpoint,
     // assignment
     /// Placeholder instruction which can be used to recover generating MIR due to an error.
     /// However, it is expected that build() is never called for MIR with blocks containing
@@ -961,7 +965,11 @@ impl Instr {
             | Instr::ShiftRight { target, .. }
             | Instr::Add { target, .. }
             | Instr::Sub { target, .. } => Some(*target),
-            Instr::Nop | Instr::Store { .. } | Instr::Transfer { .. } | Instr::Fill { .. } => None,
+            Instr::Nop
+            | Instr::Breakpoint
+            | Instr::Store { .. }
+            | Instr::Transfer { .. }
+            | Instr::Fill { .. } => None,
         }
     }
 
@@ -973,6 +981,7 @@ impl Instr {
         std::iter::from_fn(move || {
             let value = match self {
                 Instr::Nop
+                | Instr::Breakpoint
                 | Instr::Undefined { .. }
                 | Instr::Alloc { .. }
                 | Instr::ReturnValue { .. } => None,

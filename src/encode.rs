@@ -272,12 +272,18 @@ impl ObjFileEncoder {
     ) {
         match instruction {
             lir::Instr::Nop => bytes.push(opcode::NOP),
+            lir::Instr::Breakpoint => bytes.push(opcode::LD_B_B),
             lir::Instr::Ld8 { target, source } => {
                 let opcode = match (
                     code.r8_registers[*target].color.unwrap(),
                     code.r8_registers[*source].color.unwrap(),
                 ) {
-                    (Color::B, Color::B) => opcode::LD_B_B,
+                    // `LD B,B` is reserved for `Breakpoint`. Same-colored loads are removed by
+                    // register allocation, so reaching this means a stray breakpoint would be
+                    // emitted.
+                    (Color::B, Color::B) => {
+                        panic!("LD B,B is reserved for Breakpoint and cannot encode Ld8 B <- B")
+                    }
                     (Color::B, Color::C) => opcode::LD_B_C,
                     (Color::B, Color::D) => opcode::LD_B_D,
                     (Color::B, Color::E) => opcode::LD_B_E,
@@ -1475,4 +1481,49 @@ fn reverse_postorder_blocks(
     }
     result.reverse();
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::Identifier;
+    use crate::lir::{CodeSectionBuilder, LirBuilder};
+
+    /// Encodes a single-function code section built by `build`, coloring every r8 register with
+    /// `color`, and returns the encoded bytes of that section.
+    fn encode_function(
+        color: Color,
+        build: impl FnOnce(&mut CodeSectionBuilder, lir::BlockId),
+    ) -> Vec<u8> {
+        let mut lir_builder = LirBuilder::default();
+        let section = lir_builder.reserve_code_section();
+        let mut code = CodeSectionBuilder::default();
+        let entry = code.new_function(Identifier::from("f"));
+        build(&mut code, entry);
+        lir_builder.seal_code_section(section, code);
+        let mut lir = lir_builder.build();
+        let lir::SectionData::Code(code) = &mut lir.sections[section].data else {
+            unreachable!("reserved as a code section");
+        };
+        for register in code.r8_registers.values_mut() {
+            register.color = Some(color);
+        }
+        let file = ObjFileEncoder::default().encode(&lir);
+        file.sections[0].data.as_rom_data().unwrap().bytes.clone()
+    }
+
+    #[test]
+    fn breakpoint_encodes_to_ld_b_b() {
+        let bytes = encode_function(Color::B, |code, entry| code.insert_breakpoint(entry));
+        assert_eq!(bytes, vec![opcode::LD_B_B, opcode::RET]);
+    }
+
+    #[test]
+    #[should_panic(expected = "LD B,B is reserved for Breakpoint")]
+    fn ld8_b_to_b_is_rejected_so_only_breakpoint_encodes_to_ld_b_b() {
+        encode_function(Color::B, |code, entry| {
+            let source = code.insert_ld8_value(entry, 0);
+            let _ = code.insert_ld8(entry, source);
+        });
+    }
 }

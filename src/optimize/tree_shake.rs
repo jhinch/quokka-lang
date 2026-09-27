@@ -61,6 +61,7 @@ impl TreeShake {
                 for instruction in &block.instructions {
                     match instruction {
                         Instr::Nop
+                        | Instr::Breakpoint
                         | Instr::Undefined { .. }
                         | Instr::Alloc { .. }
                         | Instr::ReturnValue { .. }

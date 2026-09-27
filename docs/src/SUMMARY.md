@@ -34,6 +34,7 @@
   - [Yield statements](reference/statements/yields.md)
   - [Break statements](reference/statements/breaks.md)
   - [Continue statements](reference/statements/continues.md)
+  - [Breakpoint statements](reference/statements/breakpoints.md)
   - [Expression statements](reference/statements/expr-stmts.md)
 - [Attributes](reference/attributes.md)
 - [Types](reference/types.md)

@@ -264,7 +264,11 @@ impl Sccp {
         values: &SecondaryMap<LocalId, SparseSecondaryMap<BlockId, ResolvedValue>>,
     ) -> ResolvedValue {
         match instr {
-            Instr::Nop | Instr::Store { .. } | Instr::Transfer { .. } | Instr::Fill { .. } => {
+            Instr::Nop
+            | Instr::Breakpoint
+            | Instr::Store { .. }
+            | Instr::Transfer { .. }
+            | Instr::Fill { .. } => {
                 unimplemented!("instruction {instr:?} does not produce a value")
             }
             Instr::Undefined { .. } => ResolvedValue::Bottom,

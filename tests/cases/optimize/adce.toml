@@ -249,3 +249,102 @@ main -> unit:
   .bb2:
     return
 """
+
+[[case]]
+name = "keeps_breakpoint"
+kind = "analyzer"
+optimize = true
+preview_features = ["breakpoint", "no-sccp", "no-prune"]
+source = """
+fn main() {
+    let x: u8 = 1;
+    breakpoint;
+    let y = x + 1;
+}
+"""
+expected_mir = """
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    nop
+    breakpoint
+    nop
+    nop
+    return
+"""
+
+[[case]]
+name = "keeps_branch_whose_only_instruction_is_breakpoint"
+kind = "analyzer"
+optimize = true
+preview_features = ["breakpoint", "no-sccp", "no-prune"]
+source = """
+global IN: u8;
+
+fn main() {
+    if IN == 1 then {
+        breakpoint;
+    }
+}
+"""
+expected_mir = """
+global IN: u8
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    #1: u8 = load IN
+    #2: u8 = copy 1
+    #3: u1 = eq #1, #2
+    jumpif #3 != 0, .bb2, .bb3
+  .bb2:
+    breakpoint
+    jump .bb3
+  .bb3:
+    return
+"""
+
+[[case]]
+name = "keeps_breakpoint_with_all_passes_enabled"
+kind = "analyzer"
+optimize = true
+preview_features = ["breakpoint"]
+source = """
+global IN: u8;
+
+fn main() {
+    breakpoint;
+    if IN == 1 then {
+        breakpoint;
+    }
+    loop {
+        breakpoint;
+        if IN == 2 then {
+            break;
+        }
+    }
+}
+"""
+expected_mir = """
+global IN: u8
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    breakpoint
+    #1: u8 = load IN
+    #3: u1 = eq #1, 1
+    jumpif #3 != 0, .bb2, .bb3
+  .bb2:
+    breakpoint
+    jump .bb3
+  .bb3:
+    jump .bb4
+  .bb4:
+    breakpoint
+    #4: u8 = load IN
+    #6: u1 = eq #4, 2
+    jumpif #6 != 0, .bb5, .bb4
+  .bb5:
+    return
+"""

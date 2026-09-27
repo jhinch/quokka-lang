@@ -422,6 +422,7 @@ impl CodeGen {
                     mir::Instr::Nop => {
                         // currently we don't translate Nop in MIR to Nop in LIR
                     }
+                    mir::Instr::Breakpoint => lir.insert_breakpoint(block),
                     mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                         self.generate_from_transfer_or_fill(
                             mir,
@@ -1097,6 +1098,7 @@ impl CodeGen {
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")
             }
+            mir::Instr::Breakpoint => unimplemented!("breakpoint handled separately"),
         })
     }
 
@@ -1395,6 +1397,7 @@ impl CodeGen {
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")
             }
+            mir::Instr::Breakpoint => unimplemented!("breakpoint handled separately"),
         })
     }
 
@@ -1698,6 +1701,7 @@ impl CodeGen {
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")
             }
+            mir::Instr::Breakpoint => unimplemented!("breakpoint handled separately"),
         })
     }
 

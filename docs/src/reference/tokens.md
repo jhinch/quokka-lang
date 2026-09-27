@@ -17,7 +17,7 @@ Reserved            =   Keyword
 StandardKeyword     =   "as" | "const" | "else" | "fn"
                     |   "global" | "if" | "let" | "loop"
                     |   "struct" | "then" | "yield" | "break"
-                    |   "return" | "continue"
+                    |   "return" | "continue" | "breakpoint"
                     ;
 UnusedReserved      =   "while" | "do" | "match" | "case"
                     |   "enum" | "false" | "true" | "for" | "switch"

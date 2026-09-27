@@ -1,0 +1,115 @@
+# `breakpoint;` emits `LD B, B`, which emulators with software-breakpoint support stop on, but
+# which is otherwise a no-op. SameBoy runs straight through it, so these cases check that a
+# program with breakpoints computes exactly what it would without them, including when values
+# are live in registers (B among them) across the breakpoint.
+
+[[case]]
+name = "breakpoint_between_stores_executes_correctly"
+preview_features = ["breakpoint"]
+source = """
+#[address = 0xC000]
+global OUT_A: u8;
+#[address = 0xC001]
+global OUT_B: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    OUT_A = 1;
+    breakpoint;
+    OUT_B = 2;
+    breakpoint;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 2
+
+[[case]]
+name = "breakpoint_in_branches_and_loops_executes_correctly"
+preview_features = ["breakpoint"]
+source = """
+#[address = 0xC000]
+global COUNT: u8;
+#[address = 0xC001]
+global TAKEN: u8;
+#[address = 0xC002]
+global NOT_TAKEN: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    COUNT = 0;
+    TAKEN = 0;
+    NOT_TAKEN = 0;
+    loop {
+        breakpoint;
+        COUNT += 1;
+        if COUNT == 5 then {
+            breakpoint;
+            break;
+        }
+    }
+    if COUNT == 5 then {
+        breakpoint;
+        TAKEN = 1;
+    }
+    if COUNT == 6 then {
+        breakpoint;
+        NOT_TAKEN = 1;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [5, 1, 0]
+
+[[case]]
+name = "values_live_in_registers_across_breakpoint_are_preserved"
+preview_features = ["breakpoint"]
+source = """
+global IN_A: u8;
+global IN_B: u8;
+global IN_C: u8;
+global IN_D: u8;
+global IN_E: u8;
+
+#[address = 0xC000]
+global OUT: [u8; 5];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN_A = 1;
+    IN_B = 2;
+    IN_C = 3;
+    IN_D = 4;
+    IN_E = 5;
+    let a = IN_A + 10;
+    let b = IN_B + 20;
+    let c = IN_C + 30;
+    let d = IN_D + 40;
+    let e = IN_E + 50;
+    breakpoint;
+    OUT[0] = a;
+    OUT[1] = b;
+    OUT[2] = c;
+    OUT[3] = d;
+    OUT[4] = e;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [11, 22, 33, 44, 55]

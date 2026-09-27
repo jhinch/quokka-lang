@@ -212,6 +212,7 @@ pub enum StatementData {
     Break(BreakSmt),
     Continue(ContinueSmt),
     Yield(YieldSmt),
+    Breakpoint(BreakpointSmt),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -246,6 +247,9 @@ pub struct YieldSmt {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ContinueSmt;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct BreakpointSmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Expr {

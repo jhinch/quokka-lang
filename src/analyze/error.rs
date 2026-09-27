@@ -49,6 +49,14 @@ pub struct ContinueOutsideLoopError {
 }
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("`breakpoint` in a constant declaration")]
+#[diagnostic()]
+pub struct BreakpointInConstError {
+    #[label("`breakpoint` not allowed here")]
+    pub span: SourceSpan,
+}
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("`break` outside of a loop")]
 #[diagnostic()]
 pub struct BreakOutsideLoopError {

@@ -706,7 +706,7 @@ fn restrict_from_instruction(
     // if we attempt to constrain to a color-set which does not contain the precolor
     // and that would indicate a bug in the code
     match instruction {
-        Instr::Nop | Instr::LdSPValue { .. } => {}
+        Instr::Nop | Instr::Breakpoint | Instr::LdSPValue { .. } => {}
         Instr::Ld8 { target, source } => {
             // `LD r8,r8`
             graph.constrain_colors_to(VirtualReg::from(*target), Color::r8());

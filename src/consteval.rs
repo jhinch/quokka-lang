@@ -25,7 +25,8 @@ pub fn evaluate(
     loop {
         for instruction in function.blocks[block].instructions.iter() {
             match instruction {
-                Instr::Nop => {}
+                // rejected by the analyzer in const decls, so treat it as the no-op it is
+                Instr::Nop | Instr::Breakpoint => {}
                 Instr::Undefined { .. }
                 | Instr::ReturnValue { .. }
                 | Instr::Store { .. }

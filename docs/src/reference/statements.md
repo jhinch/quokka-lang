@@ -6,6 +6,7 @@ Statement   =   LetStatement
             |   YieldStatement
             |   BreakStatement
             |   ContinueStatement
+            |   BreakpointStatement
             |   ExpressionStatement
             ;
 ```

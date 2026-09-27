@@ -1482,6 +1482,7 @@ fn rewrite_instruction(
     };
     match &mut instruction {
         Instr::Nop
+        | Instr::Breakpoint
         | Instr::Ld8Value { .. }
         | Instr::Ld16 { .. }
         | Instr::LdSPValue { .. }

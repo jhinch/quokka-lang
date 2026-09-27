@@ -54,6 +54,7 @@ impl Adce {
                         | Instr::Store { .. }
                         | Instr::Transfer { .. }
                         | Instr::Fill { .. }
+                        | Instr::Breakpoint
                 ) && alive_instructions.insert((block_id, index))
                 {
                     queue.push_back(WorkItem::LiveInstr(block_id, index));

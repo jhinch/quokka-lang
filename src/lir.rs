@@ -837,6 +837,9 @@ pub struct Register {
 pub enum Instr {
     /// `NOP`
     Nop,
+    /// `LD B,B` used as a software breakpoint (recognized by many emulators). Uses no virtual
+    /// registers, and is the only instruction allowed to encode to `LD B,B`.
+    Breakpoint,
     /// `LD r8,r8`
     Ld8 { target: R8Id, source: R8Id },
     /// `LD r8,n8`
@@ -1287,6 +1290,7 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Breakpoint
                 | Instr::Ld16 { .. }
                 | Instr::LdSPValue { .. }
                 | Instr::Store { .. }
@@ -1391,6 +1395,7 @@ impl Instr {
             | Instr::Or { left, .. }
             | Instr::Xor { left, .. } => Some(left.0),
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -1482,6 +1487,7 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Breakpoint
                 | Instr::Ld8 { .. }
                 | Instr::Ld8Value { .. }
                 | Instr::Ld8Ptr { .. }
@@ -1560,6 +1566,7 @@ impl Instr {
             | Instr::PopR16 { target, .. }
             | Instr::LdReturn16 { target, .. } => Some(*target),
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -1674,6 +1681,7 @@ impl Instr {
             | Instr::BulkCopy { z, .. }
             | Instr::BulkFill { z, .. } => Some(*z),
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -1750,6 +1758,7 @@ impl Instr {
             | Instr::BulkCopy { c, .. }
             | Instr::BulkFill { c, .. } => Some(*c),
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -1874,6 +1883,7 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Breakpoint
                 | Instr::Ld8Value { .. }
                 | Instr::Ld8Ptr { .. }
                 | Instr::Ld8HighPtr { .. }
@@ -2001,6 +2011,7 @@ impl Instr {
                     _ => None,
                 },
                 Instr::Nop
+                | Instr::Breakpoint
                 | Instr::Ld8 { .. }
                 | Instr::Ld8Value { .. }
                 | Instr::Ld8HighPtr { .. }
@@ -2051,6 +2062,7 @@ impl Instr {
             Instr::PushAF { z_in, .. } => *z_in,
             Instr::MoveZero { z_in, .. } => Some(*z_in),
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -2139,6 +2151,7 @@ impl Instr {
             | Instr::MoveCarry { c_in, .. } => Some(*c_in),
             Instr::PushAF { c_in, .. } => *c_in,
             Instr::Nop
+            | Instr::Breakpoint
             | Instr::Ld8 { .. }
             | Instr::Ld8Value { .. }
             | Instr::Ld8Ptr { .. }
@@ -2209,6 +2222,7 @@ impl Instr {
     pub fn display<'a>(&'a self, lir: &'a Lir, section: SectionId) -> impl fmt::Display + 'a {
         fmt::from_fn(move |f| match self {
             Instr::Nop => write!(f, "NOP"),
+            Instr::Breakpoint => write!(f, "LD B, B"),
             Instr::Ld8 { target, source } => write!(
                 f,
                 "LD {}, {}",
@@ -3293,6 +3307,11 @@ impl CodeSectionBuilder {
     /// `NOP`
     pub fn insert_nop(&mut self, block: BlockId) {
         self.insert_instr(block, Instr::Nop);
+    }
+
+    /// `LD B,B` software breakpoint
+    pub fn insert_breakpoint(&mut self, block: BlockId) {
+        self.insert_instr(block, Instr::Breakpoint);
     }
 
     pub fn set_terminator(&mut self, block: BlockId, terminator: Terminator) {
