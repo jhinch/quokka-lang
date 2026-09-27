@@ -10,8 +10,8 @@ BreakpointStatement =   "breakpoint" , ";"
 
 A breakpoint statement compiles to a single `LD B, B` instruction at that point in the program. Loading `B` into
 itself has no effect, so a program behaves identically with or without breakpoints, including on real hardware.
-Many Game Boy emulators (for example BGB and Emulicious) can be configured to pause execution when `LD B, B`
-executes, making it a software breakpoint for debugging.
+Many Game Boy emulators can be configured to pause execution when `LD B, B` executes, making it a software breakpoint
+for debugging.
 
 ```quokka,preview=breakpoint
 global COUNT: u8;
