@@ -1,6 +1,6 @@
 [[case]]
 name = "straight_line_dead_code_is_eliminated_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 

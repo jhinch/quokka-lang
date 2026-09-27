@@ -1,7 +1,7 @@
 [[case]]
 name = "narrow_int_wrapping_arithmetic_is_optimized_soundly"
 preview_features = ["narrow-int"]
-values = [0, 1, 2, 3]
+values = [{ min = 0, max = 3 }]
 source = """
 global N: u2;
 

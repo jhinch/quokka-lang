@@ -1,6 +1,6 @@
 [[case]]
 name = "branch_whose_result_is_discarded_is_eliminated_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -23,7 +23,7 @@ fn main() {
 
 [[case]]
 name = "branch_whose_result_is_actually_returned_is_preserved_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -50,7 +50,7 @@ fn main() {
 # observable.
 [[case]]
 name = "constant_folded_comparison_prunes_the_correct_branch_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 

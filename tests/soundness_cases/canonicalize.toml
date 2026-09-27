@@ -1,6 +1,6 @@
 [[case]]
 name = "add_add_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -19,7 +19,7 @@ fn main() {
 
 [[case]]
 name = "mixed_add_sub_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -39,7 +39,7 @@ fn main() {
 
 [[case]]
 name = "sub_sub_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -59,7 +59,7 @@ fn main() {
 
 [[case]]
 name = "bitand_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -79,7 +79,7 @@ fn main() {
 
 [[case]]
 name = "bitor_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -99,7 +99,7 @@ fn main() {
 
 [[case]]
 name = "bitxor_chain_reassociates_soundly"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -119,7 +119,7 @@ fn main() {
 
 [[case]]
 name = "three_link_add_chain_converges_across_rounds"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
@@ -139,7 +139,7 @@ fn main() {
 
 [[case]]
 name = "multi_use_inner_target_is_left_unchanged"
-values = [0, 1, 2, 3, 5, 10, 127, 128, 200, 255]
+values = [{ min = 0, max = 255 }]
 source = """
 global N: u8;
 
