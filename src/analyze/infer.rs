@@ -266,11 +266,16 @@ impl Inferrer {
         self.substitutions.insert(var, other);
     }
 
-    fn occurs(&self, var: TyVar, other: &InferredTy) -> bool {
-        match other {
-            InferredTy::Variable(v) => *v == var,
-            InferredTy::Concrete(_) => false,
-            InferredTy::Array(item_ty, _) => self.occurs(var, item_ty),
+    fn occurs(&self, var: TyVar, mut other: &InferredTy) -> bool {
+        loop {
+            break match other {
+                InferredTy::Variable(v) => *v == var,
+                InferredTy::Concrete(_) => false,
+                InferredTy::Array(item_ty, _) => {
+                    other = item_ty;
+                    continue;
+                }
+            };
         }
     }
 }
