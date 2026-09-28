@@ -1225,3 +1225,350 @@ main -> unit:
   .bb2:
     return
 """
+
+[[case]]
+name = "breakpoint_between_inner_and_outer_blocks_the_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    breakpoint;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, #5
+    breakpoint
+    b#7: u8 = add a#6, m#4
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "breakpoint_in_a_branch_between_inner_and_outer_blocks_the_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    if n == 0 then {
+        breakpoint;
+    }
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, #5
+    #7: u8 = copy 0
+    #8: u1 = eq n#2, #7
+    jumpif #8 != 0, .bb2, .bb3
+  .bb2:
+    breakpoint
+    jump .bb3
+  .bb3:
+    nop
+    nop
+    b#11: u8 = add a#6, m#4
+    #RET: u8 = copy b#11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "breakpoint_before_the_inner_instruction_allows_the_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    breakpoint;
+    let a = n + 5;
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    breakpoint
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "breakpoint_after_the_outer_instruction_allows_the_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    let b = a + m;
+    breakpoint;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, m#4
+    b#7: u8 = add a#6, #5
+    breakpoint
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "fold_across_a_breakpoint_is_allowed"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    breakpoint;
+    let b = a + 3;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    a#4: u8 = add n#2, #3
+    breakpoint
+    #5: u8 = copy 3
+    b#6: u8 = add n#2, 8
+    #RET: u8 = copy b#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "breakpoint_in_a_branch_before_the_inner_instruction_allows_a_cross_block_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn g() {}
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    if n == 0 then {
+        breakpoint;
+    }
+    let a = n + 5;
+    g();
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+g -> unit:
+  .bb1:
+    return
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 0
+    #6: u1 = eq n#2, #5
+    jumpif #6 != 0, .bb2, .bb3
+  .bb2:
+    breakpoint
+    jump .bb3
+  .bb3:
+    n#7: u8 = copy n#2
+    #8: u8 = copy 5
+    a#9: u8 = add n#2, m#4
+    m#10: u8 = copy m#4
+    call g, .bb4
+  .bb4:
+    b#11: u8 = add a#9, #8
+    #RET: u8 = copy b#11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "breakpoint_in_a_block_between_inner_and_outer_blocks_a_cross_block_swap"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "breakpoint", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn g() {}
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 3;
+    let a = n + 5;
+    g();
+    breakpoint;
+    g();
+    let b = a + m;
+    return b;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+g -> unit:
+  .bb1:
+    return
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    m#4: u8 = bitxor n#2, #3
+    #5: u8 = copy 5
+    a#6: u8 = add n#2, #5
+    call g, .bb2
+  .bb2:
+    breakpoint
+    call g, .bb3
+  .bb3:
+    b#7: u8 = add a#6, m#4
+    #RET: u8 = copy b#7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""

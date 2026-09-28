@@ -4,7 +4,7 @@ use crate::mir::{BlockId, Function, Global, GlobalId, Instr, LocalId, Operand};
 use crate::optimize::graph::{Graph, Node};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::{Ty, TyRegistry};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use slotmap::{SecondaryMap, SlotMap};
 use tracing::instrument;
 
@@ -21,8 +21,9 @@ use tracing::instrument;
 /// - **Swap:** otherwise the pair is rewritten to `t1 = a OP2 x` and `t2 = t1 OP1 c1`, moving the
 ///   constant outward where a later fold can reach it. Each opcode keeps its own right operand,
 ///   so `(n - 3) + m` becomes `(n + m) - 3`. This requires that `t1` has exactly one use (`t2`),
-///   since its value changes, and that `x`'s definition dominates `t1`'s, since that is where
-///   `x` is now read.
+///   since its value changes, that `x`'s definition dominates `t1`'s, since that is where
+///   `x` is now read, and that `t1` is not live at any `Breakpoint`, since a breakpoint would
+///   observe the changed value.
 ///
 /// If `OP2` is commutative, `t1` may instead be its right operand (`t2 = x OP2 t1`).
 /// Instructions are never inserted, removed, or moved; only operands and opcodes change. A
@@ -272,6 +273,47 @@ impl Dominators {
     }
 }
 
+/// Whether the local defined at `def` and used only at `use_` is live at a
+/// [`Instr::Breakpoint`], i.e. whether a breakpoint lies on some path from `def` to `use_`.
+///
+/// `def` must dominate `use_`, and `use_` must not be a `Phi`. Its only use then makes the live
+/// range exactly the instructions reachable by walking backward from `use_` until `def`.
+fn live_at_breakpoint(function: &Function, def: (BlockId, usize), use_: (BlockId, usize)) -> bool {
+    let has_breakpoint =
+        |instructions: &[Instr]| instructions.iter().any(|i| matches!(i, Instr::Breakpoint));
+    let ((def_block, def_index), (use_block, use_index)) = (def, use_);
+    let instructions = &function.blocks[use_block].instructions;
+    if def_block == use_block {
+        return has_breakpoint(&instructions[def_index + 1..use_index]);
+    }
+    if has_breakpoint(&instructions[..use_index]) {
+        return true;
+    }
+    let mut visited = IndexSet::new();
+    let mut worklist = function.blocks[use_block]
+        .previous_blocks()
+        .collect::<Vec<_>>();
+    while let Some(block_id) = worklist.pop() {
+        if !visited.insert(block_id) {
+            continue;
+        }
+        let instructions = &function.blocks[block_id].instructions;
+        if block_id == def_block {
+            if has_breakpoint(&instructions[def_index + 1..]) {
+                return true;
+            }
+            continue;
+        }
+        // This includes `use_`'s own block when reached again around a loop: the value stays
+        // live after `use_` since the next iteration reads it again.
+        if has_breakpoint(instructions) {
+            return true;
+        }
+        worklist.extend(function.blocks[block_id].previous_blocks());
+    }
+    false
+}
+
 /// Replacement instructions, each at the `(block, index)` of the instruction it replaces.
 struct Rewrite {
     position: (BlockId, usize),
@@ -352,6 +394,10 @@ fn find_rewrites(
         if use_counts.get(inner.target).copied().unwrap_or(0) != 1 {
             continue;
         }
+        // A breakpoint observes every live value, so `t1` must not be live at one.
+        if live_at_breakpoint(function, inner_position, outer_position) {
+            continue;
+        }
         return vec![
             Rewrite {
                 position: inner_position,
@@ -364,4 +410,57 @@ fn find_rewrites(
         ];
     }
     vec![]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::optimize::graph::graph_test_support::loop_with_exit;
+
+    /// Appends `instr` to `block`, returning its position.
+    fn push(function: &mut Function, block: BlockId, instr: Instr) -> (BlockId, usize) {
+        let instructions = &mut function.blocks[block].instructions;
+        instructions.push(instr);
+        (block, instructions.len() - 1)
+    }
+
+    // The analyzer routes every loop-carried value through a `copy` in the loop header, so a
+    // definition outside a loop never feeds a binop inside it directly and these shapes can't yet
+    // be reached from source.
+
+    #[test]
+    fn breakpoint_after_the_use_in_a_loop_is_live() {
+        let (mut function, [b1, b2, _, _]) = loop_with_exit();
+        let def = push(&mut function, b1, Instr::Nop);
+        let use_ = push(&mut function, b2, Instr::Nop);
+        push(&mut function, b2, Instr::Breakpoint);
+        assert!(live_at_breakpoint(&function, def, use_));
+    }
+
+    #[test]
+    fn breakpoint_on_the_back_edge_is_live() {
+        let (mut function, [b1, b2, b3, _]) = loop_with_exit();
+        let def = push(&mut function, b1, Instr::Nop);
+        let use_ = push(&mut function, b2, Instr::Nop);
+        push(&mut function, b3, Instr::Breakpoint);
+        assert!(live_at_breakpoint(&function, def, use_));
+    }
+
+    #[test]
+    fn breakpoint_on_the_loop_exit_is_not_live() {
+        let (mut function, [b1, b2, _, b4]) = loop_with_exit();
+        let def = push(&mut function, b1, Instr::Nop);
+        let use_ = push(&mut function, b2, Instr::Nop);
+        push(&mut function, b4, Instr::Breakpoint);
+        assert!(!live_at_breakpoint(&function, def, use_));
+    }
+
+    #[test]
+    fn breakpoint_before_the_def_is_not_live() {
+        let (mut function, [b1, b2, _, _]) = loop_with_exit();
+        push(&mut function, b1, Instr::Breakpoint);
+        let def = push(&mut function, b1, Instr::Nop);
+        let use_ = push(&mut function, b2, Instr::Nop);
+        assert!(!live_at_breakpoint(&function, def, use_));
+    }
 }

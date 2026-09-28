@@ -311,7 +311,7 @@ fn reachable(start: Node, forward_edges: &IndexMap<Node, IndexSet<Node>>) -> Ind
 /// branch): the graph algorithms under test only care about block topology, not instruction
 /// semantics.
 #[cfg(test)]
-mod graph_test_support {
+pub(crate) mod graph_test_support {
     use crate::ast::{Identifier, IntegerLiteral};
     use crate::mir::{BlockId, Function, FunctionBuilder, Instr, Operand, Terminator};
     use crate::ty::Ty;

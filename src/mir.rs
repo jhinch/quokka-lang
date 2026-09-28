@@ -802,6 +802,10 @@ pub enum Instr {
     Nop,
     /// Software breakpoint (`LD B, B`). Has no semantic effect, but is never removed by
     /// optimization and must not be reordered relative to surrounding instructions.
+    ///
+    /// Every local live at a breakpoint is observable there: optimizations may leave a value
+    /// unmaterialized (dead or folded to a constant), but must never make a live local hold a
+    /// different value at a breakpoint than it would without optimization.
     Breakpoint,
     // assignment
     /// Placeholder instruction which can be used to recover generating MIR due to an error.
