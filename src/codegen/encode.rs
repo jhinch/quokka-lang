@@ -1,6 +1,7 @@
+use crate::codegen::opcode;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
+use crate::lir;
 use crate::reg::Color;
-use crate::{lir, opcode};
 use indexmap::{IndexMap, IndexSet};
 use quokka_lang_obj::{
     LinkingMode, ObjFile, PatchInstr, RamSectionData, RomSectionData, Section, SectionData,

@@ -1,14 +1,14 @@
 use crate::analyze::Analyzer;
 use crate::ast;
 use crate::codegen::CodeGen;
-use crate::encode::ObjFileEncoder;
+use crate::codegen::encode::ObjFileEncoder;
+use crate::codegen::regalloc::RegAllocator;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::Lir;
 use crate::mir::Mir;
 use crate::multi::MultiError;
 use crate::optimize::Optimizer;
 use crate::parse::Parser;
-use crate::regalloc::RegAllocator;
 use crate::ty::TyRegistry;
 use quokka_lang_obj::ObjFile;
 use std::fs::File;

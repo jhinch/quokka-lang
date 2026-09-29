@@ -13,6 +13,11 @@ use indexmap::map::Entry;
 use miette::SourceSpan;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
+pub mod encode;
+pub mod interference;
+pub mod opcode;
+pub mod regalloc;
+
 pub const CART_HEADER_START_ADDR: u16 = 0x0100;
 pub const CART_HEADER_END_ADDR: u16 = 0x014F;
 

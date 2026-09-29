@@ -1,7 +1,7 @@
-use crate::feature::{PreviewFeature, PreviewFeatureSet};
-use crate::interference::{
+use crate::codegen::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
+use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::{
     AId, Addr, Block, BlockId, CarryId, CodeSectionData, FlagId, HLId, HighAddr, Instr, Lir,
     Operand8, R8Id, R16Id, Register, SectionData, Terminator, VirtualReg, ZeroId,
@@ -1975,7 +1975,7 @@ struct FunctionBlocks {
 mod tests {
     use super::*;
     use crate::ast::Identifier;
-    use crate::interference::build_interference_graph;
+    use crate::codegen::interference::build_interference_graph;
     use crate::lir::Ld16Source;
     use slotmap::SlotMap;
 
