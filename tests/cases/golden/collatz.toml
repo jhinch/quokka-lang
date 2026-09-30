@@ -632,32 +632,31 @@ main::
 
 .bb3:
   LD A, r8#1
-  SUB A, $01; z, c
+  XOR A, $01; z, c
+  LD r8#13, A
   LD A, r8#2
-  SBC A, $00; z, c
+  OR A, r8#13; z, c
   (out=z#3,in=z)
   JP z#3, .bb4; else=.bb5
 
 .bb4:
-  LD r8#14, r8#4
-  LD r8#15, r8#3
-  LD C, r8#15
-  LD B, r8#14
+  LD r8#15, r8#4
+  LD r8#16, r8#3
+  LD C, r8#16
+  LD B, r8#15
   RET
 
 .bb5:
   LD A, r8#1
   AND A, $01; z, c
-  LD r8#19, A
+  LD r8#20, A
   LD A, r8#2
   AND A, $00; z, c
-  LD r8#21, A
-  LD A, r8#19
-  SUB A, $00; z, c
-  LD A, r8#21
-  SBC A, $00; z, c
-  (out=z#8,in=z)
-  JP z#8, .bb6; else=.bb7
+  LD r8#22, A
+  LD A, r8#22
+  OR A, r8#20; z, c
+  (out=z#7,in=z)
+  JP z#7, .bb6; else=.bb7
 
 .bb6:
   LD r8#24, r8#2
@@ -939,9 +938,10 @@ main::
 
 .bb3:
   LD A, B
-  SUB A, $01; z, c
+  XOR A, $01; z, c
+  LD H, A
   LD A, C
-  SBC A, $00; z, c
+  OR A, H; z, c
   JP z, .bb4; else=.bb5
 
 .bb4:
@@ -953,14 +953,10 @@ main::
 .bb5:
   LD A, B
   AND A, $01; z, c
-  LD L, A
+  LD H, A
   LD A, C
   AND A, $00; z, c
-  LD H, A
-  LD A, L
-  SUB A, $00; z, c
-  LD A, H
-  SBC A, $00; z, c
+  OR A, H; z, c
   JP z, .bb6; else=.bb7
 
 .bb6:

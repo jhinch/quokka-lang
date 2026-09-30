@@ -876,9 +876,10 @@ main::
 
 .bb8:
   LD A, r8#21
-  SUB A, $0a; z, c
+  XOR A, $0a; z, c
+  LD r8#28, A
   LD A, r8#22
-  SBC A, $00; z, c
+  OR A, r8#28; z, c
   (out=z#9,in=z)
   JP z#9, .bb9; else=.bb10
 
@@ -892,23 +893,23 @@ main::
 
 .bb11:
   LD A, RETURN
-  LD r8#30, A
+  LD r8#31, A
   (out=r16#3;high_in=r8#22;low_in=r8#21)
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
-  LD [HL], r8#30
+  LD [HL], r8#31
   LD A, r8#21
   ADD A, $01; z, c
-  LD r8#32, A
+  LD r8#33, A
   LD A, r8#22
   ADC A, $00; z, c
-  LD r8#34, A
+  LD r8#35, A
   LD A, r8#23
   ADD A, $01; z, c
-  LD r8#36, A
-  LD r8#23, r8#36
-  LD r8#21, r8#32
-  LD r8#22, r8#34
+  LD r8#37, A
+  LD r8#23, r8#37
+  LD r8#21, r8#33
+  LD r8#22, r8#35
   JP .bb8
 
 END_SECTION
@@ -1144,13 +1145,13 @@ main::
 .bb4:
   ADD A, $01; z, c
   LD E, A
-  LD C, $00
+  LD B, $00
   LD D, $01
-  LD B, $02
+  LD C, $02
   JP .bb5
 
 .bb5:
-  LD A, B
+  LD A, C
   CP A, E; z, c
   JP nc, .bb6; else=.bb7
 
@@ -1159,26 +1160,24 @@ main::
   RET
 
 .bb7:
-  LD A, C
+  LD A, B
   ADD A, D; z, c
   LD H, A
-  LD A, B
+  LD A, C
   ADD A, $01; z, c
-  LD B, A
-  LD C, D
+  LD C, A
+  LD B, D
   LD D, H
   JP .bb5
 
 .bb8:
   LD HL SP+1; z, c
   LD A, [HL]
-  SUB A, $0a; z, c
-  PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+2; z, c
-  LD B, [HL]
-  POP AF(high_out=A); z, c
-  LD A, B
-  SBC A, $00; z, c
+  XOR A, $0a; z, c
+  LD B, A
+  LD HL SP+0; z, c
+  LD A, [HL]
+  OR A, B; z, c
   JP z, .bb9; else=.bb10
 
 .bb9:

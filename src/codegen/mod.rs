@@ -1770,11 +1770,43 @@ impl CodeGen {
                 (z, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
-                let (z, _c) = self.cp_from_r16(left, right, block, lir, ctx, locals);
+                let z = self.eq_from_r16(left, right, block, lir, ctx, locals);
                 (z, mir::Condition::NotZero)
             }
             ty => unimplemented!("{ty:?}"),
         }
+    }
+
+    /// Lowers 16-bit equality to `(left_low ^ right_low) | (left_high ^ right_high)`, whose Z flag
+    /// is set iff both bytes are equal. `lt_from_r16`'s `SUB`/`SBC` can't be used here since `SBC`
+    /// only sets Z from the high byte's result. Signedness doesn't affect equality. A zero literal
+    /// byte skips its `XOR`, so `x == 0` lowers to `LD A,high; OR A,low`.
+    fn eq_from_r16(
+        &mut self,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        block: BlockId,
+        lir: &mut CodeSectionBuilder,
+        ctx: &InstrCtx,
+        locals: &Locals,
+    ) -> ZeroId {
+        let (right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
+        let (left_high, left_low) = locals.r16s[left];
+
+        let low_diff = if matches!(right_low, Operand8::Literal(0)) {
+            left_low
+        } else {
+            let a = lir.insert_ld_a(block, left_low);
+            let (_z, _c) = lir.insert_xor(block, a, right_low);
+            lir.insert_move_a(block, a)
+        };
+
+        let a = lir.insert_ld_a(block, left_high);
+        if !matches!(right_high, Operand8::Literal(0)) {
+            let (_z, _c) = lir.insert_xor(block, a, right_high);
+        }
+        let (z, _c) = lir.insert_or(block, a, Operand8::Reg(low_diff));
+        z
     }
 
     fn lt_from_comparison_op(
@@ -1796,7 +1828,7 @@ impl CodeGen {
                 (c, mir::Condition::NotZero)
             }
             ty if ty.bit_size(&self.ty_registry) == 16 => {
-                let (_z, c) = self.cp_from_r16(left, right, block, lir, ctx, locals);
+                let c = self.lt_from_r16(left, right, block, lir, ctx, locals);
                 (c, mir::Condition::NotZero)
             }
             ty => unimplemented!("{ty:?}"),
@@ -1862,7 +1894,7 @@ impl CodeGen {
         }
     }
 
-    fn cp_from_r16(
+    fn lt_from_r16(
         &mut self,
         left: mir::LocalId,
         right: &mir::Operand,
@@ -1870,7 +1902,7 @@ impl CodeGen {
         lir: &mut CodeSectionBuilder,
         ctx: &InstrCtx,
         locals: &Locals,
-    ) -> (ZeroId, CarryId) {
+    ) -> CarryId {
         let is_signed = ctx.function.locals[left].ty.is_signed_int();
         let (mut right_high, right_low) = self.r16_to_operand(right, block, lir, ctx, locals);
         if is_signed {
@@ -1895,7 +1927,8 @@ impl CodeGen {
         let (_z, c_in) = lir.insert_sub(block, a, right_low);
 
         let a = lir.insert_ld_a(block, left_high);
-        lir.insert_sbc(block, a, right_high, c_in)
+        let (_z, c) = lir.insert_sbc(block, a, right_high, c_in);
+        c
     }
 
     fn projected_global_to_addr(

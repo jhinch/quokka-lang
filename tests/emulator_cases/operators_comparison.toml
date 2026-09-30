@@ -8,7 +8,9 @@
 # carry propagation between the bytes (see operators_arithmetic.toml for the matching `-`
 # regression), and a separate group of cases re-checks the same operators with equal operands (the
 # edge case where the borrow chain must propagate all the way through both bytes without ever
-# going negative).
+# going negative). u16 `==`/`!=` instead lower to XOR-ing each byte pair and OR-ing the results
+# (the final `SBC` of a subtraction only sets Z from the high byte), so they also get cases where
+# only the low byte differs and doesn't borrow.
 #
 # Comparisons always produce a u1 result, and a `global: u1` only defines bit 0 of its byte - the
 # rest is left as whatever WRAM happened to contain at boot (SameBoy deliberately randomizes
@@ -438,6 +440,66 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_u16_low_byte_differs_without_borrow"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    // equal high bytes (0x10), low byte of LEFT is greater than low byte of RIGHT, so the low
+    // byte differs without borrowing into the high byte comparison
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    OUT = left == right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_u16_low_byte_differs_without_borrow"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    // equal high bytes (0x10), low byte of LEFT is greater than low byte of RIGHT, so the low
+    // byte differs without borrowing into the high byte comparison
+    LEFT = 0x1001;
+    RIGHT = 0x1000;
+    let left = LEFT;
+    let right = RIGHT;
+    OUT = left != right;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
 mask = 0b0000_0001
 
 [[case]]

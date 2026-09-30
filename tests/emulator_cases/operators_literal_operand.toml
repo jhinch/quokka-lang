@@ -904,6 +904,206 @@ addr = 0xC001
 expected = [0xFF, 0x00] # 0x00FF
 
 [[case]]
+name = "eq_u16_literal_low_byte_differs_without_borrow"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    let left = LEFT;
+    OUT = left == 0x1000;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_u16_literal_low_byte_differs_without_borrow"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1001;
+    let left = LEFT;
+    OUT = left != 0x1000;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_i16_literal_low_byte_differs_without_borrow"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = -255;
+    let left = LEFT;
+    OUT = left == -256;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_i16_literal_low_byte_differs_without_borrow"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = -255;
+    let left = LEFT;
+    OUT = left != -256;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_u16_literal_zero_low_byte_nonzero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0005;
+    let left = LEFT;
+    OUT = left == 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_u16_literal_zero_high_byte_nonzero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0500;
+    let left = LEFT;
+    OUT = left == 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_u16_literal_zero_equal"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0000;
+    let left = LEFT;
+    OUT = left == 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "ne_u16_literal_zero_low_byte_nonzero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0005;
+    let left = LEFT;
+    OUT = left != 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
 name = "lt_i16_literal_negative_less_than_negative"
 source = """
 global LEFT: i16;

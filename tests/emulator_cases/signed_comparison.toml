@@ -205,3 +205,59 @@ await_pc = 0x0150
 addr = 0xC000
 expected = 1
 mask = 0b0000_0001
+
+[[case]]
+name = "i16_eq_low_byte_differs_without_borrow"
+source = """
+global A: i16;
+global B: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = -255;
+    B = -256;
+    let a = A;
+    let b = B;
+    OUT = a == b;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "i16_ne_low_byte_differs_without_borrow"
+source = """
+global A: i16;
+global B: i16;
+
+#[address = 0xC000]
+global OUT: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = -255;
+    B = -256;
+    let a = A;
+    let b = B;
+    OUT = a != b;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
