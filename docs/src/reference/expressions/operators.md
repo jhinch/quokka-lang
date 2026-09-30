@@ -10,31 +10,31 @@ OperatorExpression      =   NotExpression
                         |   RotateExpression
                         |   AssignExpression
                         ;
-NotExpression           =   "!" , Expression
+NotExpression           =   "!" , ExpressionWithoutBlock
                         ;
-NegateExpression        =   "-" , Expression
+NegateExpression        =   "-" , ExpressionWithoutBlock
                         ;
-LogicalExpression       =   Expression , "&&" , Expression
-                        |   Expression , "||" , Expression
+LogicalExpression       =   ExpressionWithoutBlock , "&&" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "||" , ExpressionWithoutBlock
                         ;
-ArithmeticExpression    =   Expression , "&" , Expression
-                        |   Expression , "|" , Expression
-                        |   Expression , "^" , Expression
-                        |   Expression , "+" , Expression
-                        |   Expression , "-" , Expression
+ArithmeticExpression    =   ExpressionWithoutBlock , "&" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "|" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "^" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "+" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "-" , ExpressionWithoutBlock
                         ;
-ComparisonExpression    =   Expression , "==" , Expression
-                        |   Expression , "!=" , Expression
-                        |   Expression , "<" , Expression
-                        |   Expression , "<=" , Expression
-                        |   Expression , ">=" , Expression
-                        |   Expression , ">" , Expression
+ComparisonExpression    =   ExpressionWithoutBlock , "==" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "!=" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "<" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , "<=" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , ">=" , ExpressionWithoutBlock
+                        |   ExpressionWithoutBlock , ">" , ExpressionWithoutBlock
                         ;
-ShiftExpression         =   Expression , "<<"
-                        |   Expression , ">>"
+ShiftExpression         =   ExpressionWithoutBlock , "<<"
+                        |   ExpressionWithoutBlock , ">>"
                         ;
-RotateExpression        =   Expression , "<%"
-                        |   Expression , ">%"
+RotateExpression        =   ExpressionWithoutBlock , "<%"
+                        |   ExpressionWithoutBlock , ">%"
                         ;
 AssignExpression        =   PlaceExpression , "=" , Expression
                         |   PlaceExpression , "+=" , Expression
@@ -96,6 +96,8 @@ AssignExpression        =   PlaceExpression , "=" , Expression
 
 - Operates the same as respective operator but assigns result left operand
 - left operand must be a place expression
+- right operand can be an [expression with a block](../expressions.md#expressions-with-blocks), such as
+  `x = { yield 1; }`, but then no other operator can follow it
 
 ### Bulk copy
 

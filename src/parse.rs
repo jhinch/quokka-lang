@@ -41,6 +41,9 @@ pub enum Error {
     AssignOnValue(#[from] AssignOnValueError),
     #[error(transparent)]
     #[diagnostic(transparent)]
+    BlockOperand(#[from] BlockOperandError),
+    #[error(transparent)]
+    #[diagnostic(transparent)]
     UnnamedIdentifier(#[from] UnnamedIdentifierError),
 }
 
@@ -313,6 +316,80 @@ fn can_start_expr(kind: TokenKind) -> bool {
     )
 }
 
+/// The operator a token of `kind` represents after an operand, if any.
+fn op_kind(kind: TokenKind) -> Option<OpKind> {
+    Some(match kind {
+        // postfix
+        TokenKind::LeftParen => OpKind::FunctionCall,
+        TokenKind::LeftBracket => OpKind::ArrayIndex,
+        TokenKind::Dot => OpKind::FieldAccess,
+        TokenKind::LessThanLessThan => OpKind::Unary(UnaryOpKind::ShiftLeft),
+        TokenKind::LessThanPercent => OpKind::Unary(UnaryOpKind::RotateLeft),
+        TokenKind::GreaterThanGreaterThan => OpKind::Unary(UnaryOpKind::ShiftRight),
+        TokenKind::GreaterThanPercent => OpKind::Unary(UnaryOpKind::RotateRight),
+        TokenKind::As => OpKind::BitCast,
+        // infix
+        TokenKind::Equal => OpKind::Assign(AssignOpKind::Assign),
+        TokenKind::EqualEqual => OpKind::Comparison(ComparisonOpKind::Eq),
+        TokenKind::BangEqual => OpKind::Comparison(ComparisonOpKind::Ne),
+        TokenKind::Ampersand => OpKind::Arithmetic(ArithmeticOpKind::BitAnd),
+        TokenKind::AmpersandAmpersand => OpKind::Logical(LogicalOpKind::And),
+        TokenKind::AmpersandEqual => OpKind::Assign(AssignOpKind::BitAndAssign),
+        TokenKind::Pipe => OpKind::Arithmetic(ArithmeticOpKind::BitOr),
+        TokenKind::PipePipe => OpKind::Logical(LogicalOpKind::Or),
+        TokenKind::PipeEqual => OpKind::Assign(AssignOpKind::BitOrAssign),
+        TokenKind::Plus => OpKind::Arithmetic(ArithmeticOpKind::Add),
+        TokenKind::PlusEqual => OpKind::Assign(AssignOpKind::AddAssign),
+        TokenKind::Minus => OpKind::Arithmetic(ArithmeticOpKind::Sub),
+        TokenKind::MinusEqual => OpKind::Assign(AssignOpKind::SubAssign),
+        TokenKind::Carrot => OpKind::Arithmetic(ArithmeticOpKind::BitXor),
+        TokenKind::CarrotEqual => OpKind::Assign(AssignOpKind::BitXorAssign),
+        TokenKind::LessThan => OpKind::Comparison(ComparisonOpKind::Lt),
+        TokenKind::LessThanEqual => OpKind::Comparison(ComparisonOpKind::Le),
+        TokenKind::GreaterThan => OpKind::Comparison(ComparisonOpKind::Gt),
+        TokenKind::GreaterThanEqual => OpKind::Comparison(ComparisonOpKind::Ge),
+        _ => return None,
+    })
+}
+
+/// Whether `expr` is an expression with a block: a block, a `loop`, or an `if` whose last branch
+/// is one. As a statement, it doesn't need a `;`, and it can't be used as an operand.
+fn is_expr_with_block(expr: &Expr) -> bool {
+    match &expr.data {
+        ExprData::Block(_) | ExprData::Loop(_) => true,
+        ExprData::If(If {
+            true_block,
+            false_block,
+            ..
+        }) => is_expr_with_block(false_block.as_deref().unwrap_or(true_block)),
+        _ => false,
+    }
+}
+
+/// The expression with a block that `expr` ends with, if any, such as the block in
+/// `x = { yield 1; }`. No operator can follow it without parentheses.
+fn trailing_expr_with_block(expr: &Expr) -> Option<&Expr> {
+    if is_expr_with_block(expr) {
+        return Some(expr);
+    }
+    match &expr.data {
+        ExprData::Assign(AssignOp { right, .. })
+        | ExprData::Logical(LogicalOp { right, .. })
+        | ExprData::Arithmetic(ArithmeticOp { right, .. })
+        | ExprData::Comparison(ComparisonOp { right, .. }) => trailing_expr_with_block(right),
+        ExprData::Unary(UnaryOp {
+            kind: UnaryOpKind::Not | UnaryOpKind::Neg,
+            expr,
+        }) => trailing_expr_with_block(expr),
+        ExprData::If(If {
+            true_block,
+            false_block,
+            ..
+        }) => trailing_expr_with_block(false_block.as_deref().unwrap_or(true_block)),
+        _ => None,
+    }
+}
+
 /// Whether a token of `kind` can begin a statement or an item.
 ///
 /// `{` is deliberately excluded: after an expression it more often means a missing `then` than
@@ -377,6 +454,17 @@ pub struct AssignOnValueError {
     pub op_span: SourceSpan,
 }
 
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("Syntax error: an expression with a block cannot be used as an operand")]
+#[diagnostic(help("wrap it in parentheses: `(…)`"))]
+pub struct BlockOperandError {
+    #[label(primary, "this expression")]
+    pub span: SourceSpan,
+    /// the operator following the expression, when that is what made it an operand
+    #[label("this operator")]
+    pub op_span: Option<SourceSpan>,
+}
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic, Clone)]
 #[error("Unnamed identifier not permitted here")]
 #[diagnostic()]
@@ -389,11 +477,6 @@ pub struct Parser<'de> {
     lexer: lex::Lexer<'de>,
     features: PreviewFeatureSet,
     result_builder: MultiResultBuilder,
-    /// the token kind of the last non-comment token consumed via [`Parser::consume_token`].
-    ///
-    /// This is used rather than `lexer.current()` to handle the case where comment tokens
-    /// are present between non-comment tokens.
-    last_token_kind: Option<TokenKind>,
     /// the span of the last non-comment token consumed via [`Parser::consume_token`].
     last_token_span: Option<SourceSpan>,
 }
@@ -404,7 +487,6 @@ impl<'de> From<&'de str> for Parser<'de> {
             lexer: lex::Lexer::from(value),
             features: PreviewFeatureSet::default(),
             result_builder: MultiResultBuilder::default(),
-            last_token_kind: None,
             last_token_span: None,
         }
     }
@@ -415,7 +497,6 @@ impl<'de> Parser<'de> {
         self.consume_comments()?;
         match self.lexer.next().transpose()? {
             Some(token) => {
-                self.last_token_kind = Some(token.kind());
                 self.last_token_span = Some(token.span());
                 Ok(token)
             }
@@ -519,10 +600,6 @@ impl<'de> Parser<'de> {
             .unwrap_or_default();
         SourceSpan::new(previous_end.into(), 0)
     }
-
-    fn is_proceeding_block(&self) -> bool {
-        self.last_token_kind == Some(TokenKind::RightBrace)
-    }
 }
 
 impl Parser<'_> {
@@ -571,7 +648,7 @@ impl Parser<'_> {
 
     #[instrument(skip_all)]
     pub fn parse_expr_as_root(self) -> MultiResult<Expr> {
-        self.parse_as_root(Parser::parse_expr)
+        self.parse_as_root(Parser::parse_expr_or_block)
     }
 
     fn parse_as_root<A>(mut self, f: impl FnOnce(&mut Self) -> Result<A, Error>) -> MultiResult<A> {
@@ -928,33 +1005,65 @@ impl Parser<'_> {
     }
 
     fn parse_expr_smt(&mut self) -> Result<ExprSmt, Error> {
-        let value = self.parse_expr_or_block()?;
-        if !self.is_proceeding_block() {
+        let value = self.parse_statement_expr_or_block()?;
+        if !is_expr_with_block(&value) {
             self.expect_terminator(Terminated::Expr)?;
         }
         Ok(ExprSmt { value })
     }
 
+    /// Parses an expression which may also be an expression with a block, such as a `let`
+    /// initializer or the contents of a grouped expression.
     fn parse_expr_or_block(&mut self) -> Result<Expr, Error> {
-        let peeked_token = self.peek_token()?;
-        Ok(if peeked_token.kind() == TokenKind::LeftBrace {
-            let start_span = peeked_token.span();
-            let block = self.parse_body()?;
-            let end_span = self.lexer.current().unwrap().span();
-            Expr {
-                span: span_between(start_span, end_span),
-                data: ExprData::Block(block),
-            }
-        } else {
-            self.parse_expr_above(0)?
-        })
+        let expr = self.parse_expr_above(0, true)?;
+        self.reject_operator_after_block(&expr, false)?;
+        Ok(expr)
     }
 
+    /// Like [`Parser::parse_expr_or_block`], but for an expression which can be directly
+    /// followed by another statement: an expression statement or an `if` `then` branch.
+    fn parse_statement_expr_or_block(&mut self) -> Result<Expr, Error> {
+        let expr = self.parse_expr_above(0, true)?;
+        self.reject_operator_after_block(&expr, true)?;
+        Ok(expr)
+    }
+
+    /// Parses an expression which cannot be an expression with a block, such as an operand or an
+    /// `if` condition.
     fn parse_expr(&mut self) -> Result<Expr, Error> {
-        self.parse_expr_above(0)
+        let expr = self.parse_expr_above(0, false)?;
+        self.reject_operator_after_block(&expr, false)?;
+        Ok(expr)
     }
 
-    fn parse_expr_above(&mut self, min_bp: u8) -> Result<Expr, Error> {
+    /// Reports an operator directly after an expression which ends in an expression with a block,
+    /// e.g. `{ yield 1; } + 1`, which must be written as `({ yield 1; }) + 1` instead.
+    ///
+    /// When `before_statement`, an operator which can also start an expression (such as `-`)
+    /// starts the next statement instead, so it isn't reported.
+    fn reject_operator_after_block(
+        &mut self,
+        expr: &Expr,
+        before_statement: bool,
+    ) -> Result<(), Error> {
+        let Some(block) = trailing_expr_with_block(expr) else {
+            return Ok(());
+        };
+        let token = self.peek_token()?;
+        if op_kind(token.kind()).is_some() && !(before_statement && can_start_expr(token.kind())) {
+            return Err(Error::from(BlockOperandError {
+                span: block.span,
+                op_span: Some(token.span()),
+            }));
+        }
+        Ok(())
+    }
+
+    /// Parses an expression whose operators bind tighter than `min_bp`.
+    ///
+    /// An expression with a block is only accepted when `allow_with_block`, and then no operator
+    /// can follow it.
+    fn parse_expr_above(&mut self, min_bp: u8, allow_with_block: bool) -> Result<Expr, Error> {
         let lhs_token = self.peek_token()?;
         let lhs_start_span = lhs_token.span();
         let mut lhs = {
@@ -972,7 +1081,7 @@ impl Parser<'_> {
                         while self.peek_token()?.kind() != TokenKind::RightBrace {
                             let name = self.parse_identifier()?;
                             self.expect(TokenKind::Colon)?;
-                            let value = self.parse_expr_above(0)?;
+                            let value = self.parse_expr()?;
                             fields.push(StructExprField { name, value });
                             if self.peek_token()?.kind() != TokenKind::RightBrace {
                                 self.expect_separator(
@@ -995,7 +1104,7 @@ impl Parser<'_> {
                 }
                 TokenKind::LeftBracket => {
                     self.chomp()?;
-                    let first = self.parse_expr_above(0)?;
+                    let first = self.parse_expr()?;
                     if self.peek_token()?.kind() == TokenKind::Semicolon {
                         self.expect(TokenKind::Semicolon)?;
                         let count = self.expect(TokenKind::Number)?.try_parse_non_zero_u16()?;
@@ -1032,17 +1141,18 @@ impl Parser<'_> {
                             if self.peek_token()?.kind() == TokenKind::RightBracket {
                                 break;
                             }
-                            let item = self.parse_expr_above(0)?;
+                            let item = self.parse_expr()?;
                             items.push(item);
                         }
                         self.expect(TokenKind::RightBracket)?;
                         ExprData::from(ArrayExpr { items })
                     }
                 }
+                TokenKind::LeftBrace => ExprData::Block(self.parse_body()?),
                 // group
                 TokenKind::LeftParen => {
                     self.chomp()?;
-                    let expr = self.parse_expr_above(0)?;
+                    let expr = self.parse_expr_or_block()?;
                     self.expect(TokenKind::RightParen)?;
                     ExprData::from(Box::new(expr))
                 }
@@ -1050,10 +1160,12 @@ impl Parser<'_> {
                     self.chomp()?;
                     let condition = Box::new(self.parse_expr()?);
                     self.expect(TokenKind::Then)?;
-                    let true_block = Box::new(self.parse_expr_or_block()?);
+                    let true_block = Box::new(self.parse_statement_expr_or_block()?);
                     let false_block = if self.peek_token()?.kind() == TokenKind::Else {
                         self.chomp()?;
-                        Some(Box::new(self.parse_expr_or_block()?))
+                        // an operator after the `else` branch is left for the enclosing
+                        // construct to report, as it follows the whole `if`
+                        Some(Box::new(self.parse_expr_above(0, true)?))
                     } else {
                         None
                     };
@@ -1080,7 +1192,7 @@ impl Parser<'_> {
                         ),
                     };
                     let bp = prefix_binding_power(OpKind::Unary(kind));
-                    let expr = Box::new(self.parse_expr_above(bp)?);
+                    let expr = Box::new(self.parse_expr_above(bp, false)?);
                     ExprData::from(UnaryOp { kind, expr })
                 }
                 _ => {
@@ -1093,57 +1205,42 @@ impl Parser<'_> {
                 data,
             }
         };
+        if !allow_with_block && is_expr_with_block(&lhs) {
+            return Err(Error::from(BlockOperandError {
+                span: lhs.span,
+                op_span: None,
+            }));
+        }
 
         loop {
+            if trailing_expr_with_block(&lhs).is_some() {
+                // nothing can follow an expression with a block, not even when nested as the
+                // right-hand side of an assignment
+                break;
+            }
             let op_token = self.peek_token()?;
-            let kind = match op_token.kind() {
-                TokenKind::Eof
-                | TokenKind::RightParen
-                | TokenKind::Semicolon
-                | TokenKind::Comma
-                | TokenKind::RightBrace
-                | TokenKind::RightBracket
-                | TokenKind::Then
-                | TokenKind::Else => break,
-                // postfix
-                TokenKind::LeftParen => OpKind::FunctionCall,
-                TokenKind::LeftBracket => OpKind::ArrayIndex,
-                TokenKind::Dot => OpKind::FieldAccess,
-                TokenKind::LessThanLessThan => OpKind::Unary(UnaryOpKind::ShiftLeft),
-                TokenKind::LessThanPercent => OpKind::Unary(UnaryOpKind::RotateLeft),
-                TokenKind::GreaterThanGreaterThan => OpKind::Unary(UnaryOpKind::ShiftRight),
-                TokenKind::GreaterThanPercent => OpKind::Unary(UnaryOpKind::RotateRight),
-                TokenKind::As => OpKind::BitCast,
-                // infix
-                TokenKind::Equal => OpKind::Assign(AssignOpKind::Assign),
-                TokenKind::EqualEqual => OpKind::Comparison(ComparisonOpKind::Eq),
-                TokenKind::BangEqual => OpKind::Comparison(ComparisonOpKind::Ne),
-                TokenKind::Ampersand => OpKind::Arithmetic(ArithmeticOpKind::BitAnd),
-                TokenKind::AmpersandAmpersand => OpKind::Logical(LogicalOpKind::And),
-                TokenKind::AmpersandEqual => OpKind::Assign(AssignOpKind::BitAndAssign),
-                TokenKind::Pipe => OpKind::Arithmetic(ArithmeticOpKind::BitOr),
-                TokenKind::PipePipe => OpKind::Logical(LogicalOpKind::Or),
-                TokenKind::PipeEqual => OpKind::Assign(AssignOpKind::BitOrAssign),
-                TokenKind::Plus => OpKind::Arithmetic(ArithmeticOpKind::Add),
-                TokenKind::PlusEqual => OpKind::Assign(AssignOpKind::AddAssign),
-                TokenKind::Minus => OpKind::Arithmetic(ArithmeticOpKind::Sub),
-                TokenKind::MinusEqual => OpKind::Assign(AssignOpKind::SubAssign),
-                TokenKind::Carrot => OpKind::Arithmetic(ArithmeticOpKind::BitXor),
-                TokenKind::CarrotEqual => OpKind::Assign(AssignOpKind::BitXorAssign),
-                TokenKind::LessThan => OpKind::Comparison(ComparisonOpKind::Lt),
-                TokenKind::LessThanEqual => OpKind::Comparison(ComparisonOpKind::Le),
-                TokenKind::GreaterThan => OpKind::Comparison(ComparisonOpKind::Gt),
-                TokenKind::GreaterThanEqual => OpKind::Comparison(ComparisonOpKind::Ge),
-                // Anything that could start another expression, statement or item ends this
-                // expression, leaving the enclosing construct to report the missing separator.
-                kind if can_start_statement_or_item(kind) => break,
-                _ => {
-                    let error = SyntaxError::new(op_token, "an operator or end of expression");
-                    if self.is_proceeding_block() {
-                        break;
+            let kind = match op_kind(op_token.kind()) {
+                Some(kind) => kind,
+                None => match op_token.kind() {
+                    TokenKind::Eof
+                    | TokenKind::RightParen
+                    | TokenKind::Semicolon
+                    | TokenKind::Comma
+                    | TokenKind::RightBrace
+                    | TokenKind::RightBracket
+                    | TokenKind::Then
+                    | TokenKind::Else => break,
+                    // Anything that could start another expression, statement or item ends this
+                    // expression, leaving the enclosing construct to report the missing
+                    // separator.
+                    kind if can_start_statement_or_item(kind) => break,
+                    _ => {
+                        return Err(Error::from(SyntaxError::new(
+                            op_token,
+                            "an operator or end of expression",
+                        )));
                     }
-                    return Err(Error::from(error));
-                }
+                },
             };
 
             lhs = {
@@ -1210,7 +1307,9 @@ impl Parser<'_> {
                         }
                         let op_token = self.consume_token()?;
 
-                        let rhs = self.parse_expr_above(rhs_bp)?;
+                        // only an assignment's right-hand side can be an expression with a block
+                        let allow_with_block = matches!(kind, OpKind::Assign(_));
+                        let rhs = self.parse_expr_above(rhs_bp, allow_with_block)?;
 
                         match kind {
                             OpKind::Logical(kind) => ExprData::from(LogicalOp {

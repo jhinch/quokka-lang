@@ -41,7 +41,7 @@ Statement(
 """
 
 [[case]]
-name = "if_with_block_optional_trailing_semicolon"
+name = "if_with_block_rejects_trailing_semicolon"
 kind = "parser"
 entrypoint = "statement"
 source = """
@@ -125,7 +125,7 @@ Statement(
 """
 
 [[case]]
-name = "loop_with_optional_trailing_semicolon"
+name = "loop_rejects_trailing_semicolon"
 kind = "parser"
 entrypoint = "statement"
 source = """
@@ -489,7 +489,7 @@ Statement(
 """
 
 [[case]]
-name = "bare_block_with_trailing_semicolon"
+name = "bare_block_rejects_trailing_semicolon"
 kind = "parser"
 entrypoint = "statement"
 source = """
@@ -686,6 +686,421 @@ Statement(
           ],
         ),
       )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "struct_expr_statement_requires_semicolon"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    P { x: 1 }
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [26:26]",
+]
+
+[[case]]
+name = "assignment_ending_in_struct_expr_requires_semicolon"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    G = P { x: 1 }
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [30:30]",
+]
+
+[[case]]
+name = "assignment_with_block_rhs_requires_semicolon"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    x = { yield 1; }
+    x = 2;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [32:32]",
+]
+
+[[case]]
+name = "assignment_with_loop_rhs_requires_semicolon"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    let a = 0;
+    a = loop { break 1; } a = 2;
+}
+"""
+expected_errors = [
+    "Syntax error: missing `;` after expression @ [52:52]",
+]
+
+[[case]]
+name = "assignment_with_block_rhs_followed_by_semicolon"
+kind = "parser"
+entrypoint = "statement"
+source = """
+x = { yield 1; };
+"""
+expected_ast = """
+Statement(
+  span: (0, 17),
+  data: Expr(ExprSmt(
+    value: Expr(
+      span: (0, 16),
+      data: Assign(AssignOp(
+        kind: Assign,
+        left: Place(
+          name: ("x", (0, 1)),
+          span: (0, 1),
+        ),
+        right: Expr(
+          span: (4, 12),
+          data: Block(Block(
+            span: (4, 12),
+            statements: [
+              Statement(
+                span: (6, 8),
+                data: Yield(YieldSmt(
+                  value: Expr(
+                    span: (12, 1),
+                    data: Integer(IntegerLiteral(
+                      value: 1,
+                    )),
+                  ),
+                )),
+              ),
+            ],
+          )),
+        ),
+      )),
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "if_statement_followed_by_negation_statement"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    if a == 1 then { a = 2; }
+    -a;
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", (3, 4)),
+    ),
+    body: Block(
+      span: (10, 41),
+      statements: [
+        Statement(
+          span: (16, 25),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (16, 25),
+              data: If(If(
+                condition: Expr(
+                  span: (19, 6),
+                  data: Comparison(ComparisonOp(
+                    kind: Eq,
+                    left: Expr(
+                      span: (19, 1),
+                      data: Place(Place(
+                        name: ("a", (19, 1)),
+                        span: (19, 1),
+                      )),
+                    ),
+                    right: Expr(
+                      span: (24, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 1,
+                      )),
+                    ),
+                  )),
+                ),
+                true_block: Expr(
+                  span: (31, 10),
+                  data: Block(Block(
+                    span: (31, 10),
+                    statements: [
+                      Statement(
+                        span: (33, 6),
+                        data: Expr(ExprSmt(
+                          value: Expr(
+                            span: (33, 5),
+                            data: Assign(AssignOp(
+                              kind: Assign,
+                              left: Place(
+                                name: ("a", (33, 1)),
+                                span: (33, 1),
+                              ),
+                              right: Expr(
+                                span: (37, 1),
+                                data: Integer(IntegerLiteral(
+                                  value: 2,
+                                )),
+                              ),
+                            )),
+                          ),
+                        )),
+                      ),
+                    ],
+                  )),
+                ),
+                false_block: None,
+              )),
+            ),
+          )),
+        ),
+        Statement(
+          span: (46, 3),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (46, 2),
+              data: Unary(UnaryOp(
+                kind: Neg,
+                expr: Expr(
+                  span: (47, 1),
+                  data: Place(Place(
+                    name: ("a", (47, 1)),
+                    span: (47, 1),
+                  )),
+                ),
+              )),
+            ),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "if_statement_followed_by_grouped_statement"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    if a == 1 then { a = 2; }
+    (a);
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", (3, 4)),
+    ),
+    body: Block(
+      span: (10, 42),
+      statements: [
+        Statement(
+          span: (16, 25),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (16, 25),
+              data: If(If(
+                condition: Expr(
+                  span: (19, 6),
+                  data: Comparison(ComparisonOp(
+                    kind: Eq,
+                    left: Expr(
+                      span: (19, 1),
+                      data: Place(Place(
+                        name: ("a", (19, 1)),
+                        span: (19, 1),
+                      )),
+                    ),
+                    right: Expr(
+                      span: (24, 1),
+                      data: Integer(IntegerLiteral(
+                        value: 1,
+                      )),
+                    ),
+                  )),
+                ),
+                true_block: Expr(
+                  span: (31, 10),
+                  data: Block(Block(
+                    span: (31, 10),
+                    statements: [
+                      Statement(
+                        span: (33, 6),
+                        data: Expr(ExprSmt(
+                          value: Expr(
+                            span: (33, 5),
+                            data: Assign(AssignOp(
+                              kind: Assign,
+                              left: Place(
+                                name: ("a", (33, 1)),
+                                span: (33, 1),
+                              ),
+                              right: Expr(
+                                span: (37, 1),
+                                data: Integer(IntegerLiteral(
+                                  value: 2,
+                                )),
+                              ),
+                            )),
+                          ),
+                        )),
+                      ),
+                    ],
+                  )),
+                ),
+                false_block: None,
+              )),
+            ),
+          )),
+        ),
+        Statement(
+          span: (46, 4),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (46, 3),
+              data: Paren(Expr(
+                span: (47, 1),
+                data: Place(Place(
+                  name: ("a", (47, 1)),
+                  span: (47, 1),
+                )),
+              )),
+            ),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "block_statement_followed_by_array_statement"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    { }
+    [0; 2];
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", (3, 4)),
+    ),
+    body: Block(
+      span: (10, 23),
+      statements: [
+        Statement(
+          span: (16, 3),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (16, 3),
+              data: Block(Block(
+                span: (16, 3),
+                statements: [],
+              )),
+            ),
+          )),
+        ),
+        Statement(
+          span: (24, 7),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (24, 6),
+              data: Repeat(RepeatExpr(
+                item: Expr(
+                  span: (25, 1),
+                  data: Integer(IntegerLiteral(
+                    value: 0,
+                  )),
+                ),
+                count: 2,
+              )),
+            ),
+          )),
+        ),
+      ],
+    ),
+  )),
+)
+"""
+
+[[case]]
+name = "loop_statement_followed_by_negation_statement"
+kind = "parser"
+entrypoint = "item"
+source = """
+fn main() {
+    loop { break; }
+    -a;
+}
+"""
+expected_ast = """
+Item(
+  data: FnDecl(FnDecl(
+    signature: FnSig(
+      name: ("main", (3, 4)),
+    ),
+    body: Block(
+      span: (10, 31),
+      statements: [
+        Statement(
+          span: (16, 15),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (16, 15),
+              data: Loop(Loop(
+                body: Block(
+                  span: (21, 10),
+                  statements: [
+                    Statement(
+                      span: (23, 6),
+                      data: Break(BreakSmt()),
+                    ),
+                  ],
+                ),
+              )),
+            ),
+          )),
+        ),
+        Statement(
+          span: (36, 3),
+          data: Expr(ExprSmt(
+            value: Expr(
+              span: (36, 2),
+              data: Unary(UnaryOp(
+                kind: Neg,
+                expr: Expr(
+                  span: (37, 1),
+                  data: Place(Place(
+                    name: ("a", (37, 1)),
+                    span: (37, 1),
+                  )),
+                ),
+              )),
+            ),
+          )),
+        ),
+      ],
     ),
   )),
 )

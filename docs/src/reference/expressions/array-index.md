@@ -1,7 +1,7 @@
 # Array index expressions
 
 ```ebnf
-ArrayIndexExpression    =   Expression , "[" , Expression , "]"
+ArrayIndexExpression    =   ExpressionWithoutBlock , "[" , ExpressionWithoutBlock , "]"
                         ;
 ```
 

@@ -815,14 +815,14 @@ expected_errors = [
 ]
 
 [[case]]
-name = "missing_comma_after_item_ending_in_block"
+name = "missing_comma_after_struct_item"
 kind = "parser"
 entrypoint = "expr"
 source = """
-[loop { break 1; } 2]
+[P { x: 1 } 2]
 """
 expected_errors = [
-    "Syntax error: missing `,` between array items @ [18:18]",
+    "Syntax error: missing `,` between array items @ [11:11]",
 ]
 
 [[case]]

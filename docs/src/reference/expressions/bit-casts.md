@@ -1,7 +1,7 @@
 # Bit cast expressions
 
 ```ebnf
-BitCastExpression   =   Expression  , "as" , TypeUse
+BitCastExpression   =   ExpressionWithoutBlock  , "as" , TypeUse
                     ;
 ```
 

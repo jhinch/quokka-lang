@@ -5,6 +5,6 @@ StructExpression    = Identifier , "{" , [ StructExprFields ] , "}"
                     ;
 StructExprFields    =   StructExprField , { "," , StructExprField } , [ "," ]
                     ;
-StructExprField     =   Identifier, ":", Expression
+StructExprField     =   Identifier, ":", ExpressionWithoutBlock
                     ;
 ```

@@ -3,8 +3,8 @@
 ```ebnf
 ArrayExpression     = "[" , ArrayExprItems , "]"
                     ;
-ArrayExprItems      = Expression , { ",",  Expression } , [ "," ]
-                    | Expression , ";" , NumberLiteral
+ArrayExprItems      = ExpressionWithoutBlock , { ",",  ExpressionWithoutBlock } , [ "," ]
+                    | ExpressionWithoutBlock , ";" , NumberLiteral
                     ;
 ```
 

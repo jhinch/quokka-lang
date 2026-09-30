@@ -34,6 +34,40 @@ The meaning of each kind of expression dictates:
 - under what circumstances operands are evaluated (including re-evaluation)
 - how the values produced by operands combine to obtain the expressions value
 
+## Expressions with blocks
+
+Block expressions, loop expressions and if expressions whose last branch is a block are _expressions with blocks_.
+They can only be used as a whole expression, where nothing follows them:
+
+- a [statement](statements.md), or the value of a `let`, `return`, `break` or `yield` statement
+- the value of a [const item](items/const-items.md)
+- a branch of an [if expression](expressions/ifs.md)
+- the right-hand side of an [assignment](expressions/operators.md#assign-operators), including compound assignments
+  such as `+=`
+- the contents of a [grouped expression](expressions/grouped.md)
+
+They cannot be used as an operand of any other operator, or as an array item, a struct field value, an array index or
+an if condition. To use one there, wrap it in parentheses:
+
+```quokka
+global G: u8;
+
+fn main() {
+    let a: u8 = ({ yield G; }) + 1; // ok
+    let b: u8 = a - ({ yield 3; }); // ok
+}
+```
+
+```quokka,ignore
+fn main() {
+    let a: u8 = { yield 1; } + 1; // error: cannot be used as an operand
+    let b: u8 = a - { yield 3; }; // error: cannot be used as an operand
+}
+```
+
+Similarly, an assignment whose right-hand side is an expression with a block cannot be followed by another operator:
+`x = { yield 1; } + 1` is an error, and must be written as `x = ({ yield 1; }) + 1`.
+
 ## Expression precedence
 
 The order in which expressions are evaluated is governed by a set of conventions.

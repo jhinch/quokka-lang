@@ -1,7 +1,7 @@
 # Field access expressions
 
 ```ebnf
-FieldAccessExpression   =   Expression  , "." , Identifier
+FieldAccessExpression   =   ExpressionWithoutBlock  , "." , Identifier
                         ;
 ```
 
