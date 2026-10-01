@@ -13,6 +13,7 @@ pub mod encode;
 pub mod interference;
 mod lower;
 pub mod opcode;
+mod peephole;
 pub mod regalloc;
 
 pub const CART_HEADER_START_ADDR: u16 = 0x0100;
