@@ -700,6 +700,12 @@ fn allocate_spill_slots(
     graph: &InterferenceGraph,
     functions_blocks: &FunctionBlocks,
 ) {
+    // `graph` only describes the live ranges of this round. An occupant spilled in an earlier
+    // round has since been rewritten into short-lived reloads, so the graph no longer has the
+    // edges of the range its slot is held for, and it cannot be shown to be free.
+    let can_share_slot = |reg: VirtualReg, occupant: VirtualReg| {
+        new_spills.contains(&occupant) && !graph.has_edge(reg, occupant)
+    };
     for reg in new_spills {
         match reg {
             VirtualReg::R8(reg) => {
@@ -718,7 +724,7 @@ fn allocate_spill_slots(
                 let slot = frame.occupants.iter().position(|occupants| {
                     occupants
                         .iter()
-                        .all(|occupant| !graph.has_edge(VirtualReg::R8(*reg), *occupant))
+                        .all(|occupant| can_share_slot(VirtualReg::R8(*reg), *occupant))
                 });
                 let slot = match slot {
                     Some(slot) => slot,
@@ -751,7 +757,7 @@ fn allocate_spill_slots(
                 let slot = frame.occupants.iter().position(|occupants| {
                     let found = occupants
                         .iter()
-                        .all(|occupant| !graph.has_edge(VirtualReg::R16(*reg), *occupant));
+                        .all(|occupant| can_share_slot(VirtualReg::R16(*reg), *occupant));
                     if found {
                         if found_low {
                             true
@@ -1622,6 +1628,8 @@ fn rewrite_instruction(
         }
         Instr::Dec16 { source, .. }
         | Instr::Inc16 { source, .. }
+        | Instr::DecPair { source, .. }
+        | Instr::IncPair { source, .. }
         | Instr::PushR16 { source }
         | Instr::Split { source, .. } => {
             *source = sub_r16(*source);

@@ -999,6 +999,11 @@ fn restrict_from_instruction(
             // `INC r16`
             graph.constrain_colors_to(VirtualReg::from(*source), Color::r16());
         }
+        Instr::DecPair { z, source } | Instr::IncPair { z, source } => {
+            // `INC r8`/`DEC r8` on each half of the pair
+            graph.constrain_colors_to(VirtualReg::from(*z), Color::z());
+            graph.constrain_colors_to(VirtualReg::from(*source), Color::r16());
+        }
         Instr::PushR16 { source: target } | Instr::PopR16 { target } => {
             // `PUSH r16`
             // `POP r16`

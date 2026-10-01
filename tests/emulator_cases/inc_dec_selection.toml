@@ -1,0 +1,1216 @@
+# Covers additions and subtractions of a small constant, which codegen lowers to `INC`/`DEC` steps
+# rather than an addition through the accumulator: `INC r8`/`DEC r8` for an 8-bit `+-1` and `+-2`,
+# and for a 16-bit `+-1` a byte-at-a-time step that branches over the carry (or borrow) into the
+# high byte. `INC r16`/`DEC r16` are not used for these as they corrupt OAM when the register holds
+# an address in `$FE00-$FEFF`.
+#
+# The cases sit on the wrap boundaries of each width and of the low byte, and each also asserts the
+# left operand's local wasn't corrupted by computing the result. The `*_keeps_*` cases check a
+# comparison result computed before the step is still intact after it, and the `struct_array_*`
+# cases cover the `INC HL` used to step an address from an array element to one of its fields.
+
+[[case]]
+name = "add_u8_one"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x41 as u8;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x42 # 0x42
+[[case.assertion]]
+addr = 0xC001
+expected = 0x41 # 0x41
+
+[[case]]
+name = "add_u8_one_wraps_to_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF as u8;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x00 # 0x00
+[[case.assertion]]
+addr = 0xC001
+expected = 0xFF # 0xFF
+
+[[case]]
+name = "sub_u8_one"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x41 as u8;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x40 # 0x40
+[[case.assertion]]
+addr = 0xC001
+expected = 0x41 # 0x41
+
+[[case]]
+name = "sub_u8_one_wraps_below_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00 as u8;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF # 0xFF
+[[case.assertion]]
+addr = 0xC001
+expected = 0x00 # 0x00
+
+[[case]]
+name = "add_u8_two"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x41 as u8;
+    let left = LEFT;
+    let result = left + 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x43 # 0x43
+[[case.assertion]]
+addr = 0xC001
+expected = 0x41 # 0x41
+
+[[case]]
+name = "add_u8_two_wraps_to_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFE as u8;
+    let left = LEFT;
+    let result = left + 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x00 # 0x00
+[[case.assertion]]
+addr = 0xC001
+expected = 0xFE # 0xFE
+
+[[case]]
+name = "add_u8_two_wraps_past_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF as u8;
+    let left = LEFT;
+    let result = left + 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x01 # 0x01
+[[case.assertion]]
+addr = 0xC001
+expected = 0xFF # 0xFF
+
+[[case]]
+name = "sub_u8_two"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x41 as u8;
+    let left = LEFT;
+    let result = left - 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x3F # 0x3F
+[[case.assertion]]
+addr = 0xC001
+expected = 0x41 # 0x41
+
+[[case]]
+name = "sub_u8_two_wraps_below_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x01 as u8;
+    let left = LEFT;
+    let result = left - 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF # 0xFF
+[[case.assertion]]
+addr = 0xC001
+expected = 0x01 # 0x01
+
+[[case]]
+name = "sub_u8_two_from_zero"
+source = """
+global LEFT: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global LEFT_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00 as u8;
+    let left = LEFT;
+    let result = left - 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFE # 0xFE
+[[case.assertion]]
+addr = 0xC001
+expected = 0x00 # 0x00
+
+[[case]]
+name = "add_i8_one_crosses_zero"
+source = """
+global LEFT: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global LEFT_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF as i8;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x00 # 0x00
+[[case.assertion]]
+addr = 0xC001
+expected = 0xFF # 0xFF
+
+[[case]]
+name = "sub_i8_one_crosses_zero"
+source = """
+global LEFT: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global LEFT_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00 as i8;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF # 0xFF
+[[case.assertion]]
+addr = 0xC001
+expected = 0x00 # 0x00
+
+[[case]]
+name = "add_i8_two_crosses_zero"
+source = """
+global LEFT: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global LEFT_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF as i8;
+    let left = LEFT;
+    let result = left + 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x01 # 0x01
+[[case.assertion]]
+addr = 0xC001
+expected = 0xFF # 0xFF
+
+[[case]]
+name = "sub_i8_two_crosses_zero"
+source = """
+global LEFT: i8;
+
+#[address = 0xC000]
+global OUT: i8;
+#[address = 0xC001]
+global LEFT_OUT: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x01 as i8;
+    let left = LEFT;
+    let result = left - 2;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0xFF # 0xFF
+[[case.assertion]]
+addr = 0xC001
+expected = 0x01 # 0x01
+
+[[case]]
+name = "add_u16_one"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1234 as u16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x35, 0x12] # 0x1235
+[[case.assertion]]
+addr = 0xC002
+expected = [0x34, 0x12] # 0x1234
+
+[[case]]
+name = "add_u16_one_carries_into_high_byte"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x00FF as u16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x01] # 0x0100
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0x00] # 0x00FF
+
+[[case]]
+name = "add_u16_one_wraps_to_zero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFFFF as u16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x00] # 0x0000
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0xFF] # 0xFFFF
+
+[[case]]
+name = "add_u16_one_into_oam_range"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFDFF as u16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0xFE] # 0xFE00
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0xFD] # 0xFDFF
+
+[[case]]
+name = "add_u16_one_within_oam_range"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFE7F as u16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x80, 0xFE] # 0xFE80
+[[case.assertion]]
+addr = 0xC002
+expected = [0x7F, 0xFE] # 0xFE7F
+
+[[case]]
+name = "sub_u16_one"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1235 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12] # 0x1234
+[[case.assertion]]
+addr = 0xC002
+expected = [0x35, 0x12] # 0x1235
+
+[[case]]
+name = "sub_u16_one_borrows_from_high_byte"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0100 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0x00] # 0x00FF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x01] # 0x0100
+
+[[case]]
+name = "sub_u16_one_wraps_below_zero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0000 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0xFF] # 0xFFFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x00] # 0x0000
+
+[[case]]
+name = "sub_u16_one_to_zero_low_byte"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x1201 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x12] # 0x1200
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x12] # 0x1201
+
+[[case]]
+name = "sub_u16_one_to_zero"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0001 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x00] # 0x0000
+[[case.assertion]]
+addr = 0xC002
+expected = [0x01, 0x00] # 0x0001
+
+[[case]]
+name = "sub_u16_one_into_oam_range"
+source = """
+global LEFT: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global LEFT_OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFF00 as u16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0xFE] # 0xFEFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0xFF] # 0xFF00
+
+[[case]]
+name = "add_i16_one_crosses_zero"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: i16;
+#[address = 0xC002]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0xFFFF as i16;
+    let left = LEFT;
+    let result = left + 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x00] # 0x0000
+[[case.assertion]]
+addr = 0xC002
+expected = [0xFF, 0xFF] # 0xFFFF
+
+[[case]]
+name = "sub_i16_one_crosses_zero"
+source = """
+global LEFT: i16;
+
+#[address = 0xC000]
+global OUT: i16;
+#[address = 0xC002]
+global LEFT_OUT: i16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0000 as i16;
+    let left = LEFT;
+    let result = left - 1;
+    OUT = result;
+    LEFT_OUT = left;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0xFF] # 0xFFFF
+[[case.assertion]]
+addr = 0xC002
+expected = [0x00, 0x00] # 0x0000
+
+[[case]]
+name = "add_u8_one_keeps_earlier_less_than"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+global VALUE: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x01;
+    RIGHT = 0x02;
+    VALUE = 0xFF;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left < right;
+    let stepped = value + 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x00
+
+[[case]]
+name = "sub_u8_one_keeps_earlier_equality"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+global VALUE: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x07;
+    RIGHT = 0x07;
+    VALUE = 0x01;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left == right;
+    let stepped = value - 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x00
+
+[[case]]
+name = "add_u8_one_keeps_earlier_inequality"
+source = """
+global LEFT: u8;
+global RIGHT: u8;
+global VALUE: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x07;
+    RIGHT = 0x07;
+    VALUE = 0x10;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left != right;
+    let stepped = value + 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x55
+
+[[case]]
+name = "add_u16_one_keeps_earlier_less_than"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+global VALUE: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0001;
+    RIGHT = 0x0002;
+    VALUE = 0x00FF;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left < right;
+    let stepped = value + 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x01]
+
+[[case]]
+name = "add_u16_one_keeps_earlier_equality"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+global VALUE: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0007;
+    RIGHT = 0x0007;
+    VALUE = 0x00FF;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left == right;
+    let stepped = value + 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x01]
+
+[[case]]
+name = "sub_u16_one_keeps_earlier_less_than"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+global VALUE: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0001;
+    RIGHT = 0x0002;
+    VALUE = 0x0100;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left < right;
+    let stepped = value - 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFF, 0x00]
+
+[[case]]
+name = "sub_u16_one_keeps_earlier_inequality"
+source = """
+global LEFT: u16;
+global RIGHT: u16;
+global VALUE: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    LEFT = 0x0007;
+    RIGHT = 0x0007;
+    VALUE = 0x0100;
+    let left = LEFT;
+    let right = RIGHT;
+    let value = VALUE;
+    let condition = left != right;
+    let stepped = value - 1;
+    if condition then {
+        OUT = stepped;
+    } else {
+        OUT = 0x55;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x55, 0x00]
+
+[[case]]
+name = "struct_array_field_read_runtime_index"
+source = """
+struct Item { a: u8, b: u8, c: u8, d: u8 }
+
+global ITEMS: [Item; 3];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 4];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    ITEMS[0].a = 0x10;
+    ITEMS[0].b = 0x11;
+    ITEMS[0].c = 0x12;
+    ITEMS[0].d = 0x13;
+    ITEMS[1].a = 0x20;
+    ITEMS[1].b = 0x21;
+    ITEMS[1].c = 0x22;
+    ITEMS[1].d = 0x23;
+    ITEMS[2].a = 0x30;
+    ITEMS[2].b = 0x31;
+    ITEMS[2].c = 0x32;
+    ITEMS[2].d = 0x33;
+    INDEX = 1;
+    let index = INDEX;
+    OUT[0] = ITEMS[index].a;
+    OUT[1] = ITEMS[index].b;
+    OUT[2] = ITEMS[index].c;
+    OUT[3] = ITEMS[index].d;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x20, 0x21, 0x22, 0x23]
+
+[[case]]
+name = "struct_array_field_write_runtime_index"
+source = """
+struct Item { a: u8, b: u8, c: u8, d: u8 }
+
+#[address = 0xC000]
+global ITEMS: [Item; 3];
+global INDEX: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    INDEX = 0;
+    let first = INDEX;
+    ITEMS[first].a = 0;
+    ITEMS[first].b = 0;
+    ITEMS[first].c = 0;
+    ITEMS[first].d = 0;
+    INDEX = 2;
+    let last = INDEX;
+    ITEMS[last].a = 0;
+    ITEMS[last].b = 0;
+    ITEMS[last].c = 0;
+    ITEMS[last].d = 0;
+    INDEX = 1;
+    let index = INDEX;
+    ITEMS[index].a = 0xA0;
+    ITEMS[index].b = 0xA1;
+    ITEMS[index].c = 0xA2;
+    ITEMS[index].d = 0xA3;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x00, 0x00, 0x00, 0x00, 0xA0, 0xA1, 0xA2, 0xA3, 0x00, 0x00, 0x00, 0x00]
+
+[[case]]
+name = "struct_array_field_write_runtime_index_in_oam"
+source = """
+struct Sprite { y: u8, x: u8, tile: u8, flags: u8 }
+
+#[address = 0xFE00]
+global SPRITES: [Sprite; 40];
+global INDEX: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 4];
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    INDEX = 2;
+    let index = INDEX;
+    SPRITES[index].y = 0x40;
+    SPRITES[index].x = 0x41;
+    SPRITES[index].tile = 0x42;
+    SPRITES[index].flags = 0x10;
+    OUT[0] = SPRITES[index].y;
+    OUT[1] = SPRITES[index].x;
+    OUT[2] = SPRITES[index].tile;
+    OUT[3] = SPRITES[index].flags;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x40, 0x41, 0x42, 0x10]

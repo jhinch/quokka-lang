@@ -246,6 +246,44 @@ impl<'a> InstrCtx<'a> {
                 };
                 self.define(target, Value::Bit(r8, u3::new(bit % 8), condition), block);
             }
+            Selection::Step {
+                target,
+                source,
+                delta,
+            } => {
+                let value = match self.locals.values[source] {
+                    Value::Byte(source) => {
+                        let r8 = self.lir.insert_ld8(block, source);
+                        for _ in 0..delta.unsigned_abs() {
+                            let _z = if delta > 0 {
+                                self.lir.insert_inc(block, r8)
+                            } else {
+                                self.lir.insert_dec(block, r8)
+                            };
+                        }
+                        Value::Byte(r8)
+                    }
+                    Value::Pair(source_high, source_low) => {
+                        // `INC r16`/`DEC r16` corrupt OAM when the register holds
+                        // `$FE00-$FEFF`, which cannot be ruled out for an arbitrary value, so
+                        // the pair is stepped a byte at a time
+                        let low = self.lir.insert_ld8(block, source_low);
+                        let high = self.lir.insert_ld8(block, source_high);
+                        let r16 = self.lir.insert_join(block, high, low);
+                        for _ in 0..delta.unsigned_abs() {
+                            if delta > 0 {
+                                self.lir.insert_inc_pair(block, r16);
+                            } else {
+                                self.lir.insert_dec_pair(block, r16);
+                            }
+                        }
+                        let (high, low) = self.lir.insert_split(block, r16);
+                        Value::Pair(high, low)
+                    }
+                    value => panic!("{source:?} is lowered to {value:?}, expected a byte or pair"),
+                };
+                self.define(target, value, block);
+            }
         }
     }
 

@@ -1075,6 +1075,36 @@ pub enum Instr {
     Dec16 { source: R16Id },
     /// `INC r16`
     Inc16 { source: R16Id },
+    /// A macro instruction decrementing the byte pair `source` without `DEC r16`, whose address
+    /// bus activity corrupts OAM when the register holds `$FE00-$FEFF`.
+    ///
+    /// Translates to the following instructions, shown for `source` colored `HL`:
+    ///
+    /// ```text
+    /// INC L
+    /// DEC L
+    /// JR NZ,+1
+    /// DEC H
+    /// DEC L
+    /// ```
+    ///
+    /// The `INC`/`DEC` of the low byte only sets `Z` when the low byte is zero, which is when
+    /// the decrement borrows from the high byte. `z` is left undefined, and the carry flag is
+    /// untouched.
+    DecPair { z: ZeroId, source: R16Id },
+    /// A macro instruction incrementing the byte pair `source` without `INC r16`. See
+    /// [`Instr::DecPair`].
+    ///
+    /// Translates to the following instructions, shown for `source` colored `HL`:
+    ///
+    /// ```text
+    /// INC L
+    /// JR NZ,+1
+    /// INC H
+    /// ```
+    ///
+    /// `z` is left undefined, and the carry flag is untouched.
+    IncPair { z: ZeroId, source: R16Id },
     /// `PUSH r16`
     PushR16 { source: R16Id },
     /// push the AF register onto the stack. If `source`, `z_in` or `c_in` are None, their
@@ -1318,6 +1348,8 @@ impl Instr {
                 | Instr::Add16 { .. }
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
+                | Instr::DecPair { .. }
+                | Instr::IncPair { .. }
                 | Instr::Join { .. }
                 | Instr::MoveZero { .. }
                 | Instr::MoveCarry { .. }
@@ -1431,6 +1463,8 @@ impl Instr {
             | Instr::LdSPE8 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
+            | Instr::DecPair { .. }
+            | Instr::IncPair { .. }
             | Instr::PushR16 { .. }
             | Instr::PushAF { .. }
             | Instr::PopR16 { .. }
@@ -1466,7 +1500,10 @@ impl Instr {
                     0 => Some(addr.0),
                     _ => None,
                 },
-                Instr::Dec16 { source } | Instr::Inc16 { source } => match next {
+                Instr::Dec16 { source }
+                | Instr::Inc16 { source }
+                | Instr::DecPair { source, .. }
+                | Instr::IncPair { source, .. } => match next {
                     0 => Some(*source),
                     _ => None,
                 },
@@ -1631,6 +1668,8 @@ impl Instr {
             | Instr::Add16 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
+            | Instr::DecPair { .. }
+            | Instr::IncPair { .. }
             | Instr::FreshA { .. }
             | Instr::BulkCopy { .. }
             | Instr::BulkFill { .. } => None,
@@ -1678,6 +1717,8 @@ impl Instr {
             | Instr::LdSPE8 { z, .. }
             | Instr::PopAF { z, .. }
             | Instr::MoveZero { z, .. }
+            | Instr::DecPair { z, .. }
+            | Instr::IncPair { z, .. }
             | Instr::BulkCopy { z, .. }
             | Instr::BulkFill { z, .. } => Some(*z),
             Instr::Nop
@@ -1785,6 +1826,8 @@ impl Instr {
             | Instr::SetPtr { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
+            | Instr::DecPair { .. }
+            | Instr::IncPair { .. }
             | Instr::PushR16 { .. }
             | Instr::PushAF { .. }
             | Instr::PopR16 { .. }
@@ -1910,6 +1953,8 @@ impl Instr {
                 | Instr::Add16 { .. }
                 | Instr::Dec16 { .. }
                 | Instr::Inc16 { .. }
+                | Instr::DecPair { .. }
+                | Instr::IncPair { .. }
                 | Instr::MoveZero { .. }
                 | Instr::MoveCarry { .. }
                 | Instr::Split { .. }
@@ -1975,6 +2020,8 @@ impl Instr {
                 },
                 Instr::Dec16 { source, .. }
                 | Instr::Inc16 { source, .. }
+                | Instr::DecPair { source, .. }
+                | Instr::IncPair { source, .. }
                 | Instr::Split { source, .. }
                 | Instr::PushR16 { source, .. } => match next {
                     0 => Some(*source),
@@ -2122,6 +2169,8 @@ impl Instr {
             | Instr::LdSPE8 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
+            | Instr::DecPair { .. }
+            | Instr::IncPair { .. }
             | Instr::PushR16 { .. }
             | Instr::PopR16 { .. }
             | Instr::PopAF { .. }
@@ -2200,6 +2249,8 @@ impl Instr {
             | Instr::Add16 { .. }
             | Instr::Dec16 { .. }
             | Instr::Inc16 { .. }
+            | Instr::DecPair { .. }
+            | Instr::IncPair { .. }
             | Instr::Join { .. }
             | Instr::Split { .. }
             | Instr::AddSP { .. }
@@ -2684,6 +2735,22 @@ impl Instr {
             }
             Instr::Inc16 { source } => {
                 write!(f, "INC {}", source.display(lir, section),)
+            }
+            Instr::DecPair { z, source } => {
+                write!(
+                    f,
+                    "DEC_PAIR! {}; {}",
+                    source.display(lir, section),
+                    z.display_zero(lir, section)
+                )
+            }
+            Instr::IncPair { z, source } => {
+                write!(
+                    f,
+                    "INC_PAIR! {}; {}",
+                    source.display(lir, section),
+                    z.display_zero(lir, section)
+                )
             }
             Instr::AddSP { z, c, right } => {
                 write!(
@@ -4150,6 +4217,18 @@ impl CodeSectionBuilder {
     /// `INC r16`
     pub fn insert_inc16(&mut self, block: BlockId, source: R16Id) {
         self.insert_instr(block, Instr::Inc16 { source });
+    }
+
+    /// Decrements `source` a byte at a time. See [`Instr::DecPair`].
+    pub fn insert_dec_pair(&mut self, block: BlockId, source: R16Id) {
+        let z = self.new_zero_flag();
+        self.insert_instr(block, Instr::DecPair { z, source });
+    }
+
+    /// Increments `source` a byte at a time. See [`Instr::IncPair`].
+    pub fn insert_inc_pair(&mut self, block: BlockId, source: R16Id) {
+        let z = self.new_zero_flag();
+        self.insert_instr(block, Instr::IncPair { z, source });
     }
 
     #[must_use]

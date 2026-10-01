@@ -825,12 +825,12 @@ fibonacci::
 
 main::
 .bb2:
+  LD r8#22, $00
+  LD r8#23, $00
   LD r8#24, $00
-  LD r8#25, $00
-  LD r8#26, $00
-  LD r8#21, r8#25
-  LD r8#22, r8#24
-  LD r8#23, r8#26
+  LD r8#19, r8#23
+  LD r8#20, r8#22
+  LD r8#21, r8#24
   JP .bb8
 
 .bb3:
@@ -839,47 +839,45 @@ main::
   RET
 
 .bb4:
-  LD A, r8#4
-  ADD A, $01; z, c
-  LD r8#9, A
-  LD r8#10, $00
-  LD r8#11, $01
-  LD r8#12, $02
-  LD r8#1, r8#12
-  LD r8#2, r8#10
-  LD r8#3, r8#11
+  LD r8#8, r8#4
+  INC r8#8; z
+  LD r8#9, $00
+  LD r8#10, $01
+  LD r8#11, $02
+  LD r8#1, r8#11
+  LD r8#2, r8#9
+  LD r8#3, r8#10
   JP .bb5
 
 .bb5:
-  LD r8#13, r8#9
+  LD r8#12, r8#8
   LD A, r8#1
-  CP A, r8#13; z, c
-  (out=c#4,in=c)
-  JP nc#4, .bb6; else=.bb7
+  CP A, r8#12; z, c
+  (out=c#3,in=c)
+  JP nc#3, .bb6; else=.bb7
 
 .bb6:
-  LD r8#15, r8#3
-  LD A, r8#15
+  LD r8#14, r8#3
+  LD A, r8#14
   RET
 
 .bb7:
   LD A, r8#2
   ADD A, r8#3; z, c
-  LD r8#18, A
-  LD A, r8#1
-  ADD A, $01; z, c
-  LD r8#20, A
-  LD r8#1, r8#20
+  LD r8#17, A
+  LD r8#18, r8#1
+  INC r8#18; z
+  LD r8#1, r8#18
   LD r8#2, r8#3
-  LD r8#3, r8#18
+  LD r8#3, r8#17
   JP .bb5
 
 .bb8:
-  LD A, r8#21
+  LD A, r8#19
   XOR A, $0a; z, c
-  LD r8#28, A
-  LD A, r8#22
-  OR A, r8#28; z, c
+  LD r8#26, A
+  LD A, r8#20
+  OR A, r8#26; z, c
   (out=z#9,in=z)
   JP z#9, .bb9; else=.bb10
 
@@ -888,28 +886,26 @@ main::
 
 .bb10:
   LD HL, FIBONACCI_N+$0000
-  LD [HL], r8#23
+  LD [HL], r8#21
   CALL fibonacci; return=.bb11
 
 .bb11:
   LD A, RETURN
-  LD r8#31, A
-  (out=r16#3;high_in=r8#22;low_in=r8#21)
+  LD r8#29, A
+  (out=r16#3;high_in=r8#20;low_in=r8#19)
   LD HL, RESULTS+$0000
   ADD HL, r16#3; c
-  LD [HL], r8#31
-  LD A, r8#21
-  ADD A, $01; z, c
-  LD r8#33, A
-  LD A, r8#22
-  ADC A, $00; z, c
-  LD r8#35, A
-  LD A, r8#23
-  ADD A, $01; z, c
-  LD r8#37, A
-  LD r8#21, r8#33
-  LD r8#22, r8#35
-  LD r8#23, r8#37
+  LD [HL], r8#29
+  LD r8#30, r8#19
+  LD r8#31, r8#20
+  (out=r16#5;high_in=r8#31;low_in=r8#30)
+  INC_PAIR! r16#5; z
+  (high_out=r8#33;low_out=r8#32;in=r16#5)
+  LD r8#34, r8#21
+  INC r8#34; z
+  LD r8#19, r8#32
+  LD r8#20, r8#33
+  LD r8#21, r8#34
   JP .bb8
 
 END_SECTION
@@ -1118,20 +1114,20 @@ START_SECTION ROM0
 fibonacci::
 .bb1:
   LD HL, FIBONACCI_N+$0000
-  LD A, [HL]
+  LD C, [HL]
+  LD A, C
   CP A, $00; z, c
   JP z, .bb3; else=.bb4
 
 main::
 .bb2:
   ADD SP -3; z, c
-  LD C, $00
   LD B, $00
+  LD C, $00
   LD A, $00
-  LD HL SP+1; z, c
-  LD [HL], B
-  LD B, C
   LD HL SP+0; z, c
+  LD [HL], C
+  LD HL SP+1; z, c
   LD [HL], B
   LD HL SP+2; z, c
   LD [HL], A
@@ -1142,39 +1138,35 @@ main::
   RET
 
 .bb4:
-  ADD A, $01; z, c
-  LD D, A
-  LD H, $00
-  LD E, $01
-  LD C, $02
+  INC C; z
+  LD E, $00
+  LD D, $01
+  LD B, $02
   JP .bb5
 
 .bb5:
-  LD A, C
-  CP A, D; z, c
+  LD A, B
+  CP A, C; z, c
   JP nc, .bb6; else=.bb7
 
 .bb6:
-  LD A, E
+  LD A, D
   RET
 
 .bb7:
-  LD A, H
-  ADD A, E; z, c
-  LD B, A
-  LD A, C
-  ADD A, $01; z, c
-  LD C, A
-  LD H, E
-  LD E, B
+  LD A, E
+  ADD A, D; z, c
+  INC B; z
+  LD E, D
+  LD D, A
   JP .bb5
 
 .bb8:
-  LD HL SP+1; z, c
+  LD HL SP+0; z, c
   LD A, [HL]
   XOR A, $0a; z, c
   LD B, A
-  LD HL SP+0; z, c
+  LD HL SP+1; z, c
   LD A, [HL]
   OR A, B; z, c
   JP z, .bb9; else=.bb10
@@ -1193,31 +1185,24 @@ main::
   CALL fibonacci; return=.bb11
 
 .bb11:
-  LD HL SP+1; z, c
-  LD C, [HL]
   LD HL SP+0; z, c
+  LD C, [HL]
+  LD HL SP+1; z, c
   LD B, [HL]
   LD HL, RESULTS+$0000
   ADD HL, BC; c
   LD [HL], A
-  LD HL SP+1; z, c
-  LD A, [HL]
-  ADD A, $01; z, c
-  LD B, A
-  PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+2; z, c
-  LD C, [HL]
-  POP AF(high_out=A); z, c
-  LD A, C
-  ADC A, $00; z, c
-  LD C, A
-  LD HL SP+2; z, c
-  LD A, [HL]
-  ADD A, $01; z, c
-  LD HL SP+1; z, c
-  LD [HL], B
-  LD B, C
   LD HL SP+0; z, c
+  LD C, [HL]
+  LD HL SP+1; z, c
+  LD B, [HL]
+  INC_PAIR! BC; z
+  LD HL SP+2; z, c
+  LD A, [HL]
+  INC A; z
+  LD HL SP+0; z, c
+  LD [HL], C
+  LD HL SP+1; z, c
   LD [HL], B
   LD HL SP+2; z, c
   LD [HL], A

@@ -1067,6 +1067,36 @@ impl ObjFileEncoder {
                 };
                 bytes.push(opcode);
             }
+            lir::Instr::DecPair { source, .. } => {
+                let (inc_low, dec_low, dec_high) = match code.r16_registers[*source].color.unwrap()
+                {
+                    Color::BC => (opcode::INC_C, opcode::DEC_C, opcode::DEC_B),
+                    Color::DE => (opcode::INC_E, opcode::DEC_E, opcode::DEC_D),
+                    Color::HL => (opcode::INC_L, opcode::DEC_L, opcode::DEC_H),
+                    unexpected => unimplemented!("DEC_PAIR {unexpected:?}"),
+                };
+                // sets Z only if the low byte is zero, without changing it
+                bytes.push(inc_low);
+                bytes.push(dec_low);
+                // skip the borrow from the high byte
+                bytes.push(opcode::JR_NZ_E8);
+                bytes.push(1);
+                bytes.push(dec_high);
+                bytes.push(dec_low);
+            }
+            lir::Instr::IncPair { source, .. } => {
+                let (inc_low, inc_high) = match code.r16_registers[*source].color.unwrap() {
+                    Color::BC => (opcode::INC_C, opcode::INC_B),
+                    Color::DE => (opcode::INC_E, opcode::INC_D),
+                    Color::HL => (opcode::INC_L, opcode::INC_H),
+                    unexpected => unimplemented!("INC_PAIR {unexpected:?}"),
+                };
+                bytes.push(inc_low);
+                // skip the carry into the high byte
+                bytes.push(opcode::JR_NZ_E8);
+                bytes.push(1);
+                bytes.push(inc_high);
+            }
             lir::Instr::PushR16 { source } => {
                 let opcode = match code.r16_registers[*source].color.unwrap() {
                     Color::BC => opcode::PUSH_BC,

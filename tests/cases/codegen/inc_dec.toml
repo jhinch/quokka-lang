@@ -1,0 +1,2537 @@
+# Additions and subtractions of a small constant are lowered to `INC`/`DEC` steps instead of an
+# addition through the accumulator: `INC r8`/`DEC r8` for an 8-bit `+-1` and `+-2`, and for a
+# 16-bit `+-1` a macro instruction stepping the pair a byte at a time. `INC r16`/`DEC r16` corrupt
+# OAM when the register holds an address in `$FE00-$FEFF`, so they are only used on addresses
+# codegen computed itself into a global placed outside of that range.
+
+[[case]]
+name = "add_u8_one_uses_inc"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn main() {
+    RESULT = X + 1;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  INC A; z
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "sub_u8_one_uses_dec"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn main() {
+    RESULT = X - 1;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  DEC A; z
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "add_u8_two_uses_two_incs"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn main() {
+    RESULT = X + 2;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  INC A; z
+  INC A; z
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "sub_u8_two_uses_two_decs"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn main() {
+    RESULT = X - 2;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  DEC A; z
+  DEC A; z
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "add_u8_three_uses_add"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u8;
+global RESULT: u8;
+
+fn main() {
+    RESULT = X + 3;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL]
+  ADD A, $03; z, c
+  LD HL, RESULT+$0000
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "add_u16_one_steps_bytes"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u16;
+global RESULT: u16;
+
+fn main() {
+    RESULT = X + 1;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  LD C, A
+  INC_PAIR! BC; z
+  LD HL, RESULT+$0000
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "sub_u16_one_steps_bytes"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u16;
+global RESULT: u16;
+
+fn main() {
+    RESULT = X - 1;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  LD C, A
+  DEC_PAIR! BC; z
+  LD HL, RESULT+$0000
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "add_u16_two_uses_byte_pair_add"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: u16;
+global RESULT: u16;
+
+fn main() {
+    RESULT = X + 2;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  ADD A, $02; z, c
+  LD C, A
+  LD A, B
+  ADC A, $00; z, c
+  LD B, A
+  LD HL, RESULT+$0000
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "neg_i16_steps_bytes"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+global X: i16;
+global RESULT: i16;
+
+fn main() {
+    RESULT = -X;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+X::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, X+$0000
+  LD A, [HL++]
+  LD B, [HL]
+  CPL A
+  LD C, A
+  LD A, B
+  CPL A
+  LD B, A
+  INC_PAIR! BC; z
+  LD HL, RESULT+$0000
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "field_offset_after_runtime_index_uses_inc_hl"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+struct Sprite { y: u8, x: u8, tile: u8, flags: u8 }
+
+global SPRITES: [Sprite; 40];
+global INDEX: u16;
+global RESULT: [u8; 4];
+
+fn main() {
+    let index = INDEX;
+    RESULT[0] = SPRITES[index].y;
+    RESULT[1] = SPRITES[index].x;
+    RESULT[2] = SPRITES[index].tile;
+    RESULT[3] = SPRITES[index].flags;
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+SPRITES::
+alloc 1280 x bit
+END_SECTION
+
+START_SECTION WRAM0
+INDEX::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 32 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, INDEX+$0000
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL, RESULT+$0000
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  INC HL
+  LD A, [HL]
+  LD HL, RESULT+$0001
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  INC HL
+  INC HL
+  LD A, [HL]
+  LD HL, RESULT+$0002
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD BC, $0003
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL, RESULT+$0003
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "field_offset_after_runtime_index_into_oam_uses_add_hl"
+kind = "codegen"
+optimize = true
+allocate_registers = true
+source = """
+struct Sprite { y: u8, x: u8, tile: u8, flags: u8 }
+
+#[address = 0xFE00]
+global SPRITES: [Sprite; 40];
+global INDEX: u16;
+global RESULT: [u8; 4];
+
+fn main() {
+    let index = INDEX;
+    RESULT[0] = SPRITES[index].y;
+    RESULT[1] = SPRITES[index].x;
+    RESULT[2] = SPRITES[index].tile;
+    RESULT[3] = SPRITES[index].flags;
+}
+"""
+expected_lir = """
+START_SECTION OAM[$fe00]
+SPRITES::
+alloc 1280 x bit
+END_SECTION
+
+START_SECTION WRAM0
+INDEX::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 32 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, INDEX+$0000
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL, RESULT+$0000
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD DE, $0001
+  ADD HL, DE; c
+  LD A, [HL]
+  LD HL, RESULT+$0001
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD DE, $0002
+  ADD HL, DE; c
+  LD A, [HL]
+  LD HL, RESULT+$0002
+  LD [HL], A
+  LD HL, SPRITES+$0000
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  ADD HL, BC; c
+  LD BC, $0003
+  ADD HL, BC; c
+  LD A, [HL]
+  LD HL, RESULT+$0003
+  LD [HL], A
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""

@@ -133,7 +133,9 @@ impl InstrCtx<'_> {
                 self.lir.insert_cpl(block, a);
                 let target_high = self.lir.insert_move_a(block, a);
                 let target16 = self.lir.insert_join(block, target_high, target_low);
-                self.lir.insert_inc16(block, target16);
+                // the complement can be any value, including an OAM address, which `INC r16`
+                // must not be used on
+                self.lir.insert_inc_pair(block, target16);
                 let (target_high, target_low) = self.lir.insert_split(block, target16);
                 (*target, Value::Pair(target_high, target_low))
             }

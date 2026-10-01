@@ -1097,26 +1097,24 @@ main::
   JP c#11, .bb8; else=.bb9
 
 .bb8:
-  LD A, r8#24
-  ADD A, $01; z, c
-  LD r8#35, A
-  LD A, r8#23
-  ADC A, $00; z, c
-  LD r8#37, A
+  LD r8#34, r8#24
+  LD r8#35, r8#23
+  (out=r16#5;high_in=r8#35;low_in=r8#34)
+  INC_PAIR! r16#5; z
+  (high_out=r8#37;low_out=r8#36;in=r16#5)
   LD r8#5, r8#1
   LD r8#6, r8#2
-  LD r8#7, r8#35
+  LD r8#7, r8#36
   LD r8#8, r8#37
   JP .bb10
 
 .bb9:
-  LD A, r8#24
-  SUB A, $01; z, c
-  LD r8#39, A
-  LD A, r8#23
-  SBC A, $00; z, c
-  LD r8#41, A
-  LD r8#5, r8#39
+  LD r8#38, r8#24
+  LD r8#39, r8#23
+  (out=r16#6;high_in=r8#39;low_in=r8#38)
+  DEC_PAIR! r16#6; z
+  (high_out=r8#41;low_out=r8#40;in=r16#6)
+  LD r8#5, r8#40
   LD r8#6, r8#41
   LD r8#7, r8#3
   LD r8#8, r8#4
@@ -1350,17 +1348,15 @@ END_SECTION
 START_SECTION ROM0
 binary_search::
 .bb1:
-  ADD SP -3; z, c
-  LD A, $00
-  LD E, $00
+  ADD SP -2; z, c
   LD B, $00
-  LD C, $07
-  LD D, B
-  LD HL SP+2; z, c
-  LD [HL], D
-  LD B, E
+  LD A, $00
+  LD C, $00
+  LD D, $07
+  LD E, C
   LD HL SP+0; z, c
-  LD [HL], B
+  LD [HL], A
+  LD A, B
   LD HL SP+1; z, c
   LD [HL], A
   JP .bb3
@@ -1388,17 +1384,13 @@ main::
   CALL binary_search; return=.bb11
 
 .bb3:
-  LD A, C
+  LD A, D
   PUSH AF(high_in=A, z_in=?, c_in=?)
   LD HL SP+2; z, c
   LD B, [HL]
   POP AF(high_out=A); z, c
   SUB A, B; z, c
-  PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+4; z, c
-  LD B, [HL]
-  POP AF(high_out=A); z, c
-  LD A, B
+  LD A, E
   PUSH AF(high_in=A, z_in=?, c_in=c)
   LD HL SP+3; z, c
   LD B, [HL]
@@ -1409,79 +1401,65 @@ main::
 .bb4:
   LD B, $00
   LD C, $ff
-  ADD SP 3; z, c
+  ADD SP 2; z, c
   RET
 
 .bb5:
   LD HL SP+0; z, c
   LD A, [HL]
-  ADD A, C; z, c
-  LD B, A
+  ADD A, D; z, c
+  LD C, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+3; z, c
-  LD D, [HL]
+  LD B, [HL]
   POP AF(high_out=A); z, c
-  LD A, D
-  PUSH AF(high_in=A, z_in=?, c_in=c)
-  LD HL SP+4; z, c
-  LD D, [HL]
-  POP AF(high_out=A); z, c
-  ADC A, D; z, c
-  LD D, A
-  SRL D; z, c
-  LD E, B
-  RR E; z, c
+  LD A, B
+  ADC A, E; z, c
+  LD B, A
+  SRL B; z, c
+  RR C; z, c
   LD HL, SORTED+$0000
-  ADD HL, DE; c
+  ADD HL, BC; c
   LD A, [HL]
   LD HL, TARGET+$0000
-  LD B, [HL]
-  CP A, B; z, c
+  LD H, [HL]
+  CP A, H; z, c
   JP z, .bb6; else=.bb7
 
 .bb6:
-  LD A, D
-  LD C, E
+  LD A, B
   LD B, A
-  ADD SP 3; z, c
+  ADD SP 2; z, c
   RET
 
 .bb7:
   LD HL, TARGET+$0000
-  LD B, [HL]
-  CP A, B; z, c
+  LD H, [HL]
+  CP A, H; z, c
   JP c, .bb8; else=.bb9
 
 .bb8:
+  INC_PAIR! BC; z
   LD A, E
-  ADD A, $01; z, c
-  LD B, A
-  LD A, D
-  ADC A, $00; z, c
-  LD HL SP+2; z, c
-  LD D, [HL]
   JP .bb10
 
 .bb9:
-  LD A, E
-  SUB A, $01; z, c
-  LD B, A
-  LD A, D
-  SBC A, $00; z, c
-  LD C, B
-  LD D, A
+  DEC_PAIR! BC; z
+  LD D, C
+  LD A, B
   LD HL SP+0; z, c
-  LD A, [HL]
-  LD B, A
+  LD B, [HL]
+  LD C, B
   LD HL SP+1; z, c
-  LD A, [HL]
+  LD B, [HL]
   JP .bb10
 
 .bb10:
-  LD HL SP+2; z, c
-  LD [HL], D
+  LD E, A
+  LD A, C
   LD HL SP+0; z, c
-  LD [HL], B
+  LD [HL], A
+  LD A, B
   LD HL SP+1; z, c
   LD [HL], A
   JP .bb3

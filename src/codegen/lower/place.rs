@@ -1,4 +1,5 @@
 use super::InstrCtx;
+use crate::attr;
 use crate::codegen::LoweredGlobal;
 use crate::lir::{BlockId, HLId, Ld16Source, R8Id, SectionAddr};
 use crate::mir;
@@ -54,10 +55,7 @@ impl InstrCtx<'_> {
                     );
                     let addr = match r16 {
                         Some(r16) => {
-                            let offset = self
-                                .lir
-                                .insert_ld16(block, Ld16Source::Literal(byte_offset));
-                            let _c = self.lir.insert_add16(block, r16, offset);
+                            self.advance_addr(global, r16, byte_offset, block);
                             r16
                         }
                         None => self.offset_global_to_hl(global, byte_offset, block),
@@ -79,19 +77,56 @@ impl InstrCtx<'_> {
         let bit_offset = bit_offset.bits();
         let source = match r16 {
             Some(hl) => {
-                if byte_offset > 0 {
-                    let offset = self
-                        .lir
-                        .insert_ld16(block, Ld16Source::Literal(byte_offset));
-                    let _c = self.lir.insert_add16(block, hl, offset);
-                    hl
-                } else {
-                    hl
-                }
+                self.advance_addr(global, hl, byte_offset, block);
+                hl
             }
             None => self.offset_global_to_hl(global, byte_offset, block),
         };
         (source, bit_offset)
+    }
+
+    /// Advances `addr`, an address within `global`, by `byte_offset` bytes.
+    fn advance_addr(
+        &mut self,
+        global: mir::GlobalId,
+        addr: HLId,
+        byte_offset: u16,
+        block: BlockId,
+    ) {
+        if byte_offset == 0 {
+            return;
+        }
+        // `INC HL` is 1 byte and 8 cycles against 4 bytes and 20 cycles for `LD r16,n16` and
+        // `ADD HL,r16`, so it only wins for the first two steps
+        if byte_offset <= 2 && self.global_avoids_oam(global) {
+            for _ in 0..byte_offset {
+                self.lir
+                    .insert_inc16(block, addr.upcast_to_r16_without_move());
+            }
+        } else {
+            let offset = self
+                .lir
+                .insert_ld16(block, Ld16Source::Literal(byte_offset));
+            let _c = self.lir.insert_add16(block, addr, offset);
+        }
+    }
+
+    /// Whether no address within `global` is in `$FE00-$FEFF`. `INC r16` and `DEC r16` corrupt
+    /// OAM when the register holds an address in that range, so they can only step an address
+    /// into a global placed outside of it.
+    fn global_avoids_oam(&self, global: mir::GlobalId) -> bool {
+        match &self.mir.globals[global].attrs {
+            mir::GlobalAttributes::Rom(_) => true,
+            mir::GlobalAttributes::Ram(attrs) => match attrs.region {
+                attr::RamRegionKind::Oam => false,
+                attr::RamRegionKind::Auto => !matches!(attrs.address, Some(0xFE00..=0xFEFF)),
+                attr::RamRegionKind::WRam0
+                | attr::RamRegionKind::VRam
+                | attr::RamRegionKind::HRam
+                | attr::RamRegionKind::WRamX
+                | attr::RamRegionKind::SRam => true,
+            },
+        }
     }
 
     pub(super) fn offset_global_to_hl(

@@ -672,26 +672,24 @@ main::
   LD A, r8#24
   ADC A, r8#2; z, c
   LD r8#28, A
-  LD A, r8#26
-  ADD A, $01; z, c
-  LD r8#30, A
-  LD A, r8#28
-  ADC A, $00; z, c
-  LD r8#32, A
-  LD r8#5, r8#30
+  LD r8#29, r8#26
+  LD r8#30, r8#28
+  (out=r16#2;high_in=r8#30;low_in=r8#29)
+  INC_PAIR! r16#2; z
+  (high_out=r8#32;low_out=r8#31;in=r16#2)
+  LD r8#5, r8#31
   LD r8#6, r8#32
   JP .bb8
 
 .bb8:
-  LD A, r8#3
-  ADD A, $01; z, c
-  LD r8#34, A
-  LD A, r8#4
-  ADC A, $00; z, c
-  LD r8#36, A
+  LD r8#33, r8#3
+  LD r8#34, r8#4
+  (out=r16#3;high_in=r8#34;low_in=r8#33)
+  INC_PAIR! r16#3; z
+  (high_out=r8#36;low_out=r8#35;in=r16#3)
   LD r8#1, r8#5
   LD r8#2, r8#6
-  LD r8#3, r8#34
+  LD r8#3, r8#35
   LD r8#4, r8#36
   JP .bb3
 
@@ -914,8 +912,8 @@ collatz_steps::
   LD HL, N+$0000
   LD A, [HL++]
   LD B, [HL]
-  LD E, $00
   LD D, $00
+  LD E, $00
   LD C, A
   JP .bb3
 
@@ -937,8 +935,8 @@ main::
   JP z, .bb4; else=.bb5
 
 .bb4:
-  LD A, E
-  LD C, D
+  LD A, D
+  LD C, E
   LD B, A
   RET
 
@@ -947,8 +945,10 @@ main::
   JP z, .bb6; else=.bb7
 
 .bb6:
-  SRL B; z, c
-  RR C; z, c
+  LD A, B
+  SRL A; z, c
+  LD B, C
+  RR B; z, c
   JP .bb8
 
 .bb7:
@@ -963,22 +963,17 @@ main::
   LD C, A
   LD A, L
   ADC A, B; z, c
-  LD B, A
-  LD A, C
-  ADD A, $01; z, c
-  LD C, A
-  LD A, B
-  ADC A, $00; z, c
-  LD B, A
+  LD H, A
+  LD L, C
+  INC_PAIR! HL; z
+  LD B, L
+  LD A, H
   JP .bb8
 
 .bb8:
-  LD A, D
-  ADD A, $01; z, c
-  LD D, A
-  LD A, E
-  ADC A, $00; z, c
-  LD E, A
+  INC_PAIR! DE; z
+  LD C, B
+  LD B, A
   JP .bb3
 
 .bb9:

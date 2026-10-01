@@ -19,6 +19,14 @@ pub(super) enum Selection {
         bit: u8,
         condition: mir::Condition,
     },
+    /// `target = source + delta` for a small constant `delta`, lowered to `INC`/`DEC` steps of
+    /// a copy of `source` instead of an addition through the accumulator.
+    Step {
+        target: mir::LocalId,
+        source: mir::LocalId,
+        /// The number of steps to take: increments when positive, decrements when negative.
+        delta: i8,
+    },
 }
 
 /// The [`Selection`] of every instruction of a function.
@@ -91,9 +99,61 @@ impl<'a> Planner<'a> {
                 left,
                 right,
             } => self.select_bit_test(*target, *left, right, mir::Condition::NotZero),
+            mir::Instr::Add {
+                target,
+                left,
+                right,
+            } => self.select_step(*target, *left, right, false),
+            mir::Instr::Sub {
+                target,
+                left,
+                right,
+            } => self.select_step(*target, *left, right, true),
             _ => None,
         }
         .unwrap_or(Selection::Instr)
+    }
+
+    /// Matches `target = left + right` (or `left - right` when `subtract`) with a constant
+    /// `right` small enough that stepping `left` is cheaper than adding to it.
+    fn select_step(
+        &mut self,
+        target: mir::LocalId,
+        left: mir::LocalId,
+        right: &mir::Operand,
+        subtract: bool,
+    ) -> Option<Selection> {
+        let constant = self.constant(right)?;
+        let constant = if subtract {
+            constant.wrapping_neg()
+        } else {
+            constant
+        };
+        let delta = match self.function.locals[target].ty {
+            Ty::U8 | Ty::I8 => match constant & 0xFF {
+                1 => 1,
+                2 => 2,
+                0xFF => -1,
+                0xFE => -2,
+                _ => return None,
+            },
+            // a 16-bit step branches over the carry into the high byte, so a second step would
+            // cost as much as the byte-pair addition
+            Ty::U16 | Ty::I16 => match constant & 0xFFFF {
+                1 => 1,
+                0xFFFF => -1,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        if let mir::Operand::Local(right) = right {
+            self.release(*right);
+        }
+        Some(Selection::Step {
+            target,
+            source: left,
+            delta,
+        })
     }
 
     /// Matches `target = (source & mask) == 0` (or `!= 0`) with a single-bit `mask`, where `left`

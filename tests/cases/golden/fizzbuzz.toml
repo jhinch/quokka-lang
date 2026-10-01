@@ -1139,18 +1139,16 @@ main::
   LD HL, RESULTS+$0000
   ADD HL, r16#9; c
   LD [HL], r8#36
-  LD A, r8#26
-  ADD A, $01; z, c
-  LD r8#38, A
-  LD A, r8#27
-  ADC A, $00; z, c
-  LD r8#40, A
-  LD A, r8#28
-  ADD A, $01; z, c
-  LD r8#42, A
-  LD r8#26, r8#38
+  LD r8#37, r8#26
+  LD r8#38, r8#27
+  (out=r16#11;high_in=r8#38;low_in=r8#37)
+  INC_PAIR! r16#11; z
+  (high_out=r8#40;low_out=r8#39;in=r16#11)
+  LD r8#41, r8#28
+  INC r8#41; z
+  LD r8#26, r8#39
   LD r8#27, r8#40
-  LD r8#28, r8#42
+  LD r8#28, r8#41
   JP .bb15
 
 END_SECTION
@@ -1386,12 +1384,11 @@ fizzbuzz::
 main::
 .bb3:
   ADD SP -3; z, c
-  LD C, $00
   LD B, $00
+  LD C, $00
   LD A, $01
   LD HL SP+1; z, c
-  LD [HL], B
-  LD B, C
+  LD [HL], C
   LD HL SP+0; z, c
   LD [HL], B
   LD HL SP+2; z, c
@@ -1489,22 +1486,15 @@ main::
   ADD HL, BC; c
   LD [HL], A
   LD HL SP+1; z, c
-  LD A, [HL]
-  ADD A, $01; z, c
-  LD B, A
-  PUSH AF(high_in=?, z_in=?, c_in=c)
-  LD HL SP+2; z, c
   LD C, [HL]
-  POP AF(high_out=A); z, c
-  LD A, C
-  ADC A, $00; z, c
-  LD C, A
+  LD HL SP+0; z, c
+  LD B, [HL]
+  INC_PAIR! BC; z
   LD HL SP+2; z, c
   LD A, [HL]
-  ADD A, $01; z, c
+  INC A; z
   LD HL SP+1; z, c
-  LD [HL], B
-  LD B, C
+  LD [HL], C
   LD HL SP+0; z, c
   LD [HL], B
   LD HL SP+2; z, c
