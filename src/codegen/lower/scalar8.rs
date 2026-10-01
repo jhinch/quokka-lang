@@ -115,60 +115,17 @@ impl InstrCtx<'_> {
             | mir::Instr::Ge { .. } => {
                 unimplemented!("{instruction:?} comparisons always produce U1")
             }
-            mir::Instr::BitAnd {
-                target,
-                left,
-                right,
-            } => {
-                let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.byte(*left));
-                let (_z, _c) = self.lir.insert_and(block, a, right);
-                let r8 = self.lir.insert_move_a(block, a);
-                (*target, Value::Byte(r8))
-            }
-            mir::Instr::BitOr {
-                target,
-                left,
-                right,
-            } => {
-                let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.byte(*left));
-                let (_z, _c) = self.lir.insert_or(block, a, right);
-                let r8 = self.lir.insert_move_a(block, a);
-                (*target, Value::Byte(r8))
-            }
-            mir::Instr::BitXor {
-                target,
-                left,
-                right,
-            } => {
-                let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.byte(*left));
-                let (_z, _c) = self.lir.insert_xor(block, a, right);
-                let r8 = self.lir.insert_move_a(block, a);
-                (*target, Value::Byte(r8))
-            }
-            mir::Instr::Add {
-                target,
-                left,
-                right,
-            } => {
-                let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.byte(*left));
-                let (_z, _c) = self.lir.insert_add(block, a, right);
-                let r8 = self.lir.insert_move_a(block, a);
-                (*target, Value::Byte(r8))
-            }
-            mir::Instr::Sub {
-                target,
-                left,
-                right,
-            } => {
-                let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.byte(*left));
-                let (_z, _c) = self.lir.insert_sub(block, a, right);
-                let r8 = self.lir.insert_move_a(block, a);
-                (*target, Value::Byte(r8))
+            mir::Instr::BitAnd { .. }
+            | mir::Instr::BitOr { .. }
+            | mir::Instr::BitXor { .. }
+            | mir::Instr::Add { .. }
+            | mir::Instr::Sub { .. } => {
+                let binop = instruction
+                    .as_binop()
+                    .expect("every opcode of this arm is an OpKind");
+                let right = self.r8_to_operand(&binop.right);
+                let (r8, _c) = self.alu_byte(block, binop.op, self.byte(binop.left), right, None);
+                (binop.target, Value::Byte(r8))
             }
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")

@@ -194,95 +194,18 @@ impl InstrCtx<'_> {
             | mir::Instr::Ge { .. } => {
                 unimplemented!("{instruction:?} comparisons always produce U1")
             }
-            mir::Instr::BitAnd {
-                target,
-                left,
-                right,
-            } => {
-                let (right_high, right_low) = self.r16_to_operand(right, block);
-                let (left_high, left_low) = self.pair(*left);
-
-                let a = self.lir.insert_ld_a(block, left_low);
-                let (_z, _c) = self.lir.insert_and(block, a, right_low);
-                let target_low = self.lir.insert_move_a(block, a);
-
-                let a = self.lir.insert_ld_a(block, left_high);
-                let (_z, _c) = self.lir.insert_and(block, a, right_high);
-                let target_high = self.lir.insert_move_a(block, a);
-
-                (*target, Value::Pair(target_high, target_low))
-            }
-            mir::Instr::BitOr {
-                target,
-                left,
-                right,
-            } => {
-                let (right_high, right_low) = self.r16_to_operand(right, block);
-                let (left_high, left_low) = self.pair(*left);
-
-                let a = self.lir.insert_ld_a(block, left_low);
-                let (_z, _c) = self.lir.insert_or(block, a, right_low);
-                let target_low = self.lir.insert_move_a(block, a);
-
-                let a = self.lir.insert_ld_a(block, left_high);
-                let (_z, _c) = self.lir.insert_or(block, a, right_high);
-                let target_high = self.lir.insert_move_a(block, a);
-
-                (*target, Value::Pair(target_high, target_low))
-            }
-            mir::Instr::BitXor {
-                target,
-                left,
-                right,
-            } => {
-                let (right_high, right_low) = self.r16_to_operand(right, block);
-                let (left_high, left_low) = self.pair(*left);
-
-                let a = self.lir.insert_ld_a(block, left_low);
-                let (_z, _c) = self.lir.insert_xor(block, a, right_low);
-                let target_low = self.lir.insert_move_a(block, a);
-
-                let a = self.lir.insert_ld_a(block, left_high);
-                let (_z, _c) = self.lir.insert_xor(block, a, right_high);
-                let target_high = self.lir.insert_move_a(block, a);
-
-                (*target, Value::Pair(target_high, target_low))
-            }
-            mir::Instr::Add {
-                target,
-                left,
-                right,
-            } => {
-                let (right_high, right_low) = self.r16_to_operand(right, block);
-                let (left_high, left_low) = self.pair(*left);
-
-                let a = self.lir.insert_ld_a(block, left_low);
-                let (_z, c_in) = self.lir.insert_add(block, a, right_low);
-                let target_low = self.lir.insert_move_a(block, a);
-
-                let a = self.lir.insert_ld_a(block, left_high);
-                let (_z, _c) = self.lir.insert_adc(block, a, right_high, c_in);
-                let target_high = self.lir.insert_move_a(block, a);
-
-                (*target, Value::Pair(target_high, target_low))
-            }
-            mir::Instr::Sub {
-                target,
-                left,
-                right,
-            } => {
-                let (right_high, right_low) = self.r16_to_operand(right, block);
-                let (left_high, left_low) = self.pair(*left);
-
-                let a = self.lir.insert_ld_a(block, left_low);
-                let (_z, c_in) = self.lir.insert_sub(block, a, right_low);
-                let target_low = self.lir.insert_move_a(block, a);
-
-                let a = self.lir.insert_ld_a(block, left_high);
-                let (_z, _c) = self.lir.insert_sbc(block, a, right_high, c_in);
-                let target_high = self.lir.insert_move_a(block, a);
-
-                (*target, Value::Pair(target_high, target_low))
+            mir::Instr::BitAnd { .. }
+            | mir::Instr::BitOr { .. }
+            | mir::Instr::BitXor { .. }
+            | mir::Instr::Add { .. }
+            | mir::Instr::Sub { .. } => {
+                let binop = instruction
+                    .as_binop()
+                    .expect("every opcode of this arm is an OpKind");
+                let right = self.r16_to_operand(&binop.right, block);
+                let left = self.pair(binop.left);
+                let (high, low) = self.alu_pair(block, binop.op, left, right);
+                (binop.target, Value::Pair(high, low))
             }
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")

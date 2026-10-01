@@ -420,6 +420,24 @@ pub struct Function {
 }
 
 impl Function {
+    /// Counts how many times each local is read by an instruction or terminator. Locals that are
+    /// never read have no entry.
+    #[must_use]
+    pub fn count_uses(&self) -> SecondaryMap<LocalId, u32> {
+        let mut counts = SecondaryMap::new();
+        for block in self.blocks.values() {
+            for instruction in &block.instructions {
+                for source in instruction.source_locals() {
+                    *counts.entry(source).unwrap().or_insert(0) += 1;
+                }
+            }
+            for source in block.terminator.source_locals() {
+                *counts.entry(source).unwrap().or_insert(0) += 1;
+            }
+        }
+        counts
+    }
+
     /// Iterates the function's blocks in breadth-first order starting from
     /// [`Function::start_block`], visiting each reachable block exactly once.
     pub fn traverse_blocks(&self) -> impl Iterator<Item = BlockId> + '_ {
@@ -1095,6 +1113,127 @@ impl Instr {
             next += 1;
             Some(*value)
         })
+    }
+
+    /// Destructures the instruction into a [`BinOp`], or `None` if its opcode is not an
+    /// [`OpKind`].
+    #[must_use]
+    pub fn as_binop(&self) -> Option<BinOp> {
+        let (op, target, left, right) = match self {
+            Instr::Add {
+                target,
+                left,
+                right,
+            } => (OpKind::Add, *target, *left, right),
+            Instr::Sub {
+                target,
+                left,
+                right,
+            } => (OpKind::Sub, *target, *left, right),
+            Instr::BitAnd {
+                target,
+                left,
+                right,
+            } => (OpKind::BitAnd, *target, *left, right),
+            Instr::BitOr {
+                target,
+                left,
+                right,
+            } => (OpKind::BitOr, *target, *left, right),
+            Instr::BitXor {
+                target,
+                left,
+                right,
+            } => (OpKind::BitXor, *target, *left, right),
+            _ => return None,
+        };
+        Some(BinOp {
+            op,
+            target,
+            left,
+            right: right.clone(),
+        })
+    }
+}
+
+/// The opcode of a binary arithmetic or bitwise [`Instr`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpKind {
+    Add,
+    Sub,
+    BitAnd,
+    BitOr,
+    BitXor,
+}
+
+impl OpKind {
+    /// Whether `self` right-commutes with `other`: `(a self p) other q == (a other q) self p`
+    /// for all `a`, `p`, `q`, i.e. two consecutive steps applied to the same left operand can
+    /// swap order as long as each opcode keeps its own right operand. Any mix of `Add`/`Sub`
+    /// right-commutes, since under wrapping arithmetic both are just adding a signed term to one
+    /// running sum and those terms can be reordered freely. Each bitwise opcode right-commutes
+    /// only with itself, since e.g. `(a & p) | q != (a | q) & p`.
+    #[must_use]
+    pub fn right_commutes_with(self, other: Self) -> bool {
+        match (self, other) {
+            (OpKind::Add | OpKind::Sub, OpKind::Add | OpKind::Sub) => true,
+            _ => self == other,
+        }
+    }
+
+    /// Whether swapping this opcode's `left`/`right` operands preserves its value.
+    #[must_use]
+    pub fn is_commutative(self) -> bool {
+        self != OpKind::Sub
+    }
+}
+
+/// An [`Instr`] whose opcode is an [`OpKind`], destructured by [`Instr::as_binop`].
+#[derive(Debug, Clone)]
+pub struct BinOp {
+    pub op: OpKind,
+    pub target: LocalId,
+    pub left: LocalId,
+    pub right: Operand,
+}
+
+impl BinOp {
+    /// Rebuilds the instruction, the inverse of [`Instr::as_binop`].
+    #[must_use]
+    pub fn into_instr(self) -> Instr {
+        let BinOp {
+            op,
+            target,
+            left,
+            right,
+        } = self;
+        match op {
+            OpKind::Add => Instr::Add {
+                target,
+                left,
+                right,
+            },
+            OpKind::Sub => Instr::Sub {
+                target,
+                left,
+                right,
+            },
+            OpKind::BitAnd => Instr::BitAnd {
+                target,
+                left,
+                right,
+            },
+            OpKind::BitOr => Instr::BitOr {
+                target,
+                left,
+                right,
+            },
+            OpKind::BitXor => Instr::BitXor {
+                target,
+                left,
+                right,
+            },
+        }
     }
 }
 

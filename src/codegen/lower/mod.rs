@@ -7,6 +7,7 @@ use indexmap::IndexMap;
 use indexmap::map::Entry;
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
+mod alu;
 mod bulk;
 mod compare;
 mod place;
