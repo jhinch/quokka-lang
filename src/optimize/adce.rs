@@ -76,8 +76,7 @@ impl Adce {
                         queue.push_back(WorkItem::LiveBlock(block_id));
                     }
                     for source in function.blocks[block_id].instructions[index].source_locals() {
-                        let (source_block_id, &index) =
-                            function.locals[source].defined.iter().next().unwrap();
+                        let (source_block_id, index) = function.defined_at(source).unwrap();
                         if alive_instructions.insert((source_block_id, index)) {
                             queue.push_back(WorkItem::LiveInstr(source_block_id, index));
                         }

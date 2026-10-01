@@ -2,7 +2,7 @@ use crate::ast::IntegerLiteral;
 use crate::consteval::Value;
 use crate::mir::{
     BlockId, Condition, Function, FunctionMutator, Global, GlobalId, Instr, LocalId, Operand,
-    PlaceProjection, Terminator,
+    PlaceProjection, Terminator, Use,
 };
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::{Ty, TyRegistry};
@@ -50,7 +50,7 @@ impl Sccp {
         globals: &SlotMap<GlobalId, Global>,
         ty_registry: &TyRegistry,
     ) -> Solution {
-        let uses = self.calculate_uses(function);
+        let uses = function.uses();
         let mut values =
             SecondaryMap::<LocalId, SparseSecondaryMap<BlockId, ResolvedValue>>::with_capacity(
                 function.locals.len(),
@@ -112,27 +112,6 @@ impl Sccp {
             values,
             required_blocks,
         }
-    }
-
-    fn calculate_uses(&self, function: &Function) -> SecondaryMap<LocalId, Vec<Use>> {
-        let mut uses = SecondaryMap::<LocalId, Vec<Use>>::new();
-        for (block_id, block) in &function.blocks {
-            for (index, instruction) in block.instructions.iter().enumerate() {
-                for source_id in instruction.source_locals() {
-                    uses.entry(source_id)
-                        .unwrap()
-                        .or_default()
-                        .push(Use::Instr(block_id, index));
-                }
-            }
-            for source_id in block.terminator.source_locals() {
-                uses.entry(source_id)
-                    .unwrap()
-                    .or_default()
-                    .push(Use::Branch(block_id));
-            }
-        }
-        uses
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -699,12 +678,6 @@ struct Solution {
 
 pub struct CfgWork(BlockId);
 pub struct SSAWork(LocalId);
-
-#[derive(Debug, Clone, Copy)]
-pub enum Use {
-    Instr(BlockId, usize),
-    Branch(BlockId),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ResolvedValue<T = Value> {

@@ -419,7 +419,50 @@ pub struct Function {
     pub end_blocks: StableSparseSlotKeySet<BlockId>,
 }
 
+/// A place where a local is read, as recorded by [`Function::uses`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Use {
+    /// The instruction at this index of the block.
+    Instr(BlockId, usize),
+    /// The block's terminator.
+    Branch(BlockId),
+}
+
 impl Function {
+    /// The `(block, index)` of the instruction defining `local`, if it has one. For the return
+    /// local, which may be defined once per block, this is its first definition.
+    #[must_use]
+    pub fn defined_at(&self, local: LocalId) -> Option<(BlockId, usize)> {
+        self.locals
+            .get(local)
+            .and_then(|local| local.defined.iter().next())
+            .map(|(block, &index)| (block, index))
+    }
+
+    /// Every place each local is read by an instruction or terminator. Locals that are never read
+    /// have no entry.
+    #[must_use]
+    pub fn uses(&self) -> SecondaryMap<LocalId, Vec<Use>> {
+        let mut uses = SecondaryMap::<LocalId, Vec<Use>>::new();
+        for (block_id, block) in &self.blocks {
+            for (index, instruction) in block.instructions.iter().enumerate() {
+                for source in instruction.source_locals() {
+                    uses.entry(source)
+                        .unwrap()
+                        .or_default()
+                        .push(Use::Instr(block_id, index));
+                }
+            }
+            for source in block.terminator.source_locals() {
+                uses.entry(source)
+                    .unwrap()
+                    .or_default()
+                    .push(Use::Branch(block_id));
+            }
+        }
+        uses
+    }
+
     /// Counts how many times each local is read by an instruction or terminator. Locals that are
     /// never read have no entry.
     #[must_use]
@@ -619,9 +662,9 @@ impl Function {
                             result_builder.add_error(miette::MietteDiagnostic::new(format!("Phi instruction found in {block_id:?} at index {index} with is missing sources. Expected {:?}, actual {:?}", block.previous, source_block_ids)));
                         }
                         for (previous_block_id, source_id) in sources {
-                            match self.locals.get(*source_id).and_then(|source| source.defined.iter().next()) {
+                            match self.defined_at(*source_id) {
                                 None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
-                                Some((source_block_id, &source_index)) => {
+                                Some((source_block_id, source_index)) => {
                                     if previous_block_id != source_block_id && !block_to_upstream_blocks.get(&previous_block_id).map(|upstream| upstream.contains(&source_block_id)).unwrap_or(false) {
                                     result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses {source_id:?} before assigned. Source defined in block {source_block_id:?} at index {source_index}")));
                                     }
@@ -631,9 +674,9 @@ impl Function {
                     }
                     instruction => {
                         for source_id in instruction.source_locals() {
-                            match self.locals.get(source_id).and_then(|source| source.defined.iter().next()) {
+                            match self.defined_at(source_id) {
                                 None => result_builder.add_error(miette::MietteDiagnostic::new(format!("instruction {instruction:?} in {block_id:?} at index {index} uses dangling source {source_id:?}"))),
-                                Some((source_block_id, &source_index)) => {
+                                Some((source_block_id, source_index)) => {
                                     if block_id == source_block_id {
                                         if source_index < index {
                                             continue;
