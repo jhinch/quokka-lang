@@ -1,6 +1,6 @@
 [[case]]
 name = "loop_with_accumulator_is_optimized_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
 source = """
 global N: u8;
 
@@ -26,7 +26,7 @@ fn main() {
 
 [[case]]
 name = "loop_with_early_return_is_optimized_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
 source = """
 global N: u8;
 

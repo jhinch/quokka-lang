@@ -8,15 +8,26 @@
 //! Each case compiles a small Quokka program twice under an identical [`PipelineConfig`]: once
 //! without running `Optimizer::optimize` and once with it. Both MIRs are then interpreted with
 //! [`quokka_lang::consteval::evaluate`] (the same interpreter used for compile-time constant
-//! evaluation) across a range of concrete input values, fed in through a mutable global the
-//! target function loads. Input values are listed individually or as inclusive `{ min, max }`
-//! ranges (e.g. `values = [{ min = 0, max = 255 }, 1000]`), treated as raw unsigned bit patterns
-//! and encoded little-endian to the width of the global's type. If a pass changes observable
-//! behavior, the two runs diverge and the test fails - this catches semantic (not just
-//! structural) bugs that reading the optimizer's source code would miss.
+//! evaluation) across a range of concrete input values, fed in through the mutable globals the
+//! target function loads. A case names its input globals under `inputs`, each with values listed
+//! individually or as inclusive `{ min, max }` ranges (e.g.
+//! `inputs = { N = [{ min = 0, max = 255 }, 1000] }`), treated as raw unsigned bit patterns and
+//! encoded little-endian to the width of the global's type. The function is evaluated for every
+//! combination of input values. If a pass changes observable behavior, the two runs diverge and
+//! the test fails - this catches semantic (not just structural) bugs that reading the optimizer's
+//! source code would miss.
+//!
+//! Globals are never literals, so a rewrite that only matches a literal operand cannot be swept
+//! through `inputs`. For those a case lists `params`: each `$NAME$` placeholder in the source is
+//! replaced with the value in decimal and the program is compiled and checked once per
+//! combination of parameter values.
+//!
+//! Agreeing results say nothing if the optimization under test never fired. A case can list
+//! features under `expect_rewrite`: the trial for each listed feature additionally fails if
+//! toggling that feature alone leaves the optimized MIR unchanged.
 //!
 //! For every case, one trial is generated per individual opt-in optimization feature (see
-//! [`PreviewFeature::optimization_features`], currently empty), one per individual opt-out
+//! [`PreviewFeature::optimization_features`]), one per individual opt-out
 //! feature (see [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in
 //! optimization feature enabled together (i.e. the default optimizer configuration).
 //!
@@ -27,11 +38,11 @@
 
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
-use quokka_lang::mir::{GlobalId, Mir};
-use quokka_lang::pipeline::PipelineConfig;
+use quokka_lang::mir::{Function, GlobalId, Mir};
+use quokka_lang::pipeline::{AnalyzerOutput, PipelineConfig};
 use quokka_lang::ty::{Ty, TyRegistry};
 use slotmap::SparseSecondaryMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Deserialized representation of a test suite TOML file.
 #[derive(serde::Deserialize)]
@@ -47,16 +58,21 @@ struct TestCase {
     name: String,
     #[serde(default = "default_function")]
     function: String,
-    #[serde(default = "default_global")]
-    global: String,
     /// additional preview features required for `source` to compile, unrelated to optimization
     /// (e.g. `narrow-int`).
     #[serde(default)]
     preview_features: Vec<PreviewFeature>,
-    /// values to feed into `global`, as individual values and/or inclusive ranges. Each value is
-    /// treated as a raw unsigned bit pattern and encoded little-endian to the width of `global`'s
-    /// type.
-    values: Vec<InputValue>,
+    /// values to feed into each named global, as individual values and/or inclusive ranges. Each
+    /// value is treated as a raw unsigned bit pattern and encoded little-endian to the width of
+    /// the global's type. The function is evaluated for every combination of input values.
+    inputs: BTreeMap<String, Vec<InputValue>>,
+    /// values to substitute for each `$NAME$` placeholder in `source`, as individual values
+    /// and/or inclusive ranges. The source is compiled once per combination of parameter values.
+    #[serde(default)]
+    params: BTreeMap<String, Vec<InputValue>>,
+    /// optimization features which must change the optimized MIR when toggled on their own.
+    #[serde(default)]
+    expect_rewrite: Vec<PreviewFeature>,
     #[serde(default)]
     ignored: Option<String>,
     source: String,
@@ -81,10 +97,6 @@ impl InputValue {
 
 fn default_function() -> String {
     "f".to_string()
-}
-
-fn default_global() -> String {
-    "N".to_string()
 }
 
 fn main() {
@@ -127,6 +139,7 @@ fn main() {
                     &suite_name,
                     &case,
                     &format!("{feature}"),
+                    Some(feature),
                     std::iter::once(feature).chain(case.preview_features.iter().copied()),
                     ignored_flag,
                 ));
@@ -136,6 +149,7 @@ fn main() {
                     &suite_name,
                     &case,
                     &format!("{feature}"),
+                    Some(feature),
                     std::iter::once(feature).chain(case.preview_features.iter().copied()),
                     ignored_flag,
                 ));
@@ -144,6 +158,7 @@ fn main() {
                 &suite_name,
                 &case,
                 "all",
+                None,
                 PreviewFeature::optimization_features()
                     .iter()
                     .copied()
@@ -159,6 +174,7 @@ fn make_trial(
     suite_name: &str,
     case: &TestCase,
     variant: &str,
+    toggled: Option<PreviewFeature>,
     features: impl IntoIterator<Item = PreviewFeature>,
     ignored_flag: bool,
 ) -> Trial {
@@ -166,7 +182,7 @@ fn make_trial(
     let features: Vec<PreviewFeature> = features.into_iter().collect();
     let case = case.clone();
     Trial::test(name, move || {
-        assert_optimization_preserves_semantics(&case, &features);
+        assert_optimization_preserves_semantics(&case, &features, toggled);
         Ok(())
     })
     .with_ignored_flag(ignored_flag)
@@ -196,11 +212,32 @@ fn load_suites()
             .to_string();
         let suite: TestSuite = toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
         for case in &suite.cases {
-            for value in &case.values {
+            for value in case.inputs.values().chain(case.params.values()).flatten() {
                 let (min, max) = value.bounds();
                 if min > max {
                     return Err(format!(
                         "{name}::{}: empty value range {{ min = {min}, max = {max} }}",
+                        case.name
+                    )
+                    .into());
+                }
+            }
+            for param in case.params.keys() {
+                if !case.source.contains(&placeholder(param)) {
+                    return Err(format!(
+                        "{name}::{}: param {param} has no {} placeholder in the source",
+                        case.name,
+                        placeholder(param)
+                    )
+                    .into());
+                }
+            }
+            for feature in &case.expect_rewrite {
+                if !PreviewFeature::optimization_features().contains(feature)
+                    && !PreviewFeature::optimization_opt_out_features().contains(feature)
+                {
+                    return Err(format!(
+                        "{name}::{}: expect_rewrite feature {feature} is not an optimization feature",
                         case.name
                     )
                     .into());
@@ -213,103 +250,211 @@ fn load_suites()
     Ok(suites)
 }
 
-fn eval_function(
-    mir: &Mir,
-    ty_registry: &TyRegistry,
-    fn_name: &str,
-    inputs: &[(&str, Vec<u8>)],
-) -> Vec<u8> {
-    let function = mir
-        .functions
-        .values()
-        .find(|f| f.name.to_string() == fn_name)
-        .unwrap_or_else(|| panic!("function {fn_name} not found in compiled MIR"));
-
-    // resolve every global's bytes up front (mutable "inputs" override, everything else keeps
-    // its compiled-in constant value) so the SparseSecondaryMap below can borrow from something
-    // that outlives the `evaluate` call.
-    let owned: Vec<(GlobalId, Ty, Vec<u8>)> = mir
-        .globals
-        .iter()
-        .map(|(id, global)| {
-            let name = global.name.data.to_string();
-            let bytes = inputs
-                .iter()
-                .find(|(input_name, _)| *input_name == name)
-                .map(|(_, bytes)| bytes.clone())
-                .unwrap_or_else(|| global.value.clone());
-            (id, global.ty, bytes)
-        })
-        .collect();
-
-    let mut globals_map = SparseSecondaryMap::new();
-    for (id, ty, bytes) in &owned {
-        globals_map.insert(*id, (*ty, bytes.as_slice()));
-    }
-
-    quokka_lang::consteval::evaluate(function, &globals_map, ty_registry)
+/// The text in a case's source which is replaced by the value of the param named `name`.
+fn placeholder(name: &str) -> String {
+    format!("${name}$")
 }
 
-/// Compiles `case.source` once with `features` disabled and once with them enabled, then asserts
-/// that `case.function` produces byte-identical results before and after optimization for every
-/// value in `case.values`, fed in through the global named `case.global`.
-fn assert_optimization_preserves_semantics(case: &TestCase, features: &[PreviewFeature]) {
+/// Calls `f` with every combination of one value from each of `axes`, in order.
+fn for_each_combination<F: FnMut(&[u64])>(axes: &[&[InputValue]], f: &mut F) {
+    fn go<F: FnMut(&[u64])>(axes: &[&[InputValue]], current: &mut Vec<u64>, f: &mut F) {
+        let Some((axis, rest)) = axes.split_first() else {
+            f(current);
+            return;
+        };
+        for value in axis.iter() {
+            let (min, max) = value.bounds();
+            for value in min..=max {
+                current.push(value);
+                go(rest, current, f);
+                current.pop();
+            }
+        }
+    }
+    go(axes, &mut Vec::new(), f);
+}
+
+/// Formats named values for an assertion message, e.g. `N = 1, M = 2`.
+fn describe<'a>(names: impl IntoIterator<Item = &'a String>, values: &[u64]) -> String {
+    names
+        .into_iter()
+        .zip(values)
+        .map(|(name, value)| format!("{name} = {value}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Evaluates a function of a compiled MIR repeatedly with different values for its input globals.
+struct Evaluator<'a> {
+    function: &'a Function,
+    ty_registry: &'a TyRegistry,
+    /// every global's bytes: the inputs are overwritten before each evaluation, everything else
+    /// keeps its compiled-in constant value.
+    globals: Vec<(GlobalId, Ty, Vec<u8>)>,
+    /// for each input, in order, its index in `globals` (if it survived optimization).
+    inputs: Vec<Option<usize>>,
+}
+
+impl<'a> Evaluator<'a> {
+    fn new<'b>(
+        mir: &'a Mir,
+        ty_registry: &'a TyRegistry,
+        fn_name: &str,
+        input_names: impl IntoIterator<Item = &'b String>,
+    ) -> Self {
+        let function = mir
+            .functions
+            .values()
+            .find(|f| f.name.to_string() == fn_name)
+            .unwrap_or_else(|| panic!("function {fn_name} not found in compiled MIR"));
+        let names: Vec<String> = mir
+            .globals
+            .values()
+            .map(|global| global.name.data.to_string())
+            .collect();
+        let globals = mir
+            .globals
+            .iter()
+            .map(|(id, global)| (id, global.ty, global.value.clone()))
+            .collect();
+        let inputs = input_names
+            .into_iter()
+            .map(|input| names.iter().position(|name| name == input))
+            .collect();
+        Evaluator {
+            function,
+            ty_registry,
+            globals,
+            inputs,
+        }
+    }
+
+    fn evaluate(&mut self, values: &[u64]) -> Vec<u8> {
+        for (&index, value) in self.inputs.iter().zip(values) {
+            if let Some(index) = index {
+                let (_, ty, bytes) = &mut self.globals[index];
+                let byte_len = usize::from(ty.bit_size(self.ty_registry).padded_bytes());
+                bytes.clear();
+                bytes.extend_from_slice(&value.to_le_bytes()[..byte_len]);
+            }
+        }
+        let mut globals_map = SparseSecondaryMap::new();
+        for (id, ty, bytes) in &self.globals {
+            globals_map.insert(*id, (*ty, bytes.as_slice()));
+        }
+        quokka_lang::consteval::evaluate(self.function, &globals_map, self.ty_registry)
+    }
+}
+
+fn analyze(source: &str, features: impl IntoIterator<Item = PreviewFeature>) -> AnalyzerOutput {
     let mut config = PipelineConfig::default();
-    for &feature in features {
+    for feature in features {
         config.enable_feature(feature);
     }
-    let analyzed = config
+    config
         .start()
-        .parse(&case.source)
+        .parse(source)
         .unwrap_or_else(|e| panic!("parse failed: {e:?}"))
         .analyze()
-        .unwrap_or_else(|e| panic!("analyze failed: {e:?}"));
-    let unoptimized_mir = analyzed.mir().clone();
-    let global_ty = unoptimized_mir
-        .globals
-        .values()
-        .find(|global| global.name.data.to_string() == case.global)
-        .unwrap_or_else(|| panic!("global {} not found in compiled MIR", case.global))
-        .ty;
+        .unwrap_or_else(|e| panic!("analyze failed: {e:?}"))
+}
 
-    let optimized = analyzed
-        .optimize()
-        .unwrap_or_else(|e| panic!("optimize failed: {e:?}"));
-    let ty_registry = optimized.ty_registry();
-    let optimized_mir = optimized.mir();
+/// For every combination of `case.params`, compiles `case.source` once without optimizing and
+/// once optimized with `features`, then asserts that `case.function` produces byte-identical
+/// results before and after optimization for every combination of `case.inputs`.
+///
+/// `toggled` is the single optimization feature this trial turns on, if any. When the case lists
+/// it under `expect_rewrite`, also asserts that the optimized MIR differs from the one produced
+/// with only that feature left off.
+fn assert_optimization_preserves_semantics(
+    case: &TestCase,
+    features: &[PreviewFeature],
+    toggled: Option<PreviewFeature>,
+) {
+    let expect_rewrite = toggled.filter(|feature| case.expect_rewrite.contains(feature));
+    let param_axes: Vec<&[InputValue]> = case.params.values().map(Vec::as_slice).collect();
+    let input_axes: Vec<&[InputValue]> = case.inputs.values().map(Vec::as_slice).collect();
 
-    let bit_size = global_ty.bit_size(ty_registry);
-    let bits = bit_size.into_u32();
-    let byte_len = usize::from(bit_size.padded_bytes());
-    assert!(
-        (1..=u64::BITS).contains(&bits),
-        "global {} has unsupported type {} for input values",
-        case.global,
-        global_ty.display(ty_registry)
-    );
-    let type_max = u64::MAX >> (u64::BITS - bits);
-    for value in &case.values {
-        let (min, max) = value.bounds();
-        assert!(
-            max <= type_max,
-            "value range {min}..={max} does not fit in {} (max {type_max})",
-            global_ty.display(ty_registry)
+    for_each_combination(&param_axes, &mut |params| {
+        let mut source = case.source.clone();
+        for (name, value) in case.params.keys().zip(params) {
+            source = source.replace(&placeholder(name), &value.to_string());
+        }
+        let with_params = if params.is_empty() {
+            String::new()
+        } else {
+            format!(" with {}", describe(case.params.keys(), params))
+        };
+
+        let analyzed = analyze(&source, features.iter().copied());
+        let unoptimized_mir = analyzed.mir().clone();
+        let optimized = analyzed
+            .optimize()
+            .unwrap_or_else(|e| panic!("optimize failed{with_params}: {e:?}"));
+        let ty_registry = optimized.ty_registry();
+        let optimized_mir = optimized.mir();
+
+        if let Some(toggled) = expect_rewrite {
+            let baseline = analyze(
+                &source,
+                features
+                    .iter()
+                    .copied()
+                    .filter(|&feature| feature != toggled),
+            )
+            .optimize()
+            .unwrap_or_else(|e| panic!("optimize failed{with_params}: {e:?}"));
+            let optimized_mir = optimized_mir.display(ty_registry).to_string();
+            assert!(
+                baseline.mir().display(baseline.ty_registry()).to_string() != optimized_mir,
+                "expected {toggled} to rewrite the MIR{with_params}, but it was left unchanged:\n{optimized_mir}"
+            );
+        }
+
+        for (name, values) in &case.inputs {
+            let global_ty = unoptimized_mir
+                .globals
+                .values()
+                .find(|global| global.name.data.to_string() == *name)
+                .unwrap_or_else(|| panic!("global {name} not found in compiled MIR"))
+                .ty;
+            let bits = global_ty.bit_size(ty_registry).into_u32();
+            assert!(
+                (1..=u64::BITS).contains(&bits),
+                "global {name} has unsupported type {} for input values",
+                global_ty.display(ty_registry)
+            );
+            let type_max = u64::MAX >> (u64::BITS - bits);
+            for value in values {
+                let (min, max) = value.bounds();
+                assert!(
+                    max <= type_max,
+                    "value range {min}..={max} does not fit in {} (max {type_max})",
+                    global_ty.display(ty_registry)
+                );
+            }
+        }
+
+        let mut before = Evaluator::new(
+            &unoptimized_mir,
+            ty_registry,
+            &case.function,
+            case.inputs.keys(),
         );
-    }
-    let values = case.values.iter().flat_map(|value| {
-        let (min, max) = value.bounds();
-        min..=max
+        let mut after = Evaluator::new(
+            optimized_mir,
+            ty_registry,
+            &case.function,
+            case.inputs.keys(),
+        );
+        for_each_combination(&input_axes, &mut |inputs| {
+            assert_eq!(
+                before.evaluate(inputs),
+                after.evaluate(inputs),
+                "optimizing with {features:?} changed the result of `{}` for {}{with_params}",
+                case.function,
+                describe(case.inputs.keys(), inputs)
+            );
+        });
     });
-
-    for value in values {
-        let bytes = value.to_le_bytes()[..byte_len].to_vec();
-        let inputs = [(case.global.as_str(), bytes)];
-        let before = eval_function(&unoptimized_mir, ty_registry, &case.function, &inputs);
-        let after = eval_function(optimized_mir, ty_registry, &case.function, &inputs);
-        assert_eq!(
-            before, after,
-            "optimizing with {features:?} changed the result of `{}` for {} = {value}",
-            case.function, case.global
-        );
-    }
 }

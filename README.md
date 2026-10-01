@@ -210,8 +210,16 @@ optimization that can be individually disabled, and one (`all`) with the default
 test names take the form `optimize_soundness::<suite>::<case>::<variant>`.
 
 Since the evaluator does not support function calls or stores, the function under test must be side-effect free: it
-reads the input from a global and returns a value. A `main` is still required in the source as the analyzer requires
+reads its inputs from globals and returns a value. A `main` is still required in the source as the analyzer requires
 an entrypoint, but it is never executed.
+
+A global is never a literal, so an optimization that only matches a literal operand cannot be swept through an input.
+For those, a case can declare `params`: each `$NAME$` placeholder in the source is replaced with the value and the
+program is compiled and checked once per combination of parameter values.
+
+Matching results prove nothing if the optimization under test never fired. A case can list optimizations under
+`expect_rewrite`: the test for each listed optimization also fails if toggling it alone leaves the optimized MIR
+unchanged.
 
 ### TOML file format
 
@@ -223,25 +231,33 @@ The name of each case must be unique within the file.
 name = "case_name"
 # function (optional) the function to evaluate. Defaults to "f". It must take no parameters
 function = "f"
-# global (optional) the global that each value is fed into. Defaults to "N"
-global = "N"
 # preview_features (optional) additional preview features required for the source to compile (i.e. not
 # optimization related). defaults to empty
 preview_features = []
-# values (required) single byte values to feed into the global. The function is evaluated once per value
-values = [0, 1, 2, 127, 128, 255]
+# inputs (required) the values to feed into each named global, as single values and/or inclusive ranges. Each value
+# is a raw unsigned bit pattern encoded to the width of the global's type. The function is evaluated once per
+# combination of input values
+inputs = { N = [{ min = 0, max = 255 }], M = [0, 1, 127, 128, 255] }
+# params (optional) the values to substitute for each $NAME$ placeholder in the source, as single values and/or
+# inclusive ranges. The source is compiled once per combination of parameter values. defaults to empty
+params = { C = [{ min = 0, max = 255 }] }
+# expect_rewrite (optional) optimization features which must change the optimized MIR when toggled on their own.
+# defaults to empty
+expect_rewrite = ["canonicalize"]
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
 # source (required) the source code for the program
 source = """
 global N: u8;
+global M: u8;
 
 fn f() -> u8 {
-    return N + 1;
+    return N + $C$ + M;
 }
 
 fn main() {
     N = 1;
+    M = 1;
     f();
 }
 """

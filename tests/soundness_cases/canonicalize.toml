@@ -1,6 +1,7 @@
 [[case]]
 name = "add_add_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -19,7 +20,8 @@ fn main() {
 
 [[case]]
 name = "mixed_add_sub_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -39,7 +41,8 @@ fn main() {
 
 [[case]]
 name = "sub_sub_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -59,7 +62,8 @@ fn main() {
 
 [[case]]
 name = "bitand_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -79,7 +83,8 @@ fn main() {
 
 [[case]]
 name = "bitor_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -99,7 +104,8 @@ fn main() {
 
 [[case]]
 name = "bitxor_chain_reassociates_soundly"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -119,7 +125,8 @@ fn main() {
 
 [[case]]
 name = "three_link_add_chain_converges_across_rounds"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
 
@@ -139,7 +146,7 @@ fn main() {
 
 [[case]]
 name = "multi_use_inner_target_is_left_unchanged"
-values = [{ min = 0, max = 255 }]
+inputs = { N = [{ min = 0, max = 255 }] }
 source = """
 global N: u8;
 
@@ -150,6 +157,93 @@ fn f() -> u8 {
     let b = a + m;
     let c = a + b;
     return c;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_add_chain_reassociates_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + $C$;
+    let b = a + n;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_sub_chain_reassociates_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = n ^ 7;
+    let a = n - $C$;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "mixed_add_sub_chain_reassociates_soundly_for_every_operand_pair"
+inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let b = a - m;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_add_add_chain_reassociates_soundly"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 1, 255, 256, 32767, 32768, 65535] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n + $C$;
+    let b = a + n;
+    return b;
 }
 
 fn main() {
