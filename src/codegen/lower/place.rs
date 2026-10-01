@@ -44,7 +44,7 @@ impl InstrCtx<'_> {
                     bit_offset += ty.bit_size(self.ty_registry).padded() * index.value;
                 }
                 mir::PlaceProjection::Index(mir::Operand::Local(index)) => {
-                    let (index_high, index_low) = self.locals.r16s[*index];
+                    let (index_high, index_low) = self.pair(*index);
                     let index = self.lir.insert_join(block, index_high, index_low);
                     let byte_offset = bit_offset.bytes();
                     assert_eq!(
@@ -160,9 +160,9 @@ impl InstrCtx<'_> {
         let local_ty = self.function.locals[local].ty;
         let r8 = if local_ty.bit_size(self.ty_registry).into_u32() <= 8 {
             assert_eq!(bit_offset.bytes(), 0);
-            self.locals.r8s[local]
+            self.byte(local)
         } else {
-            let (high, low) = self.locals.r16s[local];
+            let (high, low) = self.pair(local);
             match bit_offset.bytes() {
                 0 => low,
                 1 => high,

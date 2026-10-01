@@ -1041,9 +1041,9 @@ main::
   LD r8#29, $00
   LD r8#30, $00
   LD r8#31, $01
-  LD r8#28, r8#31
   LD r8#26, r8#30
   LD r8#27, r8#29
+  LD r8#28, r8#31
   JP .bb15
 
 .bb4:
@@ -1148,9 +1148,9 @@ main::
   LD A, r8#28
   ADD A, $01; z, c
   LD r8#42, A
-  LD r8#28, r8#42
   LD r8#26, r8#38
   LD r8#27, r8#40
+  LD r8#28, r8#42
   JP .bb15
 
 END_SECTION
@@ -1386,16 +1386,15 @@ fizzbuzz::
 main::
 .bb3:
   ADD SP -3; z, c
-  LD B, $00
   LD C, $00
+  LD B, $00
   LD A, $01
-  LD HL SP+2; z, c
-  LD [HL], A
-  LD A, C
   LD HL SP+1; z, c
-  LD [HL], A
-  LD A, B
+  LD [HL], B
+  LD B, C
   LD HL SP+0; z, c
+  LD [HL], B
+  LD HL SP+2; z, c
   LD [HL], A
   JP .bb15
 
@@ -1492,24 +1491,23 @@ main::
   LD HL SP+1; z, c
   LD A, [HL]
   ADD A, $01; z, c
-  LD C, A
+  LD B, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD B, [HL]
+  LD C, [HL]
   POP AF(high_out=A); z, c
-  LD A, B
+  LD A, C
   ADC A, $00; z, c
-  LD B, A
+  LD C, A
   LD HL SP+2; z, c
   LD A, [HL]
   ADD A, $01; z, c
-  LD HL SP+2; z, c
-  LD [HL], A
-  LD A, C
   LD HL SP+1; z, c
-  LD [HL], A
-  LD A, B
+  LD [HL], B
+  LD B, C
   LD HL SP+0; z, c
+  LD [HL], B
+  LD HL SP+2; z, c
   LD [HL], A
   JP .bb15
 

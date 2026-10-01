@@ -66,87 +66,42 @@ impl<'a> InstrCtx<'a> {
         for mir_block in function.traverse_blocks() {
             for instruction in &function.blocks[mir_block].instructions {
                 if let mir::Instr::Phi { target, sources } = instruction {
-                    match function.locals[*target]
+                    let phi = match function.locals[*target]
                         .ty
                         .bit_size(self.ty_registry)
                         .into_u32()
                     {
-                        1 => {
-                            let r8 = self.lir.reserve_phi();
-                            self.locals.phi_r1s.insert(*target, (r8, Vec::new()));
-                            for (mir_block, local) in sources {
-                                let block = self.blocks[mir_block];
-                                match self
-                                    .locals
-                                    .phi_source_r1s
-                                    .entry(block)
-                                    .unwrap()
-                                    .or_default()
-                                    .entry(*local)
-                                {
-                                    Entry::Occupied(_) => panic!(
-                                        "block {mir_block:?} already has phi r8 registered for {local:?}"
-                                    ),
-                                    Entry::Vacant(entry) => {
-                                        entry.insert(r8);
-                                    }
-                                }
-                                self.locals.phi_r1s[target].1.push(block);
-                            }
-                        }
-                        8 => {
-                            let r8 = self.lir.reserve_phi();
-                            self.locals.phi_r8s.insert(*target, (r8, Vec::new()));
-                            for (mir_block, local) in sources {
-                                let block = self.blocks[mir_block];
-                                match self
-                                    .locals
-                                    .phi_source_r8s
-                                    .entry(block)
-                                    .unwrap()
-                                    .or_default()
-                                    .entry(*local)
-                                {
-                                    Entry::Occupied(_) => panic!(
-                                        "block {mir_block:?} already has phi r8 registered for {local:?}"
-                                    ),
-                                    Entry::Vacant(entry) => {
-                                        entry.insert(r8);
-                                    }
-                                }
-                                self.locals.phi_r8s[target].1.push(block);
-                            }
-                        }
+                        1 => Value::Mask(self.lir.reserve_phi(), mir::Condition::NotZero),
+                        8 => Value::Byte(self.lir.reserve_phi()),
                         16 => {
                             let low = self.lir.reserve_phi();
                             let high = self.lir.reserve_phi();
-                            self.locals
-                                .phi_r16s
-                                .insert(*target, (high, low, Vec::new()));
-                            for (mir_block, local) in sources {
-                                let block = self.blocks[mir_block];
-                                match self
-                                    .locals
-                                    .phi_source_r16s
-                                    .entry(block)
-                                    .unwrap()
-                                    .or_default()
-                                    .entry(*local)
-                                {
-                                    Entry::Occupied(_) => panic!(
-                                        "block {mir_block:?} already has phi r8 pair registered for {local:?}"
-                                    ),
-                                    Entry::Vacant(entry) => {
-                                        entry.insert((high, low));
-                                    }
-                                }
-                                self.locals.phi_r16s[target].2.push(block);
-                            }
+                            Value::Pair(high, low)
                         }
                         _ => unimplemented!(
                             "{} cannot fit in a 8-bit or 16-bit register",
                             function.locals[*target].ty.display(self.ty_registry)
                         ),
+                    };
+                    self.locals.phi_targets.insert(*target, (phi, Vec::new()));
+                    for (mir_block, local) in sources {
+                        let block = self.blocks[mir_block];
+                        match self
+                            .locals
+                            .phi_sources
+                            .entry(block)
+                            .unwrap()
+                            .or_default()
+                            .entry(*local)
+                        {
+                            Entry::Occupied(_) => panic!(
+                                "block {mir_block:?} already has phi registered for {local:?}"
+                            ),
+                            Entry::Vacant(entry) => {
+                                entry.insert(phi);
+                            }
+                        }
+                        self.locals.phi_targets[target].1.push(block);
                     }
                 }
             }
@@ -169,47 +124,80 @@ impl<'a> InstrCtx<'a> {
                 }
             }
             // `r1_to_r8` needs all of `self`, so the sources are copied out of `locals` first
-            let phi_source_r1s: Vec<(mir::LocalId, R8Id)> = self
+            let phi_sources: Vec<(mir::LocalId, Value)> = self
                 .locals
-                .phi_source_r1s
+                .phi_sources
                 .get(block)
                 .into_iter()
                 .flatten()
-                .map(|(&local, &r8)| (local, r8))
+                .map(|(&local, &phi)| (local, phi))
                 .collect();
-            for (local, r8) in phi_source_r1s {
-                let (r1, condition) = self.locals.r1s[local];
-                let mut source = self.r1_to_r8(r1, block);
-                if condition != mir::Condition::NotZero {
-                    let a = self.lir.insert_ld_a(block, source);
-                    self.lir.insert_cpl(block, a);
-                    source = self.lir.insert_move_a(block, a);
-                }
-                self.lir.insert_phi_ld(block, r8, source);
-            }
-            if let Some(phis) = self.locals.phi_source_r8s.get(block) {
-                for (local, &r8) in phis {
-                    self.lir.insert_phi_ld(block, r8, self.locals.r8s[*local]);
-                }
-            }
-            if let Some(phis) = self.locals.phi_source_r16s.get(block) {
-                for (local, &(target_high, target_low)) in phis {
-                    let (source_high, source_low) = self.locals.r16s[*local];
-                    self.lir.insert_phi_ld(block, target_low, source_low);
-                    self.lir.insert_phi_ld(block, target_high, source_high);
+            for (local, phi) in phi_sources {
+                match phi {
+                    Value::Mask(target, _) => {
+                        let value = self.u1(local);
+                        let mut source = self.r1_to_r8(value, block);
+                        if value.condition() != mir::Condition::NotZero {
+                            let a = self.lir.insert_ld_a(block, source);
+                            self.lir.insert_cpl(block, a);
+                            source = self.lir.insert_move_a(block, a);
+                        }
+                        self.lir.insert_phi_ld(block, target, source);
+                    }
+                    Value::Byte(target) => {
+                        self.lir.insert_phi_ld(block, target, self.byte(local));
+                    }
+                    Value::Pair(target_high, target_low) => {
+                        let (source_high, source_low) = self.pair(local);
+                        self.lir.insert_phi_ld(block, target_low, source_low);
+                        self.lir.insert_phi_ld(block, target_high, source_high);
+                    }
+                    Value::Zero(..) | Value::Carry(..) | Value::Bit(..) => {
+                        unreachable!("phi targets are never lowered to {phi:?}")
+                    }
                 }
             }
             self.generate_from_terminator(&function.blocks[mir_block].terminator, block);
         }
-        for (r8, blocks) in self.locals.phi_r1s.values() {
-            self.lir.complete_phi(*r8, blocks.as_slice());
+        for (phi, blocks) in self.locals.phi_targets.values() {
+            match *phi {
+                Value::Mask(r8, _) | Value::Byte(r8) => {
+                    self.lir.complete_phi(r8, blocks.as_slice());
+                }
+                Value::Pair(high, low) => {
+                    self.lir.complete_phi(low, blocks.as_slice());
+                    self.lir.complete_phi(high, blocks.as_slice());
+                }
+                Value::Zero(..) | Value::Carry(..) | Value::Bit(..) => {
+                    unreachable!("phi targets are never lowered to {phi:?}")
+                }
+            }
         }
-        for (r8, blocks) in self.locals.phi_r8s.values() {
-            self.lir.complete_phi(*r8, blocks.as_slice());
+    }
+
+    /// The lowered 1-bit value of `local`.
+    fn u1(&self, local: mir::LocalId) -> Value {
+        match self.locals.values[local] {
+            value @ (Value::Zero(..) | Value::Carry(..) | Value::Mask(..) | Value::Bit(..)) => {
+                value
+            }
+            value => panic!("{local:?} is lowered to {value:?}, expected a 1-bit value"),
         }
-        for (high, low, blocks) in self.locals.phi_r16s.values() {
-            self.lir.complete_phi(*low, blocks.as_slice());
-            self.lir.complete_phi(*high, blocks.as_slice());
+    }
+
+    /// The register holding the byte-sized `local`.
+    fn byte(&self, local: mir::LocalId) -> R8Id {
+        match self.locals.values[local] {
+            Value::Byte(r8) => r8,
+            value => panic!("{local:?} is lowered to {value:?}, expected a byte"),
+        }
+    }
+
+    /// The `(high, low)` registers holding the 16-bit `local`.
+    fn pair(&self, local: mir::LocalId) -> (R8Id, R8Id) {
+        match self.locals.values[local] {
+            Value::Pair(high, low) => (high, low),
+            value => panic!("{local:?} is lowered to {value:?}, expected a byte pair"),
         }
     }
 
@@ -235,47 +223,12 @@ impl<'a> InstrCtx<'a> {
     /// is likely interference due to the restrictive machine instructions.
     /// Unnecessary moves will be coalesced during register allocation if not needed.
     fn generate_from_instr(&mut self, instruction: &mir::Instr, ty: Ty, block: BlockId) {
-        match ty {
-            Ty::U1 => {
-                if let Some((target, mut r1, mut condition)) =
-                    self.generate_from_u1_instr(instruction, block)
-                {
-                    if self.function.locals[target].is_return {
-                        let r8 = self.r1_to_r8(r1, block);
-                        let a = self.lir.insert_ld_a(block, r8);
-                        if condition != mir::Condition::NotZero {
-                            self.lir.insert_cpl(block, a);
-                            condition = mir::Condition::NotZero;
-                        }
-                        r1 = R1::R8(a.upcast_to_r8_without_move());
-                    }
-                    self.locals.r1s.insert(target, (r1, condition));
-                }
-            }
+        let lowered = match ty {
+            Ty::U1 => self.generate_from_u1_instr(instruction, block),
             Ty::U2 => todo!("{instruction:?} {:?}", Ty::U2),
             Ty::U4 => todo!("{instruction:?} {:?}", Ty::U4),
-            Ty::U8 | Ty::I8 => {
-                if let Some((target, mut r8)) = self.generate_from_scalar8_instr(instruction, block)
-                {
-                    if self.function.locals[target].is_return {
-                        let a = self.lir.insert_ld_a(block, r8);
-                        r8 = a.upcast_to_r8_without_move();
-                    }
-                    self.locals.r8s.insert(target, r8);
-                }
-            }
-            Ty::U16 | Ty::I16 => {
-                if let Some((target, mut high, mut low)) =
-                    self.generate_from_scalar16_instr(instruction, block)
-                {
-                    if self.function.locals[target].is_return {
-                        let (b, c) = self.lir.insert_ld_bc(block, high, low);
-                        high = b;
-                        low = c;
-                    }
-                    self.locals.r16s.insert(target, (high, low));
-                }
-            }
+            Ty::U8 | Ty::I8 => self.generate_from_scalar8_instr(instruction, block),
+            Ty::U16 | Ty::I16 => self.generate_from_scalar16_instr(instruction, block),
             ty if ty.is_struct() || ty.is_array() || ty.is_fn_ptr() => match instruction {
                 mir::Instr::Alloc { .. }
                 | mir::Instr::ReturnValue { .. }
@@ -288,20 +241,8 @@ impl<'a> InstrCtx<'a> {
                 | mir::Instr::Write { .. }
                 | mir::Instr::Eq { .. }
                 | mir::Instr::Ne { .. } => match ty.bit_size(self.ty_registry).into_u32() {
-                    8 => {
-                        if let Some((target, r8)) =
-                            self.generate_from_scalar8_instr(instruction, block)
-                        {
-                            self.locals.r8s.insert(target, r8);
-                        }
-                    }
-                    16 => {
-                        if let Some((target, high, low)) =
-                            self.generate_from_scalar16_instr(instruction, block)
-                        {
-                            self.locals.r16s.insert(target, (high, low));
-                        }
-                    }
+                    8 => self.generate_from_scalar8_instr(instruction, block),
+                    16 => self.generate_from_scalar16_instr(instruction, block),
                     _ => unimplemented!(
                         "Valid MIR should never produce structs, arrays or fn ptrs which are not 8 or 16-bit"
                     ),
@@ -311,31 +252,86 @@ impl<'a> InstrCtx<'a> {
                 ),
             },
             ty => unimplemented!("{ty:?}"),
+        };
+        if let Some((target, mut value)) = lowered {
+            if self.function.locals[target].is_return {
+                value = self.move_to_return_registers(value, block);
+            }
+            self.locals.values.insert(target, value);
+        }
+    }
+
+    /// Moves `value` into the registers of the return convention: `A` for 1-bit and byte values,
+    /// `BC` for byte pairs.
+    fn move_to_return_registers(&mut self, value: Value, block: BlockId) -> Value {
+        match value {
+            Value::Zero(..) | Value::Carry(..) | Value::Mask(..) | Value::Bit(..) => {
+                let r8 = self.r1_to_r8(value, block);
+                let a = self.lir.insert_ld_a(block, r8);
+                if value.condition() != mir::Condition::NotZero {
+                    self.lir.insert_cpl(block, a);
+                }
+                Value::Mask(a.upcast_to_r8_without_move(), mir::Condition::NotZero)
+            }
+            Value::Byte(r8) => {
+                let a = self.lir.insert_ld_a(block, r8);
+                Value::Byte(a.upcast_to_r8_without_move())
+            }
+            Value::Pair(high, low) => {
+                let (b, c) = self.lir.insert_ld_bc(block, high, low);
+                Value::Pair(b, c)
+            }
         }
     }
 }
 
+/// The lowered values of a function's locals, and the phi registers they feed.
 #[derive(Default)]
 struct Locals {
-    r1s: SparseSecondaryMap<mir::LocalId, (R1, mir::Condition)>,
-    r8s: SparseSecondaryMap<mir::LocalId, R8Id>,
-    r16s: SparseSecondaryMap<mir::LocalId, (R8Id, R8Id)>,
-    phi_source_r1s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R8Id>>,
-    phi_source_r8s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, R8Id>>,
-    phi_source_r16s: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, (R8Id, R8Id)>>,
-    phi_r1s: IndexMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
-    phi_r8s: IndexMap<mir::LocalId, (R8Id, Vec<BlockId>)>,
-    phi_r16s: IndexMap<mir::LocalId, (R8Id, R8Id, Vec<BlockId>)>,
+    values: SparseSecondaryMap<mir::LocalId, Value>,
+    /// For each block, the phi target each of its locals must be copied into before the terminator.
+    phi_sources: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, Value>>,
+    phi_targets: IndexMap<mir::LocalId, (Value, Vec<BlockId>)>,
 }
 
+/// How a MIR local is represented in LIR. The 1-bit variants carry the `mir::Condition` under
+/// which the value is true.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum R1 {
-    /// R1 represented by a zero flag
-    Zero(ZeroId),
-    /// R1 represented by a carry flag
-    Carry(CarryId),
-    /// R1 represented by a R8, with 0xFF as 1 and 0x00 as 0
-    R8(R8Id),
-    /// R1 represented by a bit set in a register
-    Bit(R8Id, u3),
+enum Value {
+    /// 1-bit value held in the zero flag
+    Zero(ZeroId, mir::Condition),
+    /// 1-bit value held in the carry flag
+    Carry(CarryId, mir::Condition),
+    /// 1-bit value held in a register, with 0xFF as 1 and 0x00 as 0
+    Mask(R8Id, mir::Condition),
+    /// 1-bit value held in a single bit of a register
+    Bit(R8Id, u3, mir::Condition),
+    /// 8-bit value
+    Byte(R8Id),
+    /// 16-bit value as `(high, low)`
+    Pair(R8Id, R8Id),
+}
+
+impl Value {
+    /// The polarity of a 1-bit value.
+    fn condition(self) -> mir::Condition {
+        match self {
+            Value::Zero(_, condition)
+            | Value::Carry(_, condition)
+            | Value::Mask(_, condition)
+            | Value::Bit(_, _, condition) => condition,
+            Value::Byte(_) | Value::Pair(..) => panic!("{self:?} is not a 1-bit value"),
+        }
+    }
+
+    /// The same 1-bit representation with a different polarity.
+    fn with_condition(self, condition: mir::Condition) -> Value {
+        match self {
+            Value::Zero(z, _) => Value::Zero(z, condition),
+            Value::Carry(c, _) => Value::Carry(c, condition),
+            Value::Mask(r8, _) => Value::Mask(r8, condition),
+            Value::Bit(r8, bit, _) => Value::Bit(r8, bit, condition),
+            Value::Byte(_) | Value::Pair(..) => panic!("{self:?} is not a 1-bit value"),
+        }
+    }
 }

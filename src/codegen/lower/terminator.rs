@@ -30,7 +30,7 @@ impl InstrCtx<'_> {
                 callee: mir::Callee::Local(callee),
                 return_block: mir_return_block,
             } => {
-                let (callee_high, callee_low) = self.locals.r16s[*callee];
+                let (callee_high, callee_low) = self.pair(*callee);
                 let callee = self.lir.insert_join(block, callee_high, callee_low);
                 let return_block = self.blocks[*mir_return_block];
                 self.lir.set_terminator(
@@ -48,8 +48,8 @@ impl InstrCtx<'_> {
                 return_block: mir_return_block,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.locals.r1s[*mir_source];
-                let (source, condition) = self.r1_to_flag(source, condition, block);
+                let source = self.u1(*mir_source);
+                let (source, condition) = self.r1_to_flag(source, block);
                 let callee = self.functions[*callee];
                 let return_block = self.blocks[*mir_return_block];
                 let else_block = self.blocks[*mir_else_block];
@@ -87,8 +87,8 @@ impl InstrCtx<'_> {
                 then_block: mir_then_block,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.locals.r1s[*mir_source];
-                let (source, condition) = self.r1_to_flag(source, condition, block);
+                let source = self.u1(*mir_source);
+                let (source, condition) = self.r1_to_flag(source, block);
                 let then_block = self.blocks[*mir_then_block];
                 let else_block = self.blocks[*mir_else_block];
                 self.lir.set_terminator(
@@ -106,8 +106,8 @@ impl InstrCtx<'_> {
                 condition: mir_condition,
                 else_block: mir_else_block,
             } => {
-                let (source, condition) = self.locals.r1s[*mir_source];
-                let (source, condition) = self.r1_to_flag(source, condition, block);
+                let source = self.u1(*mir_source);
+                let (source, condition) = self.r1_to_flag(source, block);
                 let else_block = self.blocks[*mir_else_block];
                 self.lir.set_terminator(
                     block,

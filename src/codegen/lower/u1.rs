@@ -1,4 +1,4 @@
-use super::{InstrCtx, R1};
+use super::{InstrCtx, Value};
 use crate::lir::{BlockId, FlagId, Operand8, R8Id};
 use crate::mir;
 
@@ -8,24 +8,20 @@ impl InstrCtx<'_> {
         &mut self,
         instruction: &mir::Instr,
         block: BlockId,
-    ) -> Option<(mir::LocalId, R1, mir::Condition)> {
+    ) -> Option<(mir::LocalId, Value)> {
         Some(match instruction {
             mir::Instr::Nop => return None,
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
                 let r8 = self.lir.insert_ld8_value(block, 0);
-                (*target, R1::R8(r8), mir::Condition::NotZero)
+                (*target, Value::Mask(r8, mir::Condition::NotZero))
             }
             mir::Instr::ReturnValue { target } => {
                 let r8 = self.lir.insert_ld_return_8(block);
                 let r8 = self.lir.insert_move_a(block, r8);
-                (*target, R1::R8(r8), mir::Condition::NotZero)
+                (*target, Value::Mask(r8, mir::Condition::NotZero))
             }
-            mir::Instr::Phi { target, .. } => (
-                *target,
-                R1::R8(self.locals.phi_r1s[target].0),
-                mir::Condition::NotZero,
-            ),
+            mir::Instr::Phi { target, .. } => (*target, self.locals.phi_targets[target].0),
             mir::Instr::Load {
                 target,
                 source,
@@ -34,7 +30,7 @@ impl InstrCtx<'_> {
                 let (addr, bit) =
                     self.projected_global_to_addr(*source, projections.as_slice(), block);
                 let r8 = self.lir.insert_ld8_hl_ptr(block, addr);
-                (*target, R1::Bit(r8, bit), mir::Condition::NotZero)
+                (*target, Value::Bit(r8, bit, mir::Condition::NotZero))
             }
             mir::Instr::Store {
                 target,
@@ -85,9 +81,9 @@ impl InstrCtx<'_> {
             mir::Instr::Copy { target, source } => {
                 let (r8, condition) = match source {
                     mir::Operand::Local(source) => {
-                        let (r1, condition) = self.locals.r1s[*source];
-                        let r8 = self.r1_to_r8(r1, block);
-                        (r8, condition)
+                        let value = self.u1(*source);
+                        let r8 = self.r1_to_r8(value, block);
+                        (r8, value.condition())
                     }
                     mir::Operand::Literal(source) => {
                         let value = if source.value == 0 { 0x00u8 } else { 0xffu8 };
@@ -96,7 +92,7 @@ impl InstrCtx<'_> {
                     }
                     mir::Operand::FnPtr(_) => unimplemented!("Cannot copy a fn ptr to a r1"),
                 };
-                (*target, R1::R8(r8), condition)
+                (*target, Value::Mask(r8, condition))
             }
             mir::Instr::Read {
                 target,
@@ -104,29 +100,26 @@ impl InstrCtx<'_> {
                 projections,
             } => {
                 let (r8, bit) = self.projected_local_to_r8(*source, projections.as_slice());
-                (*target, R1::Bit(r8, bit), mir::Condition::NotZero)
+                (*target, Value::Bit(r8, bit, mir::Condition::NotZero))
             }
             mir::Instr::Write { .. } => {
                 unimplemented!("{instruction:?} should not be produced for u1 target")
             }
-            mir::Instr::BitCast { target, source } => {
-                let (flag, condition) = self.locals.r1s[*source];
-                (*target, flag, condition)
-            }
+            mir::Instr::BitCast { target, source } => (*target, self.u1(*source)),
             mir::Instr::Not { target, source } => {
-                let (flag, condition) = self.locals.r1s[*source];
-                (*target, flag, !condition)
+                let value = self.u1(*source);
+                (*target, value.with_condition(!value.condition()))
             }
             mir::Instr::Neg { .. } => unimplemented!("neg unsupported on u1"),
             mir::Instr::RotateLeft { target, source }
             | mir::Instr::RotateRight { target, source } => {
-                let (r1, condition) = self.locals.r1s[*source];
-                let r8 = self.r1_to_r8(r1, block);
-                (*target, R1::R8(r8), condition)
+                let value = self.u1(*source);
+                let r8 = self.r1_to_r8(value, block);
+                (*target, Value::Mask(r8, value.condition()))
             }
             mir::Instr::ShiftLeft { target, .. } | mir::Instr::ShiftRight { target, .. } => {
                 let r8 = self.lir.insert_ld8_value(block, 0);
-                (*target, R1::R8(r8), mir::Condition::NotZero)
+                (*target, Value::Mask(r8, mir::Condition::NotZero))
             }
             mir::Instr::Eq {
                 target,
@@ -135,7 +128,7 @@ impl InstrCtx<'_> {
             } => {
                 let (z, condition) = self.eq_from_comparison_op(*left, right, block);
                 let z = self.lir.insert_move_zero(block, z);
-                (*target, R1::Zero(z), condition)
+                (*target, Value::Zero(z, condition))
             }
             mir::Instr::Ne {
                 target,
@@ -144,7 +137,7 @@ impl InstrCtx<'_> {
             } => {
                 let (z, condition) = self.eq_from_comparison_op(*left, right, block);
                 let z = self.lir.insert_move_zero(block, z);
-                (*target, R1::Zero(z), !condition)
+                (*target, Value::Zero(z, !condition))
             }
             mir::Instr::Lt {
                 target,
@@ -153,7 +146,7 @@ impl InstrCtx<'_> {
             } => {
                 let (c, condition) = self.lt_from_comparison_op(*left, right, block);
                 let c = self.lir.insert_move_carry(block, c);
-                (*target, R1::Carry(c), condition)
+                (*target, Value::Carry(c, condition))
             }
             mir::Instr::Ge {
                 target,
@@ -162,16 +155,17 @@ impl InstrCtx<'_> {
             } => {
                 let (c, condition) = self.lt_from_comparison_op(*left, right, block);
                 let c = self.lir.insert_move_carry(block, c);
-                (*target, R1::Carry(c), !condition)
+                (*target, Value::Carry(c, !condition))
             }
             mir::Instr::BitAnd {
                 target,
                 left,
                 right,
             } => {
-                let (r1, left_condition) = self.locals.r1s[*left];
+                let left = self.u1(*left);
+                let left_condition = left.condition();
                 let (right, right_condition) = self.r1_to_operand(right, block);
-                let left = self.r1_to_r8(r1, block);
+                let left = self.r1_to_r8(left, block);
                 let a = self.lir.insert_ld_a(block, left);
                 if left_condition != right_condition {
                     self.lir.insert_cpl(block, a);
@@ -183,16 +177,17 @@ impl InstrCtx<'_> {
                 };
 
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, R1::R8(r8), right_condition)
+                (*target, Value::Mask(r8, right_condition))
             }
             mir::Instr::BitOr {
                 target,
                 left,
                 right,
             } => {
-                let (r1, left_condition) = self.locals.r1s[*left];
+                let left = self.u1(*left);
+                let left_condition = left.condition();
                 let (right, right_condition) = self.r1_to_operand(right, block);
-                let left = self.r1_to_r8(r1, block);
+                let left = self.r1_to_r8(left, block);
                 let a = self.lir.insert_ld_a(block, left);
                 if left_condition != right_condition {
                     self.lir.insert_cpl(block, a);
@@ -204,7 +199,7 @@ impl InstrCtx<'_> {
                 };
 
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, R1::R8(r8), right_condition)
+                (*target, Value::Mask(r8, right_condition))
             }
             mir::Instr::BitXor {
                 target,
@@ -221,16 +216,17 @@ impl InstrCtx<'_> {
                 left,
                 right,
             } => {
-                let (r1, left_condition) = self.locals.r1s[*left];
+                let left = self.u1(*left);
+                let left_condition = left.condition();
                 let (right, right_condition) = self.r1_to_operand(right, block);
-                let left = self.r1_to_r8(r1, block);
+                let left = self.r1_to_r8(left, block);
                 let a = self.lir.insert_ld_a(block, left);
                 let (_z, _c) = self.lir.insert_xor(block, a, right);
                 if left_condition != right_condition {
                     self.lir.insert_cpl(block, a);
                 }
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, R1::R8(r8), mir::Condition::NotZero)
+                (*target, Value::Mask(r8, mir::Condition::NotZero))
             }
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")
@@ -239,21 +235,16 @@ impl InstrCtx<'_> {
         })
     }
 
-    pub(super) fn r1_to_flag(
-        &mut self,
-        r1: R1,
-        condition: mir::Condition,
-        block: BlockId,
-    ) -> (FlagId, mir::Condition) {
-        match r1 {
-            R1::Zero(flag) => (FlagId::from(flag), condition),
-            R1::Carry(flag) => (FlagId::from(flag), condition),
-            R1::R8(r8) => {
+    pub(super) fn r1_to_flag(&mut self, value: Value, block: BlockId) -> (FlagId, mir::Condition) {
+        match value {
+            Value::Zero(flag, condition) => (FlagId::from(flag), condition),
+            Value::Carry(flag, condition) => (FlagId::from(flag), condition),
+            Value::Mask(r8, condition) => {
                 let r8 = self.lir.insert_ld_a(block, r8);
                 let (z, _c) = self.lir.insert_cp(block, r8, Operand8::Literal(0xFF));
                 (FlagId::from(z), condition)
             }
-            R1::Bit(r8, bit) => {
+            Value::Bit(r8, bit, condition) => {
                 // `BIT` sets Z when the tested bit is 0, i.e. Z is SET for a *false* u1 value -
                 // the opposite polarity to what the value represents so we need to invert the
                 // condition
@@ -262,18 +253,20 @@ impl InstrCtx<'_> {
                     !condition,
                 )
             }
+            Value::Byte(_) | Value::Pair(..) => panic!("{value:?} is not a 1-bit value"),
         }
     }
 
-    pub(super) fn r1_to_r8(&mut self, r1: R1, block: BlockId) -> R8Id {
-        match r1 {
-            R1::Carry(c_in) => {
+    /// Materializes a 1-bit value as a 0x00/0xFF byte, leaving its polarity unchanged.
+    pub(super) fn r1_to_r8(&mut self, value: Value, block: BlockId) -> R8Id {
+        match value {
+            Value::Carry(c_in, _) => {
                 let a = self.lir.insert_fresh_a(block);
                 let (_z, _c) = self.lir.insert_sbc_a_a(block, a, c_in);
 
                 self.lir.insert_move_a(block, a)
             }
-            R1::Zero(z_in) => {
+            Value::Zero(z_in, _) => {
                 // zero flags are difficult, unfortunately. We need to push them onto
                 // the stack then pop onto a 16-bit register
                 self.lir.insert_push_af_z(block, z_in);
@@ -286,8 +279,8 @@ impl InstrCtx<'_> {
                 let (_z, _c) = self.lir.insert_sbc_a_a(block, a, c_in);
                 self.lir.insert_move_a(block, a)
             }
-            R1::R8(r8) => r8,
-            R1::Bit(r8, bit) => {
+            Value::Mask(r8, _) => r8,
+            Value::Bit(r8, bit, _) => {
                 match u8::from(bit) {
                     0 => {
                         // rotate right essentially moves the bit into the carry bit,
@@ -322,6 +315,7 @@ impl InstrCtx<'_> {
                     }
                 }
             }
+            Value::Byte(_) | Value::Pair(..) => panic!("{value:?} is not a 1-bit value"),
         }
     }
 
@@ -332,9 +326,9 @@ impl InstrCtx<'_> {
     ) -> (Operand8, mir::Condition) {
         match right {
             mir::Operand::Local(right) => {
-                let (r1, condition) = self.locals.r1s[*right];
-                let r8 = self.r1_to_r8(r1, block);
-                (Operand8::Reg(r8), condition)
+                let value = self.u1(*right);
+                let r8 = self.r1_to_r8(value, block);
+                (Operand8::Reg(r8), value.condition())
             }
             #[allow(clippy::cast_possible_truncation)]
             mir::Operand::Literal(right) => {

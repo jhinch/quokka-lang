@@ -828,9 +828,9 @@ main::
   LD r8#24, $00
   LD r8#25, $00
   LD r8#26, $00
-  LD r8#23, r8#26
   LD r8#21, r8#25
   LD r8#22, r8#24
+  LD r8#23, r8#26
   JP .bb8
 
 .bb3:
@@ -907,9 +907,9 @@ main::
   LD A, r8#23
   ADD A, $01; z, c
   LD r8#37, A
-  LD r8#23, r8#37
   LD r8#21, r8#33
   LD r8#22, r8#35
+  LD r8#23, r8#37
   JP .bb8
 
 END_SECTION
@@ -1125,16 +1125,15 @@ fibonacci::
 main::
 .bb2:
   ADD SP -3; z, c
-  LD B, $00
   LD C, $00
+  LD B, $00
   LD A, $00
-  LD HL SP+2; z, c
-  LD [HL], A
-  LD A, C
   LD HL SP+1; z, c
-  LD [HL], A
-  LD A, B
+  LD [HL], B
+  LD B, C
   LD HL SP+0; z, c
+  LD [HL], B
+  LD HL SP+2; z, c
   LD [HL], A
   JP .bb8
 
@@ -1144,30 +1143,30 @@ main::
 
 .bb4:
   ADD A, $01; z, c
-  LD E, A
-  LD B, $00
-  LD D, $01
+  LD D, A
+  LD H, $00
+  LD E, $01
   LD C, $02
   JP .bb5
 
 .bb5:
   LD A, C
-  CP A, E; z, c
+  CP A, D; z, c
   JP nc, .bb6; else=.bb7
 
 .bb6:
-  LD A, D
+  LD A, E
   RET
 
 .bb7:
-  LD A, B
-  ADD A, D; z, c
-  LD H, A
+  LD A, H
+  ADD A, E; z, c
+  LD B, A
   LD A, C
   ADD A, $01; z, c
   LD C, A
-  LD B, D
-  LD D, H
+  LD H, E
+  LD E, B
   JP .bb5
 
 .bb8:
@@ -1204,24 +1203,23 @@ main::
   LD HL SP+1; z, c
   LD A, [HL]
   ADD A, $01; z, c
-  LD C, A
+  LD B, A
   PUSH AF(high_in=?, z_in=?, c_in=c)
   LD HL SP+2; z, c
-  LD B, [HL]
+  LD C, [HL]
   POP AF(high_out=A); z, c
-  LD A, B
+  LD A, C
   ADC A, $00; z, c
-  LD B, A
+  LD C, A
   LD HL SP+2; z, c
   LD A, [HL]
   ADD A, $01; z, c
-  LD HL SP+2; z, c
-  LD [HL], A
-  LD A, C
   LD HL SP+1; z, c
-  LD [HL], A
-  LD A, B
+  LD [HL], B
+  LD B, C
   LD HL SP+0; z, c
+  LD [HL], B
+  LD HL SP+2; z, c
   LD [HL], A
   JP .bb8
 

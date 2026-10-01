@@ -1,5 +1,5 @@
-use super::InstrCtx;
-use crate::lir::{BlockId, Operand8, R8Id};
+use super::{InstrCtx, Value};
+use crate::lir::{BlockId, Operand8};
 use crate::mir;
 use crate::num::u3;
 
@@ -9,20 +9,20 @@ impl InstrCtx<'_> {
         &mut self,
         instruction: &mir::Instr,
         block: BlockId,
-    ) -> Option<(mir::LocalId, R8Id)> {
+    ) -> Option<(mir::LocalId, Value)> {
         Some(match instruction {
             mir::Instr::Nop => return None,
             mir::Instr::Undefined { .. } => unimplemented!("{instruction:?}"),
             mir::Instr::Alloc { target } => {
                 let r8 = self.lir.insert_ld8_value(block, 0);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::ReturnValue { target } => {
                 let r8 = self.lir.insert_ld_return_8(block);
                 let r8 = self.lir.insert_move_a(block, r8);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
-            mir::Instr::Phi { target, sources: _ } => (*target, self.locals.phi_r8s[target].0),
+            mir::Instr::Phi { target, sources: _ } => (*target, self.locals.phi_targets[target].0),
             mir::Instr::Load {
                 target,
                 source,
@@ -32,7 +32,7 @@ impl InstrCtx<'_> {
                     self.projected_global_to_addr(*source, projections.as_slice(), block);
                 assert_eq!(bit_offset, u3::new(0), "misaligned 8-bit ty");
                 let r8 = self.lir.insert_ld8_hl_ptr(block, addr);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Store {
                 target,
@@ -59,7 +59,7 @@ impl InstrCtx<'_> {
                 let r8 = self
                     .lir
                     .insert_ld8_operand(block, self.r8_to_operand(source));
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Read {
                 target,
@@ -68,46 +68,46 @@ impl InstrCtx<'_> {
             } => {
                 let (r8, u3) = self.projected_local_to_r8(*source, projections.as_slice());
                 assert_eq!(u3, u3::new(0), "misaligned 8-bit ty");
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Write { .. } => todo!("{instruction:?} u8"),
-            mir::Instr::BitCast { target, source } => (*target, self.locals.r8s[*source]),
+            mir::Instr::BitCast { target, source } => (*target, Value::Byte(self.byte(*source))),
             mir::Instr::Not { target, source } => {
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*source]);
+                let a = self.lir.insert_ld_a(block, self.byte(*source));
                 self.lir.insert_cpl(block, a);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Neg { target, source } => {
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*source]);
+                let a = self.lir.insert_ld_a(block, self.byte(*source));
                 self.lir.insert_cpl(block, a);
                 let r8 = self.lir.insert_move_a(block, a);
                 let _z = self.lir.insert_inc(block, r8);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::RotateLeft { target, source } => {
-                let r8 = self.lir.insert_ld8(block, self.locals.r8s[*source]);
+                let r8 = self.lir.insert_ld8(block, self.byte(*source));
                 let (_z, _c) = self.lir.insert_rlc(block, r8);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::RotateRight { target, source } => {
-                let r8 = self.lir.insert_ld8(block, self.locals.r8s[*source]);
+                let r8 = self.lir.insert_ld8(block, self.byte(*source));
                 let (_z, _c) = self.lir.insert_rrc(block, r8);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::ShiftLeft { target, source } => {
-                let r8 = self.lir.insert_ld8(block, self.locals.r8s[*source]);
+                let r8 = self.lir.insert_ld8(block, self.byte(*source));
                 let (_z, _c) = self.lir.insert_sla(block, r8);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::ShiftRight { target, source } => {
-                let r8 = self.lir.insert_ld8(block, self.locals.r8s[*source]);
+                let r8 = self.lir.insert_ld8(block, self.byte(*source));
                 let (_z, _c) = if self.function.locals[*target].ty.is_signed_int() {
                     self.lir.insert_sra(block, r8)
                 } else {
                     self.lir.insert_srl(block, r8)
                 };
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Eq { .. }
             | mir::Instr::Ne { .. }
@@ -121,10 +121,10 @@ impl InstrCtx<'_> {
                 right,
             } => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*left]);
+                let a = self.lir.insert_ld_a(block, self.byte(*left));
                 let (_z, _c) = self.lir.insert_and(block, a, right);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::BitOr {
                 target,
@@ -132,10 +132,10 @@ impl InstrCtx<'_> {
                 right,
             } => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*left]);
+                let a = self.lir.insert_ld_a(block, self.byte(*left));
                 let (_z, _c) = self.lir.insert_or(block, a, right);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::BitXor {
                 target,
@@ -143,10 +143,10 @@ impl InstrCtx<'_> {
                 right,
             } => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*left]);
+                let a = self.lir.insert_ld_a(block, self.byte(*left));
                 let (_z, _c) = self.lir.insert_xor(block, a, right);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Add {
                 target,
@@ -154,10 +154,10 @@ impl InstrCtx<'_> {
                 right,
             } => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*left]);
+                let a = self.lir.insert_ld_a(block, self.byte(*left));
                 let (_z, _c) = self.lir.insert_add(block, a, right);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Sub {
                 target,
@@ -165,10 +165,10 @@ impl InstrCtx<'_> {
                 right,
             } => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[*left]);
+                let a = self.lir.insert_ld_a(block, self.byte(*left));
                 let (_z, _c) = self.lir.insert_sub(block, a, right);
                 let r8 = self.lir.insert_move_a(block, a);
-                (*target, r8)
+                (*target, Value::Byte(r8))
             }
             mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
                 unimplemented!("transfer/fill handled separately")
@@ -179,7 +179,7 @@ impl InstrCtx<'_> {
 
     pub(super) fn r8_to_operand(&self, right: &mir::Operand) -> Operand8 {
         match right {
-            mir::Operand::Local(right) => Operand8::Reg(self.locals.r8s[*right]),
+            mir::Operand::Local(right) => Operand8::Reg(self.byte(*right)),
             #[allow(clippy::cast_possible_truncation)]
             mir::Operand::Literal(right) => Operand8::Literal(right.value as u8),
             mir::Operand::FnPtr(_) => {

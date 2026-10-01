@@ -568,3 +568,137 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 7
+
+# Aggregate return values use the same convention as integers of the same size: `A` for 8-bit
+# values and `BC` for 16-bit values. Each callee computes an unrelated value after reading the
+# aggregate so the return value can't be left in the return registers by coincidence.
+
+[[case]]
+name = "call_returns_8_bit_struct_value"
+source = """
+struct Wrapper { value: u8 }
+global SOURCE: Wrapper;
+global SCRATCH: u8;
+
+#[address = 0xC000]
+global OUT: Wrapper;
+
+fn get_value() -> Wrapper {
+    let w = SOURCE;
+    SCRATCH = SCRATCH + 0x11;
+    return w;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    SOURCE.value = 0x2A;
+    SCRATCH = 0x44;
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x2A
+
+[[case]]
+name = "call_returns_16_bit_struct_value"
+source = """
+struct Point { x: u8, y: u8 }
+global SOURCE: Point;
+global SCRATCH: u16;
+
+#[address = 0xC000]
+global OUT: Point;
+
+fn get_value() -> Point {
+    let s = SCRATCH;
+    let p = SOURCE;
+    SCRATCH = s + 0x1111;
+    return p;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    SOURCE.x = 0x34;
+    SOURCE.y = 0x12;
+    SCRATCH = 0x4444;
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12]
+
+[[case]]
+name = "call_returns_8_bit_array_value"
+source = """
+global SOURCE: [u8; 1];
+global SCRATCH: u8;
+
+#[address = 0xC000]
+global OUT: [u8; 1];
+
+fn get_value() -> [u8; 1] {
+    let a = SOURCE;
+    SCRATCH = SCRATCH + 0x11;
+    return a;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    SOURCE[0] = 0x2A;
+    SCRATCH = 0x44;
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x2A
+
+[[case]]
+name = "call_returns_16_bit_array_value"
+source = """
+global SOURCE: [u8; 2];
+global SCRATCH: u16;
+
+#[address = 0xC000]
+global OUT: [u8; 2];
+
+fn get_value() -> [u8; 2] {
+    let s = SCRATCH;
+    let a = SOURCE;
+    SCRATCH = s + 0x1111;
+    return a;
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    SOURCE[0] = 0x34;
+    SOURCE[1] = 0x12;
+    SCRATCH = 0x4444;
+    let v = get_value();
+    OUT = v;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [0x34, 0x12]

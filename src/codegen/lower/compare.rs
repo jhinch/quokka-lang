@@ -38,7 +38,7 @@ impl InstrCtx<'_> {
         block: BlockId,
     ) -> ZeroId {
         let (right_high, right_low) = self.r16_to_operand(right, block);
-        let (left_high, left_low) = self.locals.r16s[left];
+        let (left_high, left_low) = self.pair(left);
 
         let low_diff = if matches!(right_low, Operand8::Literal(0)) {
             left_low
@@ -101,7 +101,8 @@ impl InstrCtx<'_> {
                         }
                     };
                 }
-                let (left, left_condition) = self.locals.r1s[left];
+                let left = self.u1(left);
+                let left_condition = left.condition();
                 let left = self.r1_to_r8(left, block);
                 let a = self.lir.insert_ld_a(block, left);
                 if left_condition != mir::Condition::NotZero {
@@ -123,14 +124,14 @@ impl InstrCtx<'_> {
                 let (_z, _c) = self.lir.insert_xor(block, a, Operand8::Literal(0x80));
                 let right = self.lir.insert_move_a(block, a);
 
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[left]);
+                let a = self.lir.insert_ld_a(block, self.byte(left));
                 let (_z, _c) = self.lir.insert_xor(block, a, Operand8::Literal(0x80));
 
                 self.lir.insert_cp(block, a, Operand8::Reg(right))
             }
             ty if ty.bit_size(self.ty_registry) == 8 => {
                 let right = self.r8_to_operand(right);
-                let a = self.lir.insert_ld_a(block, self.locals.r8s[left]);
+                let a = self.lir.insert_ld_a(block, self.byte(left));
                 self.lir.insert_cp(block, a, right)
             }
             ty => unimplemented!("{ty:?}"),
@@ -158,7 +159,7 @@ impl InstrCtx<'_> {
                 Operand8::Ptr(_) => unimplemented!("r16_to_operand doesn't produce Operand8::Ptr"),
             };
         }
-        let (mut left_high, left_low) = self.locals.r16s[left];
+        let (mut left_high, left_low) = self.pair(left);
         if is_signed {
             let a = self.lir.insert_ld_a(block, left_high);
             let (_z, _c) = self
