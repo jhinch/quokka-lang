@@ -1572,3 +1572,1069 @@ main -> unit:
   .bb2:
     return
 """
+
+[[case]]
+name = "add_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 0;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - 0;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitor_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | 0;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitxor_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n ^ 0;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_max_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0xFF;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_self_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u8 = copy n#2
+    #RET: u8 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitor_self_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u8 = copy n#2
+    #RET: u8 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "zero_on_the_left_of_add_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 + n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "max_on_the_left_of_bitand_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0xFF & n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_zero_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy 0
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "zero_on_the_left_of_bitand_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 & n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = copy 0
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitor_max_becomes_max"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | 0xFF;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    a#4: u8 = copy 255
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitxor_self_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n ^ n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u8 = copy 0
+    #RET: u8 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_self_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u8 = copy 0
+    #RET: u8 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "eq_self_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n == n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u1 = copy 1
+    #RET: u1 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "ne_self_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n != n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u1 = copy 0
+    #RET: u1 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "lt_self_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n < n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u1 = copy 0
+    #RET: u1 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "ge_self_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n >= n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u1 = copy 1
+    #RET: u1 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "zero_on_the_left_of_sub_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 - n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    a#4: u8 = sub #3, n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_self_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#3: u8 = add n#2, n#2
+    #RET: u8 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_with_a_partial_mask_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0x7F;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 127
+    a#4: u8 = bitand n#2, #3
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_bitand_max_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n & 0xFFFF;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u16:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 65535
+    a#4: u16 = copy n#2
+    #RET: u16 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_bitand_low_byte_mask_is_a_noop"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n & 0xFF;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u16:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 255
+    a#4: u16 = bitand n#2, #3
+    #RET: u16 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_bitor_max_becomes_max"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n | 0xFFFF;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u16:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 65535
+    a#4: u16 = copy 65535
+    #RET: u16 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_bitand_max_becomes_a_copy_with_the_full_optimizer"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let a = n & -1;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> i8:
+  .bb1:
+    n#2: i8 = load N
+    a#5: i8 = copy n#2
+    #RET: i8 = copy a#5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_lt_self_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n < n;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    a#3: u1 = copy 0
+    #RET: u1 = copy a#3
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_then_sub_of_the_same_literal_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let b = n + 3;
+    let a = b - 3;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    b#4: u8 = add n#2, #3
+    #5: u8 = copy 3
+    a#6: u8 = copy n#2
+    #RET: u8 = copy a#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_then_sub_of_the_same_literal_becomes_a_copy_with_the_full_optimizer"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let b = n + 3;
+    let a = b - 3;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    a#6: u8 = copy n#2
+    #RET: u8 = copy a#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_result_feeds_a_later_identity"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let z = n ^ n;
+    let a = n + z;
+    return a;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    z#3: u8 = copy 0
+    a#4: u8 = copy n#2
+    #RET: u8 = copy a#4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""

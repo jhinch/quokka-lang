@@ -251,3 +251,896 @@ fn main() {
     f();
 }
 """
+
+[[case]]
+name = "add_zero_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 0;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_zero_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - 0;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_zero_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | 0;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_zero_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n ^ 0;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_max_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0xFF;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_self_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_self_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_add_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 + n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_bitor_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 | n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_bitxor_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 ^ n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "max_bitand_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0xFF & n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_zero_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & 0;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_bitand_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 & n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_max_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | 0xFF;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "max_bitor_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0xFF | n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n ^ n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "eq_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n == n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ne_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n != n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n < n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n >= n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_sub_is_left_unchanged"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = 0 - n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_self_is_left_unchanged"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_simplifies_soundly_for_every_left_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = $C$ + n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n - $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n & $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_simplifies_soundly_for_every_left_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = $C$ & n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n | $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_simplifies_soundly_for_every_left_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = $C$ | n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n ^ $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_simplifies_soundly_for_every_left_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = $C$ ^ n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_bitand_max_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 65535 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n & 0xFFFF;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_bitor_max_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 65535 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n | 0xFFFF;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_add_simplifies_soundly_for_edge_literals"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 255, 256, 65280, 65535] }
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n + $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_sub_simplifies_soundly_for_edge_literals"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 255, 256, 65280, 65535] }
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n - $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_bitand_simplifies_soundly_for_edge_literals"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 255, 256, 65280, 65535] }
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n & $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_bitor_simplifies_soundly_for_edge_literals"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 255, 256, 65280, 65535] }
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n | $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_bitxor_simplifies_soundly_for_edge_literals"
+inputs = { N = [{ min = 0, max = 65535 }] }
+params = { C = [0, 255, 256, 65280, 65535] }
+source = """
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = n ^ $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_lt_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 65535 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n < n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_bitand_max_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let a = n & -1;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_bitor_max_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let a = n | -1;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_lt_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n < n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_self_simplifies_to_a_constant_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n >= n;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_bitand_max_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 65535 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i16;
+
+fn f() -> i16 {
+    let n = N;
+    let a = n & -1;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_then_sub_of_the_same_literal_simplifies_to_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let b = n + 3;
+    let a = b - 3;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_then_sub_of_the_same_literal_simplifies_soundly_for_every_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let b = n + $C$;
+    let a = b - $C$;
+    return a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""

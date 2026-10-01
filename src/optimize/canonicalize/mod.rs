@@ -8,6 +8,7 @@ use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap};
 use tracing::{instrument, trace};
 
+mod identity;
 mod reassociate;
 
 /// Canonicalize
@@ -22,7 +23,7 @@ mod reassociate;
 pub struct Canonicalize;
 
 /// In application order at each instruction position.
-const RULES: &[&dyn Rule] = &[&reassociate::Reassociate];
+const RULES: &[&dyn Rule] = &[&reassociate::Reassociate, &identity::Identity];
 
 /// A bound on the sweeps over a function. Rules are expected to converge long before this; hitting
 /// it means two rewrites undo each other.
