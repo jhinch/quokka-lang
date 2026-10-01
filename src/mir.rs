@@ -995,6 +995,45 @@ impl Instr {
         }
     }
 
+    /// Whether the instruction only computes its target from its operands: it reads no memory
+    /// and has no effect besides defining the target. A pure instruction can be evaluated
+    /// anywhere its operands are available, and need not be evaluated at all if its target is
+    /// never read.
+    #[must_use]
+    pub fn is_pure(&self) -> bool {
+        match self {
+            Instr::Copy { .. }
+            | Instr::Read { .. }
+            | Instr::BitCast { .. }
+            | Instr::Not { .. }
+            | Instr::Neg { .. }
+            | Instr::RotateLeft { .. }
+            | Instr::RotateRight { .. }
+            | Instr::ShiftLeft { .. }
+            | Instr::ShiftRight { .. }
+            | Instr::Eq { .. }
+            | Instr::Ne { .. }
+            | Instr::Lt { .. }
+            | Instr::Ge { .. }
+            | Instr::BitAnd { .. }
+            | Instr::BitOr { .. }
+            | Instr::BitXor { .. }
+            | Instr::Add { .. }
+            | Instr::Sub { .. } => true,
+            Instr::Nop
+            | Instr::Breakpoint
+            | Instr::Undefined { .. }
+            | Instr::Alloc { .. }
+            | Instr::ReturnValue { .. }
+            | Instr::Phi { .. }
+            | Instr::Load { .. }
+            | Instr::Store { .. }
+            | Instr::Write { .. }
+            | Instr::Transfer { .. }
+            | Instr::Fill { .. } => false,
+        }
+    }
+
     /// Iterates the locals this instruction reads from, including locals used as index
     /// operands within its [`PlaceProjection`]s.
     pub fn source_locals(&self) -> impl Iterator<Item = LocalId> + '_ {

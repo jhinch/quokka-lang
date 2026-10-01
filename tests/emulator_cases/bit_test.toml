@@ -1,0 +1,282 @@
+# Covers single-bit mask tests (`(x & m) == 0` and `(x & m) != 0` with a single-bit literal `m`),
+# which are selected as a `BIT` of the operand rather than an `AND` followed by a compare. Each
+# case tests both a set and a clear bit, with other bits of the operand set so that testing the
+# wrong bit is caught.
+
+[[case]]
+name = "ne_zero_branches_on_the_tested_bit"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) != 0 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) != 0 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "eq_zero_branches_on_the_tested_bit"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) == 0 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) == 0 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+
+# 0x0420 has bit 10 (high byte, bit 2) and bit 5 (low byte) set. Bit 2 and bit 13 are the same
+# positions in the other byte, and are clear.
+[[case]]
+name = "u16_tests_the_byte_containing_the_bit"
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT_HIGH_SET: u8;
+#[address = 0xC001]
+global OUT_LOW_CLEAR: u8;
+#[address = 0xC002]
+global OUT_LOW_SET: u8;
+#[address = 0xC003]
+global OUT_HIGH_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x0420;
+    OUT_HIGH_SET = 0;
+    OUT_LOW_CLEAR = 0;
+    OUT_LOW_SET = 0;
+    OUT_HIGH_CLEAR = 0;
+    let x = IN;
+    if (x & 0x0400) != 0 then {
+        OUT_HIGH_SET = 1;
+    }
+    if (x & 0x0004) != 0 then {
+        OUT_LOW_CLEAR = 1;
+    }
+    if (x & 0x0020) != 0 then {
+        OUT_LOW_SET = 1;
+    }
+    if (x & 0x2000) != 0 then {
+        OUT_HIGH_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+# Storing the result materializes the tested bit as a value, which is lowered differently for
+# bit 0, bit 7 and the bits in between.
+[[case]]
+name = "ne_zero_stored_as_a_value"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global BIT_0: u1;
+#[address = 0xC001]
+global BIT_1: u1;
+#[address = 0xC002]
+global BIT_3: u1;
+#[address = 0xC003]
+global BIT_4: u1;
+#[address = 0xC004]
+global BIT_6: u1;
+#[address = 0xC005]
+global BIT_7: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b1000_1010;
+    let x = IN;
+    BIT_0 = (x & 0x01) != 0;
+    BIT_1 = (x & 0x02) != 0;
+    BIT_3 = (x & 0x08) != 0;
+    BIT_4 = (x & 0x10) != 0;
+    BIT_6 = (x & 0x40) != 0;
+    BIT_7 = (x & 0x80) != 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC004
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC005
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "eq_zero_stored_as_a_value"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global BIT_0: u1;
+#[address = 0xC001]
+global BIT_3: u1;
+#[address = 0xC002]
+global BIT_4: u1;
+#[address = 0xC003]
+global BIT_7: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b1000_1010;
+    let x = IN;
+    BIT_0 = (x & 0x01) == 0;
+    BIT_3 = (x & 0x08) == 0;
+    BIT_4 = (x & 0x10) == 0;
+    BIT_7 = (x & 0x80) == 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+mask = 0b0000_0001
+
+# The masked value is also stored, so it must still be computed, and the operand must survive
+# both.
+[[case]]
+name = "masked_value_with_another_use_is_still_computed"
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+#[address = 0xC001]
+global MASKED: u8;
+#[address = 0xC002]
+global IN_OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT = 0;
+    let x = IN;
+    let masked = x & 0x08;
+    MASKED = masked;
+    if masked != 0 then {
+        OUT = 1;
+    }
+    IN_OUT = x;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0x08
+[[case.assertion]]
+addr = 0xC002
+expected = 0b0100_1000

@@ -622,12 +622,12 @@ collatz_steps::
 
 main::
 .bb2:
-  LD r8#42, $1b
-  LD r8#43, $00
+  LD r8#37, $1b
+  LD r8#38, $00
   LD HL, N+$0000
-  LD A, r8#42
+  LD A, r8#37
   LD [HL++], A
-  LD [HL], r8#43
+  LD [HL], r8#38
   CALL collatz_steps; return=.bb9
 
 .bb3:
@@ -647,71 +647,63 @@ main::
   RET
 
 .bb5:
-  LD A, r8#1
-  AND A, $01; z, c
-  LD r8#20, A
-  LD A, r8#2
-  AND A, $00; z, c
-  LD r8#22, A
-  LD A, r8#22
-  OR A, r8#20; z, c
-  (out=z#7,in=z)
-  JP z#7, .bb6; else=.bb7
+  BIT 0, r8#1; z
+  JP z, .bb6; else=.bb7
 
 .bb6:
-  LD r8#24, r8#2
-  SRL r8#24; z, c
-  LD r8#25, r8#1
-  RR r8#25; z, c
-  LD r8#5, r8#25
-  LD r8#6, r8#24
+  LD r8#19, r8#2
+  SRL r8#19; z, c
+  LD r8#20, r8#1
+  RR r8#20; z, c
+  LD r8#5, r8#20
+  LD r8#6, r8#19
   JP .bb8
 
 .bb7:
   LD A, r8#1
   ADD A, r8#1; z, c
-  LD r8#27, A
+  LD r8#22, A
   LD A, r8#2
   ADC A, r8#2; z, c
-  LD r8#29, A
-  LD A, r8#27
+  LD r8#24, A
+  LD A, r8#22
   ADD A, r8#1; z, c
-  LD r8#31, A
-  LD A, r8#29
+  LD r8#26, A
+  LD A, r8#24
   ADC A, r8#2; z, c
-  LD r8#33, A
-  LD A, r8#31
+  LD r8#28, A
+  LD A, r8#26
   ADD A, $01; z, c
-  LD r8#35, A
-  LD A, r8#33
+  LD r8#30, A
+  LD A, r8#28
   ADC A, $00; z, c
-  LD r8#37, A
-  LD r8#5, r8#35
-  LD r8#6, r8#37
+  LD r8#32, A
+  LD r8#5, r8#30
+  LD r8#6, r8#32
   JP .bb8
 
 .bb8:
   LD A, r8#3
   ADD A, $01; z, c
-  LD r8#39, A
+  LD r8#34, A
   LD A, r8#4
   ADC A, $00; z, c
-  LD r8#41, A
+  LD r8#36, A
   LD r8#1, r8#5
   LD r8#2, r8#6
-  LD r8#3, r8#39
-  LD r8#4, r8#41
+  LD r8#3, r8#34
+  LD r8#4, r8#36
   JP .bb3
 
 .bb9:
   LD BC, RETURN
   (high_out=B;low_out=C;in=BC)
-  LD r8#47, C
-  LD r8#48, B
+  LD r8#42, C
+  LD r8#43, B
   LD HL, RESULT+$0000
-  LD A, r8#47
+  LD A, r8#42
   LD [HL++], A
-  LD [HL], r8#48
+  LD [HL], r8#43
   RET
 
 END_SECTION
@@ -921,10 +913,10 @@ collatz_steps::
 .bb1:
   LD HL, N+$0000
   LD A, [HL++]
-  LD C, [HL]
+  LD B, [HL]
   LD E, $00
   LD D, $00
-  LD B, A
+  LD C, A
   JP .bb3
 
 main::
@@ -937,10 +929,10 @@ main::
   CALL collatz_steps; return=.bb9
 
 .bb3:
-  LD A, B
+  LD A, C
   XOR A, $01; z, c
   LD H, A
-  LD A, C
+  LD A, B
   OR A, H; z, c
   JP z, .bb4; else=.bb5
 
@@ -951,38 +943,33 @@ main::
   RET
 
 .bb5:
-  LD A, B
-  AND A, $01; z, c
-  LD H, A
-  LD A, C
-  AND A, $00; z, c
-  OR A, H; z, c
+  BIT 0, C; z
   JP z, .bb6; else=.bb7
 
 .bb6:
-  SRL C; z, c
-  RR B; z, c
+  SRL B; z, c
+  RR C; z, c
   JP .bb8
 
 .bb7:
-  LD A, B
-  ADD A, B; z, c
-  LD H, A
   LD A, C
-  ADC A, C; z, c
+  ADD A, C; z, c
+  LD H, A
+  LD A, B
+  ADC A, B; z, c
   LD L, A
   LD A, H
-  ADD A, B; z, c
-  LD B, A
-  LD A, L
-  ADC A, C; z, c
+  ADD A, C; z, c
   LD C, A
-  LD A, B
-  ADD A, $01; z, c
+  LD A, L
+  ADC A, B; z, c
   LD B, A
   LD A, C
-  ADC A, $00; z, c
+  ADD A, $01; z, c
   LD C, A
+  LD A, B
+  ADC A, $00; z, c
+  LD B, A
   JP .bb8
 
 .bb8:

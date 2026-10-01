@@ -5,6 +5,7 @@ use crate::num::u3;
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
+use select::{Plan, Selection};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
 mod alu;
@@ -13,6 +14,7 @@ mod compare;
 mod place;
 mod scalar16;
 mod scalar8;
+mod select;
 mod terminator;
 mod u1;
 
@@ -107,22 +109,12 @@ impl<'a> InstrCtx<'a> {
                 }
             }
         }
+        let plan = Plan::new(function);
         for mir_block in function.traverse_blocks() {
             let block = self.blocks[mir_block];
-            for instruction in &function.blocks[mir_block].instructions {
-                match instruction {
-                    mir::Instr::Nop => {
-                        // currently we don't translate Nop in MIR to Nop in LIR
-                    }
-                    mir::Instr::Breakpoint => self.lir.insert_breakpoint(block),
-                    mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
-                        self.generate_from_transfer_or_fill(instruction, block);
-                    }
-                    _ => {
-                        let ty = self.ty_from_instr(instruction);
-                        self.generate_from_instr(instruction, ty, block);
-                    }
-                }
+            let instructions = &function.blocks[mir_block].instructions;
+            for (instruction, selection) in instructions.iter().zip(plan.block(mir_block)) {
+                self.generate_from_selection(*selection, instruction, block);
             }
             // `r1_to_r8` needs all of `self`, so the sources are copied out of `locals` first
             let phi_sources: Vec<(mir::LocalId, Value)> = self
@@ -217,6 +209,46 @@ impl<'a> InstrCtx<'a> {
         }
     }
 
+    /// generate LIR for the MIR instruction as planned by its selection.
+    fn generate_from_selection(
+        &mut self,
+        selection: Selection,
+        instruction: &mir::Instr,
+        block: BlockId,
+    ) {
+        match selection {
+            Selection::Covered => {}
+            Selection::Instr => match instruction {
+                mir::Instr::Nop => {
+                    // currently we don't translate Nop in MIR to Nop in LIR
+                }
+                mir::Instr::Breakpoint => self.lir.insert_breakpoint(block),
+                mir::Instr::Transfer { .. } | mir::Instr::Fill { .. } => {
+                    self.generate_from_transfer_or_fill(instruction, block);
+                }
+                _ => {
+                    let ty = self.ty_from_instr(instruction);
+                    self.generate_from_instr(instruction, ty, block);
+                }
+            },
+            Selection::BitTest {
+                target,
+                source,
+                bit,
+                condition,
+            } => {
+                // no LIR is needed until the value is used: `r1_to_flag` lowers it to `BIT`
+                let r8 = match self.locals.values[source] {
+                    Value::Byte(r8) => r8,
+                    Value::Pair(high, _low) if bit >= 8 => high,
+                    Value::Pair(_high, low) => low,
+                    value => panic!("{source:?} is lowered to {value:?}, expected a byte or pair"),
+                };
+                self.define(target, Value::Bit(r8, u3::new(bit % 8), condition), block);
+            }
+        }
+    }
+
     /// generate LIR from the MIR instruction.
     ///
     /// An additional move after every lowered MIR instruction to ensure that between
@@ -254,12 +286,18 @@ impl<'a> InstrCtx<'a> {
             },
             ty => unimplemented!("{ty:?}"),
         };
-        if let Some((target, mut value)) = lowered {
-            if self.function.locals[target].is_return {
-                value = self.move_to_return_registers(value, block);
-            }
-            self.locals.values.insert(target, value);
+        if let Some((target, value)) = lowered {
+            self.define(target, value, block);
         }
+    }
+
+    /// Records `value` as the lowered value of `target`, first moving it into the return
+    /// registers if `target` is the return local.
+    fn define(&mut self, target: mir::LocalId, mut value: Value, block: BlockId) {
+        if self.function.locals[target].is_return {
+            value = self.move_to_return_registers(value, block);
+        }
+        self.locals.values.insert(target, value);
     }
 
     /// Moves `value` into the registers of the return convention: `A` for 1-bit and byte values,
