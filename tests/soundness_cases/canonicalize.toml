@@ -2038,6 +2038,119 @@ fn main() {
 """
 
 [[case]]
+name = "single_bit_mask_eq_mask_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) == $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_ne_mask_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) != $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_eq_mask_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) == $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_sign_bit_mask_eq_mask_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & -128) == -128;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_eq_mask_tests_for_nonzero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) == $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_ne_mask_tests_for_zero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) != $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
 name = "multi_bit_mask_eq_zero_prefers_carry_soundly"
 inputs = { N = [{ min = 0, max = 255 }] }
 params = { C = [3, 6, 129, 240] }

@@ -4608,6 +4608,272 @@ main -> unit:
 """
 
 [[case]]
+name = "single_bit_mask_eq_mask_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 8) == 8;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 8
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 8
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_ne_mask_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 8) != 8;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 8
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 8
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "mask_eq_single_bit_mask_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return 8 == (n & 8);
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 8
+    #4: u8 = copy 8
+    #5: u8 = bitand n#2, #4
+    #6: u1 = ne #5, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_single_bit_mask_eq_mask_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 0x0200) == 0x0200;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 512
+    #4: u16 = bitand n#2, #3
+    #5: u16 = copy 512
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_single_bit_mask_ne_mask_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 64) != 64;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 64
+    #4: i8 = bitand n#2, #3
+    #5: i8 = copy 64
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_eq_other_single_bit_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 8) == 4;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 8
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 4
+    #6: u1 = eq #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "multi_bit_mask_eq_mask_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 12) == 12;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 12
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 12
+    #6: u1 = eq #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
 name = "multi_bit_mask_eq_zero_becomes_lt_one"
 kind = "analyzer"
 optimize = true

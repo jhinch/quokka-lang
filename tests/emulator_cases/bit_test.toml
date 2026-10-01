@@ -280,3 +280,116 @@ expected = 0x08
 [[case.assertion]]
 addr = 0xC002
 expected = 0b0100_1000
+
+# The cases below compare with the mask itself, which canonicalize rewrites to a compare with zero.
+
+[[case]]
+name = "eq_mask_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) == 0x08 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) == 0x10 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "ne_mask_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) != 0x08 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) != 0x10 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+
+[[case]]
+name = "u16_eq_mask_tests_the_byte_containing_the_bit"
+preview_features = ["canonicalize"]
+source = """
+global IN: u16;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x4201;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x0200) == 0x0200 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x0002) == 0x0002 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0

@@ -1,6 +1,8 @@
 # Instruction selection of single-bit mask tests. `(x & m) == 0` and `(x & m) != 0` with a
 # single-bit literal `m` are selected as a `BIT` of `x`, so the compare reads neither the `AND`
-# nor the zero. Each of those is only lowered if something else still reads it.
+# nor the zero. Each of those is only lowered if something else still reads it. A compare with the
+# mask itself (`(x & m) == m`) only becomes a `BIT` once canonicalize has rewritten it to a compare
+# with zero.
 
 [[case]]
 name = "ne_zero_of_single_bit_mask_is_a_bit_test"
@@ -2602,6 +2604,462 @@ main::
   CP A, $00; z, c
   (out=z#3,in=z)
   JP nz#3, .bb2; else=.bb3
+
+.bb2:
+  LD HL, RESULT+$0000
+  LD [HL], $01
+  JP .bb3
+
+.bb3:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "canonicalized_compare_with_the_mask_is_a_bit_test"
+kind = "codegen"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global FLAGS: u8;
+global RESULT: u8;
+
+fn main() {
+    let x = FLAGS;
+    if (x & 0x08) == 0x08 then {
+        RESULT = 1;
+    }
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+FLAGS::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, FLAGS+$0000
+  LD r8#1, [HL]
+  BIT 3, r8#1; z
+  JP nz, .bb2; else=.bb3
+
+.bb2:
+  LD HL, RESULT+$0000
+  LD [HL], $01
+  JP .bb3
+
+.bb3:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "canonicalized_compare_ne_the_mask_is_a_bit_test"
+kind = "codegen"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global FLAGS: u8;
+global RESULT: u8;
+
+fn main() {
+    let x = FLAGS;
+    if (x & 0x08) != 0x08 then {
+        RESULT = 1;
+    }
+}
+"""
+expected_lir = """
+START_SECTION WRAM0
+FLAGS::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION WRAM0
+RESULT::
+alloc 8 x bit
+END_SECTION
+
+START_SECTION ROM0
+main::
+.bb1:
+  LD HL, FLAGS+$0000
+  LD r8#1, [HL]
+  BIT 3, r8#1; z
+  JP z, .bb2; else=.bb3
 
 .bb2:
   LD HL, RESULT+$0000

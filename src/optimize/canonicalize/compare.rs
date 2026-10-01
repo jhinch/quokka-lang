@@ -17,8 +17,12 @@
 //!   `x >= MAX` and `x != MAX` becomes `x < MAX`. Branching on either flag costs the same, but
 //!   keeping the result as a value is far cheaper from carry. This is limited to unsigned
 //!   operands of at most 8 bits: a 16-bit ordered comparison is larger than a 16-bit test for
-//!   zero, and a signed one has to bias both of its operands first. A test of a single bit
-//!   (`(x & 4) == 0`) is also left alone, since codegen lowers that shape to `BIT`.
+//!   zero, and a signed one has to bias both of its operands first.
+//! - **Single-bit mask:** with `m` a constant of exactly one set bit, `(x & m) == m` becomes
+//!   `(x & m) != 0` and `(x & m) != m` becomes `(x & m) == 0`, for every integer width. Codegen
+//!   lowers a comparison of such a mask with `0` to `BIT`, which sets the zero flag from the
+//!   tested bit, so this takes priority over preferring carry: no comparison of a single-bit
+//!   mask is rewritten to read the carry flag.
 //!
 //! Only the comparison is rewritten. An inner instruction it no longer reads is left for dead code
 //! elimination if that was its only use. The target holds the same value as before, so none of
@@ -266,7 +270,25 @@ fn constant_on_the_right(
         );
     }
 
-    if ty.is_signed_int() || ty.bit_size(ctx.ty_registry) > 8 || is_single_bit_mask(ctx, x, ty) {
+    // This is decided before preferring carry, which would otherwise take the test for zero away
+    // from the zero flag.
+    if let Some(mask) = single_bit_mask(ctx, x, ty) {
+        if constant != mask {
+            return None;
+        }
+        // `(x & m) == m` => `(x & m) != 0`, `(x & m) != m` => `(x & m) == 0`
+        return Some(
+            Comparison {
+                kind: if kind == Kind::Eq { Kind::Ne } else { Kind::Eq },
+                target: comparison.target,
+                left: x,
+                right: to_literal(Value::zeros(ty, ctx.ty_registry)),
+            }
+            .into_instr(),
+        );
+    }
+
+    if ty.is_signed_int() || ty.bit_size(ctx.ty_registry) > 8 {
         return None;
     }
     let (kind, constant) = match kind {
@@ -331,13 +353,13 @@ fn through_arithmetic(
     })
 }
 
-/// Whether `x` is defined as an `&` with a constant mask of exactly one bit.
-fn is_single_bit_mask(ctx: &Context, x: LocalId, ty: Ty) -> bool {
+/// The mask, if `x` is defined as an `&` with a constant mask of exactly one bit.
+fn single_bit_mask(ctx: &Context, x: LocalId, ty: Ty) -> Option<Value> {
     let Some(Instr::BitAnd { right: mask, .. }) = ctx.definition(&Operand::Local(x)) else {
-        return false;
+        return None;
     };
-    ctx.constant(mask, ty).is_some_and(|mask| {
-        let bytes = mask.into_vec();
+    ctx.constant(mask, ty).filter(|mask| {
+        let bytes = mask.clone().into_vec();
         bytes.iter().map(|byte| byte.count_ones()).sum::<u32>() == 1
     })
 }
