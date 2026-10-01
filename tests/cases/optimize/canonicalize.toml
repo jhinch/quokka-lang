@@ -695,8 +695,8 @@ f -> u8:
     m#4: u8 = bitxor n#2, #3
     #5: u8 = copy 5
     a#6: u8 = add n#2, m#4
-    #7: u8 = copy 0
-    #8: u1 = eq n#2, #7
+    nop
+    #8: u1 = lt n#2, 1
     jumpif #8 != 0, .bb2, .bb3
   .bb2:
     #9: u8 = copy 1
@@ -751,8 +751,8 @@ f -> u8:
     #3: u8 = copy 5
     a#4: u8 = add n#2, #3
     nop
-    #6: u8 = copy 0
-    #7: u1 = eq n#2, #6
+    nop
+    #7: u1 = lt n#2, 1
     jumpif #7 != 0, .bb2, .bb3
   .bb2:
     #8: u8 = copy 1
@@ -1303,8 +1303,8 @@ f -> u8:
     m#4: u8 = bitxor n#2, #3
     #5: u8 = copy 5
     a#6: u8 = add n#2, #5
-    #7: u8 = copy 0
-    #8: u1 = eq n#2, #7
+    nop
+    #8: u1 = lt n#2, 1
     jumpif #8 != 0, .bb2, .bb3
   .bb2:
     breakpoint
@@ -1493,7 +1493,7 @@ f -> u8:
     #3: u8 = copy 3
     m#4: u8 = bitxor n#2, #3
     #5: u8 = copy 0
-    #6: u1 = eq n#2, #5
+    #6: u1 = lt n#2, 1
     jumpif #6 != 0, .bb2, .bb3
   .bb2:
     breakpoint
@@ -3580,6 +3580,1892 @@ f -> u8:
     n#2: u8 = load N
     a#6: u8 = neg n#2
     #RET: u8 = copy a#6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "gt_literal_becomes_ge_of_the_next_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n > 5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u1 = ge n#2, 6
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "le_literal_becomes_lt_of_the_next_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= 5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u1 = lt n#2, 6
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "gt_max_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n > 255;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    #4: u1 = copy 0
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "le_max_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= 255;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    #4: u1 = copy 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_eq_moves_the_literal_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return 5 == n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u1 = eq n#2, 5
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_ne_moves_the_literal_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return 5 != n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u1 = ne n#2, 5
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_gt_literal_becomes_ge_of_the_next_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return n > 255;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 255
+    #4: u1 = ge n#2, 256
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_le_max_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= 65535;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 65535
+    #4: u1 = copy 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_gt_literal_becomes_ge_of_the_next_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n > -1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 1
+    #4: i8 = copy 255
+    #5: u1 = ge n#2, 0
+    #RET: u1 = copy #5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_gt_max_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n > 127;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 127
+    #4: u1 = copy 0
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_le_max_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= 127;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 127
+    #4: u1 = copy 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i16_le_literal_becomes_lt_of_the_next_literal"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= -1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i16
+
+f -> u1:
+  .bb1:
+    n#2: i16 = load N
+    #3: i16 = copy 1
+    #4: i16 = copy 65535
+    #5: u1 = lt n#2, 0
+    #RET: u1 = copy #5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "lt_zero_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = copy 0
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "ge_zero_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = copy 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_lt_min_becomes_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < -128;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 128
+    #4: i8 = copy 128
+    #5: u1 = copy 0
+    #RET: u1 = copy 0
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_ge_min_becomes_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= -128;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 128
+    #4: i8 = copy 128
+    #5: u1 = copy 1
+    #RET: u1 = copy 1
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_lt_zero_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 0
+    #4: u1 = lt n#2, #3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "eq_zero_becomes_lt_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = lt n#2, 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "ne_zero_becomes_ge_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 0
+    #4: u1 = ge n#2, 1
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "eq_max_becomes_ge_max"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 255;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    #4: u1 = ge n#2, 255
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "ne_max_becomes_lt_max"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 255;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 255
+    #4: u1 = lt n#2, 255
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "eq_other_literal_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u1 = eq n#2, #3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_eq_zero_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 0
+    #4: u1 = eq n#2, #3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_ne_max_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 65535;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 65535
+    #4: u1 = ne n#2, #3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_eq_min_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == -128;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 128
+    #4: i8 = copy 128
+    #5: u1 = eq n#2, 128
+    #RET: u1 = copy #5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_ne_max_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 127;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 127
+    #4: u1 = ne n#2, #3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_eq_zero_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 0
+    #6: u1 = eq #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_ne_zero_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 128) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 128
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 0
+    #6: u1 = ne #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "multi_bit_mask_eq_zero_becomes_lt_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 6) == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 6
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 0
+    #6: u1 = lt #4, 1
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_eq_one_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 1
+    #4: u1 = copy n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_ne_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 0
+    #4: u1 = copy n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_eq_zero_becomes_not"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 0
+    #4: u1 = not n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_ne_one_becomes_not"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n != 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 1
+    #4: u1 = not n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_gt_zero_becomes_a_copy"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n > 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 0
+    #4: u1 = copy n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_lt_one_becomes_not"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 1
+    #4: u1 = not n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_le_zero_becomes_not"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n <= 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 0
+    #4: u1 = not n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u1_literal_eq_zero_becomes_not"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return 0 == n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u1
+
+f -> u1:
+  .bb1:
+    n#2: u1 = load N
+    #3: u1 = copy 0
+    #4: u1 = not n#2
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_literal_eq_literal_compares_with_the_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 3) == 10;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = add n#2, #3
+    #5: u8 = copy 10
+    #6: u1 = eq n#2, 7
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_literal_ne_literal_compares_with_the_wrapped_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 10) != 3;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 10
+    #4: u8 = add n#2, #3
+    #5: u8 = copy 3
+    #6: u1 = ne n#2, 249
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_add_eq_literal_compares_with_the_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (3 + n) == 10;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = add #3, n#2
+    #5: u8 = copy 10
+    #6: u1 = eq n#2, 7
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_literal_eq_literal_compares_with_the_sum"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n - 3) == 10;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = add n#2, 253
+    #5: u8 = copy 10
+    #6: u1 = eq n#2, 13
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitxor_literal_eq_literal_compares_with_the_xor"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n ^ 3) == 10;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = bitxor n#2, #3
+    #5: u8 = copy 10
+    #6: u1 = eq n#2, 9
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_literal_eq_zero_folds_before_preferring_carry"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 1) == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 1
+    #4: u8 = add n#2, #3
+    #5: u8 = copy 0
+    #6: u1 = ge n#2, 255
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_eq_zero_compares_the_operands"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return (n - m) == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+global M: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    m#3: u8 = load M
+    #4: u8 = sub n#2, m#3
+    #5: u8 = copy 0
+    #6: u1 = eq n#2, m#3
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_ne_zero_compares_the_operands"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return (n - m) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+global M: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    m#3: u8 = load M
+    #4: u8 = sub n#2, m#3
+    #5: u8 = copy 0
+    #6: u1 = ne n#2, m#3
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "sub_eq_other_literal_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return (n - m) == 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+global M: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    m#3: u8 = load M
+    #4: u8 = sub n#2, m#3
+    #5: u8 = copy 1
+    #6: u1 = eq #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "add_literal_lt_literal_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 3) < 10;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = add n#2, #3
+    #5: u8 = copy 10
+    #6: u1 = lt #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "bitand_literal_eq_literal_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 3) == 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 3
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 1
+    #6: u1 = eq #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_add_literal_eq_literal_compares_with_the_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 300) == 100;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 300
+    #4: u16 = add n#2, #3
+    #5: u16 = copy 100
+    #6: u1 = eq n#2, 65336
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_add_literal_eq_literal_compares_with_the_difference"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 3) == -1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 3
+    #4: i8 = add n#2, 3
+    #5: i8 = copy 1
+    #6: i8 = copy 255
+    #7: u1 = eq n#2, 252
+    #RET: u1 = copy #7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "comparison_of_two_locals_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return n < m;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+global M: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    m#3: u8 = load M
+    #4: u1 = lt n#2, m#3
+    #RET: u1 = copy #4
     return
 
 @{"entrypoint":true}

@@ -9,6 +9,7 @@ use slotmap::{SecondaryMap, SlotMap};
 use tracing::{instrument, trace};
 
 mod additive;
+mod compare;
 mod identity;
 mod neg;
 mod not;
@@ -31,6 +32,7 @@ const RULES: &[&dyn Rule] = &[
     &not::Not,
     &neg::Neg,
     &reassociate::Reassociate,
+    &compare::Compare,
     &identity::Identity,
 ];
 
