@@ -681,6 +681,8 @@ impl Neg for Value {
 
     fn neg(self) -> Self::Output {
         match self {
+            Value::U8(value) => Value::U8(value.wrapping_neg()),
+            Value::U16(value) => Value::U16(value.wrapping_neg()),
             Value::I8(value) => Value::I8(value.wrapping_neg()),
             Value::I16(value) => Value::I16(value.wrapping_neg()),
             value => unimplemented!("neg operation not supported on {value:?}"),

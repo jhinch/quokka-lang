@@ -8,7 +8,10 @@ use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap};
 use tracing::{instrument, trace};
 
+mod additive;
 mod identity;
+mod neg;
+mod not;
 mod reassociate;
 
 /// Canonicalize
@@ -23,7 +26,13 @@ mod reassociate;
 pub struct Canonicalize;
 
 /// In application order at each instruction position.
-const RULES: &[&dyn Rule] = &[&reassociate::Reassociate, &identity::Identity];
+const RULES: &[&dyn Rule] = &[
+    &additive::Additive,
+    &not::Not,
+    &neg::Neg,
+    &reassociate::Reassociate,
+    &identity::Identity,
+];
 
 /// A bound on the sweeps over a function. Rules are expected to converge long before this; hitting
 /// it means two rewrites undo each other.
@@ -109,6 +118,15 @@ impl Context<'_> {
     /// rather than its target's type: the two differ for a comparison, whose target is a `u1`.
     fn operand_ty(&self, binop: &BinOp) -> Ty {
         self.function.locals[binop.left].ty
+    }
+
+    /// The instruction defining `operand`, if it is a local with a definition.
+    fn definition(&self, operand: &Operand) -> Option<&Instr> {
+        let Operand::Local(local) = operand else {
+            return None;
+        };
+        let (block, index) = self.function.defined_at(*local)?;
+        Some(&self.function.blocks[block].instructions[index])
     }
 
     /// The compile-time constant value of `operand` read as a `ty`, if it has one: either a
