@@ -17,10 +17,16 @@
 //! the test fails - this catches semantic (not just structural) bugs that reading the optimizer's
 //! source code would miss.
 //!
+//! Sweeping every value is only affordable for a single axis of up to 8 bits. For wider globals,
+//! or for the second axis of a case which sweeps two, an input lists `"edges"` instead of a range
+//! (e.g. `inputs = { N = ["edges"] }`), which expands to the values of the global's type most
+//! likely to expose a bug (see [`edge_values`]) rather than all of them.
+//!
 //! Globals are never literals, so a rewrite that only matches a literal operand cannot be swept
 //! through `inputs`. For those a case lists `params`: each `$NAME$` placeholder in the source is
 //! replaced with the value in decimal and the program is compiled and checked once per
-//! combination of parameter values.
+//! combination of parameter values. A param has no type to take a width from, so it samples with
+//! an explicit width instead (e.g. `params = { C = [{ edges = 8 }] }`).
 //!
 //! Agreeing results say nothing if the optimization under test never fired. A case can list
 //! features under `expect_rewrite`: the trial for each listed feature additionally fails if
@@ -64,10 +70,12 @@ struct TestCase {
     preview_features: Vec<PreviewFeature>,
     /// values to feed into each named global, as individual values and/or inclusive ranges. Each
     /// value is treated as a raw unsigned bit pattern and encoded little-endian to the width of
-    /// the global's type. The function is evaluated for every combination of input values.
+    /// the global's type. The function is evaluated for every combination of input values. An
+    /// input may also list `"edges"` to sample the global's type (see [`edge_values`]).
     inputs: BTreeMap<String, Vec<InputValue>>,
     /// values to substitute for each `$NAME$` placeholder in `source`, as individual values
     /// and/or inclusive ranges. The source is compiled once per combination of parameter values.
+    /// A param may also list `{ edges = <bits> }` to sample values of that width.
     #[serde(default)]
     params: BTreeMap<String, Vec<InputValue>>,
     /// optimization features which must change the optimized MIR when toggled on their own.
@@ -78,21 +86,110 @@ struct TestCase {
     source: String,
 }
 
-/// A single input value or an inclusive range of input values.
+/// A single input value, an inclusive range of input values, or a sample of them.
 #[derive(Clone, Copy, serde::Deserialize)]
 #[serde(untagged)]
 enum InputValue {
     Single(u64),
-    Range { min: u64, max: u64 },
+    Range {
+        min: u64,
+        max: u64,
+    },
+    /// the [`edge_values`] of an explicit width.
+    Edges {
+        edges: u32,
+    },
+    Sample(Sample),
+}
+
+/// A set of input values derived from the width of the input's type.
+#[derive(Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Sample {
+    /// see [`edge_values`].
+    Edges,
 }
 
 impl InputValue {
-    fn bounds(self) -> (u64, u64) {
+    /// The inclusive bounds of an explicitly listed value or range, or `None` for a sample.
+    fn bounds(self) -> Option<(u64, u64)> {
         match self {
-            InputValue::Single(value) => (value, value),
-            InputValue::Range { min, max } => (min, max),
+            InputValue::Single(value) => Some((value, value)),
+            InputValue::Range { min, max } => Some((min, max)),
+            InputValue::Edges { .. } | InputValue::Sample(_) => None,
         }
     }
+}
+
+/// The values of a `bits` wide type most likely to expose an unsound rewrite, sorted and without
+/// duplicates:
+///
+/// - a window of values either side of every power of two, which covers zero, the maximum, the
+///   signed minimum and maximum, and every carry and borrow between bytes;
+/// - every combination of interesting bit patterns across the bytes of the value, so each byte
+///   sees its own extremes regardless of what its neighbors hold;
+/// - a fixed pseudo-random sample, for anything the structured values miss.
+///
+/// The window and the random sample are kept small for types of up to 8 bits, which a case can
+/// afford to sweep with a range instead when it needs every value.
+fn edge_values(bits: u32) -> Vec<u64> {
+    let type_max = u64::MAX >> (u64::BITS - bits);
+    let (window, random_values) = if bits <= 8 { (1, 8) } else { (16, 256) };
+    let mut values = Vec::new();
+
+    for shift in 0..=bits {
+        let boundary = if shift == bits { 0 } else { 1u64 << shift };
+        for offset in 0..=window {
+            values.push(boundary.wrapping_add(offset) & type_max);
+            values.push(boundary.wrapping_sub(offset) & type_max);
+        }
+    }
+
+    const BYTE_PATTERNS: [u64; 11] = [
+        0x00, 0x01, 0x0F, 0x55, 0x7F, 0x80, 0x81, 0xAA, 0xF0, 0xFE, 0xFF,
+    ];
+    let mut patterns = vec![0u64];
+    for byte in 0..bits.div_ceil(8) {
+        patterns = patterns
+            .iter()
+            .flat_map(|&value| {
+                BYTE_PATTERNS
+                    .iter()
+                    .map(move |&pattern| value | (pattern << (byte * 8)))
+            })
+            .collect();
+    }
+    values.extend(patterns.into_iter().map(|value| value & type_max));
+
+    // xorshift64 from a fixed seed, so every run tests the same values.
+    let mut state = 0x9E37_79B9_7F4A_7C15u64;
+    for _ in 0..random_values {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        values.push(state & type_max);
+    }
+
+    values.sort_unstable();
+    values.dedup();
+    values
+}
+
+/// Every value listed by `values`, in order, for an input or param which is `bits` wide (if it
+/// has a type at all - params are substituted into the source as text).
+fn expand(values: &[InputValue], bits: Option<u32>) -> Vec<u64> {
+    let mut expanded = Vec::new();
+    for &value in values {
+        match value {
+            InputValue::Single(value) => expanded.push(value),
+            InputValue::Range { min, max } => expanded.extend(min..=max),
+            InputValue::Edges { edges } => expanded.extend(edge_values(edges)),
+            InputValue::Sample(Sample::Edges) => {
+                expanded.extend(edge_values(bits.expect("params have no type to sample")))
+            }
+        }
+    }
+    expanded
 }
 
 fn default_function() -> String {
@@ -212,8 +309,30 @@ fn load_suites()
             .to_string();
         let suite: TestSuite = toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
         for case in &suite.cases {
+            for value in case.params.values().flatten() {
+                if matches!(value, InputValue::Sample(_)) {
+                    return Err(format!(
+                        "{name}::{}: params have no type to sample, use {{ edges = <bits> }} instead",
+                        case.name
+                    )
+                    .into());
+                }
+            }
             for value in case.inputs.values().chain(case.params.values()).flatten() {
-                let (min, max) = value.bounds();
+                if let InputValue::Edges { edges } = *value
+                    && !(1..=u64::BITS).contains(&edges)
+                {
+                    return Err(format!(
+                        "{name}::{}: unsupported width {{ edges = {edges} }}",
+                        case.name
+                    )
+                    .into());
+                }
+            }
+            for value in case.inputs.values().chain(case.params.values()).flatten() {
+                let Some((min, max)) = value.bounds() else {
+                    continue;
+                };
                 if min > max {
                     return Err(format!(
                         "{name}::{}: empty value range {{ min = {min}, max = {max} }}",
@@ -256,19 +375,16 @@ fn placeholder(name: &str) -> String {
 }
 
 /// Calls `f` with every combination of one value from each of `axes`, in order.
-fn for_each_combination<F: FnMut(&[u64])>(axes: &[&[InputValue]], f: &mut F) {
-    fn go<F: FnMut(&[u64])>(axes: &[&[InputValue]], current: &mut Vec<u64>, f: &mut F) {
+fn for_each_combination<F: FnMut(&[u64])>(axes: &[Vec<u64>], f: &mut F) {
+    fn go<F: FnMut(&[u64])>(axes: &[Vec<u64>], current: &mut Vec<u64>, f: &mut F) {
         let Some((axis, rest)) = axes.split_first() else {
             f(current);
             return;
         };
-        for value in axis.iter() {
-            let (min, max) = value.bounds();
-            for value in min..=max {
-                current.push(value);
-                go(rest, current, f);
-                current.pop();
-            }
+        for &value in axis {
+            current.push(value);
+            go(rest, current, f);
+            current.pop();
         }
     }
     go(axes, &mut Vec::new(), f);
@@ -372,8 +488,11 @@ fn assert_optimization_preserves_semantics(
     toggled: Option<PreviewFeature>,
 ) {
     let expect_rewrite = toggled.filter(|feature| case.expect_rewrite.contains(feature));
-    let param_axes: Vec<&[InputValue]> = case.params.values().map(Vec::as_slice).collect();
-    let input_axes: Vec<&[InputValue]> = case.inputs.values().map(Vec::as_slice).collect();
+    let param_axes: Vec<Vec<u64>> = case
+        .params
+        .values()
+        .map(|values| expand(values, None))
+        .collect();
 
     for_each_combination(&param_axes, &mut |params| {
         let mut source = case.source.clone();
@@ -411,6 +530,7 @@ fn assert_optimization_preserves_semantics(
             );
         }
 
+        let mut input_axes = Vec::new();
         for (name, values) in &case.inputs {
             let global_ty = unoptimized_mir
                 .globals
@@ -425,14 +545,23 @@ fn assert_optimization_preserves_semantics(
                 global_ty.display(ty_registry)
             );
             let type_max = u64::MAX >> (u64::BITS - bits);
-            for value in values {
-                let (min, max) = value.bounds();
+            for (min, max) in values.iter().filter_map(|value| value.bounds()) {
                 assert!(
                     max <= type_max,
                     "value range {min}..={max} does not fit in {} (max {type_max})",
                     global_ty.display(ty_registry)
                 );
             }
+            for value in values {
+                if let InputValue::Edges { edges } = *value {
+                    assert!(
+                        edges <= bits,
+                        "{{ edges = {edges} }} does not fit in {}",
+                        global_ty.display(ty_registry)
+                    );
+                }
+            }
+            input_axes.push(expand(values, Some(bits)));
         }
 
         let mut before = Evaluator::new(

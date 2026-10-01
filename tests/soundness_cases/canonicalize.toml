@@ -166,9 +166,9 @@ fn main() {
 """
 
 [[case]]
-name = "add_add_chain_reassociates_soundly_for_every_literal"
+name = "add_add_chain_reassociates_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
@@ -187,9 +187,9 @@ fn main() {
 """
 
 [[case]]
-name = "sub_sub_chain_reassociates_soundly_for_every_literal"
+name = "sub_sub_chain_reassociates_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
@@ -209,8 +209,8 @@ fn main() {
 """
 
 [[case]]
-name = "mixed_add_sub_chain_reassociates_soundly_for_every_operand_pair"
-inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+name = "mixed_add_sub_chain_reassociates_soundly_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
@@ -233,7 +233,7 @@ fn main() {
 
 [[case]]
 name = "u16_add_add_chain_reassociates_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 1, 255, 256, 32767, 32768, 65535] }
 expect_rewrite = ["canonicalize"]
 source = """
@@ -670,9 +670,9 @@ fn main() {
 """
 
 [[case]]
-name = "add_simplifies_soundly_for_every_literal"
+name = "add_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -689,9 +689,9 @@ fn main() {
 """
 
 [[case]]
-name = "add_simplifies_soundly_for_every_left_literal"
+name = "add_simplifies_soundly_for_edge_left_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -708,9 +708,9 @@ fn main() {
 """
 
 [[case]]
-name = "sub_simplifies_soundly_for_every_literal"
+name = "sub_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -727,9 +727,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitand_simplifies_soundly_for_every_literal"
+name = "bitand_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -746,9 +746,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitand_simplifies_soundly_for_every_left_literal"
+name = "bitand_simplifies_soundly_for_edge_left_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -765,9 +765,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitor_simplifies_soundly_for_every_literal"
+name = "bitor_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -784,9 +784,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitor_simplifies_soundly_for_every_left_literal"
+name = "bitor_simplifies_soundly_for_edge_left_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -803,9 +803,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitxor_simplifies_soundly_for_every_literal"
+name = "bitxor_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -822,9 +822,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitxor_simplifies_soundly_for_every_left_literal"
+name = "bitxor_simplifies_soundly_for_edge_left_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -842,7 +842,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitand_max_simplifies_to_a_copy_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;
@@ -861,7 +861,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitor_max_simplifies_to_a_constant_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;
@@ -880,7 +880,7 @@ fn main() {
 
 [[case]]
 name = "u16_add_simplifies_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 255, 256, 65280, 65535] }
 source = """
 global N: u16;
@@ -899,7 +899,7 @@ fn main() {
 
 [[case]]
 name = "u16_sub_simplifies_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 255, 256, 65280, 65535] }
 source = """
 global N: u16;
@@ -918,7 +918,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitand_simplifies_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 255, 256, 65280, 65535] }
 source = """
 global N: u16;
@@ -937,7 +937,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitor_simplifies_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 255, 256, 65280, 65535] }
 source = """
 global N: u16;
@@ -956,7 +956,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitxor_simplifies_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [0, 255, 256, 65280, 65535] }
 source = """
 global N: u16;
@@ -975,7 +975,7 @@ fn main() {
 
 [[case]]
 name = "u16_lt_self_simplifies_to_a_constant_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;
@@ -1070,7 +1070,7 @@ fn main() {
 
 [[case]]
 name = "i16_bitand_max_simplifies_to_a_copy_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: i16;
@@ -1108,9 +1108,9 @@ fn main() {
 """
 
 [[case]]
-name = "add_then_sub_of_the_same_literal_simplifies_soundly_for_every_literal"
+name = "add_then_sub_of_the_same_literal_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -1128,9 +1128,9 @@ fn main() {
 """
 
 [[case]]
-name = "sub_literal_becomes_add_soundly_for_every_literal"
+name = "sub_literal_becomes_add_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
@@ -1148,9 +1148,9 @@ fn main() {
 """
 
 [[case]]
-name = "i8_sub_literal_becomes_add_soundly_for_every_literal"
+name = "i8_sub_literal_becomes_add_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: i8;
 
@@ -1168,7 +1168,7 @@ fn main() {
 
 [[case]]
 name = "u16_sub_literal_becomes_add_soundly_for_edge_literals"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 params = { C = [1, 2, 255, 256, 32767, 32768, 65534, 65535] }
 expect_rewrite = ["canonicalize"]
 source = """
@@ -1245,7 +1245,7 @@ fn main() {
 
 [[case]]
 name = "u16_bitxor_max_becomes_not_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;
@@ -1322,7 +1322,7 @@ fn main() {
 
 [[case]]
 name = "u16_zero_sub_becomes_neg_soundly"
-inputs = { N = [{ min = 0, max = 65535 }] }
+inputs = { N = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;
@@ -1400,9 +1400,9 @@ fn main() {
 """
 
 [[case]]
-name = "not_plus_literal_simplifies_soundly_for_every_literal"
+name = "not_plus_literal_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -1420,9 +1420,9 @@ fn main() {
 """
 
 [[case]]
-name = "literal_plus_not_simplifies_soundly_for_every_literal"
+name = "literal_plus_not_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -1440,9 +1440,9 @@ fn main() {
 """
 
 [[case]]
-name = "not_minus_literal_simplifies_soundly_for_every_literal"
+name = "not_minus_literal_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u8;
@@ -1481,9 +1481,9 @@ fn main() {
 """
 
 [[case]]
-name = "bitxor_literal_simplifies_soundly_before_add_for_every_literal"
+name = "bitxor_literal_simplifies_soundly_before_add_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
-params = { C = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
 source = """
 global N: u8;
 
@@ -1501,8 +1501,8 @@ fn main() {
 """
 
 [[case]]
-name = "i8_add_of_neg_becomes_sub_soundly_for_every_operand_pair"
-inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+name = "i8_add_of_neg_becomes_sub_soundly_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: i8;
@@ -1524,8 +1524,8 @@ fn main() {
 """
 
 [[case]]
-name = "i8_neg_plus_operand_becomes_sub_soundly_for_every_operand_pair"
-inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+name = "i8_neg_plus_operand_becomes_sub_soundly_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: i8;
@@ -1547,8 +1547,8 @@ fn main() {
 """
 
 [[case]]
-name = "i8_sub_of_neg_becomes_add_soundly_for_every_operand_pair"
-inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+name = "i8_sub_of_neg_becomes_add_soundly_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: i8;
@@ -1570,8 +1570,8 @@ fn main() {
 """
 
 [[case]]
-name = "i8_neg_minus_operand_is_sound_for_every_operand_pair"
-inputs = { N = [{ min = 0, max = 255 }], M = [{ min = 0, max = 255 }] }
+name = "i8_neg_minus_operand_is_sound_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
 source = """
 global N: i8;
 global M: i8;
