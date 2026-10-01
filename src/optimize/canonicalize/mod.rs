@@ -17,7 +17,7 @@ mod reassociate;
 
 /// Canonicalize
 ///
-/// Rewrites instructions toward one normal form per operation. Each [`Rule`] lives in its own
+/// Rewrites instructions toward one normal form per operation. Each rule lives in its own
 /// submodule and proposes replacements for one instruction position at a time. The rules are run
 /// over the whole function repeatedly until none of them fires, so one rule's output can feed
 /// another within a single invocation of the pass.

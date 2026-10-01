@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn ty_ref_new_is_scalar() {
         let ty = TyRef::new(ident("u32"));
-        assert_matches!(ty.data, TyRefData::Simple(name) if &*name.data.as_str() == "u32");
+        assert_matches!(ty.data, TyRefData::Simple(name) if name.data.as_str() == "u32");
     }
 
     #[test]

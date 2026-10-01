@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn entrypoint_absent() {
         let actual = FnDeclAttributes::deserialize(Deserializer::new(&[])).unwrap();
-        assert_eq!(actual.entrypoint, false);
+        assert!(!actual.entrypoint);
     }
 
     #[test]
@@ -516,7 +516,7 @@ mod tests {
         }];
         let actual =
             FnDeclAttributes::deserialize(Deserializer::new(attributes.as_slice())).unwrap();
-        assert_eq!(actual.entrypoint, true);
+        assert!(actual.entrypoint);
     }
 
     #[test]

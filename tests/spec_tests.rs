@@ -116,11 +116,11 @@ struct PendingUpdate {
 }
 
 enum PendingUpdateData {
-    UpdateErrors(Vec<String>),
-    UpdateTokens(String),
-    UpdateAst(String),
-    UpdateMir(String),
-    UpdateLir(String),
+    Errors(Vec<String>),
+    Tokens(String),
+    Ast(String),
+    Mir(String),
+    Lir(String),
 }
 
 fn main() {
@@ -272,7 +272,7 @@ fn save_suites(
                 })?;
             for update in updates {
                 match update {
-                    PendingUpdateData::UpdateErrors(errors) => {
+                    PendingUpdateData::Errors(errors) => {
                         if errors.is_empty() {
                             case.remove("expected_errors");
                         } else {
@@ -287,7 +287,7 @@ fn save_suites(
                             });
                         }
                     }
-                    PendingUpdateData::UpdateTokens(tokens) => {
+                    PendingUpdateData::Tokens(tokens) => {
                         if tokens.is_empty() {
                             case.remove("expected_tokens");
                         } else {
@@ -297,7 +297,7 @@ fn save_suites(
                             );
                         }
                     }
-                    PendingUpdateData::UpdateAst(ast) => {
+                    PendingUpdateData::Ast(ast) => {
                         if ast.is_empty() {
                             case.remove("expected_ast");
                         } else {
@@ -307,7 +307,7 @@ fn save_suites(
                             );
                         }
                     }
-                    PendingUpdateData::UpdateMir(mir) => {
+                    PendingUpdateData::Mir(mir) => {
                         if mir.is_empty() {
                             case.remove("expected_mir");
                         } else {
@@ -317,7 +317,7 @@ fn save_suites(
                             );
                         }
                     }
-                    PendingUpdateData::UpdateLir(lir) => {
+                    PendingUpdateData::Lir(lir) => {
                         if lir.is_empty() {
                             case.remove("expected_lir");
                         } else {
@@ -358,7 +358,7 @@ fn update_expected_errors(
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateErrors(actual_errors.to_vec()),
+        data: PendingUpdateData::Errors(actual_errors.to_vec()),
     })
     .unwrap();
     case.expected_errors = actual_errors.to_vec();
@@ -379,7 +379,7 @@ fn update_expected_tokens(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase,
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateTokens(actual.to_string()),
+        data: PendingUpdateData::Tokens(actual.to_string()),
     })
     .unwrap();
     case.expected_tokens = actual.to_string();
@@ -393,7 +393,7 @@ fn delete_expected_tokens(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase)
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateTokens(String::new()),
+        data: PendingUpdateData::Tokens(String::new()),
     })
     .unwrap();
     case.expected_tokens = String::new();
@@ -414,7 +414,7 @@ fn update_expected_ast(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, ac
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateAst(actual.to_string()),
+        data: PendingUpdateData::Ast(actual.to_string()),
     })
     .unwrap();
     case.expected_ast = actual.to_string();
@@ -428,7 +428,7 @@ fn delete_expected_ast(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateAst(String::new()),
+        data: PendingUpdateData::Ast(String::new()),
     })
     .unwrap();
     case.expected_ast = String::new();
@@ -449,7 +449,7 @@ fn update_expected_mir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, ac
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateMir(actual.to_string()),
+        data: PendingUpdateData::Mir(actual.to_string()),
     })
     .unwrap();
     case.expected_mir = actual.to_string();
@@ -463,7 +463,7 @@ fn delete_expected_mir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateMir(String::new()),
+        data: PendingUpdateData::Mir(String::new()),
     })
     .unwrap();
     case.expected_mir = String::new();
@@ -484,7 +484,7 @@ fn update_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, ac
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateLir(actual.to_string()),
+        data: PendingUpdateData::Lir(actual.to_string()),
     })
     .unwrap();
     case.expected_lir = actual.to_string();
@@ -498,7 +498,7 @@ fn delete_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
         category: case.category.clone(),
         suite: case.suite.clone(),
         case: case.name.clone(),
-        data: PendingUpdateData::UpdateLir(String::new()),
+        data: PendingUpdateData::Lir(String::new()),
     })
     .unwrap();
     case.expected_lir = String::new();
