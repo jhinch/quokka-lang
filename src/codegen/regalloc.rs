@@ -758,6 +758,7 @@ fn allocate_spill_slots(
                             false
                         }
                     } else {
+                        found_low = false;
                         false
                     }
                 });
@@ -1933,6 +1934,108 @@ mod tests {
         assert!(
             !x_range.contains(&y_slot) && !x_range.contains(&(y_slot + 1)),
             "x's slot range {x_range:?} overlaps y's byte range {y_range:?} for interfering r16 regs"
+        );
+    }
+
+    #[test]
+    fn allocate_spill_slots_gives_r16_two_adjacent_free_bytes() {
+        // `a`, `b` and `c` are live together so take a byte each, in that order. `z` is live
+        // alongside `b` alone, so it may share the bytes of `a` and `c`, but they are not next to
+        // each other: it has to start a pair of its own after `c` rather than straddle `b`.
+        let mut code = CodeSectionData {
+            region: None,
+            addr: None,
+            functions: SparseSecondaryMap::new(),
+            blocks: SlotMap::with_key(),
+            zero_registers: SlotMap::with_key(),
+            carry_registers: SlotMap::with_key(),
+            r8_registers: SlotMap::with_key(),
+            r16_registers: SlotMap::with_key(),
+        };
+        let a = code.r8_registers.insert(Register::default());
+        let b = code.r8_registers.insert(Register::default());
+        let c = code.r8_registers.insert(Register::default());
+        let z = code.r16_registers.insert(Register::default());
+        let block = code.blocks.insert(Block {
+            instructions: Vec::new(),
+            terminator: Terminator::Ret,
+            previous: Vec::new(),
+        });
+        code.functions.insert(block, Identifier::from("f"));
+        code.blocks[block].instructions = vec![
+            Instr::Ld8Value {
+                target: a,
+                source: 0,
+            },
+            Instr::Ld8Value {
+                target: c,
+                source: 0,
+            },
+            Instr::Ld8Value {
+                target: b,
+                source: 0,
+            },
+            Instr::Store {
+                addr: Addr::Literal(0xC000),
+                source: a,
+            },
+            Instr::Store {
+                addr: Addr::Literal(0xC000),
+                source: c,
+            },
+            Instr::Ld16 {
+                target: z,
+                source: Ld16Source::Literal(0),
+            },
+            Instr::Store {
+                addr: Addr::Literal(0xC000),
+                source: b,
+            },
+            Instr::PushR16 { source: z },
+        ];
+        code.r8_registers[a].defined.insert(block, 0);
+        code.r8_registers[c].defined.insert(block, 1);
+        code.r8_registers[b].defined.insert(block, 2);
+        code.r16_registers[z].defined.insert(block, 5);
+
+        let liveness = calculate_block_liveness(&code);
+        let (graph, _moves) = build_interference_graph(&code, &liveness);
+        let (a, b, c, z) = (
+            VirtualReg::R8(a),
+            VirtualReg::R8(b),
+            VirtualReg::R8(c),
+            VirtualReg::R16(z),
+        );
+        assert!(
+            graph.has_edge(a, b) && graph.has_edge(b, c) && graph.has_edge(a, c),
+            "test setup should make a, b and c interfere"
+        );
+        assert!(
+            graph.has_edge(z, b) && !graph.has_edge(z, a) && !graph.has_edge(z, c),
+            "test setup should make z interfere with b alone"
+        );
+
+        let functions_blocks = calculate_function_blocks(&code);
+        let mut spill_slots = SpillSlots::default();
+        let new_spills = [a, b, c, z].into_iter().collect::<IndexSet<_>>();
+        allocate_spill_slots(
+            &mut code,
+            &mut spill_slots,
+            &new_spills,
+            &graph,
+            &functions_blocks,
+        );
+
+        let VirtualReg::R8(b) = b else { unreachable!() };
+        let VirtualReg::R16(z) = z else {
+            unreachable!()
+        };
+        let b_slot = spill_slots.r8_to_slot[b];
+        let z_slot = spill_slots.r16_to_slot[z];
+        assert!(
+            z_slot != b_slot && z_slot + 1 != b_slot,
+            "z's bytes {z_slot} and {} overlap b's byte {b_slot}",
+            z_slot + 1
         );
     }
 
