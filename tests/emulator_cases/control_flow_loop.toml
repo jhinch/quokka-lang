@@ -193,3 +193,234 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC000
 expected = 6 # each of the 3 outer iterations counts inner values 1 and 3, skipping 2
+
+[[case]]
+name = "loop_unconditional_break_keeps_body_assignment"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 41;
+    let r = IN;
+    loop {
+        r = r + 1;
+        break;
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 42
+
+[[case]]
+name = "loop_unconditional_break_keeps_multiple_body_assignments"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0xC002]
+global OUT2: u8;
+
+#[address = 0xC003]
+global OUT3: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    let a = IN;
+    let b = IN;
+    let c = 0;
+    loop {
+        a = a + 1;
+        b = b + a;
+        c = a + 5;
+        break;
+    }
+    OUT = a;
+    OUT2 = b;
+    OUT3 = c;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 11
+[[case.assertion]]
+addr = 0xC002
+expected = 21
+[[case.assertion]]
+addr = 0xC003
+expected = 16
+
+[[case]]
+name = "nested_loop_unconditional_breaks_keep_body_assignments"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0xC002]
+global OUT2: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    let r = IN;
+    let s = 0;
+    loop {
+        r = r + 1;
+        loop {
+            r = r + 2;
+            s = r;
+            break;
+        }
+        s = s + r;
+        break;
+    }
+    OUT = r;
+    OUT2 = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 13
+[[case.assertion]]
+addr = 0xC002
+expected = 26
+
+[[case]]
+name = "loop_unconditional_break_after_if_break_taken"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0xC002]
+global C: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    C = 1;
+    let r = IN;
+    loop {
+        r = r + 1;
+        if C == 1 then {
+            r = r + 2;
+            break;
+        }
+        r = r + 4;
+        break;
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 13
+
+[[case]]
+name = "loop_unconditional_break_after_if_break_not_taken"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0xC002]
+global C: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    C = 0;
+    let r = IN;
+    loop {
+        r = r + 1;
+        if C == 1 then {
+            r = r + 2;
+            break;
+        }
+        r = r + 4;
+        break;
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 15
+
+[[case]]
+name = "loop_assignment_before_break_via_if_is_kept"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0xC002]
+global C: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    C = 0;
+    let r = IN;
+    loop {
+        r = r + 1;
+        C = C + 1;
+        if C == 3 then {
+            break;
+        }
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 13

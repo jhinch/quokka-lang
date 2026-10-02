@@ -590,3 +590,257 @@ main -> unit:
   .bb1:
     return
 """
+
+[[case]]
+name = "loop_unconditional_break_keeps_body_assignment"
+kind = "analyzer"
+source = """
+global A: u8;
+
+fn f() -> u8 {
+    let r = A;
+    loop {
+        r = r + 1;
+        break;
+    }
+    return r;
+}
+
+fn main() {}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    r#2: u8 = load A
+    jump .bb2
+  .bb2:
+    r#3: u8 = copy r#2
+    #4: u8 = copy 1
+    r#5: u8 = add r#3, #4
+    jump .bb3
+  .bb3:
+    #RET: u8 = copy r#5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "loop_unconditional_break_keeps_multiple_body_assignments"
+kind = "analyzer"
+source = """
+global A: u8;
+global B: u8;
+
+fn f() -> u8 {
+    let a = A;
+    let b = B;
+    let c = 0;
+    loop {
+        a = a + 1;
+        b = b + a;
+        c = a;
+        break;
+    }
+    return a + b + c;
+}
+
+fn main() {}
+"""
+expected_mir = """
+global A: u8
+global B: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    b#3: u8 = load B
+    c#4: u8 = copy 0
+    jump .bb2
+  .bb2:
+    a#5: u8 = copy a#2
+    #6: u8 = copy 1
+    a#7: u8 = add a#5, #6
+    b#8: u8 = copy b#3
+    b#9: u8 = add b#8, a#7
+    jump .bb3
+  .bb3:
+    #10: u8 = add a#7, b#9
+    #11: u8 = add #10, a#7
+    #RET: u8 = copy #11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "nested_loop_unconditional_breaks_keep_body_assignments"
+kind = "analyzer"
+source = """
+global A: u8;
+
+fn f() -> u8 {
+    let r = A;
+    let s = 0;
+    loop {
+        r = r + 1;
+        loop {
+            r = r + 2;
+            s = r;
+            break;
+        }
+        s = s + r;
+        break;
+    }
+    return r + s;
+}
+
+fn main() {}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    r#2: u8 = load A
+    s#3: u8 = copy 0
+    jump .bb2
+  .bb2:
+    r#4: u8 = copy r#2
+    #5: u8 = copy 1
+    r#6: u8 = add r#4, #5
+    jump .bb4
+  .bb4:
+    r#7: u8 = copy r#6
+    #8: u8 = copy 2
+    r#9: u8 = add r#7, #8
+    jump .bb5
+  .bb5:
+    s#10: u8 = add r#9, r#9
+    jump .bb3
+  .bb3:
+    #11: u8 = add r#9, s#10
+    #RET: u8 = copy #11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "loop_unconditional_break_after_if_break_keeps_body_assignments"
+kind = "analyzer"
+source = """
+global A: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let r = A;
+    loop {
+        r = r + 1;
+        if C == 1 then {
+            r = r + 2;
+            break;
+        }
+        r = r + 4;
+        break;
+    }
+    return r;
+}
+
+fn main() {}
+"""
+expected_mir = """
+global A: u8
+global C: u8
+
+f -> u8:
+  .bb1:
+    r#2: u8 = load A
+    jump .bb2
+  .bb2:
+    r#3: u8 = copy r#2
+    #4: u8 = copy 1
+    r#5: u8 = add r#3, #4
+    #6: u8 = load C
+    #7: u8 = copy 1
+    #8: u1 = eq #6, #7
+    jumpif #8 != 0, .bb4, .bb5
+  .bb4:
+    #9: u8 = copy 2
+    r#10: u8 = add r#5, #9
+    jump .bb3
+  .bb5:
+    #11: u8 = copy 4
+    r#12: u8 = add r#5, #11
+    jump .bb3
+  .bb3:
+    r#13: u8 = phi r#10 <- .bb4, r#12 <- .bb5
+    #RET: u8 = copy r#13
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    return
+"""
+
+[[case]]
+name = "loop_assignment_before_break_via_if_in_header_block"
+kind = "analyzer"
+source = """
+global A: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let r = A;
+    loop {
+        r = r + 1;
+        if C == 1 then {
+            break;
+        }
+    }
+    return r;
+}
+
+fn main() {}
+"""
+expected_mir = """
+global A: u8
+global C: u8
+
+f -> u8:
+  .bb1:
+    r#2: u8 = load A
+    jump .bb2
+  .bb2:
+    r#3: u8 = phi r#2 <- .bb1, r#5 <- .bb5
+    #4: u8 = copy 1
+    r#5: u8 = add r#3, #4
+    #6: u8 = load C
+    #7: u8 = copy 1
+    #8: u1 = eq #6, #7
+    jumpif #8 != 0, .bb4, .bb5
+  .bb4:
+    jump .bb3
+  .bb5:
+    jump .bb2
+  .bb3:
+    #RET: u8 = copy r#5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    return
+"""

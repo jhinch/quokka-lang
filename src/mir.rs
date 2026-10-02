@@ -1875,6 +1875,13 @@ impl FunctionBuilder {
         value
     }
 
+    /// Fill in the sources of the placeholder phi at `index` in `block` (as per
+    /// `addPhiOperands` defined in the Braun et al.'s algorithm) by reading `var` from
+    /// each previous block, then remove the phi if it turned out to be trivial.
+    ///
+    /// Returns the effective local for the phi: `phi` itself, or the phi's single source
+    /// if the phi was trivial. It does not record the result as an assignment of `var`,
+    /// that is left to the caller.
     fn add_phi_sources(
         &mut self,
         var: Variable,
@@ -1898,11 +1905,15 @@ impl FunctionBuilder {
                 }
             }
         }
-        let resolved = self.try_remove_trivial_phi(block, phi, index);
-        self.write_variable(var, block, resolved);
-        resolved
+        self.try_remove_trivial_phi(block, phi, index)
     }
 
+    /// Replace the phi at `index` in `block` with a copy if it is trivial (as per
+    /// `tryRemoveTrivialPhi` defined in the Braun et al.'s algorithm). A phi is trivial
+    /// when, ignoring references to itself, all of its sources are the same local.
+    ///
+    /// Returns the effective local for the phi: the single source if the phi was trivial,
+    /// otherwise `target`, the phi's own target.
     fn try_remove_trivial_phi(&mut self, block: BlockId, target: LocalId, index: usize) -> LocalId {
         let sources = match &self.function.blocks[block].instructions[index] {
             Instr::Phi { sources, .. } => sources.values().copied().collect::<Vec<_>>(),
@@ -1959,7 +1970,23 @@ impl FunctionBuilder {
                 let phi = self.function.blocks[block].instructions[index]
                     .target_local()
                     .expect("target");
-                self.add_phi_sources(var, block, phi, index);
+                let resolved = self.add_phi_sources(var, block, phi, index);
+                if resolved != phi {
+                    // Sealing patches the start of the block, so the resolved value is
+                    // recorded directly after the placeholder instead of being appended.
+                    // This keeps the assignments in order, with anything the block assigned
+                    // to `var` after reading it remaining the current value.
+                    let assignments = self
+                        .variable_assignments
+                        .get_mut(&var)
+                        .and_then(|assignments| assignments.get_mut(&block))
+                        .expect("phi placeholder must be recorded as an assignment");
+                    let position = assignments
+                        .iter()
+                        .position(|&local| local == phi)
+                        .expect("phi placeholder must be recorded as an assignment");
+                    assignments.insert(position + 1, resolved);
+                }
             }
         }
         self.sealed_blocks.insert(block);
