@@ -68,3 +68,135 @@ fn main() {
     f();
 }
 """
+
+[[case]]
+name = "constant_false_if_without_else_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "constant_false_if_with_else_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    } else {
+        r = a + 3;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "constant_true_if_without_else_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 1 then {
+        r = a + 2;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "constant_true_if_with_else_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 1 then {
+        r = a + 2;
+    } else {
+        r = a + 3;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "constant_false_if_followed_by_a_runtime_if_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    }
+    if a == 0 then {
+        r = 7;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "if_canonicalized_to_constant_false_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }] }
+source = """
+global A: u8;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if a < 0 then {
+        r = a + 2;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""

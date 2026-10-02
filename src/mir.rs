@@ -2243,6 +2243,14 @@ impl FunctionMutator<'_> {
             }
     }
 
+    /// Appends the instructions of `block` to `previous_block`, which takes over its terminator.
+    /// `previous_block` must end in a jump to `block` and be its only previous block. `block`
+    /// is left empty and unreachable, for the caller to clean up with
+    /// [`Function::remove_dangling`].
+    ///
+    /// Phi nodes are kept consistent with the new edges. A phi in `block` has `previous_block`
+    /// as its only source, so it becomes a copy of that source. A phi in a next block of `block`
+    /// has its source moved over to `previous_block`.
     pub fn join_blocks(&mut self, previous_block: BlockId, block: BlockId) {
         assert_matches!(self.function.blocks[previous_block].terminator, Terminator::Jump { target_block } if target_block == block, "{previous_block:?} must jump to {block:?}");
         assert_eq!(
@@ -2256,12 +2264,28 @@ impl FunctionMutator<'_> {
         );
         let mut clean_count = self.function.blocks[previous_block].instructions.len();
         let terminator = std::mem::take(&mut self.function.blocks[block].terminator);
-        let instructions = std::mem::take(&mut self.function.blocks[block].instructions);
+        let mut instructions = std::mem::take(&mut self.function.blocks[block].instructions);
+        for instruction in instructions.iter_mut() {
+            if let Instr::Phi { target, sources } = instruction {
+                let source = match (sources.len(), sources.get(previous_block)) {
+                    (1, Some(&source)) => source,
+                    _ => panic!(
+                        "expected phi for {target:?} in {block:?} to have {previous_block:?} as its only source, found {sources:?}"
+                    ),
+                };
+                *instruction = Instr::Copy {
+                    target: *target,
+                    source: Operand::Local(source),
+                };
+            }
+        }
         self.function.blocks[previous_block].terminator = terminator;
         self.function.blocks[previous_block]
             .instructions
             .extend(instructions);
-        self.function.end_blocks.remove(block);
+        if self.function.end_blocks.remove(block) {
+            self.function.end_blocks.insert(previous_block);
+        }
         while clean_count < self.function.blocks[previous_block].instructions.len() {
             if let Some(target) =
                 self.function.blocks[previous_block].instructions[clean_count].target_local()
@@ -2286,6 +2310,13 @@ impl FunctionMutator<'_> {
             self.function.blocks[next_block]
                 .previous
                 .insert(previous_block);
+            for instruction in self.function.blocks[next_block].instructions.iter_mut() {
+                if let Instr::Phi { sources, .. } = instruction
+                    && let Some(source) = sources.remove(block)
+                {
+                    sources.insert(previous_block, source);
+                }
+            }
         }
     }
 }
@@ -3304,5 +3335,311 @@ mod tests {
             }],
         );
         let _ = block;
+    }
+
+    // --- FunctionMutator::join_blocks ---
+
+    fn phi(target: LocalId, sources: impl IntoIterator<Item = (BlockId, LocalId)>) -> Instr {
+        Instr::Phi {
+            target,
+            sources: sources.into_iter().collect(),
+        }
+    }
+
+    fn previous(function: &Function, block: BlockId) -> Vec<BlockId> {
+        function.blocks[block].previous_blocks().collect()
+    }
+
+    /// `b1` jumps to `b2`, which defines the return value and returns.
+    fn jump_then_return_function() -> (Function, [BlockId; 2], LocalId) {
+        let mut fb = new_builder();
+        let [b1, b2] = [(); 2].map(|()| fb.new_block());
+        let ret = fb.create_return_local(Ty::U8);
+        let a = fb.new_local(Ty::U8);
+        fb.push_instr(
+            b1,
+            Instr::Copy {
+                target: a,
+                source: literal(1),
+            },
+        );
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.push_instr(
+            b2,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(a),
+            },
+        );
+        fb.set_terminator(b2, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        (fb.build(), [b1, b2], a)
+    }
+
+    /// `b1` jumps to `b2`, which branches to `b3` or straight on to `b4`. `b3` jumps to `b4`,
+    /// where a phi merges `x` from `b2` with `y` from `b3`.
+    fn jump_then_diamond_function() -> (Function, [BlockId; 4], [LocalId; 3]) {
+        let mut fb = new_builder();
+        let [b1, b2, b3, b4] = [(); 4].map(|()| fb.new_block());
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        let [x, y, merged] = [(); 3].map(|()| fb.new_local(Ty::U8));
+        fb.push_instr(
+            b1,
+            Instr::Copy {
+                target: cond,
+                source: literal(0),
+            },
+        );
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.push_instr(
+            b2,
+            Instr::Copy {
+                target: x,
+                source: literal(1),
+            },
+        );
+        fb.set_terminator(
+            b2,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b3,
+                else_block: b4,
+            },
+        );
+        fb.push_instr(
+            b3,
+            Instr::Copy {
+                target: y,
+                source: literal(2),
+            },
+        );
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        fb.push_instr(b4, phi(merged, [(b2, x), (b3, y)]));
+        fb.push_instr(
+            b4,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(merged),
+            },
+        );
+        fb.set_terminator(b4, Terminator::Return);
+        for block in [b1, b2, b3, b4] {
+            fb.seal_block(block);
+        }
+        let function = fb.build();
+        function.check_integrity().unwrap();
+        (function, [b1, b2, b3, b4], [x, y, merged])
+    }
+
+    #[test]
+    fn join_blocks_moves_instructions_definitions_and_terminator() {
+        let (mut function, [b1, b2], a) = jump_then_return_function();
+        let ret = function.return_local.unwrap();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert_eq!(targets(&function, b1), [a, ret].map(Some).to_vec());
+        assert!(function.blocks[b2].instructions.is_empty());
+        assert!(matches!(function.blocks[b1].terminator, Terminator::Return));
+        assert_eq!(function.defined_at(a), Some((b1, 0)));
+        assert_eq!(function.locals[ret].defined.get(b1), Some(&1));
+        assert_eq!(function.locals[ret].defined.get(b2), None);
+    }
+
+    #[test]
+    fn join_blocks_hands_the_end_block_over_to_the_previous_block() {
+        let (mut function, [b1, b2], _) = jump_then_return_function();
+        assert_eq!(function.end_blocks.iter().collect::<Vec<_>>(), [b2]);
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert_eq!(function.end_blocks.iter().collect::<Vec<_>>(), [b1]);
+    }
+
+    #[test]
+    fn join_blocks_does_not_make_the_previous_block_an_end_block_when_the_block_is_not_one() {
+        let (mut function, [b1, b2, ..], _) = jump_then_diamond_function();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert!(!function.end_blocks.contains(b1));
+    }
+
+    #[test]
+    fn join_blocks_leaves_the_joined_block_unreachable_for_remove_dangling() {
+        let (mut function, [b1, b2], _) = jump_then_return_function();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert_eq!(function.traverse_blocks().collect::<Vec<_>>(), [b1]);
+        function.remove_dangling();
+        assert!(!function.blocks.contains_key(b2));
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn join_blocks_repoints_the_previous_blocks_of_every_next_block() {
+        let (mut function, [b1, b2, b3, b4], _) = jump_then_diamond_function();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert_eq!(
+            function.blocks[b1].next_blocks().collect::<Vec<_>>(),
+            [b3, b4]
+        );
+        assert_eq!(previous(&function, b3), [b1]);
+        let mut b4_previous = previous(&function, b4);
+        b4_previous.sort();
+        assert_eq!(b4_previous, [b1, b3]);
+    }
+
+    #[test]
+    fn join_blocks_moves_phi_sources_in_next_blocks_to_the_previous_block() {
+        let (mut function, [b1, b2, b3, b4], [x, y, merged]) = jump_then_diamond_function();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        let Instr::Phi { target, sources } = &function.blocks[b4].instructions[0] else {
+            panic!("expected the phi to stay in place");
+        };
+        assert_eq!(*target, merged);
+        assert_eq!(sources.get(b1), Some(&x));
+        assert_eq!(sources.get(b3), Some(&y));
+        assert_eq!(
+            sources.len(),
+            2,
+            "the source from b2 must not be left behind"
+        );
+        function.remove_dangling();
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn join_blocks_turns_a_phi_in_the_joined_block_into_a_copy_of_its_only_source() {
+        let mut fb = new_builder();
+        let [b1, b2] = [(); 2].map(|()| fb.new_block());
+        let ret = fb.create_return_local(Ty::U8);
+        let [a, merged] = [(); 2].map(|()| fb.new_local(Ty::U8));
+        fb.push_instr(
+            b1,
+            Instr::Copy {
+                target: a,
+                source: literal(1),
+            },
+        );
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.push_instr(b2, phi(merged, [(b1, a)]));
+        fb.push_instr(
+            b2,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(merged),
+            },
+        );
+        fb.set_terminator(b2, Terminator::Return);
+        fb.seal_block(b1);
+        fb.seal_block(b2);
+        let mut function = fb.build();
+        function.check_integrity().unwrap();
+
+        FunctionMutator::from(&mut function).join_blocks(b1, b2);
+
+        assert!(matches!(
+            function.blocks[b1].instructions[1],
+            Instr::Copy { target, source: Operand::Local(source) } if target == merged && source == a
+        ));
+        assert_eq!(function.defined_at(merged), Some((b1, 1)));
+        function.remove_dangling();
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn join_blocks_keeps_a_loop_header_phi_consistent_when_the_latch_is_joined_into_the_body() {
+        // b1 -> b2 (header) -> b3 (body) -> b4 (latch) -> b2, with the header leaving to b5.
+        let mut fb = new_builder();
+        let [b1, b2, b3, b4, b5] = [(); 5].map(|()| fb.new_block());
+        let ret = fb.create_return_local(Ty::U8);
+        let cond = fb.new_local(Ty::U1);
+        let [init, counter, next] = [(); 3].map(|()| fb.new_local(Ty::U8));
+        fb.push_instr(
+            b1,
+            Instr::Copy {
+                target: init,
+                source: literal(0),
+            },
+        );
+        fb.set_terminator(b1, Terminator::Jump { target_block: b2 });
+        fb.push_instr(b2, phi(counter, [(b1, init), (b4, next)]));
+        fb.push_instr(
+            b2,
+            Instr::Eq {
+                target: cond,
+                left: counter,
+                right: literal(9),
+            },
+        );
+        fb.set_terminator(
+            b2,
+            Terminator::JumpIf {
+                source: cond,
+                condition: Condition::NotZero,
+                then_block: b5,
+                else_block: b3,
+            },
+        );
+        fb.set_terminator(b3, Terminator::Jump { target_block: b4 });
+        fb.push_instr(
+            b4,
+            Instr::Add {
+                target: next,
+                left: counter,
+                right: literal(1),
+            },
+        );
+        fb.set_terminator(b4, Terminator::Jump { target_block: b2 });
+        fb.push_instr(
+            b5,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(counter),
+            },
+        );
+        fb.set_terminator(b5, Terminator::Return);
+        for block in [b1, b2, b3, b4, b5] {
+            fb.seal_block(block);
+        }
+        let mut function = fb.build();
+        function.check_integrity().unwrap();
+
+        FunctionMutator::from(&mut function).join_blocks(b3, b4);
+
+        let mut b2_previous = previous(&function, b2);
+        b2_previous.sort();
+        assert_eq!(b2_previous, [b1, b3]);
+        let Instr::Phi { sources, .. } = &function.blocks[b2].instructions[0] else {
+            panic!("expected the phi to stay in place");
+        };
+        assert_eq!(sources.get(b1), Some(&init));
+        assert_eq!(sources.get(b3), Some(&next));
+        assert_eq!(sources.len(), 2);
+        function.remove_dangling();
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "must have only one previous block")]
+    fn join_blocks_rejects_a_block_with_several_previous_blocks() {
+        let (mut function, [_, _, b3, b4], _) = jump_then_diamond_function();
+        FunctionMutator::from(&mut function).join_blocks(b3, b4);
+    }
+
+    #[test]
+    #[should_panic(expected = "must jump to")]
+    fn join_blocks_rejects_a_previous_block_which_does_not_end_in_a_jump() {
+        let (mut function, [_, b2, b3, _], _) = jump_then_diamond_function();
+        FunctionMutator::from(&mut function).join_blocks(b2, b3);
     }
 }

@@ -135,3 +135,258 @@ main -> unit:
   .bb2:
     return
 """
+
+[[case]]
+name = "constant_false_if_without_else_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    r#3: u8 = copy a#2
+    r#9: u8 = copy r#3
+    #RET: u8 = copy r#9
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_false_if_with_else_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    } else {
+        r = a + 3;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    r#10: u8 = add a#2, 3
+    r#11: u8 = copy r#10
+    #RET: u8 = copy r#11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_true_if_without_else_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 1 then {
+        r = a + 2;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    r#3: u8 = copy a#2
+    #6: u1 = copy 1
+    jumpif #6 != 0, .bb2, .bb3
+  .bb2:
+    r#8: u8 = add a#2, 2
+    jump .bb3
+  .bb3:
+    r#9: u8 = phi r#3 <- .bb1, r#8 <- .bb2
+    #RET: u8 = copy r#9
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_true_if_with_else_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 1 then {
+        r = a + 2;
+    } else {
+        r = a + 3;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    r#8: u8 = add a#2, 2
+    r#11: u8 = copy r#8
+    #RET: u8 = copy r#11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "constant_false_if_followed_by_a_runtime_if_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+source = """
+global A: u8;
+const ONE: u8 = 1;
+
+fn f() -> u8 {
+    let a = A;
+    let r = a;
+    if ONE == 2 then {
+        r = a + 2;
+    }
+    if a == 0 then {
+        r = 7;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global A: u8
+
+f -> u8:
+  .bb1:
+    a#2: u8 = load A
+    r#3: u8 = copy a#2
+    #11: u1 = eq a#2, 0
+    r#14: u8 = copy r#3
+    jumpif #11 != 0, .bb4, .bb5
+  .bb4:
+    r#12: u8 = copy 7
+    jump .bb5
+  .bb5:
+    r#13: u8 = phi r#14 <- .bb1, r#12 <- .bb4
+    #RET: u8 = copy r#13
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "if_canonicalized_to_constant_false_keeps_the_variable_read_after_it"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global A: u8;
+global OUT: u8;
+
+fn main() {
+    let a = A;
+    let r = a;
+    if a < 0 then {
+        r = a + 2;
+    }
+    OUT = r;
+    loop {}
+}
+"""
+expected_mir = """
+global A: u8
+global OUT: u8
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    a#1: u8 = load A
+    r#2: u8 = copy a#1
+    r#7: u8 = copy r#2
+    store OUT = r#7
+    jump .bb4
+  .bb4:
+    jump .bb4
+"""
