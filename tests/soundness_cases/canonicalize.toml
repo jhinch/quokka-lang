@@ -2766,7 +2766,6 @@ fn main() {
 # comparison is rewritten to read the inner subtraction's operands before the swap is considered.
 [[case]]
 name = "swap_is_sound_when_a_later_block_already_reads_the_inner_target"
-ignored = "miscompiles: the swap trusts a use count taken before the comparison was rewritten to read the inner target"
 inputs = { C = [0], K = [{ min = 0, max = 255 }], Y = [0, 1, 5, 250, 255] }
 source = """
 global K: u8;
@@ -2796,7 +2795,6 @@ fn main() {
 # is then considered at.
 [[case]]
 name = "swap_is_sound_when_an_earlier_rule_adds_a_use_of_the_inner_target"
-ignored = "miscompiles: the swap trusts a use count taken before `a - (-b)` was rewritten to read `b`"
 inputs = { C = [{ min = 0, max = 255 }] }
 source = """
 global C: i8;

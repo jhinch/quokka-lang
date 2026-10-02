@@ -6,7 +6,7 @@ use crate::mir::{
 use crate::optimize::graph::{Graph, Node};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::{Ty, TyRegistry};
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use slotmap::{SecondaryMap, SlotMap};
 use std::ops::Range;
 use tracing::{instrument, trace};
@@ -26,10 +26,11 @@ mod signed_compare;
 /// over the whole function repeatedly until none of them fires, so one rule's output can feed
 /// another within a single invocation of the pass.
 ///
-/// A rewrite that replaces one instruction with another defining the same local is applied
-/// immediately. Any other rewrite inserts, removes, or redefines instructions, which would shift
-/// the positions the rest of the sweep relies on, so it is held back and applied when the sweep
-/// ends. A constant is a literal operand, or a local defined by a `Copy` of a literal.
+/// A sweep visits the reachable blocks in reverse post-order, so a definition is always visited
+/// before any instruction that reads it other than a `Phi`. Every rewrite is applied as soon as
+/// its rule proposes it, with the use counts and the definition positions kept up to date, so the
+/// rules that follow always see the function as it is. A constant is a literal operand, or a
+/// local defined by a `Copy` of a literal.
 pub struct Canonicalize;
 
 /// In application order at each instruction position.
@@ -55,14 +56,23 @@ impl Optimize for Canonicalize {
         _globals: &SlotMap<GlobalId, Global>,
         ty_registry: &TyRegistry,
     ) -> Outcome {
+        // Rewrites never change the CFG, so the block order and the block-level dominators stay
+        // valid for the whole pass. Within a block, dominance is read off instruction positions.
+        let graph = Graph::from(&*function);
+        let mut order = graph
+            .postorder()
+            .filter_map(|node| match node {
+                Node::Block(block) => Some(block),
+                Node::Exit => None,
+            })
+            .collect::<Vec<_>>();
+        order.reverse();
         let mut ctx = Context {
-            // Rewrites never change the CFG, so the block-level dominators stay valid for the
-            // whole pass. Within a block, dominance is read off instruction positions, which
-            // only move between sweeps.
-            dominators: Dominators::new(function),
+            dominators: Dominators(graph.calculate_immediate_dominators()),
+            // Counted once here and then kept current by every rewrite applied.
+            use_counts: function.count_uses(),
             function,
             ty_registry,
-            use_counts: SecondaryMap::new(),
             dangling: false,
         };
         let mut outcome = Outcome::Unmodified;
@@ -74,38 +84,25 @@ impl Optimize for Canonicalize {
                 );
                 break;
             }
-            // The use counts are only refreshed between sweeps. Rules must tolerate them being
-            // stale within a sweep, which a later sweep then makes up for.
-            ctx.use_counts = ctx.function.count_uses();
             let mut swept = Outcome::Unmodified;
-            let mut deferred = Deferred::default();
-            for block_id in ctx.function.blocks.keys().collect::<Vec<_>>() {
-                for index in 0..ctx.function.blocks[block_id].instructions.len() {
-                    let position = (block_id, index);
+            for &block_id in &order {
+                let mut index = 0;
+                while index < ctx.function.blocks[block_id].instructions.len() {
                     for rule in RULES {
-                        // The instruction here is already being replaced when the sweep ends.
-                        if deferred.covers(position) {
-                            break;
-                        }
-                        let rewrites = rule.rewrites(&mut ctx, position);
-                        // A rule's rewrites only make sense together.
-                        if rewrites.iter().any(|rewrite| deferred.conflicts(rewrite)) {
+                        let rewrites = rule.rewrites(&mut ctx, (block_id, index));
+                        if rewrites.is_empty() {
                             continue;
                         }
-                        for rewrite in rewrites {
-                            trace!(rule = rule.name(), ?rewrite, "rewrite");
-                            if let Err(rewrite) = rewrite.apply_in_place(ctx.function) {
-                                deferred.push(rewrite);
-                            }
-                            swept = Outcome::Modified;
-                        }
+                        trace!(rule = rule.name(), ?rewrites, "rewrite");
+                        // The remaining rules look at whatever now stands where the instruction
+                        // was, and the instructions after it are visited in turn.
+                        index = ctx.apply(rewrites, (block_id, index));
+                        swept = Outcome::Modified;
                     }
+                    index += 1;
                 }
             }
-            ctx.dangling |= !deferred.splices.is_empty();
-            for (block, splices) in deferred.splices {
-                FunctionMutator::from(&mut *ctx.function).splice_instrs(block, splices);
-            }
+            ctx.debug_assert_use_counts();
             if swept == Outcome::Unmodified {
                 break;
             }
@@ -126,11 +123,10 @@ trait Rule: Sync {
     /// The rewrites, if any, that put the instruction at `position` into this rule's normal form.
     /// They may also touch other instructions.
     ///
-    /// Positions do not move during a sweep, so a rewrite that is not a one-for-one replacement
-    /// defining the same local only takes effect once the sweep ends (see [`Canonicalize`]).
-    /// Until then the rest of the sweep still reads the instructions it replaces, so every local
-    /// they define must either keep its value or have no remaining use. A local made with
-    /// [`Context::fresh_local`] has no definition to look up before the next sweep.
+    /// The rewrites are applied together, before any other rule runs, so their ranges all refer
+    /// to the function as it is during this call, and those in the same block must not overlap.
+    /// [`Context::use_count`] is exact, so a rewrite changing the value of a local must check
+    /// that the instruction it rewrites alongside is that local's only reader.
     fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite>;
 }
 
@@ -152,9 +148,73 @@ impl Context<'_> {
         FunctionMutator::from(&mut *self.function).new_local(ty)
     }
 
-    /// How many times `local` is read. See [`Canonicalize::optimize_function`] for staleness.
+    /// How many times `local` is read by the function as it is now.
     fn use_count(&self, local: LocalId) -> u32 {
         self.use_counts.get(local).copied().unwrap_or(0)
+    }
+
+    /// Applies the `rewrites` of one rule, keeping the use counts current. Returns where the
+    /// instruction at `position` is afterward: the start of what replaced it, if it was replaced.
+    fn apply(&mut self, rewrites: Vec<Rewrite>, (at_block, at_index): (BlockId, usize)) -> usize {
+        let mut index = at_index;
+        let mut blocks = IndexMap::<BlockId, Vec<Splice>>::new();
+        for Rewrite { block, splice } in rewrites {
+            let removed = &self.function.blocks[block].instructions[splice.range.clone()];
+            for source in removed.iter().flat_map(Instr::source_locals) {
+                self.use_counts[source] -= 1;
+            }
+            for source in splice.instrs.iter().flat_map(Instr::source_locals) {
+                *self.use_counts.entry(source).unwrap().or_insert(0) += 1;
+            }
+            // A definition removed without a replacement leaves its local dangling.
+            self.dangling |= removed
+                .iter()
+                .filter_map(Instr::target_local)
+                .any(|target| {
+                    !splice
+                        .instrs
+                        .iter()
+                        .any(|instr| instr.target_local() == Some(target))
+                });
+            if block == at_block {
+                let Range { start, end } = splice.range;
+                if end <= at_index {
+                    index = index + splice.instrs.len() - (end - start);
+                } else if start <= at_index {
+                    index -= at_index - start;
+                }
+            }
+            blocks.entry(block).or_default().push(splice);
+        }
+        for (block, splices) in blocks {
+            FunctionMutator::from(&mut *self.function).splice_instrs(block, splices);
+        }
+        index
+    }
+
+    /// Checks the incrementally maintained use count of every local against a recount.
+    fn debug_assert_use_counts(&self) {
+        if cfg!(debug_assertions) {
+            let recount = self.function.count_uses();
+            for local in self.function.locals.keys() {
+                assert_eq!(
+                    self.use_count(local),
+                    recount.get(local).copied().unwrap_or(0),
+                    "use count of {local:?} in {} drifted from a recount",
+                    self.function.name
+                );
+            }
+        }
+    }
+
+    /// Checks the incrementally maintained use count of `local` against a recount.
+    fn debug_assert_use_count(&self, local: LocalId) {
+        debug_assert_eq!(
+            self.use_count(local),
+            self.function.count_uses().get(local).copied().unwrap_or(0),
+            "use count of {local:?} in {} drifted from a recount",
+            self.function.name
+        );
     }
 
     /// The type `binop`'s operands are read at. This is the type to decode its constants with,
@@ -213,10 +273,6 @@ fn to_literal(value: Value) -> Operand {
 struct Dominators(IndexMap<Node, Node>);
 
 impl Dominators {
-    fn new(function: &Function) -> Self {
-        Dominators(Graph::from(function).calculate_immediate_dominators())
-    }
-
     /// Whether the instruction at `def` dominates the instruction at `at`: every path from the
     /// function's entry to `at` passes through `def` first.
     fn dominates(&self, def: (BlockId, usize), at: (BlockId, usize)) -> bool {
@@ -258,55 +314,5 @@ impl Rewrite {
                 instrs,
             },
         }
-    }
-
-    /// Applies the rewrite if no instruction moves and no definition changes, which is when one
-    /// instruction is replaced by another defining the same local. Hands the rewrite back
-    /// otherwise.
-    fn apply_in_place(mut self, function: &mut Function) -> Result<(), Self> {
-        let instructions = &mut function.blocks[self.block].instructions;
-        if let ([old], [new]) = (
-            &mut instructions[self.splice.range.clone()],
-            self.splice.instrs.as_mut_slice(),
-        ) && old.target_local() == new.target_local()
-        {
-            std::mem::swap(old, new);
-            return Ok(());
-        }
-        Err(self)
-    }
-}
-
-/// The rewrites held back until the end of a sweep.
-#[derive(Default)]
-struct Deferred {
-    splices: IndexMap<BlockId, Vec<Splice>>,
-    /// Every position inside the range of a held back splice.
-    covered: IndexSet<(BlockId, usize)>,
-}
-
-impl Deferred {
-    fn covers(&self, position: (BlockId, usize)) -> bool {
-        self.covered.contains(&position)
-    }
-
-    /// Whether `rewrite` touches an instruction a held back splice already replaces. An
-    /// insertion conflicts if it falls between two such instructions, which may be inside one
-    /// splice's range.
-    fn conflicts(&self, rewrite: &Rewrite) -> bool {
-        let Range { start, end } = rewrite.splice.range;
-        if start == end {
-            return start > 0
-                && self.covers((rewrite.block, start - 1))
-                && self.covers((rewrite.block, start));
-        }
-        (start..end).any(|index| self.covers((rewrite.block, index)))
-    }
-
-    fn push(&mut self, rewrite: Rewrite) {
-        let Rewrite { block, splice } = rewrite;
-        self.covered
-            .extend(splice.range.clone().map(|index| (block, index)));
-        self.splices.entry(block).or_default().push(splice);
     }
 }

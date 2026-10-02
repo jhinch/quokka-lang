@@ -6070,15 +6070,15 @@ f -> u1:
     jumpif #7 != 0, .bb2, .bb3
   .bb2:
     #8: i8 = copy 9
-    #16: u8 = bitcast n#2
-    #17: u8 = bitxor #16, 128
-    r#9: u1 = ge #17, 137
+    #18: u8 = bitcast n#2
+    #19: u8 = bitxor #18, 128
+    r#9: u1 = ge #19, 137
     jump .bb4
   .bb3:
     #10: i8 = copy 3
-    #18: u8 = bitcast m#3
-    #19: u8 = bitxor #18, 128
-    r#11: u1 = lt #19, 131
+    #16: u8 = bitcast m#3
+    #17: u8 = bitxor #16, 128
+    r#11: u1 = lt #17, 131
     jump .bb4
   .bb4:
     r#12: u1 = phi r#9 <- .bb2, r#11 <- .bb3

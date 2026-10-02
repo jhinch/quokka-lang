@@ -93,6 +93,7 @@ impl Rule for Reassociate {
                 _ => continue,
             }
             // `t1`'s value changes, so the outer instruction must be its only use.
+            ctx.debug_assert_use_count(inner.target);
             if ctx.use_count(inner.target) != 1 {
                 continue;
             }
