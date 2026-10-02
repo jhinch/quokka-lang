@@ -393,3 +393,236 @@ expected = 1
 [[case.assertion]]
 addr = 0xC001
 expected = 0
+
+# The cases below reach the compare with zero from the other side: a mask named by a `const`, which
+# is only a literal once the `const` is inlined, and a compare written to read the carry flag.
+
+[[case]]
+name = "named_const_mask_ne_zero_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+const SET: u8 = 0b0000_1000;
+const CLEAR: u8 = 0b0001_0000;
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if x & SET != 0 then {
+        OUT_SET = 1;
+    }
+    if x & CLEAR != 0 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "named_const_mask_eq_zero_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+const SET: u8 = 0b0000_1000;
+const CLEAR: u8 = 0b0001_0000;
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0101_0000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if x & SET == 0 then {
+        OUT_SET = 1;
+    }
+    if x & CLEAR == 0 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "named_const_mask_on_the_left_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+const SET: u8 = 0b0000_1000;
+const CLEAR: u8 = 0b0001_0000;
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if SET & x != 0 then {
+        OUT_SET = 1;
+    }
+    if CLEAR & x != 0 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "ge_one_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) >= 1 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) >= 1 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "lt_mask_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+global IN: u8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0101_0000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & 0x08) < 0x08 then {
+        OUT_SET = 1;
+    }
+    if (x & 0x10) < 0x10 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+
+[[case]]
+name = "i8_named_const_mask_ge_one_branches_on_the_tested_bit"
+preview_features = ["canonicalize"]
+source = """
+const SET: i8 = 0b0000_1000;
+const CLEAR: i8 = 0b0001_0000;
+global IN: i8;
+
+#[address = 0xC000]
+global OUT_SET: u8;
+#[address = 0xC001]
+global OUT_CLEAR: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0b0100_1000;
+    OUT_SET = 0;
+    OUT_CLEAR = 0;
+    let x = IN;
+    if (x & SET) >= 1 then {
+        OUT_SET = 1;
+    }
+    if (x & CLEAR) >= 1 then {
+        OUT_CLEAR = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0

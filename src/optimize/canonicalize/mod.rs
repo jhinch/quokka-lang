@@ -12,6 +12,7 @@ use std::ops::Range;
 use tracing::{instrument, trace};
 
 mod additive;
+mod commute;
 mod compare;
 mod identity;
 mod neg;
@@ -35,6 +36,7 @@ pub struct Canonicalize;
 
 /// In application order at each instruction position.
 const RULES: &[&dyn Rule] = &[
+    &commute::Commute,
     &additive::Additive,
     &not::Not,
     &neg::Neg,

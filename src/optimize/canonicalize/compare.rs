@@ -22,7 +22,14 @@
 //!   `(x & m) != 0` and `(x & m) != m` becomes `(x & m) == 0`, for every integer width. Codegen
 //!   lowers a comparison of such a mask with `0` to `BIT`, which sets the zero flag from the
 //!   tested bit, so this takes priority over preferring carry: no comparison of a single-bit
-//!   mask is rewritten to read the carry flag.
+//!   mask is rewritten to read the carry flag. One that already does is rewritten back:
+//!   `(x & m) >= 1` and `(x & m) >= m` become `(x & m) != 0`, and `(x & m) < 1` and `(x & m) < m`
+//!   become `(x & m) == 0`. That covers source written that way, and a mask that only became a
+//!   constant after carry was preferred. A signed comparison of this kind may by then have been
+//!   biased into an unsigned one by the rule for signed comparisons, so `(u ^ SIGN) >= (c ^ SIGN)`
+//!   is read as `(x & m) >= c`, with `u` the bits of `x & m` and `SIGN` only the sign bit. None
+//!   of this applies to a signed mask of only the sign bit, which is negative, so the masked
+//!   value is never `>= 1`.
 //!
 //! Only the comparison is rewritten. An inner instruction it no longer reads is left for dead code
 //! elimination if that was its only use. The target holds the same value as before, so none of
@@ -256,7 +263,7 @@ fn constant_on_the_right(
     }
 
     if !matches!(kind, Kind::Eq | Kind::Ne) {
-        return None;
+        return zero_test_of_single_bit(ctx, comparison, ty, bounds, &constant);
     }
     if let Some((left, right)) = through_arithmetic(ctx, x, ty, &constant) {
         return Some(
@@ -351,6 +358,81 @@ fn through_arithmetic(
         }
         Some((*other, to_literal(constant)))
     })
+}
+
+/// Rewrites `comparison`, an ordered comparison with `constant`, back to a test for zero if it
+/// compares a single-bit mask and so only reads whether that bit is set.
+fn zero_test_of_single_bit(
+    ctx: &Context,
+    comparison: &Comparison,
+    ty: Ty,
+    bounds: &Bounds,
+    constant: &Value,
+) -> Option<Instr> {
+    let (masked, masked_ty, constant) = match unbiased(ctx, comparison.left, ty, constant) {
+        Some((masked, masked_ty, constant)) => (masked, masked_ty, constant),
+        None => (comparison.left, ty, constant.clone()),
+    };
+    let bounds = if masked_ty == ty {
+        bounds
+    } else {
+        &Bounds::of(ctx, masked_ty)?
+    };
+    let mask = single_bit_mask(ctx, masked, masked_ty)?;
+    // A signed mask of only the sign bit is the minimum, so the masked value is never positive.
+    if masked_ty.is_signed_int() && mask == bounds.min {
+        return None;
+    }
+    if constant != bounds.one && constant != mask {
+        return None;
+    }
+    // `(x & m) >= 1` => `(x & m) != 0`, `(x & m) < 1` => `(x & m) == 0`, likewise for `m`
+    Some(
+        Comparison {
+            kind: if comparison.kind == Kind::Ge {
+                Kind::Ne
+            } else {
+                Kind::Eq
+            },
+            target: comparison.target,
+            left: masked,
+            right: to_literal(Value::zeros(masked_ty, ctx.ty_registry)),
+        }
+        .into_instr(),
+    )
+}
+
+/// Undoes the bias of a signed comparison rewritten as an unsigned one. If `biased` is
+/// `u ^ SIGN`, with `u` the bits of a signed local and `SIGN` only the sign bit of `ty`, this is
+/// that signed local, its type and the signed constant it was compared with before `constant`
+/// was biased.
+fn unbiased(
+    ctx: &Context,
+    biased: LocalId,
+    ty: Ty,
+    constant: &Value,
+) -> Option<(LocalId, Ty, Value)> {
+    let (signed, sign) = match ty {
+        Ty::U8 => (Ty::I8, Value::U8(0x80)),
+        Ty::U16 => (Ty::I16, Value::U16(0x8000)),
+        _ => return None,
+    };
+    let Some(Instr::BitXor { left: u, right, .. }) = ctx.definition(&Operand::Local(biased)) else {
+        return None;
+    };
+    if ctx.constant(right, ty)? != sign {
+        return None;
+    }
+    let Some(Instr::BitCast { source, .. }) = ctx.definition(&Operand::Local(*u)) else {
+        return None;
+    };
+    if ctx.function.locals[*source].ty != signed {
+        return None;
+    }
+    let mut constant = constant.clone();
+    constant ^= sign;
+    let constant = Value::from_bytes(signed, ctx.ty_registry, &constant.into_vec());
+    Some((*source, signed, constant))
 }
 
 /// The mask, if `x` is defined as an `&` with a constant mask of exactly one bit.

@@ -4915,6 +4915,870 @@ main -> unit:
 """
 
 [[case]]
+name = "single_bit_mask_ge_one_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 1
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_lt_one_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) < 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 1
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_ge_mask_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) >= 4;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 4
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_lt_mask_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) < 4;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 4
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_ge_other_constant_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) >= 2;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 2
+    #6: u1 = ge #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "multi_bit_mask_ge_one_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 6) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 6
+    #4: u8 = bitand n#2, #3
+    #5: u8 = copy 1
+    #6: u1 = ge #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_single_bit_mask_ge_one_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 256) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 256
+    #4: u16 = bitand n#2, #3
+    #5: u16 = copy 1
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "u16_single_bit_mask_lt_mask_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 256) < 256;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u16
+
+f -> u1:
+  .bb1:
+    n#2: u16 = load N
+    #3: u16 = copy 256
+    #4: u16 = bitand n#2, #3
+    #5: u16 = copy 256
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_single_bit_mask_ge_one_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 4
+    #4: i8 = bitand n#2, #3
+    #5: i8 = copy 1
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_single_bit_mask_lt_mask_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & 4) < 4;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 4
+    #4: i8 = bitand n#2, #3
+    #5: i8 = copy 4
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_sign_bit_mask_ge_one_is_not_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & -128) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 128
+    #4: i8 = neg #3
+    #5: i8 = bitand n#2, #4
+    #6: i8 = copy 1
+    #8: u8 = bitcast #5
+    #9: u8 = bitxor #8, 128
+    #7: u1 = ge #9, 129
+    #RET: u1 = copy #7
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "single_bit_mask_on_the_left_ne_zero_stays_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (4 & n) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 4
+    #4: u8 = bitand n#2, 4
+    #5: u8 = copy 0
+    #6: u1 = ne #4, #5
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "named_const_single_bit_mask_ne_zero_stays_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: u8 = 0b0000_0010;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #4: u8 = bitand n#2, 2
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "named_const_single_bit_mask_eq_zero_stays_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: u8 = 0b0000_0010;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) == 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #4: u8 = bitand n#2, 2
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "named_const_single_bit_mask_on_the_left_stays_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: u8 = 0b0000_0010;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (MASK & n) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #4: u8 = bitand n#2, 2
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "named_const_multi_bit_mask_ne_zero_becomes_ge_one"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: u8 = 0b0000_0110;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) != 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u1:
+  .bb1:
+    n#2: u8 = load N
+    #4: u8 = bitand n#2, 6
+    #6: u1 = ge #4, 1
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_named_const_single_bit_mask_ge_one_becomes_ne_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: i8 = 0b0000_0010;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #4: i8 = bitand n#2, 2
+    #6: u1 = ne #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i16_named_const_single_bit_mask_lt_one_becomes_eq_zero"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: i16 = 0x0100;
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) < 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i16
+
+f -> u1:
+  .bb1:
+    n#2: i16 = load N
+    #4: i16 = bitand n#2, 256
+    #6: u1 = eq #4, 0
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_named_const_sign_bit_mask_ge_one_is_not_a_zero_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+const MASK: i8 = -128;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) >= 1;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #4: i8 = bitand n#2, 128
+    #7: u8 = bitcast #4
+    #8: u8 = bitxor #7, 128
+    #6: u1 = ge #8, 129
+    #RET: u1 = copy #6
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_on_the_left_of_add_moves_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return 5 + n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 5
+    #4: u8 = add n#2, 5
+    #RET: u8 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_on_the_left_of_bitand_moves_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return 6 & n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 6
+    #4: u8 = bitand n#2, 6
+    #RET: u8 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_on_the_left_of_bitor_moves_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return 6 | n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 6
+    #4: u8 = bitor n#2, 6
+    #RET: u8 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "literal_on_the_left_of_bitxor_moves_to_the_right"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return 6 ^ n;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: u8
+
+f -> u8:
+  .bb1:
+    n#2: u8 = load N
+    #3: u8 = copy 6
+    #4: u8 = bitxor n#2, 6
+    #RET: u8 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
 name = "u1_eq_one_becomes_a_copy"
 kind = "analyzer"
 optimize = true
@@ -5302,7 +6166,7 @@ f -> u1:
   .bb1:
     n#2: u8 = load N
     #3: u8 = copy 3
-    #4: u8 = add #3, n#2
+    #4: u8 = add n#2, 3
     #5: u8 = copy 10
     #6: u1 = eq n#2, 7
     #RET: u1 = copy #6

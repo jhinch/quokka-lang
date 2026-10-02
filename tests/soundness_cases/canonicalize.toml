@@ -2155,6 +2155,410 @@ fn main() {
 """
 
 [[case]]
+name = "single_bit_mask_ge_one_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_lt_one_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_ge_mask_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_lt_mask_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_on_the_left_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return ($C$ & n) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_single_bit_mask_ne_zero_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+source = """
+const MASK: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) != 0;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_single_bit_mask_lt_one_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 2, 4, 8, 16, 32, 64, 128] }
+expect_rewrite = ["canonicalize"]
+source = """
+const MASK: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) < 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_ge_one_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_lt_one_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_ge_mask_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_lt_mask_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_sign_bit_mask_ordered_compare_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 127] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & -128) >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_sign_bit_mask_lt_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 127] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & -128) < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_named_const_single_bit_mask_ge_one_tests_for_nonzero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+const MASK: i8 = $C$;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_named_const_single_bit_mask_lt_one_tests_for_zero_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1, 8, 64] }
+expect_rewrite = ["canonicalize"]
+source = """
+const MASK: i8 = $C$;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) < 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_named_const_sign_bit_mask_ge_one_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [1] }
+expect_rewrite = ["canonicalize"]
+source = """
+const MASK: i8 = -128;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_ge_one_tests_for_nonzero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_lt_one_tests_for_zero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_ge_mask_tests_for_nonzero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_single_bit_mask_lt_mask_tests_for_zero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x8000] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & $C$) < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_named_const_single_bit_mask_ge_one_tests_for_nonzero_soundly"
+inputs = { N = ["edges"] }
+params = { C = [1, 128, 256, 0x4000] }
+expect_rewrite = ["canonicalize"]
+source = """
+const MASK: i16 = $C$;
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & MASK) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
 name = "multi_bit_mask_eq_zero_prefers_carry_soundly"
 inputs = { N = [{ min = 0, max = 255 }] }
 params = { C = [3, 6, 129, 240] }
