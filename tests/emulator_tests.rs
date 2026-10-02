@@ -11,6 +11,13 @@
 //! typically ends with a call to an empty function pinned to a fixed address via `#[address]`
 //! (see `docs/src/reference/items/functions.md`), and uses that fixed address as `await_pc` -
 //! this gives a stable, explicit checkpoint that doesn't depend on incidental codegen layout.
+//!
+//! For every case, one trial is generated with the case's own configuration (the `default`
+//! variant) and one per opt-in optimization feature (see
+//! [`PreviewFeature::optimization_features`]) with that feature enabled as well, so the code
+//! generated for a case is checked both with and without each such optimization. A suite, or an
+//! individual case within it, can list `variants` to generate only the named trials (e.g.
+//! `variants = ["canonicalize"]`), for cases which only build, or only mean anything, one way.
 
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
@@ -21,7 +28,12 @@ use std::sync::OnceLock;
 
 /// Deserialized representation of a test suite TOML file.
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TestSuite {
+    /// the variants to generate trials for in every case which does not list its own. Every
+    /// variant is generated if omitted.
+    #[serde(default)]
+    variants: Option<Vec<String>>,
     #[serde(rename = "case")]
     cases: Vec<TestCase>,
 }
@@ -37,6 +49,10 @@ struct TestCase {
     model: ModelKind,
     #[serde(default = "default_max_instructions")]
     max_instructions: u32,
+    /// the variants to generate trials for, each either `default` or the name of an opt-in
+    /// optimization feature. Falls back to the suite's `variants` if omitted.
+    #[serde(default)]
+    variants: Option<Vec<String>>,
     #[serde(default)]
     ignored: Option<String>,
     source: String,
@@ -48,6 +64,21 @@ struct TestCase {
 
 fn default_max_instructions() -> u32 {
     1_000
+}
+
+/// The name of the variant which builds a case with only its own preview features.
+const DEFAULT_VARIANT: &str = "default";
+
+/// Every variant a case can be run as, in order: its name, and the optimization feature it
+/// enables on top of the case's own preview features (or `None` for [`DEFAULT_VARIANT`]).
+fn all_variants() -> Vec<(String, Option<PreviewFeature>)> {
+    std::iter::once((DEFAULT_VARIANT.to_string(), None))
+        .chain(
+            PreviewFeature::optimization_features()
+                .iter()
+                .map(|&feature| (feature.to_string(), Some(feature))),
+        )
+        .collect()
 }
 
 /// Deserialized representation of the Game Boy model to emulate.
@@ -160,14 +191,21 @@ fn main() {
                 .as_ref()
                 .map(|s| !s.is_empty())
                 .unwrap_or(false);
-            let name = format!("emulator::{suite_name}::{}", case.name);
-            tests.push(
-                Trial::test(name, move || {
-                    run_case(&case);
-                    Ok(())
-                })
-                .with_ignored_flag(ignored_flag),
-            );
+            let variants = case.variants.as_ref().or(suite.variants.as_ref());
+            for (variant, toggled) in all_variants() {
+                if variants.is_some_and(|variants| !variants.contains(&variant)) {
+                    continue;
+                }
+                let name = format!("emulator::{suite_name}::{}::{variant}", case.name);
+                let case = case.clone();
+                tests.push(
+                    Trial::test(name, move || {
+                        run_case(&case, toggled);
+                        Ok(())
+                    })
+                    .with_ignored_flag(ignored_flag),
+                );
+            }
         }
     }
     libtest_mimic::run(&args, tests).exit()
@@ -196,16 +234,44 @@ fn load_suites()
             .to_string_lossy()
             .to_string();
         let suite: TestSuite = toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
+        let known_variants: Vec<String> = all_variants()
+            .into_iter()
+            .map(|(variant, _)| variant)
+            .collect();
+        let listed_variants = suite
+            .variants
+            .iter()
+            .map(|variants| (&name, variants))
+            .chain(
+                suite
+                    .cases
+                    .iter()
+                    .filter_map(|case| Some((&case.name, case.variants.as_ref()?))),
+            );
+        for (owner, variants) in listed_variants {
+            if variants.is_empty() {
+                return Err(format!("{name}: {owner} lists no variants to run").into());
+            }
+            for variant in variants {
+                if !known_variants.contains(variant) {
+                    return Err(format!(
+                        "{name}: {owner} lists unknown variant {variant}, expected one of {known_variants:?}"
+                    )
+                    .into());
+                }
+            }
+        }
         suites.push((name, suite));
     }
     suites.sort_by(|(a, _), (b, _)| a.cmp(b));
     Ok(suites)
 }
 
-/// Compiles `case.source` to a ROM, runs it in a fresh emulator until `case.await_pc` is
-/// reached, and checks every `case.assertions` entry against emulator memory.
-fn run_case(case: &TestCase) {
-    let rom = build_rom(case);
+/// Compiles `case.source` to a ROM, with `toggled` enabled on top of the case's own preview
+/// features if given, runs it in a fresh emulator until `case.await_pc` is reached, and checks
+/// every `case.assertions` entry against emulator memory.
+fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
+    let rom = build_rom(case, toggled);
 
     let mut emulator = Sameboy::new(case.model.into());
     emulator.load_rom(&rom);
@@ -299,17 +365,24 @@ fn run_tool(tool: &str, command: &mut std::process::Command) {
     assert!(status.success(), "`{tool}` exited with {status}");
 }
 
-/// Builds `case.source` all the way down to ROM bytes, using the same fluent pipeline API the
-/// `build` CLI command uses. Intermediate `.obj`/`.gb`/`.sym` files are written to a scratch
-/// temporary directory that is cleaned up once this function returns.
-fn build_rom(case: &TestCase) -> Vec<u8> {
+/// Builds `case.source` all the way down to ROM bytes, with `toggled` enabled on top of the case's
+/// own preview features if given, using the same fluent pipeline API the `build` CLI command
+/// uses. Intermediate `.obj`/`.gb`/`.sym` files are written to a scratch temporary directory that
+/// is cleaned up once this function returns.
+fn build_rom(case: &TestCase, toggled: Option<PreviewFeature>) -> Vec<u8> {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let obj_path = dir.path().join("case.obj");
     let gb_path = dir.path().join("case.gb");
     let sym_path = dir.path().join("case.sym");
 
     PipelineConfig::default()
-        .with_features(case.preview_features.iter().copied().collect())
+        .with_features(
+            case.preview_features
+                .iter()
+                .copied()
+                .chain(toggled)
+                .collect(),
+        )
         .start()
         .parse(&case.source)
         .unwrap_or_else(|e| panic!("parse failed: {e:?}"))

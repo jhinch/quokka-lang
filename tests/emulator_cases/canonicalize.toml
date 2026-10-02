@@ -1,0 +1,718 @@
+# Covers the shapes canonicalization rewrites which span more than one instruction or block: named
+# `const` operands, branches on comparisons it folds to a constant, definitions read from another
+# block, long chains and signed comparisons. Every case runs with canonicalization off and on, so
+# the code generated from both the canonical and the source form is checked against one result.
+
+[[case]]
+name = "named_const_operands_of_arithmetic"
+source = """
+const K: u8 = 5;
+const ZERO: u8 = 0;
+const ONE: u8 = 1;
+const TOP: u8 = 255;
+global IN: u8;
+
+#[address = 0xC000]
+global SUB: u8;
+#[address = 0xC001]
+global ADD_LEFT: u8;
+#[address = 0xC002]
+global CHAIN: u8;
+#[address = 0xC003]
+global NOT: u8;
+#[address = 0xC004]
+global ADD_ZERO: u8;
+#[address = 0xC005]
+global NEG: u8;
+#[address = 0xC006]
+global MASKED: u8;
+#[address = 0xC007]
+global NOT_PLUS_ONE: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 0x35;
+    let x = IN;
+    SUB = x - K;
+    ADD_LEFT = K + x;
+    CHAIN = (x + K) + 7;
+    NOT = x ^ TOP;
+    ADD_ZERO = x + ZERO;
+    NEG = ZERO - x;
+    MASKED = (x & TOP) | ZERO;
+    NOT_PLUS_ONE = !x + ONE;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x30
+[[case.assertion]]
+addr = 0xC001
+expected = 0x3A
+[[case.assertion]]
+addr = 0xC002
+expected = 0x41
+[[case.assertion]]
+addr = 0xC003
+expected = 0xCA
+[[case.assertion]]
+addr = 0xC004
+expected = 0x35
+[[case.assertion]]
+addr = 0xC005
+expected = 0xCB
+[[case.assertion]]
+addr = 0xC006
+expected = 0x35
+[[case.assertion]]
+addr = 0xC007
+expected = 0xCB
+
+[[case]]
+name = "named_const_operands_of_comparisons"
+source = """
+const K: u8 = 5;
+const ZERO: u8 = 0;
+const TOP: u8 = 255;
+global IN: u8;
+
+#[address = 0xC000]
+global EQ: u1;
+#[address = 0xC001]
+global LEFT_LT: u1;
+#[address = 0xC002]
+global LEFT_GE: u1;
+#[address = 0xC003]
+global ADD_EQ: u1;
+#[address = 0xC004]
+global LT_ZERO: u1;
+#[address = 0xC005]
+global TOP_LT: u1;
+#[address = 0xC006]
+global NE: u1;
+#[address = 0xC007]
+global SUB_EQ_ZERO: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 5;
+    let x = IN;
+    EQ = x == K;
+    LEFT_LT = K < x;
+    LEFT_GE = K >= x;
+    ADD_EQ = x + K == 10;
+    LT_ZERO = x < ZERO;
+    TOP_LT = TOP < x;
+    NE = x != K;
+    SUB_EQ_ZERO = x - K == ZERO;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC003
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC004
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC005
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC006
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC007
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "i8_named_const_operands"
+source = """
+const K: i8 = 5;
+const LOW: i8 = -4;
+global IN: i8;
+
+#[address = 0xC000]
+global LT: u1;
+#[address = 0xC001]
+global GE_NEGATIVE: u1;
+#[address = 0xC002]
+global LEFT_LT: u1;
+#[address = 0xC003]
+global LT_NEGATIVE: u1;
+#[address = 0xC004]
+global SUB: i8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = -3;
+    let x = IN;
+    LT = x < K;
+    GE_NEGATIVE = x >= LOW;
+    LEFT_LT = K < x;
+    LT_NEGATIVE = x < LOW;
+    SUB = x - K;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC004
+expected = 0xF8
+
+[[case]]
+name = "named_const_branch_conditions"
+source = """
+const K: u8 = 5;
+const MASK: u8 = 0b0000_1000;
+global IN: u8;
+
+#[address = 0xC000]
+global BELOW: u8;
+#[address = 0xC001]
+global ABOVE: u8;
+#[address = 0xC002]
+global SUM: u8;
+#[address = 0xC003]
+global BIT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BELOW = 0;
+    ABOVE = 0;
+    SUM = 0;
+    BIT = 0;
+    IN = 0x2C;
+    let x = IN;
+    if x < K then {
+        BELOW = 1;
+    }
+    if K < x then {
+        ABOVE = 1;
+    }
+    if x - K == 0x27 then {
+        SUM = 1;
+    }
+    if (x & MASK) >= 1 then {
+        BIT = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+[[case.assertion]]
+addr = 0xC001
+expected = 1
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 1
+
+# None of the conditions depends on its operand, which canonicalization finds and the source form
+# leaves for the comparison to work out at runtime.
+[[case]]
+name = "constant_conditions_guarding_assignments"
+source = """
+global N: u8;
+global M: u8;
+global S: i8;
+
+#[address = 0xC000]
+global NEVER: u8;
+#[address = 0xC001]
+global ALWAYS: u8;
+#[address = 0xC002]
+global ELSE_ARM: u8;
+#[address = 0xC003]
+global SELF: u8;
+#[address = 0xC004]
+global SIGNED: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 7;
+    M = 0x20;
+    S = -1;
+    let n = N;
+    let m = M;
+    let s = S;
+
+    let never = m;
+    if n < 0 then {
+        never = m + 1;
+    }
+    NEVER = never;
+
+    let always = m;
+    if n >= 0 then {
+        always = m + 1;
+    }
+    ALWAYS = always;
+
+    let arm = m;
+    if 255 < n then {
+        arm = m + 1;
+    } else {
+        arm = m - 1;
+    }
+    ELSE_ARM = arm;
+
+    let same = 0;
+    if n != n then {
+        same = 1;
+    } else {
+        same = 2;
+    }
+    SELF = same;
+
+    let signed = 0;
+    if s < -128 then {
+        signed = 1;
+    } else {
+        signed = 3;
+    }
+    SIGNED = signed;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x20
+[[case.assertion]]
+addr = 0xC001
+expected = 0x21
+[[case.assertion]]
+addr = 0xC002
+expected = 0x1F
+[[case.assertion]]
+addr = 0xC003
+expected = 2
+[[case.assertion]]
+addr = 0xC004
+expected = 3
+
+[[case]]
+name = "constant_true_condition_guarding_a_loop_exit"
+source = """
+global N: u8;
+global M: u8;
+
+#[address = 0xC000]
+global ONCE: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 7;
+    M = 0x20;
+    let n = N;
+    let m = M;
+    let once = m;
+    loop {
+        once = once + n;
+        if n >= 0 then {
+            break;
+        }
+        once = once ^ 255;
+    }
+    ONCE = once;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x27
+
+# 0x20 + 7 = 0x27, ^ 0 = 0x27; + 7 = 0x2E, ^ 1 = 0x2F; + 7 = 0x36, ^ 2 = 0x34.
+[[case]]
+name = "constant_false_condition_guarding_a_loop_exit"
+max_instructions = 2000
+ignored = "codegen panics registering a second phi for one local from one block, when a loop body ends in a conditional break and the value is read after the loop"
+source = """
+global N: u8;
+global M: u8;
+
+#[address = 0xC000]
+global COUNTED: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 7;
+    M = 0x20;
+    let n = N;
+    let m = M;
+    let counted = m;
+    let i = 0;
+    loop {
+        if n < 0 then {
+            break;
+        }
+        counted = (counted + n) ^ i;
+        i = i + 1;
+        if i == 3 then {
+            break;
+        }
+    }
+    COUNTED = counted;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x34
+
+[[case]]
+name = "definitions_read_from_a_dominated_block"
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+#[address = 0xC000]
+global SWAPPED: u8;
+#[address = 0xC001]
+global NEGATED: u8;
+#[address = 0xC002]
+global FOLDED: u8;
+#[address = 0xC003]
+global TESTED: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    SWAPPED = 0;
+    NEGATED = 0;
+    FOLDED = 0;
+    TESTED = 0;
+    N = 0x35;
+    M = 0x0A;
+    C = 0;
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let k = !m;
+    let b = n + 3;
+    let masked = n & 0x10;
+    if C == 0 then {
+        SWAPPED = a - m;
+        NEGATED = k + 1;
+        FOLDED = b + 10;
+        if masked == 0x10 then {
+            TESTED = 1;
+        }
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x30
+[[case.assertion]]
+addr = 0xC001
+expected = 0xF6
+[[case.assertion]]
+addr = 0xC002
+expected = 0x42
+[[case.assertion]]
+addr = 0xC003
+expected = 1
+
+[[case]]
+name = "definitions_in_a_loop_read_in_its_exit"
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+#[address = 0xC000]
+global EQUAL: u8;
+#[address = 0xC001]
+global NEGATED: u8;
+#[address = 0xC002]
+global DIFFERENCE: u8;
+#[address = 0xC003]
+global ZERO: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    EQUAL = 0;
+    K = 0x35;
+    M = 0x0A;
+    C = 0;
+    let m = M;
+    let v = 0;
+    let w = 0;
+    let d = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k + 5;
+            w = !k;
+            let l = k + 7;
+            d = l - m;
+            break;
+        }
+    }
+    if v == 0x3A then {
+        EQUAL = 1;
+    }
+    NEGATED = w + 1;
+    DIFFERENCE = d;
+    ZERO = d == 0;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+[[case.assertion]]
+addr = 0xC001
+expected = 0xCB
+[[case.assertion]]
+addr = 0xC002
+expected = 0x32
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+mask = 0b0000_0001
+
+[[case]]
+name = "long_chains_of_constants_and_operands"
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+global W: u16;
+
+#[address = 0xC000]
+global ADDS: u8;
+#[address = 0xC001]
+global MIXED: u8;
+#[address = 0xC002]
+global XORS: u8;
+#[address = 0xC003]
+global LEFT: u8;
+#[address = 0xC004]
+global WIDE: u1;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 0x35;
+    A = 0x10;
+    B = 0x20;
+    C = 0x03;
+    W = 0x12F0;
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    let w = W;
+    ADDS = ((((((n + 1) + a) + 2) + b) + 3) + c) + 4;
+    MIXED = (((((n - 1) + a) - 2) - b) + 3) - c;
+    XORS = (((((n ^ 1) ^ a) ^ 2) ^ b) ^ 4) ^ c;
+    LEFT = 1 + (a + (2 + (b + (3 + (c + n)))));
+    WIDE = (((w + 0x20) - 0x1000) + 0xF0) == 0x0400;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x72
+[[case.assertion]]
+addr = 0xC001
+expected = 0x22
+[[case.assertion]]
+addr = 0xC002
+expected = 0x01
+[[case.assertion]]
+addr = 0xC003
+expected = 0x6E
+[[case.assertion]]
+addr = 0xC004
+expected = 1
+mask = 0b0000_0001
+
+[[case]]
+name = "i8_comparisons_between_other_rewrites_in_one_block"
+max_instructions = 2000
+source = """
+global N: i8;
+global M: i8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = -3;
+    M = 10;
+    let n = N;
+    let m = M;
+    let a = n < 5;
+    let s = m - 3;
+    let b = s >= -2;
+    let c = 3 < n;
+    let x = n ^ -1;
+    let d = x < 0;
+    let e = (m & 8) >= 1;
+    let p = (n + 2) == 7;
+    let r = 0;
+    if a then {
+        r = r | 1;
+    }
+    if b then {
+        r = r | 2;
+    }
+    if c then {
+        r = r | 4;
+    }
+    if d then {
+        r = r | 8;
+    }
+    if e then {
+        r = r | 16;
+    }
+    if p then {
+        r = r | 32;
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x13
+
+[[case]]
+name = "i8_comparisons_between_other_rewrites_in_one_block_inverted"
+max_instructions = 2000
+source = """
+global N: i8;
+global M: i8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    N = 5;
+    M = -1;
+    let n = N;
+    let m = M;
+    let a = n < 5;
+    let s = m - 3;
+    let b = s >= -2;
+    let c = 3 < n;
+    let x = n ^ -1;
+    let d = x < 0;
+    let e = (m & 8) >= 1;
+    let p = (n + 2) == 7;
+    let r = 0;
+    if a then {
+        r = r | 1;
+    }
+    if b then {
+        r = r | 2;
+    }
+    if c then {
+        r = r | 4;
+    }
+    if d then {
+        r = r | 8;
+    }
+    if e then {
+        r = r | 16;
+    }
+    if p then {
+        r = r | 32;
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x3C

@@ -1,11 +1,10 @@
-# Covers comparisons against a literal with canonicalization enabled, which rewrites them to put
+# Covers comparisons against a literal, which canonicalization rewrites to put
 # the literal on the right and to read the carry flag where it can. Each case computes the
 # comparison once as a stored value and once as a branch condition, for an input on which it holds
 # and one on which it does not.
 
 [[case]]
 name = "eq_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -60,7 +59,6 @@ expected = 0
 
 [[case]]
 name = "ne_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -115,7 +113,6 @@ expected = 0
 
 [[case]]
 name = "eq_max"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -170,7 +167,6 @@ expected = 0
 
 [[case]]
 name = "ne_max"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -225,7 +221,6 @@ expected = 0
 
 [[case]]
 name = "gt_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -280,7 +275,6 @@ expected = 0
 
 [[case]]
 name = "le_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -335,7 +329,6 @@ expected = 0
 
 [[case]]
 name = "literal_eq"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -390,7 +383,6 @@ expected = 0
 
 [[case]]
 name = "multi_bit_mask_eq_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -445,7 +437,6 @@ expected = 0
 
 [[case]]
 name = "add_literal_eq_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -500,7 +491,6 @@ expected = 0
 
 [[case]]
 name = "bitxor_literal_ne_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -555,7 +545,6 @@ expected = 0
 
 [[case]]
 name = "u16_gt_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u16;
 
@@ -610,7 +599,6 @@ expected = 0
 
 [[case]]
 name = "u16_add_literal_eq_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: u16;
 
@@ -665,7 +653,6 @@ expected = 0
 
 [[case]]
 name = "i8_gt_negative_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -720,7 +707,6 @@ expected = 0
 
 [[case]]
 name = "i8_le_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -775,7 +761,6 @@ expected = 0
 
 [[case]]
 name = "i16_gt_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i16;
 
@@ -830,7 +815,6 @@ expected = 0
 
 [[case]]
 name = "u1_eq_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: u1;
 
@@ -885,7 +869,6 @@ expected = 0
 
 [[case]]
 name = "u1_ne_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: u1;
 
@@ -940,7 +923,6 @@ expected = 0
 
 [[case]]
 name = "u1_eq_one"
-preview_features = ["canonicalize"]
 source = """
 global IN: u1;
 
@@ -995,7 +977,6 @@ expected = 0
 
 [[case]]
 name = "u1_ne_one"
-preview_features = ["canonicalize"]
 source = """
 global IN: u1;
 
@@ -1050,7 +1031,6 @@ expected = 0
 
 [[case]]
 name = "i8_lt_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -1105,7 +1085,6 @@ expected = 0
 
 [[case]]
 name = "i8_ge_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -1160,7 +1139,6 @@ expected = 0
 
 [[case]]
 name = "i8_lt_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -1215,7 +1193,6 @@ expected = 0
 
 [[case]]
 name = "i8_ge_negative_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i8;
 
@@ -1270,7 +1247,6 @@ expected = 0
 
 [[case]]
 name = "i16_lt_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: i16;
 
@@ -1325,7 +1301,6 @@ expected = 0
 
 [[case]]
 name = "i16_ge_zero"
-preview_features = ["canonicalize"]
 source = """
 global IN: i16;
 
@@ -1380,7 +1355,6 @@ expected = 0
 
 [[case]]
 name = "i16_lt_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i16;
 
@@ -1435,7 +1409,6 @@ expected = 0
 
 [[case]]
 name = "i16_ge_negative_literal"
-preview_features = ["canonicalize"]
 source = """
 global IN: i16;
 

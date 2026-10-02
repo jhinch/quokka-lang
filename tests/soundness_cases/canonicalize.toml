@@ -3401,3 +3401,3811 @@ fn main() {
     f();
 }
 """
+
+# The cases below have a rule read through a definition which sits in a block dominating the
+# instruction being rewritten, rather than earlier in the same block.
+
+[[case]]
+name = "add_of_neg_defined_in_a_dominating_block_becomes_sub_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let r = n;
+    if C == 0 then {
+        r = n + k;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_of_neg_defined_in_a_dominating_block_becomes_add_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let r = n;
+    if C == 0 then {
+        r = n - k;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "not_defined_in_a_dominating_block_plus_one_becomes_neg_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let k = !m;
+    let r = n;
+    if C == 0 then {
+        r = k + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "neg_of_neg_defined_in_a_dominating_block_becomes_a_copy_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let r = n;
+    if C == 0 then {
+        r = -k;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "not_of_not_defined_in_a_dominating_block_becomes_a_copy_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let k = !m;
+    let r = n;
+    if C == 0 then {
+        r = !k;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_link_defined_in_a_dominating_block_folds_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = m;
+    if C == 0 then {
+        r = a + 10;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_link_defined_in_a_dominating_block_swaps_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = m;
+    if C == 0 then {
+        r = a - m;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The other operand is defined in the branch, after the chain link, so it cannot be moved up to the
+# link's position.
+[[case]]
+name = "chain_link_defined_in_a_dominating_block_stays_sound_when_the_other_operand_does_not_dominate_it"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = m;
+    if C == 0 then {
+        let y = m ^ 3;
+        r = a - y;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_literal_defined_in_a_dominating_block_eq_literal_folds_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = n == m;
+    if C == 0 then {
+        r = a == 9;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_literal_defined_in_a_dominating_block_ne_literal_folds_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n ^ 5;
+    let r = n == m;
+    if C == 0 then {
+        r = a != 9;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_defined_in_a_dominating_block_eq_zero_compares_the_operands_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let d = n - m;
+    let r = n == 3;
+    if C == 0 then {
+        r = d == 0;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_defined_in_a_dominating_block_eq_mask_tests_for_nonzero_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let k = n & 8;
+    let r = n == m;
+    if C == 0 then {
+        r = k == 8;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_defined_in_a_dominating_block_ge_one_tests_for_nonzero_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let k = n & 8;
+    let r = n == m;
+    if C == 0 then {
+        r = k >= 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The zero only becomes a constant once the identity rule has rewritten its definition, earlier in
+# the same sweep.
+[[case]]
+name = "zero_defined_in_a_dominating_block_added_simplifies_to_a_copy_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let z = m & 0;
+    let r = m;
+    if C == 0 then {
+        r = n + z;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The link has a reader in each arm, so neither the swap nor the fold may change or drop it.
+[[case]]
+name = "chain_link_read_in_both_arms_of_a_branch_stays_sound"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = m;
+    if C == 0 then {
+        r = a + m;
+    } else {
+        r = a + 10;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "negation_read_in_both_arms_of_a_branch_stays_sound"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+source = """
+global N: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let r = n;
+    if C == 0 then {
+        r = n + k;
+    } else {
+        r = n - k;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The chain after the join starts from a phi, which no rule may read through.
+[[case]]
+name = "chain_through_both_arms_of_a_branch_and_the_join_is_sound"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let r = a;
+    if C == 0 then {
+        r = a + 3;
+    } else {
+        r = m - 7;
+    }
+    let s = r + 11;
+    return s - m;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "read_through_in_a_nested_branch_is_sound"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n - 5;
+    let r = m;
+    if C == 0 then {
+        let b = m ^ 255;
+        if n < 100 then {
+            r = a - m;
+        } else {
+            r = b + 1;
+        }
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The cases below define a value inside a loop and read it in the loop's exit block, which has a
+# lower block key than the blocks of the loop body, so an order of visiting the blocks which follows
+# their keys reaches the reader before the definition.
+
+[[case]]
+name = "add_literal_defined_in_a_loop_eq_literal_in_the_exit_folds_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k + 5;
+            break;
+        }
+    }
+    return v == 9;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "neg_defined_in_a_loop_added_in_the_exit_becomes_sub_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> i8 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = -k;
+            break;
+        }
+    }
+    return m + v;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "not_defined_in_a_loop_plus_one_in_the_exit_becomes_neg_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = !k;
+            break;
+        }
+    }
+    return v + 1;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_link_defined_in_a_loop_folds_in_the_exit_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k + 5;
+            break;
+        }
+    }
+    return v + 10;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_link_defined_in_a_loop_swaps_with_an_operand_defined_before_the_loop_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k + 5;
+            break;
+        }
+    }
+    return v - m;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_link_defined_in_a_loop_stays_sound_with_an_operand_defined_after_the_loop"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k + 5;
+            break;
+        }
+    }
+    return v - (m ^ 3);
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "single_bit_mask_defined_in_a_loop_eq_mask_in_the_exit_tests_for_nonzero_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k & 8;
+            break;
+        }
+    }
+    return v == 8;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_single_bit_mask_defined_in_a_loop_lt_one_in_the_exit_tests_for_zero_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k & 8;
+            break;
+        }
+    }
+    return v < 1;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_defined_in_a_loop_eq_zero_in_the_exit_compares_the_operands_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k - m;
+            break;
+        }
+    }
+    return v == 0;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# Both the swap inside the loop and the comparison in the exit want to read the inner addition.
+[[case]]
+name = "swapped_chain_defined_in_a_loop_eq_zero_in_the_exit_is_sound"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            let l = k + 5;
+            v = l - m;
+            break;
+        }
+    }
+    return v == 0;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_value_defined_in_a_loop_lt_literal_in_the_exit_becomes_unsigned_soundly"
+inputs = { C = [0], K = [{ min = 0, max = 255 }], M = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global K: i8;
+global M: i8;
+global C: u8;
+
+fn f() -> u1 {
+    let m = M;
+    let v = 0;
+    loop {
+        let k = K;
+        if C == 0 then {
+            v = k - 3;
+            break;
+        }
+    }
+    return v < 5;
+}
+
+fn main() {
+    K = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The chain inside the loop starts from a phi and is swapped on every sweep it is visited in, and
+# the exit block folds onto the value the loop leaves.
+[[case]]
+name = "chain_carried_around_a_loop_reassociates_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let limit = n & 7;
+    let i = 0;
+    let acc = m;
+    loop {
+        if i == limit then {
+            break;
+        }
+        let t = acc + 3;
+        acc = t + n;
+        i = i + 1;
+    }
+    return (acc + 1) + 2;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+# The addition feeding the exit condition is also carried into the next iteration, so the comparison
+# must keep reading it.
+[[case]]
+name = "comparison_in_a_loop_header_reads_through_arithmetic_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let i = 0;
+    let acc = 0;
+    loop {
+        let next = i + 1;
+        if next == 9 then {
+            break;
+        }
+        if (i ^ 3) == (n & 7) then {
+            acc = acc + m;
+        }
+        acc = (acc - 1) - i;
+        i = next;
+    }
+    return acc;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "signed_comparison_in_a_loop_becomes_unsigned_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let i = 0;
+    let acc = 0;
+    loop {
+        if i >= 6 then {
+            break;
+        }
+        if n < 3 then {
+            acc = acc + 1;
+        }
+        if (m - i) >= -2 then {
+            acc = acc - 3;
+        }
+        i = i + 1;
+    }
+    return acc;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+# The cases below have more than one rule rewrite the same instruction position in a single visit,
+# each rule seeing what the one before it left there.
+
+[[case]]
+name = "sub_literal_becomes_add_then_folds_into_the_chain_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 5;
+    let b = a - 3;
+    return b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_literal_becomes_add_then_swaps_along_the_chain_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = m ^ 6;
+    let b = n - 5;
+    let c = b - a;
+    let d = c - 9;
+    return d;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_max_becomes_not_then_neg_then_sub_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let t = n ^ 255;
+    let u = t + 1;
+    return m + u;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "zero_sub_becomes_neg_then_add_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let z = 0 - n;
+    return m - z;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "literal_on_the_left_moves_right_then_becomes_neg_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let t = 255 ^ n;
+    let u = 1 + t;
+    return u + m;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "neg_of_not_plus_one_becomes_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let t = !n;
+    let u = t + 1;
+    return -u;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "literal_on_the_left_of_add_moves_right_then_folds_into_the_comparison_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = 5 + n;
+    return 9 == a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "swapped_chain_eq_zero_compares_the_operands_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let b = a - m;
+    return b == 0;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "folded_chain_eq_literal_folds_again_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n + 5;
+    let b = a + 3;
+    return b == 10;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_chain_ne_literal_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n ^ 3;
+    let b = a ^ m;
+    return b != 7;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_zero_becomes_add_then_a_copy_then_feeds_a_chain_soundly"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n - 0;
+    let b = a + 4;
+    let c = b + m;
+    return c - 4;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+# The comparison's literal is moved to the right and the comparison is then biased, both at the one
+# position.
+[[case]]
+name = "i8_sub_literal_then_lt_literal_becomes_unsigned_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n - 3;
+    return 5 < a;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_add_literal_eq_min_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n + 3;
+    return a == -128;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_comparison_of_a_folded_comparison_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n + 1;
+    let b = a == 1;
+    let c = b == 0;
+    return c != 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+# The cases below are chains of more than two links, which take several sweeps to settle: each swap
+# moves a constant outward by one link, and a fold then needs the next sweep to see it.
+
+[[case]]
+name = "seven_link_add_chain_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return ((((((n + 1) + a) + 2) + b) + 3) + c) + 4;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "six_link_mixed_add_sub_chain_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return (((((n - 1) + a) - 2) - b) + 3) - c;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "six_link_bitxor_chain_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return (((((n ^ 1) ^ a) ^ 2) ^ b) ^ 4) ^ c;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+# `&` and `|` do not commute with each other, so only the links between two of the same opcode may
+# move.
+[[case]]
+name = "chain_alternating_bitand_and_bitor_stays_sound"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return (((((n & 127) & a) | 1) | b) & 254) & c;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "chain_nested_on_the_left_operand_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return 1 + (a + (2 + (b + (3 + (c + n)))));
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "long_chain_eq_literal_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    return ((((n + 1) + a) + 2) - b) + 3 == c;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "long_chain_ending_in_a_negation_converges_soundly"
+inputs = { A = [0, 1, 127, 255], B = [0, 2, 128, 254], C = [0, 3, 85, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global A: u8;
+global B: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = A;
+    let b = B;
+    let c = C;
+    let t = ((n - 1) + a) - 2;
+    let u = !t + 1;
+    return (b + u) + (c ^ 255);
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    B = 1;
+    C = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_five_link_chain_converges_soundly"
+inputs = { A = ["sparse-edges"], N = ["sparse-edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+global A: u16;
+
+fn f() -> u16 {
+    let n = N;
+    let a = A;
+    return ((((n + 300) - a) + 65000) ^ 0) - 255;
+}
+
+fn main() {
+    N = 1;
+    A = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "long_chain_split_across_blocks_converges_soundly"
+inputs = { C = [0, 1], M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = (n + 1) - m;
+    let r = a + 2;
+    if C == 0 then {
+        let b = (r + 3) + m;
+        r = b + 4;
+    } else {
+        r = (r - 5) - 6;
+    }
+    return (r + 7) + 8;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The cases below have several signed comparisons in one block, each of which inserts instructions
+# ahead of itself, between instructions other rules rewrite in place.
+
+[[case]]
+name = "i8_comparisons_between_in_place_rewrites_in_one_block_are_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n < 5;
+    let s = m - 3;
+    let b = s >= -2;
+    let c = 3 < n;
+    let x = n ^ -1;
+    let d = x < 0;
+    let e = (m & 8) >= 1;
+    let p = (n + 2) == 7;
+    let r = 0;
+    if a then {
+        r = r | 1;
+    }
+    if b then {
+        r = r | 2;
+    }
+    if c then {
+        r = r | 4;
+    }
+    if d then {
+        r = r | 8;
+    }
+    if e then {
+        r = r | 16;
+    }
+    if p then {
+        r = r | 32;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_comparisons_of_one_swapped_chain_in_one_block_are_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n + 5;
+    let lo = m < -3;
+    let b = a - m;
+    let hi = b >= 9;
+    let z = 0 - n;
+    let neg = z < 0;
+    return (lo & hi) ^ neg;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_comparisons_between_in_place_rewrites_in_one_block_are_sound"
+inputs = { M = ["sparse-edges"], N = ["sparse-edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i16;
+global M: i16;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n < 300;
+    let s = m - 1000;
+    let b = s >= -2;
+    let c = 255 < n;
+    let d = (m ^ -1) < 0;
+    return ((a & b) ^ c) | d;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+# The cases below feed each rule which keys on a constant a named `const` in place of a literal. A
+# `const` is read with a `load` until it is inlined, so it only becomes a constant to canonicalize
+# part of the way through optimizing.
+
+[[case]]
+name = "sub_named_const_becomes_add_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return n - K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_on_the_left_of_add_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return K + n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_on_the_left_of_sub_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return K - n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_named_const_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return n & K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_on_the_left_of_bitor_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return K | n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitxor_named_const_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return n ^ K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "not_plus_named_const_simplifies_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return !n + K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_sub_named_const_becomes_add_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: i8 = $C$;
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    return n - K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_sub_named_const_becomes_add_soundly"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 255, 256, 32767, 32768, 65535] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u16 = $C$;
+global N: u16;
+
+fn f() -> u16 {
+    let n = N;
+    return n - K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_chain_folds_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return (n + K) + 7;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_folds_into_a_literal_chain_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return (n - 3) - K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "two_named_consts_in_a_chain_fold_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+const J: u8 = 90;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    return (n ^ K) ^ J;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_chain_swaps_soundly"
+inputs = { M = [0, 1, 128, 255], N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    return (n + K) - m;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_in_a_long_chain_converges_soundly"
+inputs = { M = [0, 1, 128, 255], N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    return (((n + K) + m) + K) - m;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "eq_named_const_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n == K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ne_named_const_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n != K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_named_const_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_named_const_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_lt_moves_the_const_to_the_right_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return K < n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_ge_moves_the_const_to_the_right_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return K >= n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_eq_swaps_its_operands_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return K == n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_named_const_eq_literal_folds_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n + K == 9;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "add_literal_ne_named_const_folds_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return n + 9 != K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_eq_named_const_is_sound"
+inputs = { M = [0, 1, 128, 255], N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return n - m == K;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_mask_eq_mask_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & K) == K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_mask_ge_one_is_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ edges = 8 }] }
+source = """
+const K: u8 = $C$;
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n & K) >= 1;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_eq_named_const_is_sound"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 255, 256, 32768, 65535] }
+source = """
+const K: u16 = $C$;
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return n == K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_named_const_lt_moves_the_const_to_the_right_soundly"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 255, 256, 32768, 65534, 65535] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u16 = $C$;
+global N: u16;
+
+fn f() -> u1 {
+    let n = N;
+    return K < n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_lt_non_negative_named_const_becomes_unsigned_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: i8 = $C$;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_negative_named_const_becomes_unsigned_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 1, max = 128 }] }
+source = """
+const K: i8 = -$C$;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_named_const_lt_moves_the_const_to_the_right_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: i8 = $C$;
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return K < n;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_lt_named_const_becomes_unsigned_soundly"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 255, 256, 32767] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: i16 = $C$;
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n < K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_eq_named_const_simplifies_soundly"
+inputs = { N = [0, 1] }
+params = { C = [0, 1] }
+source = """
+const K: u1 = $C$;
+global N: u1;
+
+fn f() -> u1 {
+    let n = N;
+    return n == K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u4_bitxor_named_const_simplifies_soundly"
+preview_features = ["narrow-int"]
+inputs = { N = [{ min = 0, max = 15 }] }
+params = { C = [{ min = 0, max = 15 }] }
+source = """
+const K: u4 = $C$;
+global N: u4;
+
+fn f() -> u4 {
+    let n = N;
+    return n ^ K;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_read_in_several_blocks_is_sound"
+inputs = { C = [0, 1], M = [0, 1, 128, 255], N = [{ min = 0, max = 255 }] }
+params = { K = [1, 2, 128, 200] }
+expect_rewrite = ["canonicalize"]
+source = """
+const K: u8 = $K$;
+global N: u8;
+global M: u8;
+global C: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let a = n + K;
+    let r = a - m;
+    if C == 0 then {
+        r = (r + K) - 1;
+    }
+    loop {
+        if r >= K then {
+            break;
+        }
+        r = (r | 1) + K;
+    }
+    return r ^ K;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    C = 1;
+    f();
+}
+"""
+
+# The cases below branch on a comparison which canonicalize folds to a constant, with a variable
+# assigned under the branch and read after it. The comparison is not a constant to the analyzer, so
+# the branch is only removed by the passes which run after canonicalize.
+
+[[case]]
+name = "lt_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n >= 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n >= 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "gt_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if 255 < n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "gt_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if 255 < n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "le_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n <= 255 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "le_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n <= 255 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ne_self_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n != n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ne_self_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n != n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "eq_self_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n == n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "eq_self_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n == n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_self_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_self_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_self_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n >= n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_self_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n >= n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_lt_min_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < -128 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_lt_min_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < -128 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_gt_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n > 127 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_gt_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n > 127 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_min_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n >= -128 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_min_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n >= -128 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_lt_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_lt_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_gt_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n > 65535 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u16_gt_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = ["edges"] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u16;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n > 65535 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_lt_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [0, 1] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u1;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_lt_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [0, 1] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u1;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_gt_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [0, 1] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u1;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n > 1 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u1_gt_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [0, 1] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u1;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n > 1 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u4_gt_max_guarding_an_if_is_sound"
+preview_features = ["narrow-int"]
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 15 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u4;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n > 15 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "u4_gt_max_guarding_an_if_else_is_sound"
+preview_features = ["narrow-int"]
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 15 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u4;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n > 15 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_named_const_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const ZERO: u8 = 0;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < ZERO then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_named_const_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const ZERO: u8 = 0;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if n < ZERO then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_max_lt_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const TOP: u8 = 255;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if TOP < n then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "named_const_max_lt_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+const TOP: u8 = 255;
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if TOP < n then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_self_ne_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if (n - n) != 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "sub_self_ne_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if (n - n) != 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_zero_ne_zero_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if (n & 0) != 0 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitand_zero_ne_zero_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if (n & 0) != 0 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_max_lt_max_guarding_an_if_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if (n | 255) < 255 then {
+        r = m + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "bitor_max_lt_max_guarding_an_if_else_is_sound"
+inputs = { M = [0, 1, 254, 255], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = 0;
+    if (n | 255) < 255 then {
+        r = m + 1;
+        s = r;
+    } else {
+        r = m - 1;
+    }
+    return r ^ s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_zero_guarding_a_loop_exit_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let i = 0;
+    loop {
+        if n < 0 then {
+            break;
+        }
+        r = (r + n) ^ i;
+        i = i + 1;
+        if i == 3 then {
+            break;
+        }
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_zero_guarding_a_loop_exit_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    loop {
+        r = r + n;
+        if n >= 0 then {
+            break;
+        }
+        r = r ^ 255;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "ge_zero_guarding_a_loop_exit_ahead_of_the_body_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    loop {
+        if n >= 0 then {
+            break;
+        }
+        r = r + n;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "gt_max_guarding_an_if_in_a_loop_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let i = 0;
+    loop {
+        if i == 4 then {
+            break;
+        }
+        if n > 255 then {
+            r = r + 100;
+        }
+        r = r + i;
+        i = i + 1;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_zero_guarding_an_if_holding_a_loop_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+ignored = "removing the unreachable loop panics with an invalid block key in Function::remove_dangling, with or without canonicalize"
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < 0 then {
+        let i = 0;
+        loop {
+            if i == 4 then {
+                break;
+            }
+            r = (r + n) ^ i;
+            i = i + 1;
+        }
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_zero_guarding_an_if_holding_an_if_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = n;
+    if n < 0 then {
+        if m == 3 then {
+            r = 7;
+        } else {
+            s = 9;
+        }
+        r = r + s;
+    }
+    return r - s;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "an_if_holding_ne_self_guarding_an_if_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if m < 128 then {
+        if n != n then {
+            r = r + 1;
+        } else {
+            r = r + 2;
+        }
+        r = r ^ n;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "two_constant_conditions_assigning_one_variable_are_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < 0 then {
+        r = r + 1;
+    }
+    if n >= 0 then {
+        r = r + 2;
+    }
+    if 255 < m then {
+        r = r + 4;
+    } else {
+        r = r + 8;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "constant_condition_assigning_several_variables_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    let s = n;
+    let t = 5;
+    if n < 0 then {
+        r = s + 1;
+        s = t + m;
+        t = r;
+    }
+    return (r ^ s) + t;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "lt_zero_returning_from_inside_the_if_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = M;
+    if n < 0 then {
+        return m;
+    }
+    return n + m;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_constant_condition_beside_a_live_signed_comparison_is_sound"
+inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let r = m;
+    if n < -128 then {
+        r = r + 1;
+    }
+    if n < 5 then {
+        r = r - 3;
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""

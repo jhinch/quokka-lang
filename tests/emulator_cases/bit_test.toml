@@ -285,7 +285,6 @@ expected = 0b0100_1000
 
 [[case]]
 name = "eq_mask_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -322,7 +321,6 @@ expected = 0
 
 [[case]]
 name = "ne_mask_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -359,7 +357,6 @@ expected = 1
 
 [[case]]
 name = "u16_eq_mask_tests_the_byte_containing_the_bit"
-preview_features = ["canonicalize"]
 source = """
 global IN: u16;
 
@@ -399,7 +396,6 @@ expected = 0
 
 [[case]]
 name = "named_const_mask_ne_zero_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 const SET: u8 = 0b0000_1000;
 const CLEAR: u8 = 0b0001_0000;
@@ -438,7 +434,6 @@ expected = 0
 
 [[case]]
 name = "named_const_mask_eq_zero_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 const SET: u8 = 0b0000_1000;
 const CLEAR: u8 = 0b0001_0000;
@@ -477,7 +472,6 @@ expected = 0
 
 [[case]]
 name = "named_const_mask_on_the_left_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 const SET: u8 = 0b0000_1000;
 const CLEAR: u8 = 0b0001_0000;
@@ -516,7 +510,6 @@ expected = 0
 
 [[case]]
 name = "ge_one_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -553,7 +546,6 @@ expected = 0
 
 [[case]]
 name = "lt_mask_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 global IN: u8;
 
@@ -590,7 +582,6 @@ expected = 0
 
 [[case]]
 name = "i8_named_const_mask_ge_one_branches_on_the_tested_bit"
-preview_features = ["canonicalize"]
 source = """
 const SET: i8 = 0b0000_1000;
 const CLEAR: i8 = 0b0001_0000;

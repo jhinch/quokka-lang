@@ -16,3 +16,33 @@ fn main() {
     f();
 }
 """
+
+[[case]]
+name = "loop_inside_an_if_which_is_never_taken_is_eliminated_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+ignored = "removing the unreachable loop panics with an invalid block key in Function::remove_dangling"
+source = """
+const ONE: u8 = 1;
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let r = n;
+    if ONE == 2 then {
+        let i = 0;
+        loop {
+            if i == 4 then {
+                break;
+            }
+            r = (r + n) ^ i;
+            i = i + 1;
+        }
+    }
+    return r;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
