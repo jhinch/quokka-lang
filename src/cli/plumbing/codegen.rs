@@ -36,7 +36,7 @@ impl CodegenCommand {
             .optimize()?
             .codegen()?;
         if self.allocate_registers {
-            let output = output.allocate();
+            let output = output.allocate().peephole();
             println!("{}", output.lir());
         } else {
             println!("{}", output.lir());

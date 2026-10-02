@@ -2,6 +2,7 @@ use crate::analyze::Analyzer;
 use crate::ast;
 use crate::codegen::CodeGen;
 use crate::codegen::encode::ObjFileEncoder;
+use crate::codegen::peephole;
 use crate::codegen::regalloc::RegAllocator;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::Lir;
@@ -171,12 +172,38 @@ impl CodegenOutput {
 }
 
 pub struct AllocateOutput {
-    #[allow(dead_code)]
     config: PipelineConfig,
     lir: Lir,
 }
 
 impl AllocateOutput {
+    #[must_use]
+    pub fn lir(&self) -> &Lir {
+        &self.lir
+    }
+
+    #[must_use]
+    pub fn into_lir(self) -> Lir {
+        self.lir
+    }
+
+    /// Finalizes the allocated LIR for encoding and applies the post-allocation peepholes.
+    #[must_use]
+    pub fn peephole(mut self) -> PeepholeOutput {
+        peephole::run(&mut self.lir);
+        PeepholeOutput {
+            config: self.config,
+            lir: self.lir,
+        }
+    }
+}
+
+pub struct PeepholeOutput {
+    config: PipelineConfig,
+    lir: Lir,
+}
+
+impl PeepholeOutput {
     #[must_use]
     pub fn lir(&self) -> &Lir {
         &self.lir

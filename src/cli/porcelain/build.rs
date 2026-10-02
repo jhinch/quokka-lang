@@ -52,6 +52,7 @@ impl BuildCommand {
             .optimize()?
             .codegen()?
             .allocate()
+            .peephole()
             .encode()
             .write_obj(&obj_path)
             .map_err(|e| miette::miette!(e))?

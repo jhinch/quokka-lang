@@ -137,7 +137,7 @@ impl Example {
             .and_then(|output| output.analyze())
             .and_then(|output| output.optimize())
             .and_then(|output| output.codegen())
-            .map(|output| output.allocate().encode())
+            .map(|output| output.allocate().peephole().encode())
             .map(|_encoded| ())
             .map_err(|errors| render(errors, &source))
     }

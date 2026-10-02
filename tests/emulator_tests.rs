@@ -320,6 +320,7 @@ fn build_rom(case: &TestCase) -> Vec<u8> {
         .codegen()
         .unwrap_or_else(|e| panic!("codegen failed: {e:?}"))
         .allocate()
+        .peephole()
         .encode()
         .write_obj(&obj_path)
         .unwrap_or_else(|e| panic!("failed to write obj file: {e}"))

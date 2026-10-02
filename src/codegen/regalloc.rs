@@ -1,7 +1,6 @@
 use crate::codegen::interference::{
     BlockLiveness, InterferenceGraph, build_interference_graph, calculate_block_liveness,
 };
-use crate::codegen::peephole;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::{
     AId, Addr, Block, BlockId, CarryId, CodeSectionData, FlagId, HLId, HighAddr, Instr, Lir,
@@ -35,21 +34,14 @@ impl RegAllocator {
             if let SectionData::Code(code) = &mut section.data {
                 // Sections with no virtual registers are hand-emitted final machine
                 // code (e.g. the cartridge header stub pinned at `$0100`). There is
-                // nothing to allocate, and skipping `cleanup_redundant_instructions`
-                // preserves deliberate instructions such as the header's leading `NOP`.
-                if code.r8_registers.is_empty()
-                    && code.r16_registers.is_empty()
-                    && code.zero_registers.is_empty()
-                    && code.carry_registers.is_empty()
-                {
+                // nothing to allocate.
+                if !code.has_registers() {
                     continue;
                 }
                 let colors = self.allocate_registers_for_code(code);
                 for (reg, color) in colors {
                     code.register_data_mut(reg).color = Some(color);
                 }
-                peephole::cleanup_redundant_instructions(code);
-                peephole::specialize_accumulator_rotates(code);
             }
         }
     }

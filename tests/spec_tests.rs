@@ -629,7 +629,7 @@ fn test_codegen(mut case: TestCase) {
         .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
     let result = root.codegen().map(|output| {
         if case.allocate_registers {
-            output.allocate().into_lir()
+            output.allocate().peephole().into_lir()
         } else {
             output.into_lir()
         }

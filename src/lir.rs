@@ -642,6 +642,16 @@ pub struct CodeSectionData {
 }
 
 impl CodeSectionData {
+    /// Whether the section has any virtual register. One without is hand-emitted final machine
+    /// code.
+    #[must_use]
+    pub fn has_registers(&self) -> bool {
+        !(self.r8_registers.is_empty()
+            && self.r16_registers.is_empty()
+            && self.zero_registers.is_empty()
+            && self.carry_registers.is_empty())
+    }
+
     pub fn registers(&self) -> impl Iterator<Item = VirtualReg> + '_ {
         self.r8_registers
             .keys()
