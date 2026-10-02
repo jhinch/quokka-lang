@@ -1,3 +1,7 @@
+# Every case here targets canonicalize, which the opt-out variants leave off: repeating each sweep
+# with a different pass disabled would check nothing about the rewrites under test.
+variants = ["canonicalize", "all"]
+
 [[case]]
 name = "add_add_chain_reassociates_soundly"
 inputs = { N = [{ min = 0, max = 255 }] }
@@ -2514,7 +2518,7 @@ fn main() {
 
 [[case]]
 name = "u16_sub_eq_zero_compares_the_operands_soundly"
-inputs = { N = ["edges"], M = ["edges"] }
+inputs = { N = ["sparse-edges"], M = ["sparse-edges"] }
 expect_rewrite = ["canonicalize"]
 source = """
 global N: u16;

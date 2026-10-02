@@ -20,7 +20,13 @@
 //! Sweeping every value is only affordable for a single axis of up to 8 bits. For wider globals,
 //! or for the second axis of a case which sweeps two, an input lists `"edges"` instead of a range
 //! (e.g. `inputs = { N = ["edges"] }`), which expands to the values of the global's type most
-//! likely to expose a bug (see [`edge_values`]) rather than all of them.
+//! likely to expose a bug (see [`edge_values`]) rather than all of them. The edges of a wide type
+//! still number in the hundreds, too many to combine with themselves, so a case which sweeps two
+//! wide axes lists `"sparse-edges"` for each instead.
+//!
+//! A case is limited to [`MAX_COMBINATIONS`] combinations of param and input values. The suite's
+//! `_lint_cases` trial fails for any case over the limit, so an expensive case cannot creep in
+//! unnoticed.
 //!
 //! Globals are never literals, so a rewrite that only matches a literal operand cannot be swept
 //! through `inputs`. For those a case lists `params`: each `$NAME$` placeholder in the source is
@@ -35,7 +41,10 @@
 //! For every case, one trial is generated per individual opt-in optimization feature (see
 //! [`PreviewFeature::optimization_features`]), one per individual opt-out
 //! feature (see [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in
-//! optimization feature enabled together (i.e. the default optimizer configuration).
+//! optimization feature enabled together (i.e. the default optimizer configuration). A suite, or
+//! an individual case within it, can list `variants` to generate only the named trials (e.g.
+//! `variants = ["canonicalize", "all"]`), for cases which target a single optimization and learn
+//! nothing from repeating their sweep with it left off.
 //!
 //! Limitations: `consteval::evaluate` does not support function calls or `Store`, so every target
 //! function is a single, side-effect-free function that only reads globals and returns a value
@@ -52,7 +61,12 @@ use std::collections::{BTreeMap, HashMap};
 
 /// Deserialized representation of a test suite TOML file.
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TestSuite {
+    /// the variants to generate trials for in every case which does not list its own. Every
+    /// variant is generated if omitted.
+    #[serde(default)]
+    variants: Option<Vec<String>>,
     #[serde(rename = "case")]
     cases: Vec<TestCase>,
 }
@@ -81,6 +95,10 @@ struct TestCase {
     /// optimization features which must change the optimized MIR when toggled on their own.
     #[serde(default)]
     expect_rewrite: Vec<PreviewFeature>,
+    /// the variants to generate trials for, each either the name of an optimization feature or
+    /// `all`. Falls back to the suite's `variants` if omitted.
+    #[serde(default)]
+    variants: Option<Vec<String>>,
     #[serde(default)]
     ignored: Option<String>,
     source: String,
@@ -108,7 +126,18 @@ enum InputValue {
 enum Sample {
     /// see [`edge_values`].
     Edges,
+    /// see [`sparse_edge_values`].
+    SparseEdges,
 }
+
+/// The name of the variant which enables every opt-in optimization feature together.
+const ALL_VARIANT: &str = "all";
+
+/// The most combinations of param and input values a single case may check. Every combination is
+/// evaluated once per variant, so this bounds how long any one trial can take.
+///
+/// Generous enough for an exhaustive sweep of two 8 bit axes or of one 16 bit axis.
+const MAX_COMBINATIONS: u64 = 1 << 16;
 
 impl InputValue {
     /// The inclusive bounds of an explicitly listed value or range, or `None` for a sample.
@@ -133,8 +162,21 @@ impl InputValue {
 /// The window and the random sample are kept small for types of up to 8 bits, which a case can
 /// afford to sweep with a range instead when it needs every value.
 fn edge_values(bits: u32) -> Vec<u64> {
-    let type_max = u64::MAX >> (u64::BITS - bits);
     let (window, random_values) = if bits <= 8 { (1, 8) } else { (16, 256) };
+    sample_edge_values(bits, window, random_values)
+}
+
+/// The [`edge_values`] of a `bits` wide type, but with the window and the random sample kept
+/// small whatever the width. Few enough values that a case can afford to combine two wide axes,
+/// while still pairing every boundary and byte pattern of one axis with those of the other.
+fn sparse_edge_values(bits: u32) -> Vec<u64> {
+    sample_edge_values(bits, 1, 8)
+}
+
+/// See [`edge_values`]: `window` is the number of values sampled either side of each power of
+/// two, and `random_values` the size of the pseudo-random sample.
+fn sample_edge_values(bits: u32, window: u64, random_values: u32) -> Vec<u64> {
+    let type_max = u64::MAX >> (u64::BITS - bits);
     let mut values = Vec::new();
 
     for shift in 0..=bits {
@@ -187,6 +229,9 @@ fn expand(values: &[InputValue], bits: Option<u32>) -> Vec<u64> {
             InputValue::Sample(Sample::Edges) => {
                 expanded.extend(edge_values(bits.expect("params have no type to sample")))
             }
+            InputValue::Sample(Sample::SparseEdges) => expanded.extend(sparse_edge_values(
+                bits.expect("params have no type to sample"),
+            )),
         }
     }
     expanded
@@ -213,12 +258,25 @@ fn main() {
             .filter_map(|(name, count)| if count > 1 { Some(name) } else { None })
             .collect::<Vec<_>>();
         let suite_name = suite_name.clone();
+        let cases = suite.cases.clone();
         tests.push(Trial::test(
             format!("optimize_soundness::{suite_name}::_lint_cases"),
             move || {
                 assert!(
                     duplicate_cases.is_empty(),
                     "duplicate test cases: {duplicate_cases:?}. Ensure that all names are unique within a TOML file"
+                );
+                let oversized_cases = cases
+                    .iter()
+                    .map(|case| (case.name.as_str(), combination_count(case)))
+                    .filter(|&(_, combinations)| combinations > MAX_COMBINATIONS)
+                    .map(|(name, combinations)| format!("{name} ({combinations} combinations)"))
+                    .collect::<Vec<_>>();
+                assert!(
+                    oversized_cases.is_empty(),
+                    "test cases check more than {MAX_COMBINATIONS} combinations of param and input values: {oversized_cases:?}. \
+                     Restructure the case so it checks fewer (split it into several cases, or sweep fewer axes exhaustively), \
+                     or add a specialized `Sample` variant which provides a dedicated sampling for the use case"
                 );
                 Ok(())
             },
@@ -231,40 +289,40 @@ fn main() {
                 .as_ref()
                 .map(|s| !s.is_empty())
                 .unwrap_or(false);
-            for &feature in PreviewFeature::optimization_features() {
+            let variants = case.variants.as_ref().or(suite.variants.as_ref());
+            for (variant, toggled) in all_variants() {
+                if variants.is_some_and(|variants| !variants.contains(&variant)) {
+                    continue;
+                }
+                let optimizations = match toggled {
+                    Some(feature) => vec![feature],
+                    None => PreviewFeature::optimization_features().to_vec(),
+                };
                 tests.push(make_trial(
                     &suite_name,
                     &case,
-                    &format!("{feature}"),
-                    Some(feature),
-                    std::iter::once(feature).chain(case.preview_features.iter().copied()),
+                    &variant,
+                    toggled,
+                    optimizations
+                        .into_iter()
+                        .chain(case.preview_features.iter().copied()),
                     ignored_flag,
                 ));
             }
-            for &feature in PreviewFeature::optimization_opt_out_features() {
-                tests.push(make_trial(
-                    &suite_name,
-                    &case,
-                    &format!("{feature}"),
-                    Some(feature),
-                    std::iter::once(feature).chain(case.preview_features.iter().copied()),
-                    ignored_flag,
-                ));
-            }
-            tests.push(make_trial(
-                &suite_name,
-                &case,
-                "all",
-                None,
-                PreviewFeature::optimization_features()
-                    .iter()
-                    .copied()
-                    .chain(case.preview_features.iter().copied()),
-                ignored_flag,
-            ));
         }
     }
     libtest_mimic::run(&args, tests).exit()
+}
+
+/// Every variant a case can be run as, in order: its name, and the single optimization feature it
+/// toggles (or `None` for [`ALL_VARIANT`], which enables every opt-in optimization feature).
+fn all_variants() -> Vec<(String, Option<PreviewFeature>)> {
+    PreviewFeature::optimization_features()
+        .iter()
+        .chain(PreviewFeature::optimization_opt_out_features())
+        .map(|&feature| (feature.to_string(), Some(feature)))
+        .chain(std::iter::once((ALL_VARIANT.to_string(), None)))
+        .collect()
 }
 
 fn make_trial(
@@ -308,6 +366,33 @@ fn load_suites()
             .to_string_lossy()
             .to_string();
         let suite: TestSuite = toml_edit::de::from_str(&std::fs::read_to_string(&suite_path)?)?;
+        let known_variants: Vec<String> = all_variants()
+            .into_iter()
+            .map(|(variant, _)| variant)
+            .collect();
+        let listed_variants = suite
+            .variants
+            .iter()
+            .map(|variants| (&name, variants))
+            .chain(
+                suite
+                    .cases
+                    .iter()
+                    .filter_map(|case| Some((&case.name, case.variants.as_ref()?))),
+            );
+        for (owner, variants) in listed_variants {
+            if variants.is_empty() {
+                return Err(format!("{name}: {owner} lists no variants to run").into());
+            }
+            for variant in variants {
+                if !known_variants.contains(variant) {
+                    return Err(format!(
+                        "{name}: {owner} lists unknown variant {variant}, expected one of {known_variants:?}"
+                    )
+                    .into());
+                }
+            }
+        }
         for case in &suite.cases {
             for value in case.params.values().flatten() {
                 if matches!(value, InputValue::Sample(_)) {
@@ -475,6 +560,71 @@ fn analyze(source: &str, features: impl IntoIterator<Item = PreviewFeature>) -> 
         .unwrap_or_else(|e| panic!("analyze failed: {e:?}"))
 }
 
+/// The values to feed into each of `case.inputs`, in order, given the unoptimized `mir` of the
+/// case's source (which declares the global, and so the width, of every input).
+fn input_axes(case: &TestCase, mir: &Mir, ty_registry: &TyRegistry) -> Vec<Vec<u64>> {
+    let mut input_axes = Vec::new();
+    for (name, values) in &case.inputs {
+        let global_ty = mir
+            .globals
+            .values()
+            .find(|global| global.name.data.to_string() == *name)
+            .unwrap_or_else(|| panic!("global {name} not found in compiled MIR"))
+            .ty;
+        let bits = global_ty.bit_size(ty_registry).into_u32();
+        assert!(
+            (1..=u64::BITS).contains(&bits),
+            "global {name} has unsupported type {} for input values",
+            global_ty.display(ty_registry)
+        );
+        let type_max = u64::MAX >> (u64::BITS - bits);
+        for (min, max) in values.iter().filter_map(|value| value.bounds()) {
+            assert!(
+                max <= type_max,
+                "value range {min}..={max} does not fit in {} (max {type_max})",
+                global_ty.display(ty_registry)
+            );
+        }
+        for value in values {
+            if let InputValue::Edges { edges } = *value {
+                assert!(
+                    edges <= bits,
+                    "{{ edges = {edges} }} does not fit in {}",
+                    global_ty.display(ty_registry)
+                );
+            }
+        }
+        input_axes.push(expand(values, Some(bits)));
+    }
+    input_axes
+}
+
+/// The number of combinations of param and input values `case` checks in each of its trials.
+///
+/// The width of an input comes from the type of its global, so this compiles the source (with
+/// the first value of each param, as the params do not change the types of the globals).
+fn combination_count(case: &TestCase) -> u64 {
+    let param_axes: Vec<Vec<u64>> = case
+        .params
+        .values()
+        .map(|values| expand(values, None))
+        .collect();
+    let mut source = case.source.clone();
+    for (name, axis) in case.params.keys().zip(&param_axes) {
+        let Some(value) = axis.first() else {
+            return 0;
+        };
+        source = source.replace(&placeholder(name), &value.to_string());
+    }
+    let analyzed = analyze(&source, case.preview_features.iter().copied());
+    param_axes
+        .iter()
+        .chain(&input_axes(case, analyzed.mir(), analyzed.ty_registry()))
+        .fold(1u64, |combinations, axis| {
+            combinations.saturating_mul(axis.len() as u64)
+        })
+}
+
 /// For every combination of `case.params`, compiles `case.source` once without optimizing and
 /// once optimized with `features`, then asserts that `case.function` produces byte-identical
 /// results before and after optimization for every combination of `case.inputs`.
@@ -530,39 +680,7 @@ fn assert_optimization_preserves_semantics(
             );
         }
 
-        let mut input_axes = Vec::new();
-        for (name, values) in &case.inputs {
-            let global_ty = unoptimized_mir
-                .globals
-                .values()
-                .find(|global| global.name.data.to_string() == *name)
-                .unwrap_or_else(|| panic!("global {name} not found in compiled MIR"))
-                .ty;
-            let bits = global_ty.bit_size(ty_registry).into_u32();
-            assert!(
-                (1..=u64::BITS).contains(&bits),
-                "global {name} has unsupported type {} for input values",
-                global_ty.display(ty_registry)
-            );
-            let type_max = u64::MAX >> (u64::BITS - bits);
-            for (min, max) in values.iter().filter_map(|value| value.bounds()) {
-                assert!(
-                    max <= type_max,
-                    "value range {min}..={max} does not fit in {} (max {type_max})",
-                    global_ty.display(ty_registry)
-                );
-            }
-            for value in values {
-                if let InputValue::Edges { edges } = *value {
-                    assert!(
-                        edges <= bits,
-                        "{{ edges = {edges} }} does not fit in {}",
-                        global_ty.display(ty_registry)
-                    );
-                }
-            }
-            input_axes.push(expand(values, Some(bits)));
-        }
+        let input_axes = input_axes(case, &unoptimized_mir, ty_registry);
 
         let mut before = Evaluator::new(
             &unoptimized_mir,

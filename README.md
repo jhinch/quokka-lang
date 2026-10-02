@@ -207,7 +207,14 @@ Test suites are defined in TOML files within the [tests/soundness_cases](tests/s
 
 Every case is run as multiple tests, one for each optimization that can be individually enabled, one for each
 optimization that can be individually disabled, and one (`all`) with the default optimization configuration. The
-test names take the form `optimize_soundness::<suite>::<case>::<variant>`.
+test names take the form `optimize_soundness::<suite>::<case>::<variant>`. A suite which targets a single optimization
+can list the `variants` worth running at the top of its file (e.g. `variants = ["canonicalize", "all"]`), and a case
+can list its own to override the suite's.
+
+A case may check at most 65,536 combinations of param and input values, which the suite's `_lint_cases` test enforces.
+A case over the limit should be restructured to check fewer, or be given a dedicated sampling of its values: `"edges"`
+samples the values of an input's type most likely to expose a bug, and `"sparse-edges"` a smaller set of them for cases
+which combine two wide inputs.
 
 Since the evaluator does not support function calls or stores, the function under test must be side-effect free: it
 reads its inputs from globals and returns a value. A `main` is still required in the source as the analyzer requires
