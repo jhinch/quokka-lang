@@ -1047,3 +1047,443 @@ expected = 1
 [[case.assertion]]
 addr = 0xC003
 expected = 0
+
+[[case]]
+name = "i8_lt_zero"
+preview_features = ["canonicalize"]
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = -1;
+    let x = IN;
+    VALUE_HOLDS = x < 0;
+    if x < 0 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = 0;
+    let x = IN;
+    VALUE_FAILS = x < 0;
+    if x < 0 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i8_ge_zero"
+preview_features = ["canonicalize"]
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = 0;
+    let x = IN;
+    VALUE_HOLDS = x >= 0;
+    if x >= 0 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = -128;
+    let x = IN;
+    VALUE_FAILS = x >= 0;
+    if x >= 0 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i8_lt_literal"
+preview_features = ["canonicalize"]
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = -128;
+    let x = IN;
+    VALUE_HOLDS = x < 5;
+    if x < 5 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = 5;
+    let x = IN;
+    VALUE_FAILS = x < 5;
+    if x < 5 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i8_ge_negative_literal"
+preview_features = ["canonicalize"]
+source = """
+global IN: i8;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = 127;
+    let x = IN;
+    VALUE_HOLDS = x >= -5;
+    if x >= -5 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = -6;
+    let x = IN;
+    VALUE_FAILS = x >= -5;
+    if x >= -5 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i16_lt_zero"
+preview_features = ["canonicalize"]
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = -256;
+    let x = IN;
+    VALUE_HOLDS = x < 0;
+    if x < 0 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = 255;
+    let x = IN;
+    VALUE_FAILS = x < 0;
+    if x < 0 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i16_ge_zero"
+preview_features = ["canonicalize"]
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = 255;
+    let x = IN;
+    VALUE_HOLDS = x >= 0;
+    if x >= 0 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = -1;
+    let x = IN;
+    VALUE_FAILS = x >= 0;
+    if x >= 0 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i16_lt_literal"
+preview_features = ["canonicalize"]
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = -32768;
+    let x = IN;
+    VALUE_HOLDS = x < 300;
+    if x < 300 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = 300;
+    let x = IN;
+    VALUE_FAILS = x < 300;
+    if x < 300 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0
+
+[[case]]
+name = "i16_ge_negative_literal"
+preview_features = ["canonicalize"]
+source = """
+global IN: i16;
+
+#[address = 0xC000]
+global VALUE_HOLDS: u1;
+#[address = 0xC001]
+global VALUE_FAILS: u1;
+#[address = 0xC002]
+global BRANCH_HOLDS: u8;
+#[address = 0xC003]
+global BRANCH_FAILS: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    BRANCH_HOLDS = 0;
+    BRANCH_FAILS = 0;
+
+    IN = 32767;
+    let x = IN;
+    VALUE_HOLDS = x >= -300;
+    if x >= -300 then {
+        BRANCH_HOLDS = 1;
+    }
+
+    IN = -301;
+    let x = IN;
+    VALUE_FAILS = x >= -300;
+    if x >= -300 then {
+        BRANCH_FAILS = 1;
+    }
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 0
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+[[case.assertion]]
+addr = 0xC003
+expected = 0

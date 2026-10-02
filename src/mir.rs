@@ -21,7 +21,7 @@ use std::assert_matches;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::num::NonZeroU16;
-use std::ops::Not;
+use std::ops::{Not, Range};
 
 new_key_type! {
     /// Identifies a [`Global`] within a [`Mir`]'s global table.
@@ -1966,6 +1966,15 @@ impl FunctionBuilder {
     }
 }
 
+/// A replacement of a range of a block's instructions, applied by
+/// [`FunctionMutator::splice_instrs`]. An empty `range` inserts before its start, and empty
+/// `instrs` removes the range.
+#[derive(Debug, Clone)]
+pub struct Splice {
+    pub range: Range<usize>,
+    pub instrs: Vec<Instr>,
+}
+
 pub struct FunctionMutator<'a> {
     function: &'a mut Function,
 }
@@ -1977,6 +1986,67 @@ impl<'a> From<&'a mut Function> for FunctionMutator<'a> {
 }
 
 impl FunctionMutator<'_> {
+    /// Creates a local with no definition yet. It is dangling until an instruction targeting it
+    /// is spliced in.
+    pub fn new_local(&mut self, ty: Ty) -> LocalId {
+        self.function.locals.insert(Local {
+            ty,
+            is_return: false,
+            defined: SparseSecondaryMap::new(),
+            name: None,
+        })
+    }
+
+    /// Applies `splices` to the instructions of `block` together, in a single pass over the
+    /// block. Every range refers to the block as it is before the call, and the ranges must not
+    /// overlap. Splices sharing a start are applied in the order given, so an insertion lands
+    /// before a replacement starting at the same index.
+    ///
+    /// The definition of every local targeted in the block is updated to match. A local whose
+    /// defining instruction is removed without a replacement is left dangling, for the caller
+    /// to redefine or to clean up with [`Function::remove_dangling`].
+    pub fn splice_instrs(&mut self, block: BlockId, mut splices: Vec<Splice>) {
+        splices.sort_by_key(|splice| (splice.range.start, splice.range.end));
+        let Some(first) = splices.first().map(|splice| splice.range.start) else {
+            return;
+        };
+        let old = std::mem::take(&mut self.function.blocks[block].instructions);
+        let old_len = old.len();
+        let inserted = splices
+            .iter()
+            .map(|splice| splice.instrs.len())
+            .sum::<usize>();
+        let mut instructions = Vec::with_capacity(old_len + inserted);
+        let mut old = old.into_iter();
+        let mut cursor = 0;
+        for Splice { range, instrs } in splices {
+            assert!(
+                cursor <= range.start && range.start <= range.end && range.end <= old_len,
+                "splice {range:?} of {block:?} overlaps a splice ending at {cursor} or is out of bounds of {old_len} instructions"
+            );
+            instructions.extend(old.by_ref().take(range.start - cursor));
+            for removed in old.by_ref().take(range.len()) {
+                if let Some(target) = removed.target_local() {
+                    self.function.locals[target].defined.remove(block);
+                }
+            }
+            instructions.extend(instrs);
+            cursor = range.end;
+        }
+        instructions.extend(old);
+        for (index, instruction) in instructions.iter().enumerate().skip(first) {
+            if let Some(target) = instruction.target_local() {
+                let defined = &mut self.function.locals[target].defined;
+                defined.insert(block, index);
+                assert!(
+                    defined.len() == 1 || self.function.return_local == Some(target),
+                    "local {target:?} defined previously {defined:?}"
+                );
+            }
+        }
+        self.function.blocks[block].instructions = instructions;
+    }
+
     pub fn remove_next_block(&mut self, block: BlockId, old_next_block: BlockId) {
         assert!(
             self.function.blocks[old_next_block]
@@ -3016,5 +3086,196 @@ mod tests {
 
         let projection = PlaceProjection::Index(Operand::Literal(IntegerLiteral { value: 3 }));
         assert_eq!(format!("{}", projection.display(&mir, &function)), "[3]");
+    }
+
+    // --- FunctionMutator::splice_instrs ---
+
+    fn literal(value: u32) -> Operand {
+        Operand::Literal(IntegerLiteral { value })
+    }
+
+    /// `a = copy 1; b = copy a; c = add a, b; ret = copy c`, returning the function with its
+    /// block and `[a, b, c]`.
+    fn straight_line_function() -> (Function, BlockId, [LocalId; 3]) {
+        let mut fb = FunctionBuilder::new(Identifier::from("f"), Ty::U8);
+        let ret = fb.create_return_local(Ty::U8);
+        let block = fb.new_block();
+        let [a, b, c] = [(); 3].map(|()| fb.new_local(Ty::U8));
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: a,
+                source: literal(1),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: b,
+                source: Operand::Local(a),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Add {
+                target: c,
+                left: a,
+                right: Operand::Local(b),
+            },
+        );
+        fb.push_instr(
+            block,
+            Instr::Copy {
+                target: ret,
+                source: Operand::Local(c),
+            },
+        );
+        fb.set_terminator(block, Terminator::Return);
+        fb.seal_block(block);
+        (fb.build(), block, [a, b, c])
+    }
+
+    fn targets(function: &Function, block: BlockId) -> Vec<Option<LocalId>> {
+        function.blocks[block]
+            .instructions
+            .iter()
+            .map(Instr::target_local)
+            .collect()
+    }
+
+    #[test]
+    fn splice_instrs_inserts_and_renumbers_later_definitions() {
+        let (mut function, block, [a, b, c]) = straight_line_function();
+        let ret = function.return_local.unwrap();
+        let mut mutator = FunctionMutator::from(&mut function);
+        let x = mutator.new_local(Ty::U8);
+        mutator.splice_instrs(
+            block,
+            vec![Splice {
+                range: 1..1,
+                instrs: vec![Instr::Not {
+                    target: x,
+                    source: a,
+                }],
+            }],
+        );
+        assert_eq!(
+            targets(&function, block),
+            [a, x, b, c, ret].map(Some).to_vec()
+        );
+        assert_eq!(function.defined_at(a), Some((block, 0)));
+        assert_eq!(function.defined_at(x), Some((block, 1)));
+        assert_eq!(function.defined_at(b), Some((block, 2)));
+        assert_eq!(function.defined_at(c), Some((block, 3)));
+        assert_eq!(function.locals[ret].defined.get(block), Some(&4));
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn splice_instrs_applies_several_splices_against_the_original_indices() {
+        let (mut function, block, [a, b, c]) = straight_line_function();
+        let ret = function.return_local.unwrap();
+        let mut mutator = FunctionMutator::from(&mut function);
+        let [x, y] = [(); 2].map(|()| mutator.new_local(Ty::U8));
+        // Given out of order, with an insertion and a replacement sharing a start.
+        mutator.splice_instrs(
+            block,
+            vec![
+                Splice {
+                    range: 2..3,
+                    instrs: vec![Instr::Sub {
+                        target: c,
+                        left: y,
+                        right: Operand::Local(b),
+                    }],
+                },
+                Splice {
+                    range: 2..2,
+                    instrs: vec![Instr::Not {
+                        target: y,
+                        source: a,
+                    }],
+                },
+                Splice {
+                    range: 0..0,
+                    instrs: vec![Instr::Copy {
+                        target: x,
+                        source: literal(7),
+                    }],
+                },
+            ],
+        );
+        assert_eq!(
+            targets(&function, block),
+            [x, a, b, y, c, ret].map(Some).to_vec()
+        );
+        assert!(matches!(
+            function.blocks[block].instructions[4],
+            Instr::Sub { .. }
+        ));
+        assert_eq!(function.defined_at(c), Some((block, 4)));
+        assert_eq!(function.locals[ret].defined.get(block), Some(&5));
+        // `x` is never read, which is not an integrity error.
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn splice_instrs_removal_leaves_the_local_dangling() {
+        let (mut function, block, [a, b, c]) = straight_line_function();
+        let ret = function.return_local.unwrap();
+        FunctionMutator::from(&mut function).splice_instrs(
+            block,
+            vec![Splice {
+                range: 1..3,
+                instrs: vec![Instr::Copy {
+                    target: c,
+                    source: Operand::Local(a),
+                }],
+            }],
+        );
+        assert_eq!(targets(&function, block), [a, c, ret].map(Some).to_vec());
+        assert_eq!(function.defined_at(c), Some((block, 1)));
+        assert_eq!(function.defined_at(b), None);
+        assert!(function.check_integrity().is_err());
+        function.remove_dangling();
+        assert!(!function.locals.contains_key(b));
+        function.check_integrity().unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "overlaps")]
+    fn splice_instrs_rejects_overlapping_ranges() {
+        let (mut function, block, _) = straight_line_function();
+        FunctionMutator::from(&mut function).splice_instrs(
+            block,
+            vec![
+                Splice {
+                    range: 0..2,
+                    instrs: vec![],
+                },
+                Splice {
+                    range: 1..3,
+                    instrs: vec![],
+                },
+            ],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "defined previously")]
+    fn splice_instrs_rejects_a_second_definition_in_another_block() {
+        let (mut function, block, [a, _, _]) = straight_line_function();
+        let other = function.blocks.insert(Block::default());
+        FunctionMutator::from(&mut function).splice_instrs(
+            other,
+            vec![Splice {
+                range: 0..0,
+                instrs: vec![Instr::Copy {
+                    target: a,
+                    source: literal(2),
+                }],
+            }],
+        );
+        let _ = block;
     }
 }

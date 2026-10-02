@@ -41,17 +41,17 @@ impl Rule for Compare {
         "compare"
     }
 
-    fn rewrites(&self, ctx: &Context, position: (BlockId, usize)) -> Vec<Rewrite> {
+    fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite> {
         Comparison::from_instr(&ctx.function.blocks[position.0].instructions[position.1])
             .and_then(|comparison| canonical(ctx, &comparison))
-            .map(|instr| Rewrite { position, instr })
+            .map(|instr| Rewrite::replace(position, instr))
             .into_iter()
             .collect()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Kind {
+pub(super) enum Kind {
     Eq,
     Ne,
     Lt,
@@ -59,15 +59,15 @@ enum Kind {
 }
 
 /// A comparison [`Instr`], destructured.
-struct Comparison {
-    kind: Kind,
-    target: LocalId,
-    left: LocalId,
-    right: Operand,
+pub(super) struct Comparison {
+    pub(super) kind: Kind,
+    pub(super) target: LocalId,
+    pub(super) left: LocalId,
+    pub(super) right: Operand,
 }
 
 impl Comparison {
-    fn from_instr(instr: &Instr) -> Option<Self> {
+    pub(super) fn from_instr(instr: &Instr) -> Option<Self> {
         let (kind, target, left, right) = match instr {
             Instr::Eq {
                 target,
@@ -100,7 +100,7 @@ impl Comparison {
     }
 
     /// Rebuilds the instruction, the inverse of [`Comparison::from_instr`].
-    fn into_instr(self) -> Instr {
+    pub(super) fn into_instr(self) -> Instr {
         let Comparison {
             kind,
             target,

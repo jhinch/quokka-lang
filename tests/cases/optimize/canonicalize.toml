@@ -3903,7 +3903,8 @@ f -> u1:
     n#2: i8 = load N
     #3: i8 = copy 1
     #4: i8 = copy 255
-    #5: u1 = ge n#2, 0
+    #6: u8 = bitcast n#2
+    #5: u1 = lt #6, 128
     #RET: u1 = copy #5
     return
 
@@ -4012,7 +4013,8 @@ f -> u1:
     n#2: i16 = load N
     #3: i16 = copy 1
     #4: i16 = copy 65535
-    #5: u1 = lt n#2, 0
+    #6: u16 = bitcast n#2
+    #5: u1 = ge #6, 32768
     #RET: u1 = copy #5
     return
 
@@ -4171,7 +4173,7 @@ main -> unit:
 """
 
 [[case]]
-name = "i8_lt_zero_is_unchanged"
+name = "i8_lt_zero_becomes_an_unsigned_sign_test"
 kind = "analyzer"
 optimize = true
 preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
@@ -4194,7 +4196,8 @@ f -> u1:
   .bb1:
     n#2: i8 = load N
     #3: i8 = copy 0
-    #4: u1 = lt n#2, #3
+    #5: u8 = bitcast n#2
+    #4: u1 = ge #5, 128
     #RET: u1 = copy #4
     return
 
@@ -5732,6 +5735,392 @@ f -> u1:
     m#3: u8 = load M
     #4: u1 = lt n#2, m#3
     #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_ge_zero_becomes_an_unsigned_sign_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 0
+    #5: u8 = bitcast n#2
+    #4: u1 = lt #5, 128
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_lt_literal_becomes_an_unsigned_lt_of_biased_operands"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 5
+    #5: u8 = bitcast n#2
+    #6: u8 = bitxor #5, 128
+    #4: u1 = lt #6, 133
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i8_ge_negative_literal_becomes_an_unsigned_ge_of_biased_operands"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= -5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #3: i8 = copy 5
+    #4: i8 = copy 251
+    #6: u8 = bitcast n#2
+    #7: u8 = bitxor #6, 128
+    #5: u1 = ge #7, 123
+    #RET: u1 = copy #5
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i16_lt_literal_becomes_an_unsigned_lt_of_biased_operands"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 300;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i16
+
+f -> u1:
+  .bb1:
+    n#2: i16 = load N
+    #3: i16 = copy 300
+    #5: u16 = bitcast n#2
+    #6: u16 = bitxor #5, 32768
+    #4: u1 = lt #6, 33068
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "i16_lt_zero_becomes_an_unsigned_sign_test"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n < 0;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i16
+
+f -> u1:
+  .bb1:
+    n#2: i16 = load N
+    #3: i16 = copy 0
+    #5: u16 = bitcast n#2
+    #4: u1 = ge #5, 32768
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "signed_lt_of_two_non_constants_is_unchanged"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    return n < m;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+global M: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    m#3: i8 = load M
+    #4: u1 = lt n#2, m#3
+    #RET: u1 = copy #4
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "several_signed_comparisons_in_one_block_each_get_their_inserted_instructions"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let a = n < 5;
+    let b = m >= 0;
+    let c = n >= 7;
+    return (a & b) ^ c;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+global M: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    m#3: i8 = load M
+    #4: i8 = copy 5
+    #12: u8 = bitcast n#2
+    #13: u8 = bitxor #12, 128
+    a#5: u1 = lt #13, 133
+    #6: i8 = copy 0
+    #14: u8 = bitcast m#3
+    b#7: u1 = lt #14, 128
+    #8: i8 = copy 7
+    #15: u8 = bitcast n#2
+    #16: u8 = bitxor #15, 128
+    c#9: u1 = ge #16, 135
+    #10: u1 = bitand a#5, b#7
+    #11: u1 = bitxor #10, c#9
+    #RET: u1 = copy #11
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "signed_comparisons_in_both_arms_of_a_branch_are_rewritten"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let r = n < 5;
+    if m < 0 then {
+        r = n >= 9;
+    } else {
+        r = m < 3;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+global M: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    m#3: i8 = load M
+    #4: i8 = copy 5
+    #13: u8 = bitcast n#2
+    #14: u8 = bitxor #13, 128
+    r#5: u1 = lt #14, 133
+    #6: i8 = copy 0
+    #15: u8 = bitcast m#3
+    #7: u1 = ge #15, 128
+    jumpif #7 != 0, .bb2, .bb3
+  .bb2:
+    #8: i8 = copy 9
+    #16: u8 = bitcast n#2
+    #17: u8 = bitxor #16, 128
+    r#9: u1 = ge #17, 137
+    jump .bb4
+  .bb3:
+    #10: i8 = copy 3
+    #18: u8 = bitcast m#3
+    #19: u8 = bitxor #18, 128
+    r#11: u1 = lt #19, 131
+    jump .bb4
+  .bb4:
+    r#12: u1 = phi r#9 <- .bb2, r#11 <- .bb3
+    #RET: u1 = copy r#12
+    return
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    call f, .bb2
+  .bb2:
+    return
+"""
+
+[[case]]
+name = "signed_comparison_rewrite_feeds_the_full_optimizer"
+kind = "analyzer"
+optimize = true
+preview_features = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return (n + 1) < 5;
+}
+
+fn main() {
+    f();
+}
+"""
+expected_mir = """
+global N: i8
+
+f -> u1:
+  .bb1:
+    n#2: i8 = load N
+    #4: i8 = add n#2, 1
+    #7: u8 = bitcast #4
+    #8: u8 = bitxor #7, 128
+    #6: u1 = lt #8, 133
+    #RET: u1 = copy #6
     return
 
 @{"entrypoint":true}

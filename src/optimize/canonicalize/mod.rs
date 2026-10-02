@@ -1,11 +1,14 @@
 use crate::ast::IntegerLiteral;
 use crate::consteval::Value;
-use crate::mir::{BinOp, BlockId, Function, Global, GlobalId, Instr, LocalId, Operand};
+use crate::mir::{
+    BinOp, BlockId, Function, FunctionMutator, Global, GlobalId, Instr, LocalId, Operand, Splice,
+};
 use crate::optimize::graph::{Graph, Node};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::{Ty, TyRegistry};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use slotmap::{SecondaryMap, SlotMap};
+use std::ops::Range;
 use tracing::{instrument, trace};
 
 mod additive;
@@ -14,6 +17,7 @@ mod identity;
 mod neg;
 mod not;
 mod reassociate;
+mod signed_compare;
 
 /// Canonicalize
 ///
@@ -22,8 +26,10 @@ mod reassociate;
 /// over the whole function repeatedly until none of them fires, so one rule's output can feed
 /// another within a single invocation of the pass.
 ///
-/// Instructions are never inserted, removed, or moved; only operands and opcodes change. A
-/// constant is a literal operand, or a local defined by a `Copy` of a literal.
+/// A rewrite that replaces one instruction with another defining the same local is applied
+/// immediately. Any other rewrite inserts, removes, or redefines instructions, which would shift
+/// the positions the rest of the sweep relies on, so it is held back and applied when the sweep
+/// ends. A constant is a literal operand, or a local defined by a `Copy` of a literal.
 pub struct Canonicalize;
 
 /// In application order at each instruction position.
@@ -33,6 +39,7 @@ const RULES: &[&dyn Rule] = &[
     &neg::Neg,
     &reassociate::Reassociate,
     &compare::Compare,
+    &signed_compare::SignedCompare,
     &identity::Identity,
 ];
 
@@ -48,9 +55,16 @@ impl Optimize for Canonicalize {
         _globals: &SlotMap<GlobalId, Global>,
         ty_registry: &TyRegistry,
     ) -> Outcome {
-        // Rewrites never change the CFG or where any local is defined, so the dominators stay
-        // valid for the whole pass.
-        let dominators = Dominators::new(function);
+        let mut ctx = Context {
+            // Rewrites never change the CFG, so the block-level dominators stay valid for the
+            // whole pass. Within a block, dominance is read off instruction positions, which
+            // only move between sweeps.
+            dominators: Dominators::new(function),
+            function,
+            ty_registry,
+            use_counts: SecondaryMap::new(),
+            dangling: false,
+        };
         let mut outcome = Outcome::Unmodified;
         for sweep in 0.. {
             if sweep == MAX_SWEEPS {
@@ -62,30 +76,43 @@ impl Optimize for Canonicalize {
             }
             // The use counts are only refreshed between sweeps. Rules must tolerate them being
             // stale within a sweep, which a later sweep then makes up for.
-            let use_counts = function.count_uses();
+            ctx.use_counts = ctx.function.count_uses();
             let mut swept = Outcome::Unmodified;
-            for block_id in function.blocks.keys().collect::<Vec<_>>() {
-                for index in 0..function.blocks[block_id].instructions.len() {
+            let mut deferred = Deferred::default();
+            for block_id in ctx.function.blocks.keys().collect::<Vec<_>>() {
+                for index in 0..ctx.function.blocks[block_id].instructions.len() {
                     let position = (block_id, index);
                     for rule in RULES {
-                        let ctx = Context {
-                            function,
-                            ty_registry,
-                            dominators: &dominators,
-                            use_counts: &use_counts,
-                        };
-                        for rewrite in rule.rewrites(&ctx, position) {
+                        // The instruction here is already being replaced when the sweep ends.
+                        if deferred.covers(position) {
+                            break;
+                        }
+                        let rewrites = rule.rewrites(&mut ctx, position);
+                        // A rule's rewrites only make sense together.
+                        if rewrites.iter().any(|rewrite| deferred.conflicts(rewrite)) {
+                            continue;
+                        }
+                        for rewrite in rewrites {
                             trace!(rule = rule.name(), ?rewrite, "rewrite");
-                            rewrite.apply(function);
+                            if let Err(rewrite) = rewrite.apply_in_place(ctx.function) {
+                                deferred.push(rewrite);
+                            }
                             swept = Outcome::Modified;
                         }
                     }
                 }
             }
+            ctx.dangling |= !deferred.splices.is_empty();
+            for (block, splices) in deferred.splices {
+                FunctionMutator::from(&mut *ctx.function).splice_instrs(block, splices);
+            }
             if swept == Outcome::Unmodified {
                 break;
             }
             outcome = Outcome::Modified;
+        }
+        if ctx.dangling {
+            ctx.function.remove_dangling();
         }
         outcome
     }
@@ -97,20 +124,34 @@ trait Rule: Sync {
     fn name(&self) -> &'static str;
 
     /// The rewrites, if any, that put the instruction at `position` into this rule's normal form.
-    /// They may also replace other instructions, but must leave every instruction defining the
-    /// same local it did before.
-    fn rewrites(&self, ctx: &Context, position: (BlockId, usize)) -> Vec<Rewrite>;
+    /// They may also touch other instructions.
+    ///
+    /// Positions do not move during a sweep, so a rewrite that is not a one-for-one replacement
+    /// defining the same local only takes effect once the sweep ends (see [`Canonicalize`]).
+    /// Until then the rest of the sweep still reads the instructions it replaces, so every local
+    /// they define must either keep its value or have no remaining use. A local made with
+    /// [`Context::fresh_local`] has no definition to look up before the next sweep.
+    fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite>;
 }
 
 /// The function a [`Rule`] is looking at, with the def-use machinery the rules share.
 struct Context<'a> {
-    function: &'a Function,
+    function: &'a mut Function,
     ty_registry: &'a TyRegistry,
-    dominators: &'a Dominators,
-    use_counts: &'a SecondaryMap<LocalId, u32>,
+    dominators: Dominators,
+    use_counts: SecondaryMap<LocalId, u32>,
+    /// Whether the function may hold locals without a definition, to clean up when the pass ends.
+    dangling: bool,
 }
 
 impl Context<'_> {
+    /// A new local for a rewrite to define. A rule should only make one for a rewrite it goes on
+    /// to return.
+    fn fresh_local(&mut self, ty: Ty) -> LocalId {
+        self.dangling = true;
+        FunctionMutator::from(&mut *self.function).new_local(ty)
+    }
+
     /// How many times `local` is read. See [`Canonicalize::optimize_function`] for staleness.
     fn use_count(&self, local: LocalId) -> u32 {
         self.use_counts.get(local).copied().unwrap_or(0)
@@ -195,16 +236,77 @@ impl Dominators {
     }
 }
 
-/// A replacement instruction, at the `(block, index)` of the instruction it replaces.
+/// A [`Splice`] of the instructions of `block`.
 #[derive(Debug)]
 struct Rewrite {
-    position: (BlockId, usize),
-    instr: Instr,
+    block: BlockId,
+    splice: Splice,
 }
 
 impl Rewrite {
-    fn apply(self, function: &mut Function) {
-        let (block, index) = self.position;
-        function.blocks[block].instructions[index] = self.instr;
+    /// Replaces the instruction at `position` with `instr`.
+    fn replace(position: (BlockId, usize), instr: Instr) -> Self {
+        Self::replace_with(position, vec![instr])
+    }
+
+    /// Replaces the instruction at `position` with `instrs`, in order.
+    fn replace_with((block, index): (BlockId, usize), instrs: Vec<Instr>) -> Self {
+        Rewrite {
+            block,
+            splice: Splice {
+                range: index..index + 1,
+                instrs,
+            },
+        }
+    }
+
+    /// Applies the rewrite if no instruction moves and no definition changes, which is when one
+    /// instruction is replaced by another defining the same local. Hands the rewrite back
+    /// otherwise.
+    fn apply_in_place(mut self, function: &mut Function) -> Result<(), Self> {
+        let instructions = &mut function.blocks[self.block].instructions;
+        if let ([old], [new]) = (
+            &mut instructions[self.splice.range.clone()],
+            self.splice.instrs.as_mut_slice(),
+        ) && old.target_local() == new.target_local()
+        {
+            std::mem::swap(old, new);
+            return Ok(());
+        }
+        Err(self)
+    }
+}
+
+/// The rewrites held back until the end of a sweep.
+#[derive(Default)]
+struct Deferred {
+    splices: IndexMap<BlockId, Vec<Splice>>,
+    /// Every position inside the range of a held back splice.
+    covered: IndexSet<(BlockId, usize)>,
+}
+
+impl Deferred {
+    fn covers(&self, position: (BlockId, usize)) -> bool {
+        self.covered.contains(&position)
+    }
+
+    /// Whether `rewrite` touches an instruction a held back splice already replaces. An
+    /// insertion conflicts if it falls between two such instructions, which may be inside one
+    /// splice's range.
+    fn conflicts(&self, rewrite: &Rewrite) -> bool {
+        let Range { start, end } = rewrite.splice.range;
+        if start == end {
+            return start > 0
+                && self.covers((rewrite.block, start - 1))
+                && self.covers((rewrite.block, start));
+        }
+        (start..end).any(|index| self.covers((rewrite.block, index)))
+    }
+
+    fn push(&mut self, rewrite: Rewrite) {
+        let Rewrite { block, splice } = rewrite;
+        self.covered
+            .extend(splice.range.clone().map(|index| (block, index)));
+        self.splices.entry(block).or_default().push(splice);
     }
 }

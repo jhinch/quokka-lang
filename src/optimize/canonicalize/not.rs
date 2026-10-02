@@ -19,12 +19,12 @@ impl Rule for Not {
         "not"
     }
 
-    fn rewrites(&self, ctx: &Context, position: (BlockId, usize)) -> Vec<Rewrite> {
+    fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite> {
         canonical(
             ctx,
             &ctx.function.blocks[position.0].instructions[position.1],
         )
-        .map(|instr| Rewrite { position, instr })
+        .map(|instr| Rewrite::replace(position, instr))
         .into_iter()
         .collect()
     }

@@ -24,7 +24,7 @@ impl Rule for Identity {
         "identity"
     }
 
-    fn rewrites(&self, ctx: &Context, position: (BlockId, usize)) -> Vec<Rewrite> {
+    fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite> {
         let instr = &ctx.function.blocks[position.0].instructions[position.1];
         let simplified = match instr.as_binop() {
             Some(binop) => simplify_binop(ctx, &binop).map(|source| (binop.target, source)),
@@ -33,10 +33,7 @@ impl Rule for Identity {
         let Some((target, source)) = simplified else {
             return vec![];
         };
-        vec![Rewrite {
-            position,
-            instr: Instr::Copy { target, source },
-        }]
+        vec![Rewrite::replace(position, Instr::Copy { target, source })]
     }
 }
 

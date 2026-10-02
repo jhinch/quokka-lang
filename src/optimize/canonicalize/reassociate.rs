@@ -31,8 +31,8 @@ impl Rule for Reassociate {
     /// that instruction whose defining instruction is a right-commuting binary op holding a
     /// constant. If the outer instruction's other operand is also a constant the two are folded,
     /// otherwise the other operand is swapped into the defining instruction's position.
-    fn rewrites(&self, ctx: &Context, outer_position: (BlockId, usize)) -> Vec<Rewrite> {
-        let function = ctx.function;
+    fn rewrites(&self, ctx: &mut Context, outer_position: (BlockId, usize)) -> Vec<Rewrite> {
+        let function = &*ctx.function;
         let Some(outer) =
             function.blocks[outer_position.0].instructions[outer_position.1].as_binop()
         else {
@@ -70,16 +70,16 @@ impl Rule for Reassociate {
                 // `(a OP1 c1) OP2 c2` => `a OP1 (c1 ⊕ c2)`. Only the outer instruction changes,
                 // so other uses of `t1` are unaffected.
                 let folded = fold_constants(inner.op, outer.op, c1, c2);
-                return vec![Rewrite {
-                    position: outer_position,
-                    instr: BinOp {
+                return vec![Rewrite::replace(
+                    outer_position,
+                    BinOp {
                         op: inner.op,
                         target: outer.target,
                         left: inner.left,
                         right: to_literal(folded),
                     }
                     .into_instr(),
-                }];
+                )];
             }
 
             // `(a OP1 c) OP2 x` => `(a OP2 x) OP1 c`. `x` moves to the inner instruction's
@@ -101,26 +101,26 @@ impl Rule for Reassociate {
                 continue;
             }
             return vec![
-                Rewrite {
-                    position: inner_position,
-                    instr: BinOp {
+                Rewrite::replace(
+                    inner_position,
+                    BinOp {
                         op: outer.op,
                         target: inner.target,
                         left: inner.left,
                         right: Operand::Local(other),
                     }
                     .into_instr(),
-                },
-                Rewrite {
-                    position: outer_position,
-                    instr: BinOp {
+                ),
+                Rewrite::replace(
+                    outer_position,
+                    BinOp {
                         op: inner.op,
                         target: outer.target,
                         left: inner.target,
                         right: inner.right,
                     }
                     .into_instr(),
-                },
+                ),
             ];
         }
         vec![]

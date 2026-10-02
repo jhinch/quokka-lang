@@ -2589,3 +2589,171 @@ fn main() {
     f();
 }
 """
+
+[[case]]
+name = "i8_lt_literal_becomes_unsigned_soundly_for_every_non_negative_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_lt_literal_becomes_unsigned_soundly_for_every_negative_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 1, max = 128 }] }
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n < -$C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_literal_becomes_unsigned_soundly_for_every_non_negative_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_ge_literal_becomes_unsigned_soundly_for_every_negative_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 1, max = 128 }] }
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= -$C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_gt_and_le_literal_become_unsigned_soundly_for_every_non_negative_literal"
+inputs = { N = [{ min = 0, max = 255 }] }
+params = { C = [{ min = 0, max = 127 }] }
+source = """
+global N: i8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n > $C$;
+    let b = $C$ >= n;
+    return a ^ b;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_lt_literal_becomes_unsigned_soundly_for_edge_non_negative_literals"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 2, 127, 128, 255, 256, 257, 32766, 32767] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n < $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_lt_literal_becomes_unsigned_soundly_for_edge_negative_literals"
+inputs = { N = ["edges"] }
+params = { C = [1, 2, 127, 128, 255, 256, 257, 32767, 32768] }
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n < -$C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_ge_literal_becomes_unsigned_soundly_for_edge_non_negative_literals"
+inputs = { N = ["edges"] }
+params = { C = [0, 1, 2, 127, 128, 255, 256, 257, 32766, 32767] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= $C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i16_ge_literal_becomes_unsigned_soundly_for_edge_negative_literals"
+inputs = { N = ["edges"] }
+params = { C = [1, 2, 127, 128, 255, 256, 257, 32767, 32768] }
+source = """
+global N: i16;
+
+fn f() -> u1 {
+    let n = N;
+    return n >= -$C$;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""

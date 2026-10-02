@@ -21,11 +21,11 @@ impl Rule for Additive {
         "additive"
     }
 
-    fn rewrites(&self, ctx: &Context, position: (BlockId, usize)) -> Vec<Rewrite> {
+    fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite> {
         ctx.function.blocks[position.0].instructions[position.1]
             .as_binop()
             .and_then(|binop| canonical(ctx, &binop))
-            .map(|instr| Rewrite { position, instr })
+            .map(|instr| Rewrite::replace(position, instr))
             .into_iter()
             .collect()
     }
