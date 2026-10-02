@@ -4,8 +4,9 @@
 //! For `t1 = a OP1 c1` and `t2 = t1 OP2 x`, where `c1` is a constant and `OP1` and `OP2`
 //! right-commute (see `OpKind::right_commutes_with`):
 //! - **Fold:** if `x` is a constant, `t2` is rewritten to `a OP1 c` with `c` computed at compile
-//!   time, e.g. `(n - 3) - 5` becomes `n - 8`. `t1` is unchanged, and becomes dead if `t2` was
-//!   its only use.
+//!   time, e.g. `(n - 3) - 5` becomes `n - 8`. `t1` is unchanged, and becomes dead. This
+//!   requires that `t1` has exactly one use (`t2`), since otherwise `t1` is still computed and
+//!   the fold only keeps `a` live for longer.
 //! - **Swap:** otherwise the pair is rewritten to `t1 = a OP2 x` and `t2 = t1 OP1 c1`, moving the
 //!   constant outward where a later fold can reach it. Each opcode keeps its own right operand,
 //!   so `(n - 3) + m` becomes `(n + m) - 3`. This requires that `t1` has exactly one use (`t2`),
@@ -66,9 +67,15 @@ impl Rule for Reassociate {
                 continue;
             };
 
+            // Either rewrite needs the outer instruction to be `t1`'s only use: the swap changes
+            // `t1`'s value, and the fold saves nothing unless it leaves `t1` dead.
+            ctx.debug_assert_use_count(inner.target);
+            if ctx.use_count(inner.target) != 1 {
+                continue;
+            }
+
             if let Some(c2) = ctx.constant(&other, ty) {
-                // `(a OP1 c1) OP2 c2` => `a OP1 (c1 ⊕ c2)`. Only the outer instruction changes,
-                // so other uses of `t1` are unaffected.
+                // `(a OP1 c1) OP2 c2` => `a OP1 (c1 ⊕ c2)`. Only the outer instruction changes.
                 let folded = fold_constants(inner.op, outer.op, c1, c2);
                 return vec![Rewrite::replace(
                     outer_position,
@@ -91,11 +98,6 @@ impl Rule for Reassociate {
             match function.defined_at(other) {
                 Some(other_defined) if ctx.dominators.dominates(other_defined, inner_position) => {}
                 _ => continue,
-            }
-            // `t1`'s value changes, so the outer instruction must be its only use.
-            ctx.debug_assert_use_count(inner.target);
-            if ctx.use_count(inner.target) != 1 {
-                continue;
             }
             // A breakpoint observes every live value, so `t1` must not be live at one.
             if live_at_breakpoint(function, inner_position, outer_position) {

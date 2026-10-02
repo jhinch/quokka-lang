@@ -6,9 +6,10 @@
 //! - **Combining:** `a + (-b)` becomes `a - b` and `a - (-b)` becomes `a + b`. For the
 //!   commutative `Add` the operands may be the other way around (`(-b) + a`).
 //!
-//! Only the outer instruction is rewritten, to read the `Neg`'s source directly. The `Neg` is left
-//! for dead code elimination if that was its only use. The target holds the same value as before,
-//! so none of this is restricted by breakpoints.
+//! Only the outer instruction is rewritten, to read the `Neg`'s source directly. Combining
+//! requires the outer instruction to be the `Neg`'s only use, which leaves the `Neg` for dead
+//! code elimination. The target holds the same value as before, so none of this is restricted by
+//! breakpoints.
 
 use super::{Context, Rewrite, Rule, to_literal};
 use crate::consteval::Value;
@@ -31,9 +32,9 @@ impl Rule for Additive {
     }
 }
 
-/// The local `operand` is the negation of, if it is defined by a `Neg`.
+/// The local `operand` is the negation of, if it is defined by a `Neg` read nowhere else.
 fn negated(ctx: &Context, operand: &Operand) -> Option<LocalId> {
-    match ctx.definition(operand) {
+    match ctx.sole_use_definition(operand) {
         Some(Instr::Neg { source, .. }) => Some(*source),
         _ => None,
     }

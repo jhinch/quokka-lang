@@ -170,6 +170,26 @@ fn main() {
 """
 
 [[case]]
+name = "multi_use_inner_target_is_not_folded_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let a = n + 3;
+    let b = a + 5;
+    let c = a ^ b;
+    return c;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
 name = "add_add_chain_reassociates_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
 params = { C = [{ edges = 8 }] }
@@ -1404,6 +1424,65 @@ fn main() {
 """
 
 [[case]]
+name = "multi_use_not_of_not_becomes_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = !n;
+    let a = !m;
+    return a ^ m;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_multi_use_neg_of_neg_becomes_a_copy_soundly"
+inputs = { N = [{ min = 0, max = 255 }] }
+expect_rewrite = ["canonicalize"]
+source = """
+global N: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = -n;
+    let a = -m;
+    return a ^ m;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "multi_use_not_plus_one_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u8 {
+    let n = N;
+    let m = !n;
+    let a = m + 1;
+    return a ^ m;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
 name = "not_plus_literal_simplifies_soundly_for_edge_literals"
 inputs = { N = [{ min = 0, max = 255 }] }
 params = { C = [{ edges = 8 }] }
@@ -1586,6 +1665,50 @@ fn f() -> i8 {
     let k = -m;
     let a = k - n;
     return a;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_add_of_multi_use_neg_stays_sound_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let a = n + k;
+    return a ^ k;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "i8_sub_of_multi_use_neg_stays_sound_for_edge_operand_pairs"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
+source = """
+global N: i8;
+global M: i8;
+
+fn f() -> i8 {
+    let n = N;
+    let m = M;
+    let k = -m;
+    let a = n - k;
+    return a ^ k;
 }
 
 fn main() {
@@ -2860,6 +2983,69 @@ fn f() -> u1 {
 
 fn main() {
     N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "multi_use_add_literal_eq_literal_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n + 3;
+    let e = a == 10;
+    let g = a < 20;
+    return e == g;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "multi_use_bitxor_literal_eq_literal_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }] }
+source = """
+global N: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let a = n ^ 3;
+    let e = a == 10;
+    let g = a < 20;
+    return e == g;
+}
+
+fn main() {
+    N = 1;
+    f();
+}
+"""
+
+[[case]]
+name = "multi_use_sub_eq_zero_stays_sound"
+inputs = { N = [{ min = 0, max = 255 }], M = ["edges"] }
+source = """
+global N: u8;
+global M: u8;
+
+fn f() -> u1 {
+    let n = N;
+    let m = M;
+    let d = n - m;
+    let e = d == 0;
+    let g = d < 20;
+    return e == g;
+}
+
+fn main() {
+    N = 1;
+    M = 1;
     f();
 }
 """

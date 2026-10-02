@@ -4,9 +4,10 @@
 //! - **Not:** `x ^ MAX` becomes `!x`, as does `MAX ^ x`.
 //! - **Cancellation:** `!!x` becomes a `Copy` of `x`.
 //!
-//! Only the outer instruction is rewritten. An inner `Not` is left for dead code elimination if
-//! that was its only use. The target holds the same value as before, so none of this is
-//! restricted by breakpoints.
+//! Only the outer instruction is rewritten. Cancellation fires whatever else reads the inner
+//! `Not`, since the `Copy` it leaves computes nothing: the inner `Not` is dead only if that was
+//! its only use. The target holds the same value as before, so none of this is restricted by
+//! breakpoints.
 
 use super::{Context, Rewrite, Rule};
 use crate::consteval::Value;

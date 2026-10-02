@@ -4,9 +4,10 @@
 //!   16-bit integer types, since narrower types have no `Neg` lowering.
 //! - **Cancellation:** `--x` becomes a `Copy` of `x`.
 //!
-//! Only the outer instruction is rewritten. An inner `Not` or `Neg` is left for dead code
-//! elimination if that was its only use. The target holds the same value as before, so none of
-//! this is restricted by breakpoints.
+//! Only the outer instruction is rewritten. `!x + 1` requires the outer instruction to be the
+//! `Not`'s only use, which leaves the `Not` for dead code elimination. Cancellation does not,
+//! since the `Copy` it leaves computes nothing: the inner `Neg` is dead only if that was its only
+//! use. The target holds the same value as before, so none of this is restricted by breakpoints.
 
 use super::{Context, Rewrite, Rule};
 use crate::consteval::Value;
@@ -67,7 +68,7 @@ fn canonical(ctx: &Context, instr: &Instr) -> Option<Instr> {
             [(&left, &binop.right), (&binop.right, &left)]
                 .into_iter()
                 .find_map(|(operand, constant)| {
-                    let Some(Instr::Not { source, .. }) = ctx.definition(operand) else {
+                    let Some(Instr::Not { source, .. }) = ctx.sole_use_definition(operand) else {
                         return None;
                     };
                     (ctx.constant(constant, ty).as_ref() == Some(&one)).then_some(Instr::Neg {

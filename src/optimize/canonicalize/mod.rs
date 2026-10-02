@@ -128,7 +128,10 @@ trait Rule: Sync {
     /// The rewrites are applied together, before any other rule runs, so their ranges all refer
     /// to the function as it is during this call, and those in the same block must not overlap.
     /// [`Context::use_count`] is exact, so a rewrite changing the value of a local must check
-    /// that the instruction it rewrites alongside is that local's only reader.
+    /// that the instruction it rewrites alongside is that local's only reader. A rewrite that
+    /// reads the operands of the instruction defining one of its own operands should make that
+    /// instruction dead, unless what it leaves behind no longer computes anything: otherwise both
+    /// instructions still run and the inner operands are kept live for longer.
     fn rewrites(&self, ctx: &mut Context, position: (BlockId, usize)) -> Vec<Rewrite>;
 }
 
@@ -232,6 +235,18 @@ impl Context<'_> {
         };
         let (block, index) = self.function.defined_at(*local)?;
         Some(&self.function.blocks[block].instructions[index])
+    }
+
+    /// The instruction defining `operand`, if the instruction asking is its only reader, so a
+    /// rewrite that reads that instruction's operands instead leaves it dead.
+    fn sole_use_definition(&self, operand: &Operand) -> Option<&Instr> {
+        let Operand::Local(local) = operand else {
+            return None;
+        };
+        self.debug_assert_use_count(*local);
+        (self.use_count(*local) == 1)
+            .then(|| self.definition(operand))
+            .flatten()
     }
 
     /// The compile-time constant value of `operand` read as a `ty`, if it has one: either a

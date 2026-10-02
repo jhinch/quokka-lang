@@ -12,7 +12,9 @@
 //! - **Arithmetic** (`==` and `!=` only, since wrapping makes it unsound for the ordered
 //!   comparisons): `x + c1 == c2` becomes `x == c2 - c1`, `x - c1 == c2` becomes `x == c2 + c1`,
 //!   `x ^ c1 == c2` becomes `x == c1 ^ c2` and `a - b == 0` becomes `a == b`. For the commutative
-//!   `Add` and `BitXor` the constant may be the left operand (`c1 + x`).
+//!   `Add` and `BitXor` the constant may be the left operand (`c1 + x`). This requires the
+//!   comparison to be the arithmetic's only use, since otherwise the arithmetic is still computed
+//!   and the comparison only keeps its operands live for longer.
 //! - **Prefer carry:** `x == 0` becomes `x < 1`, `x != 0` becomes `x >= 1`, `x == MAX` becomes
 //!   `x >= MAX` and `x != MAX` becomes `x < MAX`. Branching on either flag costs the same, but
 //!   keeping the result as a value is far cheaper from carry. This is limited to unsigned
@@ -32,8 +34,8 @@
 //!   value is never `>= 1`.
 //!
 //! Only the comparison is rewritten. An inner instruction it no longer reads is left for dead code
-//! elimination if that was its only use. The target holds the same value as before, so none of
-//! this is restricted by breakpoints.
+//! elimination. The target holds the same value as before, so none of this is restricted by
+//! breakpoints.
 
 use super::{Context, Rewrite, Rule, to_literal};
 use crate::ast::IntegerLiteral;
@@ -321,14 +323,15 @@ fn constant_on_the_right(
 }
 
 /// The operands of the equality equivalent to `x == constant` that reads the operands of the
-/// instruction defining `x` in place of `x`, if that instruction can be undone on both sides.
+/// instruction defining `x` in place of `x`, if that instruction can be undone on both sides and
+/// `x` is read nowhere else.
 fn through_arithmetic(
     ctx: &Context,
     x: LocalId,
     ty: Ty,
     constant: &Value,
 ) -> Option<(LocalId, Operand)> {
-    let inner = ctx.definition(&Operand::Local(x))?.as_binop()?;
+    let inner = ctx.sole_use_definition(&Operand::Local(x))?.as_binop()?;
     let left = Operand::Local(inner.left);
     // `a - b == 0` => `a == b`
     if inner.op == OpKind::Sub && *constant == Value::zeros(ty, ctx.ty_registry) {
