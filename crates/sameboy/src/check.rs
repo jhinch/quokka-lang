@@ -1,8 +1,10 @@
 //! The checker interface: independent units that observe a running emulator through
 //! execution and memory events and record [`Violation`]s.
 
+mod halt;
 mod oam;
 
+pub use halt::HaltHazard;
 pub use oam::OamCorruptionHazard;
 
 use crate::hooks;
@@ -31,6 +33,11 @@ pub trait Checker {
 
     /// Called for every write the CPU makes to the bus, before `value` is stored.
     fn on_write(&mut self, _cx: &mut Context<'_>, _addr: u16, _value: u8) {}
+
+    /// Called once the instruction at `pc` has finished executing, with the registers and
+    /// emulator state in `cx` as it left them. A step that executes no instruction, because
+    /// the CPU is halted or an interrupt is dispatched instead, does not get one.
+    fn on_exec_end(&mut self, _cx: &mut Context<'_>, _pc: u16, _opcode: u8) {}
 
     /// Called by [`Sameboy::finish`](crate::Sameboy::finish) once the run is over, for checks
     /// that can only be made against the final state.

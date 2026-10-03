@@ -12,7 +12,9 @@ mod check;
 mod hooks;
 mod trace;
 
-pub use check::{Checker, Context, OamCorruptionHazard, ReadKind, Registers, Violation};
+pub use check::{
+    Checker, Context, HaltHazard, OamCorruptionHazard, ReadKind, Registers, Violation,
+};
 pub use trace::{Trace, TraceEntry};
 
 use hooks::Hooks;
@@ -154,12 +156,18 @@ impl Sameboy {
     /// Resumes any panic raised by a [`Checker`] while the instruction was running.
     pub fn run(&mut self) -> u32 {
         self.hooks_mut().begin_step();
+        let gb: *mut GB_gameboy_t = self.inner.as_mut().get_mut();
         // SAFETY: `GB_run` requires `*mut GB_gameboy_t` to point to initialized
         // memory which Box<_> guarantees. No reference to the hooks state is live, so the
         // callbacks have exclusive access to it.
-        let ticks = unsafe { GB_run(self.inner.as_mut().get_mut()) };
+        let ticks = unsafe { GB_run(gb) };
         if let Some(panic) = self.hooks_mut().take_panic() {
             std::panic::resume_unwind(panic);
+        }
+        // SAFETY: `gb` points to initialized memory which Box<_> guarantees, and is not
+        // accessed through `self.inner` while the checkers run
+        unsafe {
+            self.hooks_mut().end_step(gb);
         }
         ticks
     }

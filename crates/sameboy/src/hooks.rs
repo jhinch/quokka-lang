@@ -18,6 +18,8 @@ pub(crate) struct Hooks {
     pub(crate) trace: Trace,
     /// The address of the instruction being executed.
     pc: u16,
+    /// The opcode of the instruction being executed.
+    opcode: u8,
     /// Whether the current step has fetched its opcode yet.
     fetched: bool,
     /// How many of the reads following the opcode are still part of fetching the instruction.
@@ -35,6 +37,7 @@ impl Hooks {
             violations: Vec::new(),
             trace: Trace::new(Trace::DEFAULT_CAPACITY),
             pc: 0,
+            opcode: 0,
             fetched: false,
             fetch_reads_remaining: 0,
             operand_bytes_remaining: 0,
@@ -47,6 +50,21 @@ impl Hooks {
         self.fetched = false;
         self.fetch_reads_remaining = 0;
         self.operand_bytes_remaining = 0;
+    }
+
+    /// Finish the step `GB_run` just made, running every checker's `on_exec_end` if it
+    /// executed an instruction.
+    ///
+    /// # Safety
+    ///
+    /// Same as [`Hooks::dispatch`].
+    pub(crate) unsafe fn end_step(&mut self, gb: *mut GB_gameboy_t) {
+        if !self.fetched {
+            return;
+        }
+        let (pc, opcode) = (self.pc, self.opcode);
+        // SAFETY: the caller's guarantees are the ones `dispatch` requires
+        unsafe { self.dispatch(gb, |checker, cx| checker.on_exec_end(cx, pc, opcode)) };
     }
 
     /// Take the panic caught during the last step, if a callback panicked.
@@ -95,6 +113,7 @@ impl Hooks {
     /// Same as [`Hooks::dispatch`].
     unsafe fn on_exec(&mut self, gb: *mut GB_gameboy_t, pc: u16, opcode: u8) {
         self.pc = pc;
+        self.opcode = opcode;
         self.fetched = true;
         self.fetch_reads_remaining = fetch_reads(opcode);
         self.operand_bytes_remaining = instruction_len(opcode) - 1;

@@ -317,6 +317,10 @@ Every case is also watched by runtime checks while it runs, and fails if one rep
 - **OAM corruption hazard**: an instruction that steps a 16-bit register holding an address in `$FE00-$FEFF` (such as
   `INC rr`, `LD [HL+], A` or a `PUSH` with `SP` there), which corrupts OAM on a DMG if the PPU is scanning it. It is
   reported whatever the PPU is doing and on every model.
+- **HALT bug**: a `HALT` executed with interrupts disabled while an enabled interrupt is already pending, which makes
+  the CPU execute the byte after it twice.
+- **HALT hang**: a `HALT` executed with no interrupt enabled in `IE`, which nothing can wake the CPU from. The case
+  fails straight away rather than running out of instructions.
 
 ```bash
 cargo test --test emulator_tests

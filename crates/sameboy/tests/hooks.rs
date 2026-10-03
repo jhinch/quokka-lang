@@ -10,6 +10,7 @@ use std::sync::OnceLock;
 const ROM: &[u8] = include_bytes!("roms/hooks.gb");
 
 // addresses from the listing in `roms/hooks.asm`
+const EVENTS: u16 = 0x0150;
 const EVENTS_DONE: u16 = 0x015A;
 const FLAGS: u16 = 0x0200;
 const HALT_BUG: u16 = 0x0210;
@@ -455,4 +456,52 @@ fn ppu_blocking_changes_over_a_frame() {
         }
     }
     assert_eq!(seen, [[true; 2]; 4]);
+}
+
+#[test]
+fn on_exec_end_follows_each_executed_instruction() {
+    /// What an `on_exec_end` saw: the instruction, the `A` register, and whether the CPU was
+    /// halted by then.
+    type End = (u16, u8, u8, bool);
+
+    #[derive(Default)]
+    struct Ends {
+        ends: Rc<RefCell<Vec<End>>>,
+    }
+    impl Checker for Ends {
+        fn name(&self) -> &'static str {
+            "ends"
+        }
+
+        fn on_exec_end(&mut self, cx: &mut Context<'_>, pc: u16, opcode: u8) {
+            assert_eq!(cx.pc(), pc);
+            let a = cx.registers().af.to_be_bytes()[0];
+            self.ends.borrow_mut().push((pc, opcode, a, cx.halted()));
+        }
+    }
+
+    let checker = Ends::default();
+    let ends = Rc::clone(&checker.ends);
+    let mut emulator = emulator();
+    emulator.add_checker(Box::new(checker));
+
+    // the registers are the ones the instruction left behind
+    emulator.write_a(0x00);
+    emulator.write_pc(EVENTS);
+    emulator.run();
+    assert_eq!(*ends.borrow(), [(EVENTS, 0x3E, 0x42, false)]);
+    ends.borrow_mut().clear();
+
+    // `ei`, `nop`, `di`, `halt`, and then steps that execute nothing
+    emulator.write_pc(FLAGS);
+    emulator.run_for(10);
+    assert_eq!(
+        *ends.borrow(),
+        [
+            (FLAGS, 0xFB, 0x42, false),
+            (FLAGS + 1, 0x00, 0x42, false),
+            (FLAGS + 2, 0xF3, 0x42, false),
+            (FLAGS + 3, 0x76, 0x42, true),
+        ]
+    );
 }
