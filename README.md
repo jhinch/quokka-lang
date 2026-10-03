@@ -33,12 +33,18 @@ via the spec test suites.
 cargo test --test spec_tests
 ```
 
-Test suites are defined in TOML files grouped by category within [tests/cases](tests/cases) directory.
+Test suites are defined in TOML files grouped by category within [tests/cases](tests/cases) directory. The test names
+take the form `<category>::<suite>::<case>`, where the category is the directory and the suite is the file name
+without its extension.
 
 ### TOML file format
 
 The TOML file specifies one or more test cases. A file can contain cases of different kinds as specified
-below. Regardless of the kind of test, the name of the test must be unique within the file.
+below. Regardless of the kind of test, the name of the test must be unique within the file, which the suite's
+`_lint_cases` test enforces. Unknown fields in a case are rejected.
+
+Each entry of `expected_errors` takes the form `<code>: <message> @ [<start>:<end>]`, where the code is omitted for
+diagnostics without one and the byte offsets are those of the diagnostic's primary label (omitted if it has none).
 
 #### Lexer test
 
@@ -48,21 +54,20 @@ below. Regardless of the kind of test, the name of the test must be unique withi
 name = "case_name"
 # kind (required) always "lexer" for lexer test
 kind = "lexer"
-# preview_features (optional) which preview features to activate for this test. defaults to none
-preview_features = []
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file,
+# resolved relative to the directory of the TOML file
 source = """
 fn main() {
 }
 """
-# either expected_tokens or expected_errors is required
-# expected_tokens the list of token kinds and token text in order
+# expected_tokens (optional) one `<kind>:<text>` line per token in order. Lexing stops at the first error, so the
+# tokens before it are still expected. defaults to empty
 expected_tokens = """
 ...
 """
-# expected_errors array or strings for each of the errors expected
+# expected_errors (optional) array of strings for each of the errors expected. defaults to empty
 expected_errors = []
 
 # More than one case can be defined per test suite file
@@ -78,23 +83,24 @@ expected_errors = []
 name = "case_name"
 # kind (required) always "parser" for parser test
 kind = "parser"
-# name (optional) the parsing entrypoint. Defaults to root. "expr" and "item" can also be used
+# entrypoint (optional) the parsing entrypoint: "root", "item", "statement" or "expr". Defaults to "root"
 entrypoint = "root"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file,
+# resolved relative to the directory of the TOML file
 source = """
 fn main() {
 }
 """
-# either expected_ast or expected_errors is required
-# expected_ast a string for the RON representation of the AST
+# expected_ast (optional) a string for the RON representation of the AST. The parser recovers from errors, so a case
+# can expect both an AST and errors. defaults to empty
 expected_ast = """
 ...
 """
-# expected_errors array or strings for each of the errors expected
+# expected_errors (optional) array of strings for each of the errors expected. defaults to empty
 expected_errors = []
 
 # More than one case can be defined per test suite file
@@ -113,11 +119,13 @@ kind = "analyzer"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
 # optimize (optional) enables optimization on MIR. Defaults to false.
-# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via preview_features
+# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via
+# preview_features, e.g. "no-canonicalize", "no-adce", "no-sccp", "no-prune" or "no-tree-shake"
 optimize = true
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file,
+# resolved relative to the directory of the TOML file
 source = """
 fn main() {
 }
@@ -127,7 +135,8 @@ fn main() {
 expected_mir = """
 ...
 """
-# expected_errors array or strings for each of the errors expected
+# expected_errors array of strings for each of the errors expected from analysis or optimization. The source must
+# parse: a syntax error fails the test rather than being compared
 expected_errors = []
 
 # More than one case can be defined per test suite file
@@ -141,18 +150,21 @@ expected_errors = []
 [[case]]
 # name (required) of the test case
 name = "case_name"
-# kind (required) always "codegen" for analyzer test
+# kind (required) always "codegen" for codegen test
 kind = "codegen"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
 # optimize (optional) enables optimization on MIR. Defaults to false.
-# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via preview_features
+# Individual optimizations can be opted in to (if off by default) or opted out of (if on by default) via
+# preview_features, e.g. "no-canonicalize", "no-adce", "no-sccp", "no-prune" or "no-tree-shake"
 optimize = true
-# allocate_registers (optional) enables register allocation on LIR. Defaults to false.
+# allocate_registers (optional) enables register allocation followed by peephole optimization on LIR.
+# Defaults to false.
 allocate_registers = true
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
-# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file.
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file,
+# resolved relative to the directory of the TOML file
 source = """
 fn main() {
 }
@@ -162,7 +174,8 @@ fn main() {
 expected_lir = """
 ...
 """
-# expected_errors array or strings for each of the errors expected
+# expected_errors array of strings for each of the errors expected from code generation. The source must parse,
+# analyze and optimize: an error from those phases fails the test rather than being compared
 expected_errors = []
 
 # More than one case can be defined per test suite file
@@ -205,16 +218,18 @@ cargo test --test optimize_soundness_tests
 
 Test suites are defined in TOML files within the [tests/soundness_cases](tests/soundness_cases) directory.
 
-Every case is run as multiple tests, one for each optimization that can be individually enabled, one for each
-optimization that can be individually disabled, and one (`all`) with the default optimization configuration. The
-test names take the form `optimize_soundness::<suite>::<case>::<variant>`. A suite which targets a single optimization
-can list the `variants` worth running at the top of its file (e.g. `variants = ["no-canonicalize", "all"]`), and a case
-can list its own to override the suite's.
+Every case is run as multiple tests, one for each optimization that can be individually enabled (currently none), one
+for each optimization that can be individually disabled (`no-canonicalize`, `no-adce`, `no-sccp`, `no-prune` and
+`no-tree-shake`), and one (`all`) with the default optimization configuration. The test names take the form
+`optimize_soundness::<suite>::<case>::<variant>`. A suite which targets a single optimization can list the `variants`
+worth running at the top of its file (e.g. `variants = ["no-canonicalize", "all"]`), and a case can list its own to
+override the suite's.
 
 A case may check at most 65,536 combinations of param and input values, which the suite's `_lint_cases` test enforces.
 A case over the limit should be restructured to check fewer, or be given a dedicated sampling of its values: `"edges"`
 samples the values of an input's type most likely to expose a bug, and `"sparse-edges"` a smaller set of them for cases
-which combine two wide inputs.
+which combine two wide inputs. A param has no type to take a width from, so it samples with an explicit width in bits
+instead: `{ edges = 8 }`.
 
 Since the evaluator does not support function calls or stores, the function under test must be side-effect free: it
 reads its inputs from globals and returns a value. A `main` is still required in the source as the analyzer requires
@@ -230,9 +245,13 @@ unchanged. For an opt-out such as `no-canonicalize`, that means the pass it disa
 
 ### TOML file format
 
-The name of each case must be unique within the file.
+The name of each case must be unique within the file. Unknown fields are rejected.
 
 ```toml
+# variants (optional) the variants to run for every case in the file which does not list its own. Each is either
+# the name of an optimization feature or "all". Must not be empty. defaults to every variant
+variants = ["no-canonicalize", "all"]
+
 [[case]]
 # name (required) of the test case
 name = "case_name"
@@ -241,16 +260,26 @@ function = "f"
 # preview_features (optional) additional preview features required for the source to compile (i.e. not
 # optimization related). defaults to empty
 preview_features = []
-# inputs (required) the values to feed into each named global, as single values and/or inclusive ranges. Each value
-# is a raw unsigned bit pattern encoded to the width of the global's type. The function is evaluated once per
-# combination of input values
-inputs = { N = [{ min = 0, max = 255 }], M = [0, 1, 127, 128, 255] }
-# params (optional) the values to substitute for each $NAME$ placeholder in the source, as single values and/or
-# inclusive ranges. The source is compiled once per combination of parameter values. defaults to empty
-params = { C = [{ min = 0, max = 255 }] }
+# inputs (required) the values to feed into each named global. The function is evaluated once per combination of
+# input values. Each entry of a global's list is one of:
+# - a single value, e.g. `127`
+# - an inclusive range, e.g. `{ min = 0, max = 255 }`
+# - "edges", a sample of the values of the global's type most likely to expose a bug
+# - "sparse-edges", a smaller such sample for cases which combine two wide inputs
+# - `{ edges = <bits> }`, the "edges" of an explicit width no wider than the global's type
+# Each value is a raw unsigned bit pattern which must fit in the global's type and is encoded to its width
+inputs = { N = [{ min = 0, max = 255 }], M = [0, 255, "edges"] }
+# params (optional) the values to substitute, in decimal, for each $NAME$ placeholder in the source. The source is
+# compiled once per combination of parameter values. Each entry is a single value, an inclusive range or
+# `{ edges = <bits> }`: "edges" and "sparse-edges" are not allowed as a param has no type. Every param must have a
+# placeholder in the source. defaults to empty
+params = { C = [1, { min = 254, max = 255 }] }
 # expect_rewrite (optional) optimization features which must change the optimized MIR when toggled on their own.
-# defaults to empty
+# Only checked by the variant of the same name. defaults to empty
 expect_rewrite = ["no-canonicalize"]
+# variants (optional) the variants to run for this case, overriding the file's. Must not be empty. defaults to the
+# file's variants
+variants = ["no-canonicalize", "all"]
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
 # source (required) the source code for the program
@@ -259,7 +288,10 @@ global N: u8;
 global M: u8;
 
 fn f() -> u8 {
-    return N + $C$ + M;
+    let n = N;
+    let a = n + $C$;
+    let b = a + n;
+    return b ^ M;
 }
 
 fn main() {
@@ -289,6 +321,14 @@ SameBoy submodule to be initialized (`git submodule update --init`).
 
 Test suites are defined in TOML files within the [tests/emulator_cases](tests/emulator_cases) directory.
 
+Every case is built with optimization, register allocation and peephole optimization, and is run as multiple tests:
+one (`default`) with only the case's own preview features, one for each optimization that can be individually
+enabled (currently none) and one for each optimization which changes what instruction selection sees and can be
+individually disabled (currently `no-canonicalize`). The test names take the form
+`emulator::<suite>::<case>::<variant>`. A suite can list the `variants` worth running at the top of its file (e.g.
+`variants = ["no-canonicalize"]`), and a case can list its own to override the suite's, for cases which only build, or
+only mean anything, one way.
+
 Because `await_pc` is a plain address, a case will typically end by calling an empty function pinned to a fixed
 address using `#[address]` and use that address as the `await_pc`. Likewise, values to be asserted are typically stored
 in globals pinned to a fixed address (e.g. in WRAM at `0xC000`). This gives a stable checkpoint which does not depend
@@ -296,14 +336,23 @@ on incidental codegen layout.
 
 ### TOML file format
 
-The name of each case must be unique within the file.
+The name of each case must be unique within the file, which the suite's `_lint_cases` test enforces. Unknown fields
+are rejected.
 
 ```toml
+# variants (optional) the variants to run for every case in the file which does not list its own. Each is either
+# "default" or the name of an optimization feature the cases are run with. Must not be empty. defaults to every
+# variant
+variants = ["default", "no-canonicalize"]
+
 [[case]]
 # name (required) of the test case
 name = "case_name"
 # preview_features (optional) which preview features to activate for this test. defaults to empty
 preview_features = []
+# variants (optional) the variants to run for this case, overriding the file's. Must not be empty. defaults to the
+# file's variants
+variants = ["default"]
 # model (optional) the Game Boy model to emulate: "dmg", "mgb" or "cgb". Defaults to "dmg"
 model = "dmg"
 # max_instructions (optional) the maximum number of instructions to execute while waiting to reach await_pc.
@@ -333,7 +382,8 @@ await_pc = 0x0150
 addr = 0xC000
 # expected (required) either a single byte or an array of consecutive bytes starting at addr
 expected = 3
-# mask (optional) the bits to compare. Either a single value applied to every byte or one value per byte of expected.
+# mask (optional) the bits to compare. Either a single value applied to every byte or an array of one value per byte
+# of expected.
 # Defaults to 0xff (all bits compared). Useful when only some bits are defined, e.g. a `u1` global only defines bit 0
 # and the remaining bits of its byte are left as whatever the emulator randomized WRAM to
 mask = 0b0000_0001
