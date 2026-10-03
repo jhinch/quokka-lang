@@ -8,7 +8,7 @@
 name = "flag_pressure_forces_spill_codegen"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 source.file = "flag_pressure.q"
 expected_lir = """
 START_SECTION WRAM0
@@ -330,7 +330,7 @@ END_SECTION
 name = "flag_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "flag_pressure.q"
 expected_lir = """
@@ -677,7 +677,7 @@ END_SECTION
 name = "bulk_fill_forces_flag_spill_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "flag_pressure_bulk_fill.q"
 expected_lir = """

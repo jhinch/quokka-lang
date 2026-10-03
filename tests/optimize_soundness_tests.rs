@@ -36,14 +36,15 @@
 //!
 //! Agreeing results say nothing if the optimization under test never fired. A case can list
 //! features under `expect_rewrite`: the trial for each listed feature additionally fails if
-//! toggling that feature alone leaves the optimized MIR unchanged.
+//! toggling that feature alone leaves the optimized MIR unchanged. For an opt-out feature such as
+//! `no-canonicalize`, that means the pass it disables must change the MIR.
 //!
 //! For every case, one trial is generated per individual opt-in optimization feature (see
 //! [`PreviewFeature::optimization_features`]), one per individual opt-out
 //! feature (see [`PreviewFeature::optimization_opt_out_features`]), and one with every opt-in
 //! optimization feature enabled together (i.e. the default optimizer configuration). A suite, or
 //! an individual case within it, can list `variants` to generate only the named trials (e.g.
-//! `variants = ["canonicalize", "all"]`), for cases which target a single optimization and learn
+//! `variants = ["no-canonicalize", "all"]`), for cases which target a single optimization and learn
 //! nothing from repeating their sweep with it left off.
 //!
 //! Limitations: `consteval::evaluate` does not support function calls or `Store`, so every target

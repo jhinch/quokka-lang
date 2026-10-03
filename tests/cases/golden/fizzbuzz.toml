@@ -947,13 +947,13 @@ fizzbuzz -> u8:
     call x_mod_y, .bb3
   .bb3:
     mod5#6: u8 = returnvalue
-    #8: u1 = eq mod3#4, 0
+    #8: u1 = lt mod3#4, 1
     jumpif #8 != 0, .bb4, .bb5
   .bb4:
-    #10: u1 = eq mod5#6, 0
+    #10: u1 = lt mod5#6, 1
     jumpif #10 != 0, .bb6, .bb7
   .bb5:
-    #14: u1 = eq mod5#6, 0
+    #14: u1 = lt mod5#6, 1
     jumpif #14 != 0, .bb12, .bb13
   .bb6:
     #RET: u8 = copy 3
@@ -1079,21 +1079,21 @@ main::
   LD A, RETURN
   LD r8#14, A
   LD A, r8#12
-  CP A, $00; z, c
-  (out=z#4,in=z)
-  JP z#4, .bb9; else=.bb10
+  CP A, $01; z, c
+  (out=c#5,in=c)
+  JP c#5, .bb9; else=.bb10
 
 .bb9:
   LD A, r8#14
-  CP A, $00; z, c
-  (out=z#6,in=z)
-  JP z#6, .bb11; else=.bb12
+  CP A, $01; z, c
+  (out=c#7,in=c)
+  JP c#7, .bb11; else=.bb12
 
 .bb10:
   LD A, r8#14
-  CP A, $00; z, c
-  (out=z#8,in=z)
-  JP z#8, .bb13; else=.bb14
+  CP A, $01; z, c
+  (out=c#9,in=c)
+  JP c#9, .bb13; else=.bb14
 
 .bb11:
   LD r8#18, $03
@@ -1121,8 +1121,8 @@ main::
   LD r8#33, A
   LD A, r8#27
   OR A, r8#33; z, c
-  (out=z#11,in=z)
-  JP z#11, .bb16; else=.bb17
+  (out=z#8,in=z)
+  JP z#8, .bb16; else=.bb17
 
 .bb16:
   RET
@@ -1421,18 +1421,18 @@ main::
   LD B, A
   LD HL SP+0; z, c
   LD A, [HL]
-  CP A, $00; z, c
-  JP z, .bb9; else=.bb10
+  CP A, $01; z, c
+  JP c, .bb9; else=.bb10
 
 .bb9:
   LD A, B
-  CP A, $00; z, c
-  JP z, .bb11; else=.bb12
+  CP A, $01; z, c
+  JP c, .bb11; else=.bb12
 
 .bb10:
   LD A, B
-  CP A, $00; z, c
-  JP z, .bb13; else=.bb14
+  CP A, $01; z, c
+  JP c, .bb13; else=.bb14
 
 .bb11:
   LD A, $03

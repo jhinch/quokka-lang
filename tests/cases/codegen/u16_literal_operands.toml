@@ -229,10 +229,13 @@ START_SECTION ROM0
 END_SECTION
 """
 
+# Canonicalize rewrites a subtraction of a literal into an addition, so the SUB/SBC immediate
+# lowering is only reached without it.
 [[case]]
 name = "sub_u16_literal_uses_immediates"
 kind = "codegen"
 optimize = true
+preview_features = ["no-canonicalize"]
 allocate_registers = true
 source = """
 global X: u16;
@@ -950,10 +953,13 @@ START_SECTION ROM0
 END_SECTION
 """
 
+# Canonicalize rewrites a signed comparison into an unsigned one, so the signed comparison lowering
+# is only reached without it.
 [[case]]
 name = "lt_i16_literal_folds_sign_bias_into_immediate"
 kind = "codegen"
 optimize = true
+preview_features = ["no-canonicalize"]
 allocate_registers = true
 source = """
 global X: i16;

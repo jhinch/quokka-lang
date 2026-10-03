@@ -1099,7 +1099,7 @@ bubble_sort -> u8:
   .bb5:
     #7: u16 = copy 8
     #8: u16 = sub #7, i#4
-    limit#10: u16 = sub #8, 1
+    limit#10: u16 = add #8, 65535
     j#11: u16 = copy 0
     jump .bb8
   .bb8:

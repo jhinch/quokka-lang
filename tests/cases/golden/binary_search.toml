@@ -962,7 +962,7 @@ binary_search -> u16:
     low#16: u16 = add mid#9, 1
     jump .bb14
   .bb13:
-    high#18: u16 = sub mid#9, 1
+    high#18: u16 = add mid#9, 65535
     jump .bb14
   .bb14:
     high#19: u16 = phi high#4 <- .bb12, high#18 <- .bb13

@@ -465,7 +465,7 @@ expected = 13
 
 [[case]]
 name = "loop_with_two_breaks_reads_value_after_loop_without_mir_optimizations"
-preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
 source = """
 #[address = 0xC000]
 global IN: u8;

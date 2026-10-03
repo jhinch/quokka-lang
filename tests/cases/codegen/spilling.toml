@@ -9,7 +9,7 @@
 name = "r8_pressure_forces_spill_codegen"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
 START_SECTION WRAM0
@@ -322,7 +322,7 @@ END_SECTION
 name = "r8_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "spilling_r8_pressure.q"
 expected_lir = """
@@ -660,7 +660,7 @@ END_SECTION
 name = "r16_pressure_forces_spill_codegen"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
 START_SECTION WRAM0
@@ -959,7 +959,7 @@ END_SECTION
 name = "r16_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "spilling_r16_pressure.q"
 expected_lir = """
@@ -1309,7 +1309,7 @@ END_SECTION
 name = "bulk_copy_pressure_forces_spill_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune"]
 allocate_registers = true
 source.file = "spilling_bulk_copy_pressure.q"
 expected_lir = """
@@ -1653,7 +1653,7 @@ END_SECTION
 START_SECTION ROM0
 f::
 .bb1:
-  ADD SP -10; z, c
+  ADD SP -5; z, c
   LD HL, A+$0000
   LD A, [HL++]
   LD C, A
@@ -1670,34 +1670,31 @@ f::
   LD HL, C+$0000
   LD A, [HL++]
   PUSH HL
-  LD HL SP+8; z, c
+  LD HL SP+2; z, c
   LD [HL], A
   POP HL
   LD A, [HL]
-  LD HL SP+7; z, c
-  LD [HL], A
-  LD A, B
   LD HL SP+4; z, c
   LD [HL], A
-  LD A, C
-  LD HL SP+3; z, c
-  LD [HL], A
+  LD E, B
+  LD D, C
   LD HL SP+1; z, c
   LD A, [HL]
   LD HL SP+2; z, c
   LD A, [HL]
-  LD HL SP+7; z, c
+  LD HL SP+4; z, c
   LD A, [HL]
-  LD HL SP+7; z, c
+  LD HL SP+4; z, c
   LD [HL], A
-  LD HL SP+6; z, c
+  LD HL SP+0; z, c
   LD A, [HL]
-  LD HL SP+5; z, c
+  LD HL SP+0; z, c
   LD [HL], A
   LD A, $00
   LD A, $01
   LD HL SP+2; z, c
-  LD C, [HL]
+  LD A, [HL]
+  LD C, A
   LD HL SP+1; z, c
   LD B, [HL]
   INC_PAIR! BC; z
@@ -1705,17 +1702,17 @@ f::
   LD A, $01
   LD HL SP+2; z, c
   LD A, [HL]
-  XOR A, $01; z, c
-  LD HL SP+0; z, c
+  XOR A, D; z, c
+  LD HL SP+3; z, c
   LD [HL], A
   LD HL SP+1; z, c
   LD A, [HL]
-  XOR A, $00; z, c
+  XOR A, E; z, c
   LD D, A
   LD A, C
-  LD HL SP+7; z, c
+  LD HL SP+4; z, c
   LD C, [HL]
-  LD HL SP+6; z, c
+  LD HL SP+0; z, c
   LD E, [HL]
   ADD A, E; z, c
   LD A, B
@@ -1727,90 +1724,43 @@ f::
   LD A, $ff
   LD A, $ff
   LD HL SP+2; z, c
-  LD A, [HL]
-  LD HL SP+8; z, c
-  LD [HL], A
-  LD HL SP+1; z, c
-  LD A, [HL]
-  LD HL SP+9; z, c
-  LD [HL], A
-  LD HL SP+8; z, c
   LD C, [HL]
-  LD HL SP+9; z, c
-  LD B, [HL]
-  LD HL SP+8; z, c
-  LD A, C
-  LD [HL++], A
-  LD [HL], B
-  LD HL SP+8; z, c
-  LD A, [HL++]
-  LD C, A
+  LD HL SP+1; z, c
   LD B, [HL]
   DEC_PAIR! BC; z
-  LD HL SP+8; z, c
-  LD A, C
-  LD [HL++], A
-  LD [HL], B
-  LD HL SP+8; z, c
-  LD A, [HL++]
-  LD B, [HL]
-  LD HL SP+9; z, c
-  LD [HL], A
-  LD HL SP+8; z, c
-  LD [HL], B
-  LD B, $00
+  LD E, $00
   LD A, $07
-  PUSH AF(high_in=A, z_in=?, c_in=?)
-  LD HL SP+11; z, c
-  LD C, [HL]
-  POP AF(high_out=A); z, c
   SUB A, C; z, c
-  LD A, B
-  PUSH AF(high_in=A, z_in=?, c_in=c)
-  LD HL SP+10; z, c
-  LD B, [HL]
-  POP AF(high_out=A); z, c
+  LD A, E
   SBC A, B; z, c
-  LD B, $00
+  LD A, $00
   LD A, $0a
-  PUSH AF(high_in=A, z_in=?, c_in=?)
-  LD HL SP+11; z, c
-  LD C, [HL]
-  POP AF(high_out=A); z, c
-  XOR A, C; z, c
+  LD A, C
+  XOR A, $0a; z, c
   LD A, B
-  PUSH AF(high_in=A, z_in=?, c_in=?)
-  LD HL SP+10; z, c
-  LD B, [HL]
-  POP AF(high_out=A); z, c
-  XOR A, B; z, c
+  XOR A, $00; z, c
   LD HL SP+3; z, c
   LD A, [HL]
-  PUSH AF(high_in=A, z_in=?, c_in=?)
-  LD HL SP+2; z, c
-  LD B, [HL]
-  POP AF(high_out=A); z, c
-  XOR A, B; z, c
+  XOR A, $01; z, c
   LD C, A
-  LD HL SP+4; z, c
-  LD A, [HL]
-  XOR A, D; z, c
+  LD A, D
+  XOR A, $00; z, c
   LD B, A
   LD A, C
   PUSH AF(high_in=A, z_in=?, c_in=?)
-  LD HL SP+7; z, c
+  LD HL SP+2; z, c
   LD C, [HL]
   POP AF(high_out=A); z, c
   ADD A, C; z, c
   LD C, A
   LD A, B
   PUSH AF(high_in=A, z_in=?, c_in=c)
-  LD HL SP+9; z, c
+  LD HL SP+6; z, c
   LD B, [HL]
   POP AF(high_out=A); z, c
   ADC A, B; z, c
   LD B, A
-  ADD SP 10; z, c
+  ADD SP 5; z, c
   RET
 
 main::
@@ -2009,7 +1959,7 @@ END_SECTION
 name = "pair_joined_from_spilled_halves_without_optimization_allocate_registers"
 kind = "codegen"
 optimize = true
-preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
 allocate_registers = true
 source.file = "spilling_pair_joined_from_spilled_halves.q"
 expected_lir = """

@@ -208,7 +208,7 @@ Test suites are defined in TOML files within the [tests/soundness_cases](tests/s
 Every case is run as multiple tests, one for each optimization that can be individually enabled, one for each
 optimization that can be individually disabled, and one (`all`) with the default optimization configuration. The
 test names take the form `optimize_soundness::<suite>::<case>::<variant>`. A suite which targets a single optimization
-can list the `variants` worth running at the top of its file (e.g. `variants = ["canonicalize", "all"]`), and a case
+can list the `variants` worth running at the top of its file (e.g. `variants = ["no-canonicalize", "all"]`), and a case
 can list its own to override the suite's.
 
 A case may check at most 65,536 combinations of param and input values, which the suite's `_lint_cases` test enforces.
@@ -226,7 +226,7 @@ program is compiled and checked once per combination of parameter values.
 
 Matching results prove nothing if the optimization under test never fired. A case can list optimizations under
 `expect_rewrite`: the test for each listed optimization also fails if toggling it alone leaves the optimized MIR
-unchanged.
+unchanged. For an opt-out such as `no-canonicalize`, that means the pass it disables must change the MIR.
 
 ### TOML file format
 
@@ -250,7 +250,7 @@ inputs = { N = [{ min = 0, max = 255 }], M = [0, 1, 127, 128, 255] }
 params = { C = [{ min = 0, max = 255 }] }
 # expect_rewrite (optional) optimization features which must change the optimized MIR when toggled on their own.
 # defaults to empty
-expect_rewrite = ["canonicalize"]
+expect_rewrite = ["no-canonicalize"]
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"
 # source (required) the source code for the program

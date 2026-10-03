@@ -21,9 +21,9 @@ pub enum PreviewFeature {
     FnPtr,
     /// enable the `breakpoint` statement, which emits an `LD B, B` software breakpoint
     Breakpoint,
-    /// enable canonicalization of associative/commutative MIR instructions, grouping literal
-    /// operands towards the end of a chain so later passes (e.g. SCCP) can fold them
-    Canonicalize,
+    /// disable canonicalization optimization pass on MIR, which rewrites instructions toward one
+    /// normal form per operation so later passes and instruction selection see fewer shapes
+    NoCanonicalize,
     /// disable Aggressive Dead Code Elimination (ADCE) optimization pass on MIR
     NoAdce,
     /// disable Sparse Conditional Constant Propagation (SCCP) optimization pass on MIR
@@ -48,13 +48,14 @@ impl PreviewFeature {
     /// preview features that opt in to an optimization pass on MIR.
     #[must_use]
     pub fn optimization_features() -> &'static [PreviewFeature] {
-        &[PreviewFeature::Canonicalize]
+        &[]
     }
 
     /// preview features that opt out of a default MIR optimization behavior.
     #[must_use]
     pub fn optimization_opt_out_features() -> &'static [PreviewFeature] {
         &[
+            PreviewFeature::NoCanonicalize,
             PreviewFeature::NoAdce,
             PreviewFeature::NoSccp,
             PreviewFeature::NoPrune,

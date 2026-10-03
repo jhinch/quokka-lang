@@ -246,7 +246,7 @@ expected = 7
 
 [[case]]
 name = "if_copies_one_variable_into_another_taken_without_mir_optimizations"
-preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
 source = """
 global A: u8;
 global B: u8;
@@ -288,7 +288,7 @@ expected = 7
 # phis at the join.
 [[case]]
 name = "if_copies_one_variable_into_another_not_taken_without_mir_optimizations"
-preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
 source = """
 global A: u8;
 global B: u8;
@@ -370,7 +370,7 @@ expected = 0x33
 
 [[case]]
 name = "if_after_an_empty_if_copies_one_variable_into_another_without_mir_optimizations"
-preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp", "no-prune", "no-tree-shake"]
 source = """
 global A: u8;
 global B: u8;

@@ -13,11 +13,12 @@
 //! this gives a stable, explicit checkpoint that doesn't depend on incidental codegen layout.
 //!
 //! For every case, one trial is generated with the case's own configuration (the `default`
-//! variant) and one per opt-in optimization feature (see
-//! [`PreviewFeature::optimization_features`]) with that feature enabled as well, so the code
-//! generated for a case is checked both with and without each such optimization. A suite, or an
-//! individual case within it, can list `variants` to generate only the named trials (e.g.
-//! `variants = ["canonicalize"]`), for cases which only build, or only mean anything, one way.
+//! variant), one per opt-in optimization feature (see
+//! [`PreviewFeature::optimization_features`]) with that feature enabled as well, and one per
+//! feature in [`OPT_OUT_VARIANTS`] with that optimization disabled, so the code generated for a
+//! case is checked both with and without each such optimization. A suite, or an individual case
+//! within it, can list `variants` to generate only the named trials (e.g.
+//! `variants = ["no-canonicalize"]`), for cases which only build, or only mean anything, one way.
 
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
@@ -49,8 +50,9 @@ struct TestCase {
     model: ModelKind,
     #[serde(default = "default_max_instructions")]
     max_instructions: u32,
-    /// the variants to generate trials for, each either `default` or the name of an opt-in
-    /// optimization feature. Falls back to the suite's `variants` if omitted.
+    /// the variants to generate trials for, each either `default`, the name of an opt-in
+    /// optimization feature or one of [`OPT_OUT_VARIANTS`]. Falls back to the suite's `variants`
+    /// if omitted.
     #[serde(default)]
     variants: Option<Vec<String>>,
     #[serde(default)]
@@ -69,6 +71,11 @@ fn default_max_instructions() -> u32 {
 /// The name of the variant which builds a case with only its own preview features.
 const DEFAULT_VARIANT: &str = "default";
 
+/// The opt-out optimization features each case is also run with. Only the default optimizations
+/// which change the shapes instruction selection sees are listed: running every opt-out would
+/// multiply the suite for little extra codegen coverage.
+const OPT_OUT_VARIANTS: &[PreviewFeature] = &[PreviewFeature::NoCanonicalize];
+
 /// Every variant a case can be run as, in order: its name, and the optimization feature it
 /// enables on top of the case's own preview features (or `None` for [`DEFAULT_VARIANT`]).
 fn all_variants() -> Vec<(String, Option<PreviewFeature>)> {
@@ -76,6 +83,7 @@ fn all_variants() -> Vec<(String, Option<PreviewFeature>)> {
         .chain(
             PreviewFeature::optimization_features()
                 .iter()
+                .chain(OPT_OUT_VARIANTS)
                 .map(|&feature| (feature.to_string(), Some(feature))),
         )
         .collect()

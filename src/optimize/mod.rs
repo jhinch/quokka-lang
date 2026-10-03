@@ -38,7 +38,7 @@ impl Optimizer {
 
     fn initialize_optimizations(&self) -> Vec<Box<dyn Optimize>> {
         let mut optimizations = Vec::<Box<dyn Optimize>>::new();
-        if self.features.is_enabled(PreviewFeature::Canonicalize) {
+        if !self.features.is_enabled(PreviewFeature::NoCanonicalize) {
             optimizations.push(Box::new(canonicalize::Canonicalize));
         }
         if !self.features.is_enabled(PreviewFeature::NoAdce) {

@@ -747,7 +747,7 @@ global RESULTS: [u8; 10]
 fibonacci -> u8:
   .bb1:
     n#2: u8 = load FIBONACCI_N
-    #4: u1 = eq n#2, 0
+    #4: u1 = lt n#2, 1
     jumpif #4 != 0, .bb2, .bb3
   .bb2:
     #RET: u8 = copy 0
@@ -819,9 +819,9 @@ fibonacci::
   LD HL, FIBONACCI_N+$0000
   LD r8#4, [HL]
   LD A, r8#4
-  CP A, $00; z, c
-  (out=z#2,in=z)
-  JP z#2, .bb3; else=.bb4
+  CP A, $01; z, c
+  (out=c#2,in=c)
+  JP c#2, .bb3; else=.bb4
 
 main::
 .bb2:
@@ -853,8 +853,8 @@ main::
   LD r8#12, r8#8
   LD A, r8#1
   CP A, r8#12; z, c
-  (out=c#3,in=c)
-  JP nc#3, .bb6; else=.bb7
+  (out=c#4,in=c)
+  JP nc#4, .bb6; else=.bb7
 
 .bb6:
   LD r8#14, r8#3
@@ -878,8 +878,8 @@ main::
   LD r8#26, A
   LD A, r8#20
   OR A, r8#26; z, c
-  (out=z#9,in=z)
-  JP z#9, .bb9; else=.bb10
+  (out=z#8,in=z)
+  JP z#8, .bb9; else=.bb10
 
 .bb9:
   RET
@@ -1116,19 +1116,21 @@ fibonacci::
   LD HL, FIBONACCI_N+$0000
   LD C, [HL]
   LD A, C
-  CP A, $00; z, c
-  JP z, .bb3; else=.bb4
+  CP A, $01; z, c
+  JP c, .bb3; else=.bb4
 
 main::
 .bb2:
   ADD SP -3; z, c
-  LD B, $00
   LD C, $00
   LD A, $00
+  LD B, $00
   LD HL SP+0; z, c
-  LD [HL], C
+  LD [HL], A
+  LD A, C
   LD HL SP+1; z, c
-  LD [HL], B
+  LD [HL], A
+  LD A, B
   LD HL SP+2; z, c
   LD [HL], A
   JP .bb8
@@ -1140,25 +1142,25 @@ main::
 .bb4:
   INC C; z
   LD E, $00
-  LD D, $01
-  LD B, $02
+  LD B, $01
+  LD D, $02
   JP .bb5
 
 .bb5:
-  LD A, B
+  LD A, D
   CP A, C; z, c
   JP nc, .bb6; else=.bb7
 
 .bb6:
-  LD A, D
+  LD A, B
   RET
 
 .bb7:
   LD A, E
-  ADD A, D; z, c
-  INC B; z
-  LD E, D
-  LD D, A
+  ADD A, B; z, c
+  INC D; z
+  LD E, B
+  LD B, A
   JP .bb5
 
 .bb8:
@@ -1199,11 +1201,15 @@ main::
   INC_PAIR! BC; z
   LD HL SP+2; z, c
   LD A, [HL]
-  INC A; z
+  LD D, A
+  INC D; z
+  LD A, C
   LD HL SP+0; z, c
-  LD [HL], C
+  LD [HL], A
+  LD A, B
   LD HL SP+1; z, c
-  LD [HL], B
+  LD [HL], A
+  LD A, D
   LD HL SP+2; z, c
   LD [HL], A
   JP .bb8

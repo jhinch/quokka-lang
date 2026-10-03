@@ -2,7 +2,7 @@
 name = "prune_alone_does_not_touch_ordinary_compiled_mir"
 kind = "analyzer"
 optimize = true
-preview_features = ["no-adce", "no-sccp"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp"]
 source = """
 global N: u8;
 
@@ -52,7 +52,7 @@ main -> unit:
 name = "adce_then_prune_fully_removes_a_dead_branch_in_one_round"
 kind = "analyzer"
 optimize = true
-preview_features = ["no-sccp"]
+preview_features = ["no-canonicalize", "no-sccp"]
 source = """
 global N: u8;
 
@@ -92,7 +92,7 @@ main -> unit:
 name = "diamond_blocks_with_empty_branch_trims_empty_block"
 kind = "analyzer"
 optimize = true
-preview_features = ["no-adce", "no-sccp"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp"]
 source = """
 global N: u8;
 
@@ -337,7 +337,7 @@ f -> u8:
   .bb1:
     a#2: u8 = load A
     r#3: u8 = copy a#2
-    #11: u1 = eq a#2, 0
+    #11: u1 = lt a#2, 1
     r#14: u8 = copy r#3
     jumpif #11 != 0, .bb4, .bb5
   .bb4:
@@ -360,7 +360,6 @@ main -> unit:
 name = "if_canonicalized_to_constant_false_keeps_the_variable_read_after_it"
 kind = "analyzer"
 optimize = true
-preview_features = ["canonicalize"]
 source = """
 global A: u8;
 global OUT: u8;
@@ -397,7 +396,7 @@ main -> unit:
 name = "keeps_empty_block_whose_phi_values_differ_from_the_direct_edge"
 kind = "analyzer"
 optimize = true
-preview_features = ["no-adce", "no-sccp"]
+preview_features = ["no-canonicalize", "no-adce", "no-sccp"]
 source = """
 global A: u8;
 global B: u8;
