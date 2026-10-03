@@ -409,3 +409,103 @@ expected = 0x33
 [[case.assertion]]
 addr = 0xC001
 expected = 0x33
+
+# The empty nested if leaves a block with nothing live in it inside the outer arm, which also
+# assigns a variable read after the outer if.
+[[case]]
+name = "if_holding_an_empty_nested_if_assigns_a_variable_read_after_it"
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 0x34;
+    let a = A;
+    let r = B;
+    if a < a then {
+        r = a + 1;
+        if r != a then {
+        }
+    }
+    R = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x34
+
+[[case]]
+name = "empty_if_before_an_if_assigning_a_variable_read_after_it_taken"
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 7;
+    B = 7;
+    let a = A;
+    let b = B;
+    let r = a + 1;
+    if b == 7 then {
+    }
+    if b == a then {
+        r = b;
+    }
+    R = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7
+
+[[case]]
+name = "empty_if_before_an_if_assigning_a_variable_read_after_it_not_taken"
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 7;
+    let a = A;
+    let b = B;
+    let r = a;
+    if b == 7 then {
+    }
+    if b == a then {
+        r = b;
+    }
+    R = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x12

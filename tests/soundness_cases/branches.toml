@@ -200,3 +200,52 @@ fn main() {
     f();
 }
 """
+
+# The empty nested if leaves a block with nothing live in it inside an arm that feeds a phi read
+# after the outer if.
+[[case]]
+name = "if_holding_an_empty_nested_if_and_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { A = [{ min = 0, max = 255 }], B = ["edges"] }
+source = """
+global A: u8;
+global B: u8;
+
+fn f() -> u8 {
+    let a = A;
+    let r = B;
+    if a < a then {
+        r = a + 1;
+        if r != a then {
+        }
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
+
+[[case]]
+name = "empty_if_before_an_if_assigning_a_variable_read_after_it_is_optimized_soundly"
+inputs = { B = [{ min = 0, max = 255 }], A = ["edges"] }
+source = """
+global A: u8;
+global B: u8;
+
+fn f() -> u8 {
+    let a = A;
+    let b = B;
+    let r = a;
+    if b == 7 then {
+    }
+    if b == a then {
+        r = b;
+    }
+    return r;
+}
+
+fn main() {
+    f();
+}
+"""
