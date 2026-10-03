@@ -6,8 +6,10 @@
 #
 # The cases sit on the wrap boundaries of each width and of the low byte, and each also asserts the
 # left operand's local wasn't corrupted by computing the result. The `*_keeps_*` cases check a
-# comparison result computed before the step is still intact after it, and the `struct_array_*`
-# cases cover the `INC HL` used to step an address from an array element to one of its fields.
+# comparison result computed before the step is still intact after it, the `*_through_oam_range`
+# cases walk a value across the whole of OAM so the harness's OAM corruption check sees every step,
+# and the `struct_array_*` cases cover the `INC HL` used to step an address from an array element
+# to one of its fields.
 
 [[case]]
 name = "add_u8_one"
@@ -783,6 +785,84 @@ expected = [0xFF, 0xFE] # 0xFEFF
 [[case.assertion]]
 addr = 0xC002
 expected = [0x00, 0xFF] # 0xFF00
+
+[[case]]
+name = "u16_steps_up_through_oam_range"
+source = """
+global START: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global STEPS: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    START = 0xFDFE as u16;
+    let pointer = START;
+    let steps = 0 as u16;
+    loop {
+        if pointer == 0xFF01 then {
+            break;
+        }
+        pointer = pointer + 1;
+        steps = steps + 1;
+    }
+    OUT = pointer;
+    STEPS = steps;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+max_instructions = 20_000
+[[case.assertion]]
+addr = 0xC000
+expected = [0x01, 0xFF] # 0xFF01
+[[case.assertion]]
+addr = 0xC002
+expected = [0x03, 0x01] # 0x0103
+
+[[case]]
+name = "u16_steps_down_through_oam_range"
+source = """
+global START: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+#[address = 0xC002]
+global STEPS: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    START = 0xFF01 as u16;
+    let pointer = START;
+    let steps = 0 as u16;
+    loop {
+        if pointer == 0xFDFE then {
+            break;
+        }
+        pointer = pointer - 1;
+        steps = steps + 1;
+    }
+    OUT = pointer;
+    STEPS = steps;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+max_instructions = 20_000
+[[case.assertion]]
+addr = 0xC000
+expected = [0xFE, 0xFD] # 0xFDFE
+[[case.assertion]]
+addr = 0xC002
+expected = [0x03, 0x01] # 0x0103
 
 [[case]]
 name = "add_i16_one_crosses_zero"

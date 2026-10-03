@@ -1,6 +1,10 @@
 //! The checker interface: independent units that observe a running emulator through
 //! execution and memory events and record [`Violation`]s.
 
+mod oam;
+
+pub use oam::OamCorruptionHazard;
+
 use crate::hooks;
 use quokka_lang_sameboy_sys::GB_gameboy_t;
 use std::fmt;

@@ -312,6 +312,12 @@ The emulator tests validate the generated code by executing it. Each case compil
 ROM, runs it in the [SameBoy](https://github.com/LIJI32/SameBoy) emulator via a [headless bridging crate](crates/sameboy)
 until the CPU reaches a given address and then asserts the contents of memory.
 
+Every case is also watched by runtime checks while it runs, and fails if one reports a violation:
+
+- **OAM corruption hazard**: an instruction that steps a 16-bit register holding an address in `$FE00-$FEFF` (such as
+  `INC rr`, `LD [HL+], A` or a `PUSH` with `SP` there), which corrupts OAM on a DMG if the PPU is scanning it. It is
+  reported whatever the PPU is doing and on every model.
+
 ```bash
 cargo test --test emulator_tests
 ```

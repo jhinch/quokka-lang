@@ -12,7 +12,7 @@ mod check;
 mod hooks;
 mod trace;
 
-pub use check::{Checker, Context, ReadKind, Registers, Violation};
+pub use check::{Checker, Context, OamCorruptionHazard, ReadKind, Registers, Violation};
 pub use trace::{Trace, TraceEntry};
 
 use hooks::Hooks;
@@ -65,6 +65,13 @@ impl Sameboy {
         // `GB_log_callback_t`'s signature for the lifetime of `inner`.
         unsafe {
             GB_set_log_callback(inner.as_mut().get_mut(), Some(log_callback));
+        }
+
+        // SAFETY: `GB_set_rgb_encode_callback` requires `*mut GB_gameboy_t` to point to
+        // initialized memory which Box<_> guarantees. `rgb_encode_callback` is a valid
+        // `extern "C" fn` matching `GB_rgb_encode_callback_t`'s signature.
+        unsafe {
+            GB_set_rgb_encode_callback(inner.as_mut().get_mut(), Some(rgb_encode_callback));
         }
 
         // SAFETY: `GB_get_screen_width` and `GB_get_screen_height` require `*mut GB_gameboy_t`
@@ -546,6 +553,13 @@ extern "C" fn log_callback(
     // the duration of this call
     let message = unsafe { std::ffi::CStr::from_ptr(string) }.to_string_lossy();
     tracing::info!("{}", message.trim_end_matches('\n'));
+}
+
+/// Encodes a color SameBoy is about to draw as `0xAARRGGBB`. SameBoy calls this
+/// unconditionally when rendering on a CGB, so it must be set even though nothing reads the
+/// pixels yet.
+extern "C" fn rgb_encode_callback(_gb: *mut GB_gameboy_t, r: u8, g: u8, b: u8) -> u32 {
+    0xFF00_0000 | u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

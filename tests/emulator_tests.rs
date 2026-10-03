@@ -23,7 +23,7 @@
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
-use quokka_lang_sameboy::{Model, RunOutcome, Sameboy};
+use quokka_lang_sameboy::{Model, OamCorruptionHazard, RunOutcome, Sameboy};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -277,7 +277,8 @@ fn load_suites()
 
 /// Compiles `case.source` to a ROM, with `toggled` enabled on top of the case's own preview
 /// features if given, runs it in a fresh emulator until `case.await_pc` is reached, and checks
-/// every `case.assertions` entry against emulator memory.
+/// every `case.assertions` entry against emulator memory. The runtime checkers watch the run,
+/// and any violation they report fails the case.
 fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     let rom = build_rom(case, toggled);
 
@@ -292,6 +293,7 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     if !emulator.load_state(boot_snapshot(case.model)) {
         panic!("failed to restore post-boot-ROM save state");
     }
+    emulator.add_checker(Box::new(OamCorruptionHazard::new()));
     match emulator.run_until_pc(case.await_pc, case.max_instructions) {
         RunOutcome::Reached => {}
         RunOutcome::InstructionLimit => panic!(
