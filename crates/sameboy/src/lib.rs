@@ -8,12 +8,37 @@
 #![deny(clippy::manual_assert)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
+mod check;
+mod hooks;
+mod trace;
+
+pub use check::{Checker, Context, ReadKind, Registers, Violation};
+pub use trace::{Trace, TraceEntry};
+
+use hooks::Hooks;
 use quokka_lang_sameboy_sys::*;
 use std::pin::Pin;
+use std::ptr::NonNull;
 
 pub struct Sameboy {
     inner: Pin<Box<GB_gameboy_t>>,
     pixels: (*mut u32, usize),
+    /// The state SameBoy's callbacks record into, owned by this struct and freed on drop. It
+    /// is held as a raw pointer because the callbacks reach it through SameBoy's user data
+    /// pointer while the emulator runs.
+    hooks: NonNull<Hooks>,
+}
+
+/// Why [`Sameboy::run_until_pc`] stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[must_use]
+pub enum RunOutcome {
+    /// `PC` reached the target address.
+    Reached,
+    /// The instruction budget ran out first.
+    InstructionLimit,
+    /// A [`Checker`] reported a violation; see [`Sameboy::violations`].
+    Violation,
 }
 
 impl Sameboy {
@@ -66,9 +91,17 @@ impl Sameboy {
             GB_set_pixels_output(inner.as_mut().get_mut(), pixels_ptr);
         }
 
+        let hooks = NonNull::from(Box::leak(Box::new(Hooks::new())));
+        // SAFETY: `inner` is initialized, and `hooks` was only just leaked so it is valid. It
+        // is freed in `Drop` after `inner`, and only accessed between runs.
+        unsafe {
+            hooks::install(inner.as_mut().get_mut(), hooks.as_ptr());
+        }
+
         let mut sameboy = Sameboy {
             inner,
             pixels: (pixels_ptr, len),
+            hooks,
         };
 
         sameboy.load_boot_rom(boot_rom);
@@ -83,6 +116,7 @@ impl Sameboy {
         unsafe {
             GB_reset(self.inner.as_mut().get_mut());
         }
+        self.hooks_mut().clear_history();
     }
 
     pub fn load_boot_rom(&mut self, rom: &[u8]) {
@@ -107,10 +141,20 @@ impl Sameboy {
     ///
     /// For example, if the next instruction is NOP, this function returns 8 if in normal
     /// mode and 4 in double speed (GBC) mode.
+    ///
+    /// # Panics
+    ///
+    /// Resumes any panic raised by a [`Checker`] while the instruction was running.
     pub fn run(&mut self) -> u32 {
+        self.hooks_mut().begin_step();
         // SAFETY: `GB_run` requires `*mut GB_gameboy_t` to point to initialized
-        // memory which Box<_> guarantees
-        unsafe { GB_run(self.inner.as_mut().get_mut()) }
+        // memory which Box<_> guarantees. No reference to the hooks state is live, so the
+        // callbacks have exclusive access to it.
+        let ticks = unsafe { GB_run(self.inner.as_mut().get_mut()) };
+        if let Some(panic) = self.hooks_mut().take_panic() {
+            std::panic::resume_unwind(panic);
+        }
+        ticks
     }
 
     /// Run for at least the specified number of 8MHz ticks.
@@ -130,15 +174,64 @@ impl Sameboy {
 
     /// Run until the `PC` register is equal to the `target` address. If `PC` is currently equal
     /// to `target`, execute the instructions until the next time `PC` is equal to the `target`.
-    /// Returns `true` if `target` reached, `false` if `max_instr_count` instructions executed
-    pub fn run_until_pc(&mut self, target: u16, max_instr_count: u32) -> bool {
+    /// Stops early if a [`Checker`] reports a violation, after the instruction that caused it.
+    pub fn run_until_pc(&mut self, target: u16, max_instr_count: u32) -> RunOutcome {
         for _ in 0..max_instr_count {
             self.run();
+            if !self.violations().is_empty() {
+                return RunOutcome::Violation;
+            }
             if target == self.read_pc() {
-                return true;
+                return RunOutcome::Reached;
             }
         }
-        false
+        RunOutcome::InstructionLimit
+    }
+
+    /// Add a checker, which observes every instruction and memory access from now on.
+    pub fn add_checker(&mut self, checker: Box<dyn Checker>) {
+        self.hooks_mut().checkers.push(checker);
+    }
+
+    /// Run the end-of-run checks ([`Checker::on_finish`]) and return every violation recorded
+    /// so far.
+    pub fn finish(&mut self) -> &[Violation] {
+        let gb: *mut GB_gameboy_t = self.inner.as_mut().get_mut();
+        // SAFETY: `gb` points to initialized memory which Box<_> guarantees, and is not
+        // accessed through `self.inner` while the checkers run
+        unsafe {
+            self.hooks_mut().finish(gb);
+        }
+        self.violations()
+    }
+
+    /// The violations the checkers have recorded so far, oldest first.
+    #[must_use]
+    pub fn violations(&self) -> &[Violation] {
+        &self.hooks().violations
+    }
+
+    /// The most recently executed instructions.
+    #[must_use]
+    pub fn trace(&self) -> &Trace {
+        &self.hooks().trace
+    }
+
+    /// Set how many instructions [`Sameboy::trace`] remembers. `0` turns tracing off.
+    pub fn set_trace_capacity(&mut self, capacity: usize) {
+        self.hooks_mut().trace.set_capacity(capacity);
+    }
+
+    fn hooks(&self) -> &Hooks {
+        // SAFETY: `hooks` is valid until `Drop`. The callbacks only access it while `GB_run`
+        // executes, which borrows `self` mutably.
+        unsafe { self.hooks.as_ref() }
+    }
+
+    fn hooks_mut(&mut self) -> &mut Hooks {
+        // SAFETY: `hooks` is valid until `Drop`. The callbacks only access it while `GB_run`
+        // executes, by which point this borrow has ended.
+        unsafe { self.hooks.as_mut() }
     }
 
     /// Capture a snapshot of the emulator's current state (CPU registers, RAM, MBC state, etc.)
@@ -172,14 +265,73 @@ impl Sameboy {
         let result = unsafe {
             GB_load_state_from_buffer(self.inner.as_mut().get_mut(), state.as_ptr(), state.len())
         };
+        self.hooks_mut().clear_history();
         result == 0
     }
 
-    /// read a byte from emulator memory at the given address
+    /// read a byte from emulator memory at the given address, without side effects: the read
+    /// is not seen by any [`Checker`]
     pub fn read_memory(&mut self, addr: u16) -> u8 {
-        // SAFETY: `GB_safe_read_memory` requires `*mut GB_gameboy_t` to point to initialized
+        // SAFETY: `hooks::peek` requires `*mut GB_gameboy_t` to point to initialized memory
+        // with the callbacks installed, which Box<_> and `Sameboy::new` guarantee
+        unsafe { hooks::peek(self.inner.as_mut().get_mut(), addr) }
+    }
+
+    /// read the current state of all the CPU registers
+    pub fn registers(&mut self) -> Registers {
+        // SAFETY: `hooks::registers` requires `*mut GB_gameboy_t` to point to initialized
         // memory which Box<_> guarantees
-        unsafe { GB_safe_read_memory(self.inner.as_mut().get_mut(), addr) }
+        unsafe { hooks::registers(self.inner.as_mut().get_mut()) }
+    }
+
+    /// whether interrupts are enabled (the interrupt master enable flag)
+    #[must_use]
+    pub fn ime(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::ime(&raw const *self.inner) }
+    }
+
+    /// whether the CPU is halted, waiting for an interrupt
+    #[must_use]
+    pub fn halted(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::halted(&raw const *self.inner) }
+    }
+
+    /// whether the last `HALT` triggered the HALT bug, so the next opcode byte will be
+    /// executed twice
+    #[must_use]
+    pub fn halt_bug(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::halt_bug(&raw const *self.inner) }
+    }
+
+    /// whether the PPU is currently blocking CPU reads of OAM
+    #[must_use]
+    pub fn oam_read_blocked(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::oam_read_blocked(&raw const *self.inner) }
+    }
+
+    /// whether the PPU is currently blocking CPU writes to OAM
+    #[must_use]
+    pub fn oam_write_blocked(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::oam_write_blocked(&raw const *self.inner) }
+    }
+
+    /// whether the PPU is currently blocking CPU reads of VRAM
+    #[must_use]
+    pub fn vram_read_blocked(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::vram_read_blocked(&raw const *self.inner) }
+    }
+
+    /// whether the PPU is currently blocking CPU writes to VRAM
+    #[must_use]
+    pub fn vram_write_blocked(&self) -> bool {
+        // SAFETY: `inner` points to initialized memory which Box<_> guarantees
+        unsafe { hooks::vram_write_blocked(&raw const *self.inner) }
     }
 
     /// read the current state of the `AF` register
@@ -252,6 +404,96 @@ impl Sameboy {
         self.read_r8(|registers| registers.l)
     }
 
+    /// write the `AF` register. The low four bits of `F` do not exist on hardware and are
+    /// always written as zero.
+    pub fn write_af(&mut self, value: u16) {
+        self.write_r16(|registers| registers.af = value & 0xFFF0);
+    }
+
+    /// write the `BC` register
+    pub fn write_bc(&mut self, value: u16) {
+        self.write_r16(|registers| registers.bc = value);
+    }
+
+    /// write the `DE` register
+    pub fn write_de(&mut self, value: u16) {
+        self.write_r16(|registers| registers.de = value);
+    }
+
+    /// write the `HL` register
+    pub fn write_hl(&mut self, value: u16) {
+        self.write_r16(|registers| registers.hl = value);
+    }
+
+    /// write the `SP` register
+    pub fn write_sp(&mut self, value: u16) {
+        self.write_r16(|registers| registers.sp = value);
+    }
+
+    /// write the `PC` register, so the next instruction executed is the one at `value`
+    pub fn write_pc(&mut self, value: u16) {
+        self.write_r16(|registers| registers.pc = value);
+    }
+
+    /// write the `A` register
+    pub fn write_a(&mut self, value: u8) {
+        self.write_r8(|registers| registers.a = value);
+    }
+
+    /// write the `F` register. The low four bits do not exist on hardware and are always
+    /// written as zero.
+    pub fn write_f(&mut self, value: u8) {
+        self.write_r8(|registers| registers.f = value & 0xF0);
+    }
+
+    /// write the `B` register
+    pub fn write_b(&mut self, value: u8) {
+        self.write_r8(|registers| registers.b = value);
+    }
+
+    /// write the `C` register
+    pub fn write_c(&mut self, value: u8) {
+        self.write_r8(|registers| registers.c = value);
+    }
+
+    /// write the `D` register
+    pub fn write_d(&mut self, value: u8) {
+        self.write_r8(|registers| registers.d = value);
+    }
+
+    /// write the `E` register
+    pub fn write_e(&mut self, value: u8) {
+        self.write_r8(|registers| registers.e = value);
+    }
+
+    /// write the `H` register
+    pub fn write_h(&mut self, value: u8) {
+        self.write_r8(|registers| registers.h = value);
+    }
+
+    /// write the `L` register
+    pub fn write_l(&mut self, value: u8) {
+        self.write_r8(|registers| registers.l = value);
+    }
+
+    fn write_r16(&mut self, f: impl FnOnce(&mut GB_registers_t__bindgen_ty_1)) {
+        // SAFETY: `GB_get_registers` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        let registers_ptr = unsafe { GB_get_registers(self.inner.as_mut().get_mut()) };
+        // SAFETY: `registers_ptr` is guaranteed to be initialized if `GB_gameboy_t` is
+        // initialized, and every bit pattern is a valid set of registers
+        unsafe { f(&mut (*registers_ptr).__bindgen_anon_1) }
+    }
+
+    fn write_r8(&mut self, f: impl FnOnce(&mut GB_registers_t__bindgen_ty_2)) {
+        // SAFETY: `GB_get_registers` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees
+        let registers_ptr = unsafe { GB_get_registers(self.inner.as_mut().get_mut()) };
+        // SAFETY: `registers_ptr` is guaranteed to be initialized if `GB_gameboy_t` is
+        // initialized, and every bit pattern is a valid set of registers
+        unsafe { f(&mut (*registers_ptr).__bindgen_anon_2) }
+    }
+
     fn read_r16<T>(&mut self, f: impl FnOnce(&GB_registers_t__bindgen_ty_1) -> T) -> T {
         // SAFETY: `GB_get_registers` requires `*mut GB_gameboy_t` to point to initialized
         // memory which Box<_> guarantees
@@ -286,6 +528,10 @@ impl Drop for Sameboy {
         unsafe {
             GB_free(self.inner.as_mut().get_mut());
         }
+
+        // SAFETY: `hooks` was leaked from a Box in `Sameboy::new` and is freed nowhere else.
+        // SameBoy has been freed, so its callbacks can no longer reach it.
+        drop(unsafe { Box::from_raw(self.hooks.as_ptr()) });
     }
 }
 

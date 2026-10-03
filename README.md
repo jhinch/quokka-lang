@@ -356,7 +356,8 @@ variants = ["default"]
 # model (optional) the Game Boy model to emulate: "dmg", "mgb" or "cgb". Defaults to "dmg"
 model = "dmg"
 # max_instructions (optional) the maximum number of instructions to execute while waiting to reach await_pc.
-# The test fails if it is not reached within this limit. Defaults to 1000
+# The test fails if it is not reached within this limit, and prints the last instructions it executed.
+# Defaults to 1000
 max_instructions = 1000
 # ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
 ignored = "free form reason"

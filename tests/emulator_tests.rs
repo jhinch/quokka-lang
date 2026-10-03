@@ -23,7 +23,7 @@
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
-use quokka_lang_sameboy::{Model, Sameboy};
+use quokka_lang_sameboy::{Model, RunOutcome, Sameboy};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -292,11 +292,18 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     if !emulator.load_state(boot_snapshot(case.model)) {
         panic!("failed to restore post-boot-ROM save state");
     }
-    if !emulator.run_until_pc(case.await_pc, case.max_instructions) {
-        panic!(
-            "did not reach PC ${:04x} within {} instructions",
-            case.await_pc, case.max_instructions
-        );
+    match emulator.run_until_pc(case.await_pc, case.max_instructions) {
+        RunOutcome::Reached => {}
+        RunOutcome::InstructionLimit => panic!(
+            "did not reach PC ${:04x} within {} instructions\n\n{}",
+            case.await_pc,
+            case.max_instructions,
+            trace_report(&emulator)
+        ),
+        RunOutcome::Violation => panic!("{}", violation_report(&emulator)),
+    }
+    if !emulator.finish().is_empty() {
+        panic!("{}", violation_report(&emulator));
     }
 
     for assertion in &case.assertions {
@@ -320,6 +327,27 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     }
 }
 
+/// Describes every violation the emulator's checkers recorded, followed by the instructions
+/// leading up to where it stopped.
+fn violation_report(emulator: &Sameboy) -> String {
+    let violations: Vec<String> = emulator
+        .violations()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    format!(
+        "runtime check failed:\n{}\n\n{}",
+        violations.join("\n"),
+        trace_report(emulator)
+    )
+}
+
+/// Lists the last instructions the emulator executed, oldest first.
+fn trace_report(emulator: &Sameboy) -> String {
+    let trace = emulator.trace();
+    format!("last {} instructions executed:\n{trace}", trace.len())
+}
+
 /// Returns a save state snapshot, captured right after the emulator finished executing the boot
 /// ROM for `model`, that can be restored onto any freshly-loaded ROM to skip re-running the boot
 /// ROM. Computed once per model and cached for the remainder of the process.
@@ -335,7 +363,7 @@ fn boot_snapshot(model: ModelKind) -> &'static [u8] {
     cell.get_or_init(|| {
         let mut emulator = Sameboy::new(model.into());
         emulator.load_rom(template_rom());
-        if !emulator.run_until_pc(0x100, 1_000_000) {
+        if emulator.run_until_pc(0x100, 1_000_000) != RunOutcome::Reached {
             panic!("did not execute boot ROM within 1M instructions while building save state");
         }
         emulator.save_state()

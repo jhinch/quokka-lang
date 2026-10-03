@@ -39,6 +39,9 @@ fn read_sameboy_version() -> String {
 fn bindgen_sameboy() {
     let bindings = bindgen::builder()
         .header("SameBoy/Core/gb.h")
+        // the internal fields of `GB_gameboy_t` are only declared when `GB_INTERNAL` is set,
+        // matching how the C sources are compiled above
+        .clang_arg("-DGB_INTERNAL")
         .allowlist_type("GB_.*")
         .allowlist_function("GB_.*")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))

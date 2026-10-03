@@ -21,3 +21,17 @@ pub mod bootroms {
         include_bytes!("../bootroms/cgb_boot.bin")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The bindings and the C sources are compiled separately, and both need `GB_INTERNAL`
+    /// defined to agree on what `GB_gameboy_t` contains.
+    #[test]
+    fn gameboy_struct_size_matches_c_build() {
+        // SAFETY: `GB_allocation_size` has no preconditions
+        let c_size = unsafe { GB_allocation_size() };
+        assert_eq!(c_size, std::mem::size_of::<GB_gameboy_t>());
+    }
+}
