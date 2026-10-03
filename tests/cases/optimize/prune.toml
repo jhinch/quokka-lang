@@ -390,3 +390,55 @@ main -> unit:
   .bb4:
     jump .bb4
 """
+
+# `.bb1` already jumps straight to the join, so threading the empty then arm out would merge two
+# edges that give the phis different values.
+[[case]]
+name = "keeps_empty_block_whose_phi_values_differ_from_the_direct_edge"
+kind = "analyzer"
+optimize = true
+preview_features = ["no-adce", "no-sccp"]
+source = """
+global A: u8;
+global B: u8;
+global R: u8;
+global S: u8;
+
+fn main() {
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+        s = b;
+        r = s;
+    }
+    R = r;
+    S = s;
+}
+"""
+expected_mir = """
+global A: u8
+global B: u8
+global R: u8
+global S: u8
+
+@{"entrypoint":true}
+main -> unit:
+  .bb1:
+    a#1: u8 = load A
+    b#2: u8 = load B
+    r#3: u8 = copy a#1
+    s#4: u8 = copy a#1
+    #5: u8 = copy 7
+    #6: u1 = eq b#2, #5
+    jumpif #6 != 0, .bb2, .bb3
+  .bb2:
+    jump .bb3
+  .bb3:
+    r#7: u8 = phi r#3 <- .bb1, b#2 <- .bb2
+    store R = r#7
+    s#8: u8 = phi s#4 <- .bb1, b#2 <- .bb2
+    store S = s#8
+    return
+"""

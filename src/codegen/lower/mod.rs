@@ -4,7 +4,6 @@ use crate::mir;
 use crate::num::u3;
 use crate::ty::{Ty, TyRegistry};
 use indexmap::IndexMap;
-use indexmap::map::Entry;
 use select::{Plan, Selection};
 use slotmap::{SecondaryMap, SparseSecondaryMap};
 
@@ -89,21 +88,12 @@ impl<'a> InstrCtx<'a> {
                     self.locals.phi_targets.insert(*target, (phi, Vec::new()));
                     for (mir_block, local) in sources {
                         let block = self.blocks[mir_block];
-                        match self
-                            .locals
+                        self.locals
                             .phi_sources
                             .entry(block)
                             .unwrap()
                             .or_default()
-                            .entry(*local)
-                        {
-                            Entry::Occupied(_) => panic!(
-                                "block {mir_block:?} already has phi registered for {local:?}"
-                            ),
-                            Entry::Vacant(entry) => {
-                                entry.insert(phi);
-                            }
-                        }
+                            .push((*local, phi));
                         self.locals.phi_targets[target].1.push(block);
                     }
                 }
@@ -117,14 +107,12 @@ impl<'a> InstrCtx<'a> {
                 self.generate_from_selection(*selection, instruction, block);
             }
             // `r1_to_r8` needs all of `self`, so the sources are copied out of `locals` first
-            let phi_sources: Vec<(mir::LocalId, Value)> = self
+            let phi_sources = self
                 .locals
                 .phi_sources
                 .get(block)
-                .into_iter()
-                .flatten()
-                .map(|(&local, &phi)| (local, phi))
-                .collect();
+                .cloned()
+                .unwrap_or_default();
             for (local, phi) in phi_sources {
                 match phi {
                     Value::Mask(target, _) => {
@@ -366,8 +354,10 @@ impl<'a> InstrCtx<'a> {
 #[derive(Default)]
 struct Locals {
     values: SparseSecondaryMap<mir::LocalId, Value>,
-    /// For each block, the phi target each of its locals must be copied into before the terminator.
-    phi_sources: SparseSecondaryMap<BlockId, IndexMap<mir::LocalId, Value>>,
+    /// For each block, the locals that must be copied into phi targets before the terminator. A
+    /// local can feed several phis from the same block, such as two variables assigned the same
+    /// value in an `if`, or a value read both by the loop header and the loop exit.
+    phi_sources: SparseSecondaryMap<BlockId, Vec<(mir::LocalId, Value)>>,
     phi_targets: IndexMap<mir::LocalId, (Value, Vec<BlockId>)>,
 }
 

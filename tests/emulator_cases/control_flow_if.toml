@@ -202,3 +202,210 @@ expected = 5 # outer body, including the nested if, must not have run
 addr = 0xC001
 expected = 0
 mask = 0b0000_0001
+
+# After `r = s` both variables leave the then branch holding the same value, so one block feeds
+# that value into two phis at the join.
+[[case]]
+name = "if_copies_one_variable_into_another_taken"
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+#[address = 0xC001]
+global S: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 7;
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+        s = b;
+        r = s;
+    }
+    R = r;
+    S = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7
+[[case.assertion]]
+addr = 0xC001
+expected = 7
+
+[[case]]
+name = "if_copies_one_variable_into_another_taken_without_mir_optimizations"
+preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+#[address = 0xC001]
+global S: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 7;
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+        s = b;
+        r = s;
+    }
+    R = r;
+    S = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 7
+[[case.assertion]]
+addr = 0xC001
+expected = 7
+
+# Without the then branch, `r` and `s` both still hold `a`, so the skip edge feeds `a` into both
+# phis at the join.
+[[case]]
+name = "if_copies_one_variable_into_another_not_taken_without_mir_optimizations"
+preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+#[address = 0xC001]
+global S: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 9;
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+        s = b;
+        r = s;
+    }
+    R = r;
+    S = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x12
+[[case.assertion]]
+addr = 0xC001
+expected = 0x12
+
+# 0x21 == 0x21, so `s` becomes 0x21 | 0x12 = 0x33 and `r` copies it.
+[[case]]
+name = "if_after_an_empty_if_copies_one_variable_into_another"
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+#[address = 0xC001]
+global S: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 0x21;
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+    }
+    if s == r then {
+        s = b | s;
+        r = s;
+    }
+    R = r;
+    S = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x33
+[[case.assertion]]
+addr = 0xC001
+expected = 0x33
+
+[[case]]
+name = "if_after_an_empty_if_copies_one_variable_into_another_without_mir_optimizations"
+preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+global A: u8;
+global B: u8;
+
+#[address = 0xC000]
+global R: u8;
+#[address = 0xC001]
+global S: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    A = 0x12;
+    B = 0x21;
+    let a = A;
+    let b = B;
+    let r = a;
+    let s = a;
+    if b == 7 then {
+    }
+    if s == r then {
+        s = b | s;
+        r = s;
+    }
+    R = r;
+    S = s;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0x33
+[[case.assertion]]
+addr = 0xC001
+expected = 0x33

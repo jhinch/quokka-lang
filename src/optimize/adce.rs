@@ -75,7 +75,17 @@ impl Adce {
                     if required_blocks.insert(block_id) {
                         queue.push_back(WorkItem::LiveBlock(block_id));
                     }
-                    for source in function.blocks[block_id].instructions[index].source_locals() {
+                    let instruction = &function.blocks[block_id].instructions[index];
+                    // a phi's value depends on which predecessor was taken, so each predecessor
+                    // must stay reachable even when it holds no live instruction of its own
+                    if let Instr::Phi { sources, .. } = instruction {
+                        for source_block_id in sources.keys() {
+                            if required_blocks.insert(source_block_id) {
+                                queue.push_back(WorkItem::LiveBlock(source_block_id));
+                            }
+                        }
+                    }
+                    for source in instruction.source_locals() {
                         let (source_block_id, index) = function.defined_at(source).unwrap();
                         if alive_instructions.insert((source_block_id, index)) {
                             queue.push_back(WorkItem::LiveInstr(source_block_id, index));

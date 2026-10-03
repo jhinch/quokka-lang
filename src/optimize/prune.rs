@@ -1,4 +1,6 @@
-use crate::mir::{Function, FunctionMutator, Global, GlobalId, Instr, Local, Operand, Terminator};
+use crate::mir::{
+    BlockId, Function, FunctionMutator, Global, GlobalId, Instr, Local, Operand, Terminator,
+};
 use crate::optimize::{Optimize, Outcome};
 use crate::ty::TyRegistry;
 use indexmap::IndexMap;
@@ -54,7 +56,9 @@ impl Optimize for Prune {
                         clean_count = function.blocks[block_id].instructions.len();
                         block_outcome = Outcome::Modified;
                     }
-                    (_, 0, Terminator::Jump { target_block }) => {
+                    (_, 0, Terminator::Jump { target_block })
+                        if threading_keeps_phis(function, previous_block_id, block_id) =>
+                    {
                         let target_block = *target_block;
                         // the target block might have phi nodes.
                         // in that situation we will need to add
@@ -156,6 +160,34 @@ impl Optimize for Prune {
         }
         outcome
     }
+}
+
+/// Whether the empty `block_id` can be threaded out of the path from `previous_block_id` to its
+/// jump target without changing what the target's phis receive. When `previous_block_id` already
+/// jumps straight to that target, threading merges the two edges into one, which is only sound if
+/// every phi takes the same value along both.
+fn threading_keeps_phis(
+    function: &Function,
+    previous_block_id: BlockId,
+    block_id: BlockId,
+) -> bool {
+    let Terminator::Jump { target_block } = function.blocks[block_id].terminator else {
+        return true;
+    };
+    if !function.blocks[previous_block_id]
+        .terminator
+        .next_blocks()
+        .any(|next_block| next_block == target_block)
+    {
+        return true;
+    }
+    function.blocks[target_block]
+        .instructions
+        .iter()
+        .all(|instruction| match instruction {
+            Instr::Phi { sources, .. } => sources[block_id] == sources[previous_block_id],
+            _ => true,
+        })
 }
 
 #[cfg(test)]

@@ -424,3 +424,78 @@ await_pc = 0x0150
 [[case.assertion]]
 addr = 0xC001
 expected = 13
+
+# With two breaks the exit block needs a phi for `r`. The last block of the body feeds `r` both to
+# that phi and to the loop header's phi.
+[[case]]
+name = "loop_with_two_breaks_reads_value_after_loop"
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    let r = IN;
+    let i: u8 = 0;
+    loop {
+        if r == 0 then {
+            break;
+        }
+        r = r + 1;
+        i = i + 1;
+        if i == 3 then {
+            break;
+        }
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 13
+
+[[case]]
+name = "loop_with_two_breaks_reads_value_after_loop_without_mir_optimizations"
+preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+source = """
+#[address = 0xC000]
+global IN: u8;
+
+#[address = 0xC001]
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn main() {
+    IN = 10;
+    let r = IN;
+    let i: u8 = 0;
+    loop {
+        if r == 0 then {
+            break;
+        }
+        r = r + 1;
+        i = i + 1;
+        if i == 3 then {
+            break;
+        }
+    }
+    OUT = r;
+
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC001
+expected = 13

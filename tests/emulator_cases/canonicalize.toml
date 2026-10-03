@@ -386,7 +386,6 @@ expected = 0x27
 [[case]]
 name = "constant_false_condition_guarding_a_loop_exit"
 max_instructions = 2000
-ignored = "codegen panics registering a second phi for one local from one block, when a loop body ends in a conditional break and the value is read after the loop"
 source = """
 global N: u8;
 global M: u8;
