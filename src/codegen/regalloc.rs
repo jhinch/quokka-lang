@@ -80,7 +80,7 @@ impl RegAllocator {
         spill_slots: &mut SpillSlots,
     ) -> Result<HashMap<VirtualReg, Color>, IndexSet<VirtualReg>> {
         let block_liveness = calculate_block_liveness(code);
-        match self.try_allocate_registers(code, &block_liveness) {
+        match self.try_allocate_registers(code, &block_liveness, &spill_slots.short_lived) {
             Ok(colors) => Ok(colors),
             Err(failure) => {
                 let spills = failure.spills.clone();
@@ -95,11 +95,13 @@ impl RegAllocator {
         &self,
         code: &CodeSectionData,
         block_liveness: &BlockLiveness,
+        short_lived: &IndexSet<VirtualReg>,
     ) -> Result<HashMap<VirtualReg, Color>, Box<AllocationFailure>> {
         let (graph, moves) = build_interference_graph(code, block_liveness);
         let allocator = Colorer {
             graph,
             worklist_moves: moves,
+            short_lived: short_lived.clone(),
             ..Default::default()
         };
         allocator.run(code)
@@ -168,6 +170,10 @@ struct Colorer {
     active_moves: IndexSet<(BlockId, usize)>,
 
     alias: HashMap<VirtualReg, VirtualReg>,
+
+    /// registers which earlier rounds have already cut down to the shortest range they can
+    /// have, see [`SpillSlots::short_lived`]
+    short_lived: IndexSet<VirtualReg>,
 }
 
 impl Colorer {
@@ -350,9 +356,27 @@ impl Colorer {
 
             let mut selected = None;
             for color in candidates {
-                let propagated_permitted_colors = self
-                    .graph
-                    .calculate_propagated_permitted_colors(reg, ColorSet::just(color));
+                // A register tied to this one by a constraint (the halves and the pair of a
+                // `Join`/`Split`) does not interfere with it, so the colors taken by the
+                // registers it does interfere with have to be accounted for here. Otherwise the
+                // tied register is left with nothing and spills instead of this one, and it may
+                // be a reload of an earlier spill, which spilling again does nothing for.
+                let propagated_permitted_colors = self.graph.calculate_propagated_permitted_colors(
+                    reg,
+                    ColorSet::just(color),
+                    |tied, mut permitted| {
+                        let tied = self.get_alias(tied);
+                        if tied == reg || colors.contains_key(&tied) {
+                            return permitted;
+                        }
+                        for other in self.graph.get_edges(tied) {
+                            if let Some(&taken) = colors.get(&self.get_alias(other)) {
+                                permitted.retain(|candidate| !candidate.conflicts(taken));
+                            }
+                        }
+                        permitted
+                    },
+                );
                 if propagated_permitted_colors
                     .values()
                     .any(|set| set.is_empty())
@@ -398,7 +422,27 @@ impl Colorer {
                 break;
             }
             let Some(color) = selected else {
-                self.spilled_nodes.insert(reg);
+                // Spilling a register which is already as short as it gets changes nothing, and
+                // the next round would fail on it in just the same way. What it needs is for a
+                // register holding one of its colors over a longer range to give it up.
+                let evicted = if self.short_lived.contains(&reg) {
+                    self.select_evictions(reg, &colors)
+                } else {
+                    None
+                };
+                match evicted {
+                    Some(evicted) => {
+                        tracing::trace!(
+                            reg = ?reg,
+                            evicted = ?evicted,
+                            "Spilling the registers in the way of a short-lived register"
+                        );
+                        self.spilled_nodes.extend(evicted);
+                    }
+                    None => {
+                        self.spilled_nodes.insert(reg);
+                    }
+                }
                 continue;
             };
             colors.insert(reg, color);
@@ -425,6 +469,45 @@ impl Colorer {
                 spills: self.spilled_nodes,
             }))
         }
+    }
+
+    /// Chooses the registers to spill so that `reg`, which could not be colored, can take one of
+    /// its permitted colors in a later round: the colored registers it interferes with which hold
+    /// that color. The color needing the fewest registers spilled is chosen. A color held by a
+    /// precolored register can never be freed, and one held only by short-lived registers has
+    /// nothing worth spilling, so `None` is returned if every color is one of those.
+    fn select_evictions(
+        &self,
+        reg: VirtualReg,
+        colors: &HashMap<VirtualReg, Color>,
+    ) -> Option<IndexSet<VirtualReg>> {
+        let mut selected: Option<IndexSet<VirtualReg>> = None;
+        'candidates: for candidate in self.graph.permitted_colors(reg) {
+            let mut evicted = IndexSet::new();
+            for neighbor in self.graph.get_edges(reg) {
+                let alias = self.get_alias(neighbor);
+                let Some(&taken) = colors.get(&alias) else {
+                    continue;
+                };
+                if !candidate.conflicts(taken) {
+                    continue;
+                }
+                if self.graph.is_precolored(alias) {
+                    continue 'candidates;
+                }
+                if !self.short_lived.contains(&neighbor) {
+                    evicted.insert(neighbor);
+                }
+            }
+            if !evicted.is_empty()
+                && selected
+                    .as_ref()
+                    .is_none_or(|selected| evicted.len() < selected.len())
+            {
+                selected = Some(evicted);
+            }
+        }
+        selected
     }
 
     fn has_related_moves(&self, reg: VirtualReg) -> bool {
@@ -618,6 +701,7 @@ fn rewrite_code(
         );
     }
 
+    let registers_before = code.registers().collect::<IndexSet<_>>();
     let flag_spill_r8s = failure
         .spills
         .iter()
@@ -656,6 +740,16 @@ fn rewrite_code(
     if !spill_slots.function_to_frame.is_empty() {
         rewrite_functions_with_frames(code, spill_slots, &functions_blocks);
     }
+    // A spilled register is now only live from each definition to the store after it, and the
+    // registers created to reload it only up to the instruction they were reloaded for. The `r8`
+    // a spilled flag is kept in is the exception: it takes on the whole of the flag's range.
+    spill_slots
+        .short_lived
+        .extend(failure.spills.iter().copied());
+    spill_slots.short_lived.extend(code.registers().filter(|reg| {
+        !registers_before.contains(reg)
+            && !matches!(reg, VirtualReg::R8(r8) if flag_spill_r8s.values().any(|flag_r8| flag_r8 == r8))
+    }));
     code.check_integrity().unwrap();
 }
 
@@ -692,6 +786,18 @@ fn allocate_spill_slots(
     graph: &InterferenceGraph,
     functions_blocks: &FunctionBlocks,
 ) {
+    // A register spilled again keeps the slot it has. The value has been in that slot since the
+    // round it was first spilled in, which, as below, this round's `graph` knows nothing of: a
+    // slot chosen from it could be one whose occupant is live in its slot throughout.
+    let new_spills = &new_spills
+        .iter()
+        .copied()
+        .filter(|reg| match reg {
+            VirtualReg::R8(reg) => !spill_slots.r8_to_slot.contains_key(*reg),
+            VirtualReg::R16(reg) => !spill_slots.r16_to_slot.contains_key(*reg),
+            _ => true,
+        })
+        .collect::<IndexSet<_>>();
     // `graph` only describes the live ranges of this round. An occupant spilled in an earlier
     // round has since been rewritten into short-lived reloads, so the graph no longer has the
     // edges of the range its slot is held for, and it cannot be shown to be free.
@@ -815,6 +921,7 @@ fn rewrite_block_with_spills(
             .register_defs()
             .filter(|reg| spills.contains(reg))
             .collect::<Vec<_>>();
+        let mut reload_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
         match &instruction {
             Instr::Split {
                 high, low, source, ..
@@ -836,8 +943,6 @@ fn rewrite_block_with_spills(
                 );
             }
             _ => {
-                let mut reload_substitutions = HashMap::<VirtualReg, VirtualReg>::new();
-
                 for reg in instruction.register_uses() {
                     if spills.contains(&reg) & !reload_substitutions.contains_key(&reg) {
                         let fresh = load_spill_slot(
@@ -855,7 +960,7 @@ fn rewrite_block_with_spills(
                 }
                 // built after the loop above so it reflects any renames those calls just made
                 let mut use_substitutions = outer_substitutions.clone();
-                use_substitutions.extend(reload_substitutions);
+                use_substitutions.extend(reload_substitutions.clone());
 
                 let defs = instruction.register_new_defs().collect::<Vec<_>>();
                 let index = new_instructions.len();
@@ -869,11 +974,15 @@ fn rewrite_block_with_spills(
         }
 
         for reg in defs_requiring_stores {
+            // an instruction which modifies a spilled register in place was rewritten to modify
+            // the register it was reloaded into, so that is the one holding the new value
+            let value = reload_substitutions.get(&reg).copied().unwrap_or(reg);
             store_spill_slot(
                 code,
                 block_id,
                 &mut new_instructions,
                 reg,
+                value,
                 spill_slots,
                 flag_spill_r8s,
                 &live_at[index + 1],
@@ -1244,6 +1353,7 @@ fn store_spill_slot(
     block_id: BlockId,
     instructions: &mut Vec<Instr>,
     reg: VirtualReg,
+    value: VirtualReg,
     spill_slots: &SpillSlots,
     flag_spill_r8s: &IndexMap<VirtualReg, R8Id>,
     live_here: &IndexSet<VirtualReg>,
@@ -1251,6 +1361,9 @@ fn store_spill_slot(
 ) {
     match reg {
         VirtualReg::R8(r8) => {
+            let VirtualReg::R8(source) = value else {
+                panic!("{r8:?} is stored from non-r8 {value:?}")
+            };
             let slot = spill_slots.r8_to_slot[r8];
             let (target_addr, guard) = begin_spill_slot_address(
                 code,
@@ -1262,11 +1375,14 @@ fn store_spill_slot(
             );
             instructions.push(Instr::Store {
                 addr: Addr::Reg(target_addr.upcast_to_r16_without_move()),
-                source: r8,
+                source,
             });
             end_spill_slot_address(code, block_id, instructions, guard, outer_substitutions);
         }
         VirtualReg::R16(r16) => {
+            let VirtualReg::R16(source) = value else {
+                panic!("{r16:?} is stored from non-r16 {value:?}")
+            };
             let slot = spill_slots.r16_to_slot[r16];
             let (target_addr, guard) = begin_spill_slot_address(
                 code,
@@ -1284,11 +1400,7 @@ fn store_spill_slot(
                 color: None,
                 defined: [(block_id, instructions.len())].into_iter().collect(),
             });
-            instructions.push(Instr::Split {
-                high,
-                low,
-                source: r16,
-            });
+            instructions.push(Instr::Split { high, low, source });
             let a = code
                 .r8_registers
                 .insert(Register {
@@ -1843,6 +1955,9 @@ struct SpillSlots {
     function_to_frame: SparseSecondaryMap<BlockId, Frame>,
     r8_to_slot: SparseSecondaryMap<R8Id, i8>,
     r16_to_slot: SparseSecondaryMap<R16Id, i8>,
+    /// Registers which spilling can do nothing more for: those already spilled, and those
+    /// created to carry a value between a spill slot and the instruction it is needed by.
+    short_lived: IndexSet<VirtualReg>,
 }
 
 #[derive(Default)]

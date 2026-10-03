@@ -1620,3 +1620,767 @@ START_SECTION ROM0
 
 END_SECTION
 """
+
+# The halves of the pair which `b + 65535` is selected into a `DEC` of are both spilled, so the
+# low half is live across the `LD HL, SP+e8` reloading the high half and the pair cannot be `HL`.
+# The allocator used to color it `HL` regardless, through the registers it is split into
+# afterwards, and then spill the low half again in every round until the frame passed 127 bytes.
+# The frame here is to stay in line with the handful of `u16` values which are live at once. See
+# `tests/emulator_cases/spill_convergence.toml` for the equivalent runtime-correctness checks.
+[[case]]
+name = "pair_joined_from_spilled_halves_allocate_registers"
+kind = "codegen"
+optimize = true
+preview_features = ["no-adce"]
+allocate_registers = true
+source.file = "spilling_pair_joined_from_spilled_halves.q"
+expected_lir = """
+START_SECTION WRAM0
+A::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+B::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+C::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  ADD SP -10; z, c
+  LD HL, A+$0000
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  LD HL, B+$0000
+  LD A, [HL++]
+  PUSH HL
+  LD HL SP+4; z, c
+  LD [HL], A
+  POP HL
+  LD A, [HL]
+  LD HL SP+1; z, c
+  LD [HL], A
+  LD HL, C+$0000
+  LD A, [HL++]
+  PUSH HL
+  LD HL SP+8; z, c
+  LD [HL], A
+  POP HL
+  LD A, [HL]
+  LD HL SP+7; z, c
+  LD [HL], A
+  LD A, B
+  LD HL SP+4; z, c
+  LD [HL], A
+  LD A, C
+  LD HL SP+3; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  LD HL SP+2; z, c
+  LD A, [HL]
+  LD HL SP+7; z, c
+  LD A, [HL]
+  LD HL SP+7; z, c
+  LD [HL], A
+  LD HL SP+6; z, c
+  LD A, [HL]
+  LD HL SP+5; z, c
+  LD [HL], A
+  LD A, $00
+  LD A, $01
+  LD HL SP+2; z, c
+  LD C, [HL]
+  LD HL SP+1; z, c
+  LD B, [HL]
+  INC_PAIR! BC; z
+  LD A, $00
+  LD A, $01
+  LD HL SP+2; z, c
+  LD A, [HL]
+  XOR A, $01; z, c
+  LD HL SP+0; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  XOR A, $00; z, c
+  LD D, A
+  LD A, C
+  LD HL SP+7; z, c
+  LD C, [HL]
+  LD HL SP+6; z, c
+  LD E, [HL]
+  ADD A, E; z, c
+  LD A, B
+  ADC A, C; z, c
+  LD A, E
+  CPL A
+  LD A, C
+  CPL A
+  LD A, $ff
+  LD A, $ff
+  LD HL SP+2; z, c
+  LD A, [HL]
+  LD HL SP+8; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  LD HL SP+9; z, c
+  LD [HL], A
+  LD HL SP+8; z, c
+  LD C, [HL]
+  LD HL SP+9; z, c
+  LD B, [HL]
+  LD HL SP+8; z, c
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+8; z, c
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  DEC_PAIR! BC; z
+  LD HL SP+8; z, c
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+8; z, c
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL SP+9; z, c
+  LD [HL], A
+  LD HL SP+8; z, c
+  LD [HL], B
+  LD B, $00
+  LD A, $07
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+11; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  SUB A, C; z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+10; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  SBC A, B; z, c
+  LD B, $00
+  LD A, $0a
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+11; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, C; z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+10; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, B; z, c
+  LD HL SP+3; z, c
+  LD A, [HL]
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+2; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, B; z, c
+  LD C, A
+  LD HL SP+4; z, c
+  LD A, [HL]
+  XOR A, D; z, c
+  LD B, A
+  LD A, C
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+7; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  ADD A, C; z, c
+  LD C, A
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+9; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  ADC A, B; z, c
+  LD B, A
+  ADD SP 10; z, c
+  RET
+
+main::
+.bb2:
+  CALL f; return=.bb3
+
+.bb3:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""
+
+[[case]]
+name = "pair_joined_from_spilled_halves_without_optimization_allocate_registers"
+kind = "codegen"
+optimize = true
+preview_features = ["no-adce", "no-sccp", "no-prune", "no-tree-shake"]
+allocate_registers = true
+source.file = "spilling_pair_joined_from_spilled_halves.q"
+expected_lir = """
+START_SECTION WRAM0
+A::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+B::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION WRAM0
+C::
+alloc 16 x bit
+END_SECTION
+
+START_SECTION ROM0
+f::
+.bb1:
+  ADD SP -10; z, c
+  LD HL, A+$0000
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  LD HL, B+$0000
+  LD A, [HL++]
+  PUSH HL
+  LD HL SP+4; z, c
+  LD [HL], A
+  POP HL
+  LD A, [HL]
+  LD HL SP+1; z, c
+  LD [HL], A
+  LD HL, C+$0000
+  LD A, [HL++]
+  PUSH HL
+  LD HL SP+9; z, c
+  LD [HL], A
+  POP HL
+  LD A, [HL]
+  LD HL SP+6; z, c
+  LD [HL], A
+  LD A, B
+  LD HL SP+4; z, c
+  LD [HL], A
+  LD A, C
+  LD HL SP+3; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  LD HL SP+2; z, c
+  LD A, [HL]
+  LD HL SP+6; z, c
+  LD A, [HL]
+  LD HL SP+6; z, c
+  LD [HL], A
+  LD HL SP+7; z, c
+  LD A, [HL]
+  LD HL SP+5; z, c
+  LD [HL], A
+  LD HL SP+2; z, c
+  LD C, [HL]
+  LD HL SP+1; z, c
+  LD B, [HL]
+  INC_PAIR! BC; z
+  LD D, $00
+  LD E, $01
+  LD HL SP+2; z, c
+  LD A, [HL]
+  XOR A, E; z, c
+  LD HL SP+0; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  XOR A, D; z, c
+  LD D, A
+  JP .bb3
+
+main::
+.bb2:
+  CALL f; return=.bb5
+
+.bb3:
+  LD A, C
+  LD HL SP+6; z, c
+  LD C, [HL]
+  LD HL SP+7; z, c
+  LD E, [HL]
+  ADD A, E; z, c
+  LD A, B
+  ADC A, C; z, c
+  LD A, E
+  CPL A
+  LD A, C
+  CPL A
+  JP .bb4
+
+.bb4:
+  LD HL SP+2; z, c
+  LD A, [HL]
+  LD HL SP+8; z, c
+  LD [HL], A
+  LD HL SP+1; z, c
+  LD A, [HL]
+  LD HL SP+9; z, c
+  LD [HL], A
+  LD HL SP+8; z, c
+  LD C, [HL]
+  LD HL SP+9; z, c
+  LD B, [HL]
+  LD HL SP+8; z, c
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+8; z, c
+  LD A, [HL++]
+  LD C, A
+  LD B, [HL]
+  DEC_PAIR! BC; z
+  LD HL SP+8; z, c
+  LD A, C
+  LD [HL++], A
+  LD [HL], B
+  LD HL SP+8; z, c
+  LD A, [HL++]
+  LD B, [HL]
+  LD HL SP+9; z, c
+  LD [HL], A
+  LD HL SP+8; z, c
+  LD [HL], B
+  LD B, $00
+  LD A, $07
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+11; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  SUB A, C; z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+10; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  SBC A, B; z, c
+  LD B, $00
+  LD A, $0a
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+11; z, c
+  LD C, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, C; z, c
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+10; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, B; z, c
+  LD HL SP+3; z, c
+  LD A, [HL]
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+2; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  XOR A, B; z, c
+  LD B, A
+  LD HL SP+4; z, c
+  LD A, [HL]
+  XOR A, D; z, c
+  LD D, A
+  LD A, B
+  PUSH AF(high_in=A, z_in=?, c_in=?)
+  LD HL SP+7; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  ADD A, B; z, c
+  LD C, A
+  LD A, D
+  PUSH AF(high_in=A, z_in=?, c_in=c)
+  LD HL SP+8; z, c
+  LD B, [HL]
+  POP AF(high_out=A); z, c
+  ADC A, B; z, c
+  LD B, A
+  ADD SP 10; z, c
+  RET
+
+.bb5:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$00]
+@RST_00::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$01]
+@RST_00_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$08]
+@RST_08::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$09]
+@RST_08_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$10]
+@RST_10::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$11]
+@RST_10_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$18]
+@RST_18::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$19]
+@RST_18_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$20]
+@RST_20::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$21]
+@RST_20_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$28]
+@RST_28::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$29]
+@RST_28_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$30]
+@RST_30::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$31]
+@RST_30_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$38]
+@RST_38::
+.bb1:
+  RET
+
+END_SECTION
+
+START_SECTION ROM0[$39]
+@RST_38_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$40]
+@INT_VBLANK::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$41]
+@INT_VBLANK_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$48]
+@INT_LCD_STAT::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$49]
+@INT_LCD_STAT_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$50]
+@INT_TIMER::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$51]
+@INT_TIMER_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$58]
+@INT_SERIAL::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$59]
+@INT_SERIAL_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$60]
+@INT_JOYPAD::
+.bb1:
+  RETI
+
+END_SECTION
+
+START_SECTION ROM0[$61]
+@INT_JOYPAD_PAD::
+data $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0[$100]
+@CART_HEADER_CODE::
+.bb1:
+  NOP
+  JP @BOOTSTRAP
+
+END_SECTION
+
+START_SECTION ROM0[$104]
+@CART_HEADER_DATA::
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+data $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+END_SECTION
+
+START_SECTION ROM0
+@BOOTSTRAP::
+.bb1:
+  LD SP, $fffe
+  CALL main; return=.bb2
+
+.bb2:
+  JP .bb2
+
+END_SECTION
+"""

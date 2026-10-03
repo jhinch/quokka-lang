@@ -1,0 +1,162 @@
+# Small functions which once sent the register allocator into spilling without end, until the
+# stack frame outgrew what `ADD SP, e8` can reach. Each keeps a few `u16` locals live across a
+# `+ 1` or `- 1` which is selected as an `INC`/`DEC` of a register pair, with dead values (kept by
+# `no-adce`) adding to the pressure around it.
+#
+# A pair is built from two halves. Once both halves have been spilled, the low half is reloaded
+# first and is live across the `LD HL, SP+e8` which reloads the high half, so the pair cannot be
+# `HL`. Nothing told the allocator that: it colored the pair `HL` through the registers the pair is
+# later split into, found the low half had no color left, and spilled it. Its reload was in the
+# same position, as was the reload of that, each taking a new slot.
+#
+# The pair is also modified in place. When it is spilled itself, the value to store afterwards is
+# in the register it was reloaded into, not the one it had before the spill.
+#
+# `tests/cases/codegen/spilling.toml` has the allocated code for the first of these to inspect.
+# The cases here check that the code computes the right values.
+
+[[case]]
+name = "pair_joined_from_spilled_halves_is_stepped"
+preview_features = ["no-adce"]
+source = """
+global A: u16;
+global B: u16;
+global C: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn f() -> u16 {
+    let a = A;
+    let b = B;
+    let c = C;
+    let r0 = a;
+    let r1 = b;
+    let r2 = c;
+    let v0 = b + 1;
+    r1 = b ^ 1;
+    loop {
+        let v1 = v0 + c;
+        let v2 = !c;
+        break;
+    }
+    let v3 = b + 65535;
+    let v4 = 7 - v3;
+    let v5 = 10 ^ v3;
+    return (r0 ^ r1) + r2;
+}
+
+fn main() {
+    A = 0x1234;
+    B = 0x00FF;
+    C = 0x0F0F;
+    OUT = f();
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+# (0x1234 ^ (0x00FF ^ 1)) + 0x0F0F = 0x21D9
+expected = [0xD9, 0x21]
+
+[[case]]
+name = "pair_joined_from_spilled_halves_is_stepped_and_read"
+preview_features = ["no-adce"]
+source = """
+global A: u16;
+global B: u16;
+global C: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn f() -> u16 {
+    let a = A;
+    let b = B;
+    let c = C;
+    let r0 = a;
+    let r1 = b;
+    let r2 = c;
+    let v0 = b + 1;
+    r1 = b ^ 1;
+    loop {
+        let v1 = v0 + c;
+        let v2 = !c;
+        break;
+    }
+    let v3 = b + 65535;
+    let v4 = 7 - v3;
+    let v5 = 10 ^ v3;
+    return ((r0 ^ r1) + r2) ^ v5 ^ v0;
+}
+
+fn main() {
+    A = 0x1234;
+    B = 0x0100;
+    C = 0x0F0F;
+    OUT = f();
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+# r1 = 0x0101, v0 = 0x0101, v3 = 0x00FF, v5 = 0x00F5
+# ((0x1234 ^ 0x0101) + 0x0F0F) ^ 0x00F5 ^ 0x0101 = 0x2244 ^ 0x00F5 ^ 0x0101 = 0x23B0
+expected = [0xB0, 0x23]
+
+[[case]]
+name = "pair_stepped_in_place_with_values_live_around_it"
+preview_features = ["no-adce"]
+source = """
+global G0: u16;
+global G1: u16;
+global G2: u16;
+global G3: u16;
+
+#[address = 0xC000]
+global OUT: u16;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+fn f() -> u16 {
+    let g0 = G0;
+    let g1 = G1;
+    let g2 = G2;
+    let g3 = G3;
+    let r0 = g2;
+    let v0 = g3 - 65535;
+    let v1 = g0 & 1;
+    if g0 < 65535 then {
+        if v1 != 65534 then {
+            let v2 = g1 & g0;
+            let v3 = v1 + 1;
+            r0 = v1 - 65452;
+        }
+    }
+    let v4 = g3 - g3;
+    return (r0) + g3;
+}
+
+fn main() {
+    G0 = 0x0003;
+    G1 = 0x0101;
+    G2 = 0x2222;
+    G3 = 0x4000;
+    OUT = f();
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+# r0 = 1 - 65452 = 0x0055, 0x0055 + 0x4000 = 0x4055
+expected = [0x55, 0x40]

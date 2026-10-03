@@ -299,7 +299,8 @@ impl InterferenceGraph {
         reg: VirtualReg,
         original_set: ColorSet,
     ) {
-        let pending_updates = self.calculate_propagated_permitted_colors(reg, original_set.clone());
+        let pending_updates =
+            self.calculate_propagated_permitted_colors(reg, original_set.clone(), |_, set| set);
         let uncolorable_regs = pending_updates
             .iter()
             .filter_map(|(&reg, set)| if set.is_empty() { Some(reg) } else { None })
@@ -329,11 +330,17 @@ impl InterferenceGraph {
         }
     }
 
+    /// Calculates the permitted colors of `reg` and of every register it is tied to through
+    /// constraints if `reg` were constrained to `set`. `available` gives the colors a tied
+    /// register could still take given its permitted colors, for when some are already taken by
+    /// registers it interferes with. A register with no colors available to begin with is left
+    /// out: it has nothing to lose, and it cannot be colored whatever `reg` is constrained to.
     #[must_use]
     pub fn calculate_propagated_permitted_colors(
         &self,
         reg: VirtualReg,
         set: ColorSet,
+        available: impl Fn(VirtualReg, ColorSet) -> ColorSet,
     ) -> IndexMap<VirtualReg, ColorSet> {
         let mut propagated_updates = IndexMap::new();
         propagated_updates.insert(reg, set);
@@ -348,7 +355,9 @@ impl InterferenceGraph {
                 let existing = propagated_updates
                     .get(&dependent_reg)
                     .cloned()
-                    .unwrap_or_else(|| self.permitted_colors(dependent_reg));
+                    .unwrap_or_else(|| {
+                        available(dependent_reg, self.permitted_colors(dependent_reg))
+                    });
                 if existing.is_empty() {
                     continue;
                 }
