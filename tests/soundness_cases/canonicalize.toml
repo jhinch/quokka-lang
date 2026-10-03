@@ -7006,7 +7006,6 @@ fn main() {
 name = "lt_zero_guarding_an_if_holding_a_loop_is_sound"
 inputs = { M = ["edges"], N = [{ min = 0, max = 255 }] }
 expect_rewrite = ["canonicalize"]
-ignored = "removing the unreachable loop panics with an invalid block key in Function::remove_dangling, with or without canonicalize"
 source = """
 global N: u8;
 global M: u8;

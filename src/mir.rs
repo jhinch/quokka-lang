@@ -524,11 +524,22 @@ impl Function {
         let all_blocks = self.blocks.keys().collect::<SlotKeySet<_>>();
         let reachable_blocks = self.traverse_blocks().collect::<SlotKeySet<_>>();
         for block_id in all_blocks.difference(&reachable_blocks) {
-            // detach the block from the next blocks safely
-            for next_block_id in self.blocks[block_id].next_blocks().collect::<Vec<_>>() {
-                FunctionMutator::from(&mut *self).remove_next_block(block_id, next_block_id);
+            // Detach the block from its reachable next blocks. Unreachable next blocks are
+            // removed by this loop too, and in a cycle may already be gone. The block's own
+            // terminator is left alone as the block is about to be removed.
+            let block = self.blocks.remove(block_id).expect("block exists");
+            for next_block_id in block.next_blocks() {
+                if !reachable_blocks.contains(next_block_id) {
+                    continue;
+                }
+                let next_block = &mut self.blocks[next_block_id];
+                next_block.previous.remove(block_id);
+                for instruction in next_block.instructions.iter_mut() {
+                    if let Instr::Phi { sources, .. } = instruction {
+                        sources.remove(block_id);
+                    }
+                }
             }
-            self.blocks.remove(block_id);
             self.end_blocks.remove(block_id);
         }
         let all_locals = self.locals.keys().collect::<IndexSet<_>>();
