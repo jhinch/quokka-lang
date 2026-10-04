@@ -3,6 +3,8 @@
 # comparison once as a stored value and once as a branch condition, for an input on which it holds
 # and one on which it does not.
 
+variants = ["default", "no-canonicalize"]
+
 [[case]]
 name = "eq_zero"
 source = """

@@ -12,13 +12,14 @@
 //! (see `docs/src/reference/items/functions.md`), and uses that fixed address as `await_pc` -
 //! this gives a stable, explicit checkpoint that doesn't depend on incidental codegen layout.
 //!
-//! For every case, one trial is generated with the case's own configuration (the `default`
-//! variant), one per opt-in optimization feature (see
-//! [`PreviewFeature::optimization_features`]) with that feature enabled as well, and one per
-//! feature in [`OPT_OUT_VARIANTS`] with that optimization disabled, so the code generated for a
-//! case is checked both with and without each such optimization. A suite, or an individual case
-//! within it, can list `variants` to generate only the named trials (e.g.
-//! `variants = ["no-canonicalize"]`), for cases which only build, or only mean anything, one way.
+//! By default a case generates a single trial, built with the case's own configuration (the
+//! `default` variant). A suite, or an individual case within it, can list `variants` to generate
+//! a trial for each one named instead, for cases which are about an optimization and so need the
+//! generated code checked both with and without it (e.g.
+//! `variants = ["default", "no-canonicalize"]`). A variant other than `default` is the name of an
+//! optimization feature (see [`PreviewFeature::optimization_features`] and
+//! [`PreviewFeature::optimization_opt_out_features`]), which is toggled on top of the case's own
+//! preview features.
 
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
@@ -31,8 +32,8 @@ use std::sync::OnceLock;
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TestSuite {
-    /// the variants to generate trials for in every case which does not list its own. Every
-    /// variant is generated if omitted.
+    /// the variants to generate trials for in every case which does not list its own. Only
+    /// [`DEFAULT_VARIANT`] is generated if omitted.
     #[serde(default)]
     variants: Option<Vec<String>>,
     #[serde(rename = "case")]
@@ -50,9 +51,8 @@ struct TestCase {
     model: ModelKind,
     #[serde(default = "default_max_instructions")]
     max_instructions: u32,
-    /// the variants to generate trials for, each either `default`, the name of an opt-in
-    /// optimization feature or one of [`OPT_OUT_VARIANTS`]. Falls back to the suite's `variants`
-    /// if omitted.
+    /// the variants to generate trials for, each either `default` or the name of an
+    /// optimization feature. Falls back to the suite's `variants` if omitted.
     #[serde(default)]
     variants: Option<Vec<String>>,
     #[serde(default)]
@@ -68,22 +68,18 @@ fn default_max_instructions() -> u32 {
     1_000
 }
 
-/// The name of the variant which builds a case with only its own preview features.
+/// The name of the variant which builds a case with only its own preview features, and the only
+/// one generated for a case which lists no `variants`.
 const DEFAULT_VARIANT: &str = "default";
 
-/// The opt-out optimization features each case is also run with. Only the default optimizations
-/// which change the shapes instruction selection sees are listed: running every opt-out would
-/// multiply the suite for little extra codegen coverage.
-const OPT_OUT_VARIANTS: &[PreviewFeature] = &[PreviewFeature::NoCanonicalize];
-
-/// Every variant a case can be run as, in order: its name, and the optimization feature it
-/// enables on top of the case's own preview features (or `None` for [`DEFAULT_VARIANT`]).
+/// Every variant a case can list, in order: its name, and the optimization feature it toggles on
+/// top of the case's own preview features (or `None` for [`DEFAULT_VARIANT`]).
 fn all_variants() -> Vec<(String, Option<PreviewFeature>)> {
     std::iter::once((DEFAULT_VARIANT.to_string(), None))
         .chain(
             PreviewFeature::optimization_features()
                 .iter()
-                .chain(OPT_OUT_VARIANTS)
+                .chain(PreviewFeature::optimization_opt_out_features())
                 .map(|&feature| (feature.to_string(), Some(feature))),
         )
         .collect()
@@ -201,7 +197,11 @@ fn main() {
                 .unwrap_or(false);
             let variants = case.variants.as_ref().or(suite.variants.as_ref());
             for (variant, toggled) in all_variants() {
-                if variants.is_some_and(|variants| !variants.contains(&variant)) {
+                let listed = match variants {
+                    Some(variants) => variants.contains(&variant),
+                    None => variant == DEFAULT_VARIANT,
+                };
+                if !listed {
                     continue;
                 }
                 let name = format!("emulator::{suite_name}::{}::{variant}", case.name);

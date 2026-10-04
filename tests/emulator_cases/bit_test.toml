@@ -3,6 +3,8 @@
 # case tests both a set and a clear bit, with other bits of the operand set so that testing the
 # wrong bit is caught.
 
+variants = ["default", "no-canonicalize"]
+
 [[case]]
 name = "ne_zero_branches_on_the_tested_bit"
 source = """

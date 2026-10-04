@@ -3,6 +3,8 @@
 # block, long chains and signed comparisons. Every case runs with canonicalization off and on, so
 # the code generated from both the canonical and the source form is checked against one result.
 
+variants = ["default", "no-canonicalize"]
+
 [[case]]
 name = "named_const_operands_of_arithmetic"
 source = """

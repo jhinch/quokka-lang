@@ -331,13 +331,13 @@ SameBoy submodule to be initialized (`git submodule update --init`).
 
 Test suites are defined in TOML files within the [tests/emulator_cases](tests/emulator_cases) directory.
 
-Every case is built with optimization, register allocation and peephole optimization, and is run as multiple tests:
-one (`default`) with only the case's own preview features, one for each optimization that can be individually
-enabled (currently none) and one for each optimization which changes what instruction selection sees and can be
-individually disabled (currently `no-canonicalize`). The test names take the form
-`emulator::<suite>::<case>::<variant>`. A suite can list the `variants` worth running at the top of its file (e.g.
-`variants = ["no-canonicalize"]`), and a case can list its own to override the suite's, for cases which only build, or
-only mean anything, one way.
+Every case is built with optimization, register allocation and peephole optimization, and by default is run as a
+single test (the `default` variant) with only the case's own preview features. A suite which is about an optimization
+can list the `variants` to run each of its cases as at the top of its file (e.g.
+`variants = ["default", "no-canonicalize"]`), and a case can list its own to override the suite's. Each variant other
+than `default` is the name of an optimization preview feature, which is toggled on top of the case's own preview
+features, so the code generated both with and without that optimization is checked against one result. The test names
+take the form `emulator::<suite>::<case>::<variant>`.
 
 Because `await_pc` is a plain address, a case will typically end by calling an empty function pinned to a fixed
 address using `#[address]` and use that address as the `await_pc`. Likewise, values to be asserted are typically stored
@@ -351,8 +351,8 @@ are rejected.
 
 ```toml
 # variants (optional) the variants to run for every case in the file which does not list its own. Each is either
-# "default" or the name of an optimization feature the cases are run with. Must not be empty. defaults to every
-# variant
+# "default" or the name of an optimization feature the cases are also run with. Must not be empty. defaults to
+# ["default"]
 variants = ["default", "no-canonicalize"]
 
 [[case]]
