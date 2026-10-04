@@ -90,6 +90,3 @@ toml_edit.workspace = true
 quokka-lang-sameboy.workspace = true
 assert_cmd.workspace = true
 pulldown-cmark.workspace = true
-
-[profile.dev]
-opt-level = 1
