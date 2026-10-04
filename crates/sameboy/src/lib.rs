@@ -100,6 +100,13 @@ impl Sameboy {
             GB_set_pixels_output(inner.as_mut().get_mut(), pixels_ptr);
         }
 
+        // SAFETY: `GB_set_turbo_mode` requires `*mut GB_gameboy_t` to point to initialized
+        // memory which Box<_> guarantees. Without turbo mode the emulator sleeps to keep pace
+        // with a real Game Boy. Frame skipping is left off, as it depends on the wall clock.
+        unsafe {
+            GB_set_turbo_mode(inner.as_mut().get_mut(), true, true);
+        }
+
         let hooks = NonNull::from(Box::leak(Box::new(Hooks::new())));
         // SAFETY: `inner` is initialized, and `hooks` was only just leaked so it is valid. It
         // is freed in `Drop` after `inner`, and only accessed between runs.
