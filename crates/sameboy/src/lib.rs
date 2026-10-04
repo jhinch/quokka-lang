@@ -13,7 +13,8 @@ mod hooks;
 mod trace;
 
 pub use check::{
-    Checker, Context, HaltHazard, OamCorruptionHazard, ReadKind, Registers, Violation,
+    Checker, Context, HaltHazard, OamCorruptionHazard, PpuBlockedAccess, ReadKind, Registers,
+    Violation,
 };
 pub use trace::{Trace, TraceEntry};
 

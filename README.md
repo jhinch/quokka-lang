@@ -321,6 +321,10 @@ Every case is also watched by runtime checks while it runs, and fails if one rep
   the CPU execute the byte after it twice.
 - **HALT hang**: a `HALT` executed with no interrupt enabled in `IE`, which nothing can wake the CPU from. The case
   fails straight away rather than running out of instructions.
+- **PPU-blocked access**: a read or write of VRAM (`$8000-$9FFF`) or OAM (`$FE00-$FE9F`) at a moment the PPU has it to
+  itself, so that the read returns `$FF` or the write is dropped. Only accesses which really are blocked on the model
+  being emulated are reported. The LCD is on when a case starts, so a case which touches VRAM or OAM should turn it
+  off first by clearing `LCDC` (`$FF40`), rather than rely on when its accesses happen to land.
 
 ```bash
 cargo test --test emulator_tests

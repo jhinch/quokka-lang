@@ -8,6 +8,14 @@
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+// SameBoy declares its internal functions with hidden visibility, which keeps them out of the
+// generated bindings. The ones needed are declared by hand here.
+unsafe extern "C" {
+    /// Advances the PPU by `cycles`, and with `force` set also by whatever it is lagging
+    /// behind the CPU.
+    pub fn GB_display_run(gb: *mut GB_gameboy_t, cycles: ::std::os::raw::c_uint, force: bool);
+}
+
 pub mod bootroms {
     pub const fn dmg() -> &'static [u8] {
         include_bytes!("../bootroms/dmg_boot.bin")

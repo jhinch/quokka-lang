@@ -1265,6 +1265,9 @@ name = "struct_array_field_write_runtime_index_in_oam"
 source = """
 struct Sprite { y: u8, x: u8, tile: u8, flags: u8 }
 
+#[address = 0xFF40]
+global LCDC: u8;
+
 #[address = 0xFE00]
 global SPRITES: [Sprite; 40];
 global INDEX: u16;
@@ -1276,6 +1279,8 @@ global OUT: [u8; 4];
 fn checkpoint() {}
 
 fn main() {
+    // the PPU blocks OAM for most of a frame while the LCD is on
+    LCDC = 0;
     INDEX = 2;
     let index = INDEX;
     SPRITES[index].y = 0x40;

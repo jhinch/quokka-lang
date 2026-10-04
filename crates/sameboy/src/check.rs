@@ -3,9 +3,11 @@
 
 mod halt;
 mod oam;
+mod ppu;
 
 pub use halt::HaltHazard;
 pub use oam::OamCorruptionHazard;
+pub use ppu::PpuBlockedAccess;
 
 use crate::hooks;
 use quokka_lang_sameboy_sys::GB_gameboy_t;
@@ -175,6 +177,13 @@ impl<'a> Context<'a> {
     pub fn halt_bug(&self) -> bool {
         // SAFETY: `Context::new` guarantees `gb` is valid and not otherwise borrowed
         unsafe { hooks::halt_bug(self.gb) }
+    }
+
+    /// Whether the emulated model is a Game Boy Color (or later).
+    #[must_use]
+    pub fn is_cgb(&self) -> bool {
+        // SAFETY: `Context::new` guarantees `gb` is valid and not otherwise borrowed
+        unsafe { hooks::is_cgb(self.gb) }
     }
 
     /// Whether the PPU is currently blocking CPU reads of OAM.

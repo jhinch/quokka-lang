@@ -24,7 +24,9 @@
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
 use quokka_lang::pipeline::PipelineConfig;
-use quokka_lang_sameboy::{HaltHazard, Model, OamCorruptionHazard, RunOutcome, Sameboy};
+use quokka_lang_sameboy::{
+    HaltHazard, Model, OamCorruptionHazard, PpuBlockedAccess, RunOutcome, Sameboy,
+};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -295,6 +297,7 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     }
     emulator.add_checker(Box::new(OamCorruptionHazard::new()));
     emulator.add_checker(Box::new(HaltHazard::new()));
+    emulator.add_checker(Box::new(PpuBlockedAccess::new()));
     match emulator.run_until_pc(case.await_pc, case.max_instructions) {
         RunOutcome::Reached => {}
         RunOutcome::InstructionLimit => panic!(

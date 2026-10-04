@@ -156,6 +156,15 @@ impl Hooks {
     ///
     /// Same as [`Hooks::dispatch`].
     unsafe fn on_write(&mut self, gb: *mut GB_gameboy_t, addr: u16, value: u8) {
+        if matches!(addr, 0x8000..=0x9FFF | 0xFE00..=0xFEFF) {
+            // SameBoy lets the PPU lag behind the CPU and only catches it up as part of a
+            // video memory access, which for a write is after this callback. Catching it up
+            // here, as the write is about to anyway, lets the checkers see the PPU state the
+            // write will be judged against.
+            // SAFETY: `GB_display_run` requires an initialized `GB_gameboy_t`, guaranteed by
+            // the caller
+            unsafe { GB_display_run(gb, 0, true) };
+        }
         // SAFETY: the caller's guarantees are the ones `dispatch` requires
         unsafe { self.dispatch(gb, |checker, cx| checker.on_write(cx, addr, value)) };
     }
@@ -321,6 +330,14 @@ pub(crate) unsafe fn halt_bug(gb: *const GB_gameboy_t) -> bool {
     // SAFETY: the caller guarantees `gb` is initialized; the section unions only overlay a
     // marker byte on their fields
     unsafe { (*gb).__bindgen_anon_2.__bindgen_anon_1.halt_bug }
+}
+
+/// # Safety
+///
+/// `gb` must point to an initialized `GB_gameboy_t`.
+pub(crate) unsafe fn is_cgb(gb: *const GB_gameboy_t) -> bool {
+    // SAFETY: `GB_is_cgb` requires an initialized `GB_gameboy_t`, guaranteed by the caller
+    unsafe { GB_is_cgb(gb) }
 }
 
 /// # Safety
