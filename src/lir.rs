@@ -652,6 +652,15 @@ impl CodeSectionData {
             && self.carry_registers.is_empty())
     }
 
+    /// The entry block of each function, in the order the functions were added. `functions`
+    /// itself iterates in an order which differs from one run of the compiler to the next.
+    #[must_use]
+    pub fn function_entries(&self) -> Vec<BlockId> {
+        let mut entries: Vec<BlockId> = self.functions.keys().collect();
+        entries.sort();
+        entries
+    }
+
     pub fn registers(&self) -> impl Iterator<Item = VirtualReg> + '_ {
         self.r8_registers
             .keys()

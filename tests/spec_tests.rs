@@ -56,6 +56,8 @@ struct TestCase {
     #[serde(default)]
     expected_lir: String,
     #[serde(default)]
+    expected_memory_map: String,
+    #[serde(default)]
     expected_errors: Vec<String>,
     #[serde(skip)]
     updates_tx: Option<mpsc::Sender<PendingUpdate>>,
@@ -86,6 +88,8 @@ enum TestCaseKind {
     Parser,
     Analyzer,
     Codegen,
+    /// Builds the source all the way to a linked ROM, which needs `rgblink` on the `PATH`
+    MemoryMap,
 }
 
 #[derive(Clone, serde::Deserialize)]
@@ -121,6 +125,7 @@ enum PendingUpdateData {
     Ast(String),
     Mir(String),
     Lir(String),
+    MemoryMap(String),
 }
 
 fn main() {
@@ -166,6 +171,7 @@ fn main() {
                             TestCaseKind::Parser => test_parser(case),
                             TestCaseKind::Analyzer => test_analyzer(case),
                             TestCaseKind::Codegen => test_codegen(case),
+                            TestCaseKind::MemoryMap => test_memory_map(case),
                         };
                         Ok(())
                     },
@@ -327,6 +333,16 @@ fn save_suites(
                             );
                         }
                     }
+                    PendingUpdateData::MemoryMap(memory_map) => {
+                        if memory_map.is_empty() {
+                            case.remove("expected_memory_map");
+                        } else {
+                            case.insert(
+                                "expected_memory_map",
+                                toml_edit::value(format!("{}\n", memory_map.trim())),
+                            );
+                        }
+                    }
                 }
             }
             case.fmt();
@@ -350,7 +366,8 @@ fn update_expected_errors(
         && !(case.expected_tokens.trim().is_empty()
             && case.expected_ast.trim().is_empty()
             && case.expected_mir.trim().is_empty()
-            && case.expected_lir.trim().is_empty());
+            && case.expected_lir.trim().is_empty()
+            && case.expected_memory_map.trim().is_empty());
     if (is_removal || is_addition) && !case.force_regenerate_expectations {
         return;
     }
@@ -504,6 +521,41 @@ fn delete_expected_lir(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
     case.expected_lir = String::new();
 }
 
+fn update_expected_memory_map(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase, actual: &str) {
+    let is_removal = {
+        let expected = &case.expected_memory_map;
+        if actual.trim() == expected.trim() {
+            return;
+        }
+        !expected.is_empty() && actual.trim().is_empty()
+    };
+    if is_removal && !case.force_regenerate_expectations {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::MemoryMap(actual.to_string()),
+    })
+    .unwrap();
+    case.expected_memory_map = actual.to_string();
+}
+
+fn delete_expected_memory_map(tx: &mpsc::Sender<PendingUpdate>, case: &mut TestCase) {
+    if case.expected_memory_map.is_empty() {
+        return;
+    }
+    tx.send(PendingUpdate {
+        category: case.category.clone(),
+        suite: case.suite.clone(),
+        case: case.name.clone(),
+        data: PendingUpdateData::MemoryMap(String::new()),
+    })
+    .unwrap();
+    case.expected_memory_map = String::new();
+}
+
 fn test_lexer(mut case: TestCase) {
     let lexer = quokka_lang::lex::Lexer::from(case.source());
     let mut actual_tokens = String::new();
@@ -531,6 +583,7 @@ fn test_lexer(mut case: TestCase) {
         delete_expected_ast(&tx, &mut case);
         delete_expected_mir(&tx, &mut case);
         delete_expected_lir(&tx, &mut case);
+        delete_expected_memory_map(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -560,6 +613,7 @@ fn test_parser(mut case: TestCase) {
         delete_expected_tokens(&tx, &mut case);
         delete_expected_mir(&tx, &mut case);
         delete_expected_lir(&tx, &mut case);
+        delete_expected_memory_map(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -599,6 +653,7 @@ fn test_analyzer(mut case: TestCase) {
         delete_expected_tokens(&tx, &mut case);
         delete_expected_ast(&tx, &mut case);
         delete_expected_lir(&tx, &mut case);
+        delete_expected_memory_map(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -644,6 +699,7 @@ fn test_codegen(mut case: TestCase) {
         delete_expected_tokens(&tx, &mut case);
         delete_expected_ast(&tx, &mut case);
         delete_expected_mir(&tx, &mut case);
+        delete_expected_memory_map(&tx, &mut case);
     }
     assert_eq!(
         actual_errors, case.expected_errors,
@@ -653,6 +709,60 @@ fn test_codegen(mut case: TestCase) {
         actual_lir.trim(),
         case.expected_lir.trim(),
         "actual_lir == expected_lir"
+    );
+}
+
+/// Builds the case all the way to a linked ROM and checks the memory map exported for it.
+/// The register allocator always runs, as the encoder needs its output.
+fn test_memory_map(mut case: TestCase) {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    let pipeline = quokka_lang::pipeline::PipelineConfig::default()
+        .with_features(case.preview_features.iter().copied().collect())
+        .start();
+    let root = pipeline
+        .parse(case.source())
+        .unwrap_or_else(|e| panic!("Failed to parse. {e:?}"))
+        .analyze()
+        .and_then(|output| {
+            if case.optimize {
+                output.optimize()
+            } else {
+                Ok(output)
+            }
+        })
+        .unwrap_or_else(|e| panic!("Failed to type check. {e:?}"));
+    let (actual_memory_map, actual_errors) = match root.codegen() {
+        Ok(output) => {
+            let memory_map = output
+                .allocate()
+                .peephole()
+                .encode()
+                .write_obj(dir.path().join("case.obj"))
+                .unwrap_or_else(|e| panic!("Failed to write obj file. {e}"))
+                .link(dir.path().join("case.gb"), dir.path().join("case.sym"))
+                .unwrap_or_else(|e| panic!("Failed to link. {e}"))
+                .memory_map()
+                .unwrap_or_else(|e| panic!("Failed to read the memory map. {e}"));
+            (format!("{memory_map}"), Vec::new())
+        }
+        Err(errors) => (String::new(), prepare_multi_error(errors)),
+    };
+    if let Some(tx) = case.updates_tx.clone() {
+        update_expected_errors(&tx, &mut case, &actual_errors);
+        update_expected_memory_map(&tx, &mut case, &actual_memory_map);
+        delete_expected_tokens(&tx, &mut case);
+        delete_expected_ast(&tx, &mut case);
+        delete_expected_mir(&tx, &mut case);
+        delete_expected_lir(&tx, &mut case);
+    }
+    assert_eq!(
+        actual_errors, case.expected_errors,
+        "actual_errors == expected_errors"
+    );
+    assert_eq!(
+        actual_memory_map.trim(),
+        case.expected_memory_map.trim(),
+        "actual_memory_map == expected_memory_map"
     );
 }
 

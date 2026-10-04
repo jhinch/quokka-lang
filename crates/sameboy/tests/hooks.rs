@@ -1,7 +1,8 @@
 //! Tests for the execution and memory hooks, driven by the scenarios in `roms/hooks.asm`.
 
 use quokka_lang_sameboy::{
-    Checker, Context, Model, ReadKind, Registers, RunOutcome, Sameboy, Violation,
+    Checker, Context, MemoryMap, Model, ReadKind, Region, RegionKind, Registers, RunOutcome,
+    Sameboy, Violation,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -217,6 +218,51 @@ fn violation_stops_the_run_and_is_recorded() {
     let last = emulator.trace().entries().last().unwrap();
     assert_eq!(last.pc, 0x0152);
     assert_eq!(last.bytes(), [0xEA, 0x00, 0xC0]);
+}
+
+/// Reports a violation for every write outside the globals the memory map declares.
+struct OnlyDeclaredWrites;
+
+impl Checker for OnlyDeclaredWrites {
+    fn name(&self) -> &'static str {
+        "only-declared-writes"
+    }
+
+    fn on_write(&mut self, cx: &mut Context<'_>, addr: u16, _value: u8) {
+        let memory_map = cx.memory_map().expect("no memory map was set");
+        if !memory_map.is_within(RegionKind::Global, addr) {
+            cx.report("undeclared-write", Some(addr), "not a declared global");
+        }
+    }
+}
+
+#[test]
+fn checkers_see_the_memory_map() {
+    let global = |start| {
+        let mut memory_map = MemoryMap::new();
+        memory_map.add_region(Region {
+            kind: RegionKind::Global,
+            name: "OUT".to_owned(),
+            start,
+            len: 1,
+        });
+        memory_map
+    };
+
+    let mut emulator = emulator();
+    assert!(emulator.memory_map().is_none());
+    emulator.set_memory_map(global(0xC000));
+    emulator.add_checker(Box::new(OnlyDeclaredWrites));
+    assert_eq!(emulator.run_until_pc(EVENTS_DONE, 100), RunOutcome::Reached);
+
+    let mut emulator = self::emulator();
+    emulator.set_memory_map(global(0xD000));
+    emulator.add_checker(Box::new(OnlyDeclaredWrites));
+    assert_eq!(
+        emulator.run_until_pc(EVENTS_DONE, 100),
+        RunOutcome::Violation
+    );
+    assert_eq!(emulator.violations()[0].address, Some(0xC000));
 }
 
 #[test]

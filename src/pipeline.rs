@@ -6,6 +6,7 @@ use crate::codegen::peephole;
 use crate::codegen::regalloc::RegAllocator;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir::Lir;
+use crate::memory_map::{DeclaredGlobal, MemoryLayout, MemoryMap, MemoryMapError, SymbolTable};
 use crate::mir::Mir;
 use crate::multi::MultiError;
 use crate::optimize::Optimizer;
@@ -137,14 +138,20 @@ impl AnalyzerOutput {
 
     pub fn codegen(self) -> Result<CodegenOutput, MultiError> {
         let config = self.config;
+        let globals = DeclaredGlobal::from_mir(&self.mir, &self.ty_registry);
         let codegen = CodeGen::from(self.ty_registry);
         let lir = codegen.generate(&self.mir)?;
-        Ok(CodegenOutput { config, lir })
+        Ok(CodegenOutput {
+            config,
+            globals,
+            lir,
+        })
     }
 }
 
 pub struct CodegenOutput {
     config: PipelineConfig,
+    globals: Vec<DeclaredGlobal>,
     lir: Lir,
 }
 
@@ -166,6 +173,7 @@ impl CodegenOutput {
         allocator.allocate(&mut self.lir);
         AllocateOutput {
             config: self.config,
+            globals: self.globals,
             lir: self.lir,
         }
     }
@@ -173,6 +181,7 @@ impl CodegenOutput {
 
 pub struct AllocateOutput {
     config: PipelineConfig,
+    globals: Vec<DeclaredGlobal>,
     lir: Lir,
 }
 
@@ -193,6 +202,7 @@ impl AllocateOutput {
         peephole::run(&mut self.lir);
         PeepholeOutput {
             config: self.config,
+            globals: self.globals,
             lir: self.lir,
         }
     }
@@ -200,6 +210,7 @@ impl AllocateOutput {
 
 pub struct PeepholeOutput {
     config: PipelineConfig,
+    globals: Vec<DeclaredGlobal>,
     lir: Lir,
 }
 
@@ -219,12 +230,14 @@ impl PeepholeOutput {
         let mut encoder = ObjFileEncoder::default();
         encoder.enable_features(self.config.features.clone());
         let obj = encoder.encode(&self.lir);
-        EncodedOutput { obj }
+        let layout = MemoryLayout::new(self.globals, &self.lir, &obj);
+        EncodedOutput { obj, layout }
     }
 }
 
 pub struct EncodedOutput {
     obj: ObjFile,
+    layout: MemoryLayout,
 }
 
 impl EncodedOutput {
@@ -246,12 +259,14 @@ impl EncodedOutput {
         file.flush()?;
         Ok(ObjOutput {
             obj_path: path.to_path_buf(),
+            layout: self.layout,
         })
     }
 }
 
 pub struct ObjOutput {
     obj_path: PathBuf,
+    layout: MemoryLayout,
 }
 
 impl ObjOutput {
@@ -278,13 +293,18 @@ impl ObjOutput {
                 .arg(&sym_path)
                 .arg(&self.obj_path),
         )?;
-        Ok(LinkedOutput { gb_path, sym_path })
+        Ok(LinkedOutput {
+            gb_path,
+            sym_path,
+            layout: self.layout,
+        })
     }
 }
 
 pub struct LinkedOutput {
     gb_path: PathBuf,
     sym_path: PathBuf,
+    layout: MemoryLayout,
 }
 
 impl LinkedOutput {
@@ -296,6 +316,11 @@ impl LinkedOutput {
     #[must_use]
     pub fn sym_path(&self) -> &Path {
         &self.sym_path
+    }
+
+    /// The program's memory map, placed using the symbol table the linker wrote.
+    pub fn memory_map(&self) -> Result<MemoryMap, BuildError> {
+        read_memory_map(&self.layout, &self.sym_path)
     }
 
     /// Fix up the ROM's header (logo, checksums) in place using `rgbfix`, producing a ROM ready
@@ -312,6 +337,7 @@ impl LinkedOutput {
         Ok(RomOutput {
             gb_path: self.gb_path,
             sym_path: self.sym_path,
+            layout: self.layout,
         })
     }
 }
@@ -319,6 +345,7 @@ impl LinkedOutput {
 pub struct RomOutput {
     gb_path: PathBuf,
     sym_path: PathBuf,
+    layout: MemoryLayout,
 }
 
 impl RomOutput {
@@ -332,10 +359,20 @@ impl RomOutput {
         &self.sym_path
     }
 
+    /// The program's memory map, placed using the symbol table the linker wrote.
+    pub fn memory_map(&self) -> Result<MemoryMap, BuildError> {
+        read_memory_map(&self.layout, &self.sym_path)
+    }
+
     /// Read the built ROM's bytes back off disk.
     pub fn read_rom(&self) -> io::Result<Vec<u8>> {
         std::fs::read(&self.gb_path)
     }
+}
+
+fn read_memory_map(layout: &MemoryLayout, sym_path: &Path) -> Result<MemoryMap, BuildError> {
+    let symbols = SymbolTable::parse(&std::fs::read_to_string(sym_path)?)?;
+    Ok(layout.resolve(&symbols)?)
 }
 
 fn run_tool(tool: &'static str, command: &mut Command) -> Result<(), BuildError> {
@@ -350,6 +387,8 @@ fn run_tool(tool: &'static str, command: &mut Command) -> Result<(), BuildError>
 pub enum BuildError {
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[error(transparent)]
+    MemoryMap(#[from] MemoryMapError),
     #[error("`{tool}` exited with {status}")]
     ToolFailed {
         tool: &'static str,

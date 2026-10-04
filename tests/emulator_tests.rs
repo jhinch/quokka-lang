@@ -23,9 +23,11 @@
 
 use libtest_mimic::{Arguments, Trial};
 use quokka_lang::feature::PreviewFeature;
+use quokka_lang::memory_map::MemoryMap;
 use quokka_lang::pipeline::PipelineConfig;
 use quokka_lang_sameboy::{
-    HaltHazard, Model, OamCorruptionHazard, PpuBlockedAccess, RunOutcome, Sameboy,
+    HaltHazard, Model, OamCorruptionHazard, PpuBlockedAccess, Region, RegionKind, RunOutcome,
+    Sameboy,
 };
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -280,9 +282,10 @@ fn load_suites()
 /// Compiles `case.source` to a ROM, with `toggled` enabled on top of the case's own preview
 /// features if given, runs it in a fresh emulator until `case.await_pc` is reached, and checks
 /// every `case.assertions` entry against emulator memory. The runtime checkers watch the run,
-/// and any violation they report fails the case.
+/// with the program's memory map to judge it against, and any violation they report fails the
+/// case.
 fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
-    let rom = build_rom(case, toggled);
+    let (rom, memory_map) = build_rom(case, toggled);
 
     let mut emulator = Sameboy::new(case.model.into());
     emulator.load_rom(&rom);
@@ -295,6 +298,7 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     if !emulator.load_state(boot_snapshot(case.model)) {
         panic!("failed to restore post-boot-ROM save state");
     }
+    emulator.set_memory_map(checker_memory_map(&memory_map));
     emulator.add_checker(Box::new(OamCorruptionHazard::new()));
     emulator.add_checker(Box::new(HaltHazard::new()));
     emulator.add_checker(Box::new(PpuBlockedAccess::new()));
@@ -333,13 +337,75 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     }
 }
 
+/// Converts the memory map the compiler exports for a program into the one the emulator's
+/// checkers work from. The two are separate types as the emulator knows nothing about the
+/// compiler: a checker only needs to know what kind of memory an address is and what to call
+/// it.
+fn checker_memory_map(memory_map: &MemoryMap) -> quokka_lang_sameboy::MemoryMap {
+    let mut result = quokka_lang_sameboy::MemoryMap::new();
+    for global in &memory_map.globals {
+        result.add_region(Region {
+            kind: RegionKind::Global,
+            name: global.name.clone(),
+            start: global.addr,
+            len: global.len(),
+        });
+    }
+    let data = [
+        (RegionKind::Constant, &memory_map.constants),
+        (RegionKind::Reserved, &memory_map.reserved),
+    ];
+    for (kind, ranges) in data {
+        for range in ranges {
+            result.add_region(Region {
+                kind,
+                name: range.name.clone(),
+                start: range.addr,
+                len: range.len,
+            });
+        }
+    }
+    for section in &memory_map.code {
+        result.add_region(Region {
+            kind: RegionKind::Code,
+            // code is named by its labels
+            name: String::new(),
+            start: section.addr,
+            len: section.len,
+        });
+        for symbol in &section.symbols {
+            result.add_label(symbol.addr, symbol.name.clone());
+        }
+        for &instruction in &section.instructions {
+            result.add_instruction(instruction);
+        }
+    }
+    result.add_region(Region {
+        kind: RegionKind::Stack,
+        name: "stack".to_string(),
+        start: memory_map.stack.floor,
+        len: memory_map.stack.initial_sp - memory_map.stack.floor,
+    });
+    result.set_spin_loop(memory_map.landmarks.spin_loop);
+    result
+}
+
 /// Describes every violation the emulator's checkers recorded, followed by the instructions
-/// leading up to where it stopped.
+/// leading up to where it stopped. Addresses are named using the program's memory map.
 fn violation_report(emulator: &Sameboy) -> String {
     let violations: Vec<String> = emulator
         .violations()
         .iter()
-        .map(ToString::to_string)
+        .map(|violation| {
+            let mut line = violation.to_string();
+            let named = [("PC", Some(violation.pc)), ("address", violation.address)];
+            for (what, addr) in named {
+                if let Some(symbol) = addr.and_then(|addr| symbolize(emulator, addr)) {
+                    line.push_str(&format!(" [{what} {symbol}]"));
+                }
+            }
+            line
+        })
         .collect();
     format!(
         "runtime check failed:\n{}\n\n{}",
@@ -348,10 +414,27 @@ fn violation_report(emulator: &Sameboy) -> String {
     )
 }
 
-/// Lists the last instructions the emulator executed, oldest first.
+/// Lists the last instructions the emulator executed, oldest first, each with the name of
+/// where it is in the program.
 fn trace_report(emulator: &Sameboy) -> String {
     let trace = emulator.trace();
-    format!("last {} instructions executed:\n{trace}", trace.len())
+    let entries: Vec<String> = trace
+        .entries()
+        .map(|entry| match symbolize(emulator, entry.pc) {
+            Some(symbol) => format!("{entry}  {symbol}"),
+            None => entry.to_string(),
+        })
+        .collect();
+    format!(
+        "last {} instructions executed:\n{}\n",
+        trace.len(),
+        entries.join("\n")
+    )
+}
+
+/// The name of `addr` in the program the emulator is running.
+fn symbolize(emulator: &Sameboy, addr: u16) -> Option<String> {
+    Some(emulator.memory_map()?.symbolize(addr)?.to_string())
 }
 
 /// Returns a save state snapshot, captured right after the emulator finished executing the boot
@@ -409,15 +492,15 @@ fn run_tool(tool: &str, command: &mut std::process::Command) {
 
 /// Builds `case.source` all the way down to ROM bytes, with `toggled` enabled on top of the case's
 /// own preview features if given, using the same fluent pipeline API the `build` CLI command
-/// uses. Intermediate `.obj`/`.gb`/`.sym` files are written to a scratch temporary directory that
-/// is cleaned up once this function returns.
-fn build_rom(case: &TestCase, toggled: Option<PreviewFeature>) -> Vec<u8> {
+/// uses, along with the memory map of the program. Intermediate `.obj`/`.gb`/`.sym` files are
+/// written to a scratch temporary directory that is cleaned up once this function returns.
+fn build_rom(case: &TestCase, toggled: Option<PreviewFeature>) -> (Vec<u8>, MemoryMap) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let obj_path = dir.path().join("case.obj");
     let gb_path = dir.path().join("case.gb");
     let sym_path = dir.path().join("case.sym");
 
-    PipelineConfig::default()
+    let rom = PipelineConfig::default()
         .with_features(
             case.preview_features
                 .iter()
@@ -442,7 +525,12 @@ fn build_rom(case: &TestCase, toggled: Option<PreviewFeature>) -> Vec<u8> {
         .link(&gb_path, &sym_path)
         .unwrap_or_else(|e| panic!("failed to link rom: {e}"))
         .fix()
-        .unwrap_or_else(|e| panic!("failed to fix rom: {e}"))
+        .unwrap_or_else(|e| panic!("failed to fix rom: {e}"));
+    let memory_map = rom
+        .memory_map()
+        .unwrap_or_else(|e| panic!("failed to read memory map: {e}"));
+    let rom = rom
         .read_rom()
-        .unwrap_or_else(|e| panic!("failed to read rom: {e}"))
+        .unwrap_or_else(|e| panic!("failed to read rom: {e}"));
+    (rom, memory_map)
 }

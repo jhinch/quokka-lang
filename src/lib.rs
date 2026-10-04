@@ -16,6 +16,7 @@ pub mod feature;
 pub mod highlight;
 pub mod lex;
 pub mod lir;
+pub mod memory_map;
 pub mod mir;
 pub mod multi;
 pub mod num;

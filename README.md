@@ -183,6 +183,42 @@ expected_errors = []
 # ...
 ```
 
+#### Memory map test
+
+A memory map test builds the program all the way to a linked ROM, so unlike the other kinds it requires `rgblink`
+(from [RGBDS](https://rgbds.gbdev.io/)) to be on the `PATH`. Register allocation and peephole optimization always
+run, as the encoder needs their output.
+
+```toml
+[[case]]
+# name (required) of the test case
+name = "case_name"
+# kind (required) always "memory-map" for memory map test
+kind = "memory-map"
+# preview_features (optional) which preview features to activate for this test. defaults to empty
+preview_features = []
+# optimize (optional) enables optimization on MIR. Defaults to false.
+optimize = true
+# ignored (optional) marks the test as ignored for the specified reason. when absent or empty the test is not ignored
+ignored = "free form reason"
+# source (required) the source code for the program. Alternatively, `source.file = "filename.q"` for an external file,
+# resolved relative to the directory of the TOML file
+source = """
+fn main() {
+}
+"""
+# either expected_memory_map or expected_errors is required
+# expected_memory_map a string for the memory map exported for the linked program: its globals, the constants
+# stored in ROM, the ROM the compiler reserves, each code section with its symbols and the address of every
+# instruction, the stack and the landmarks of the startup code
+expected_memory_map = """
+...
+"""
+# expected_errors array of strings for each of the errors expected from code generation. The source must parse,
+# analyze and optimize: an error from those phases fails the test rather than being compared
+expected_errors = []
+```
+
 ### Regenerate expectations
 
 It is common that the expectations in test suites no longer match the compiler's internal and that the expectations
@@ -325,6 +361,10 @@ Every case is also watched by runtime checks while it runs, and fails if one rep
   itself, so that the read returns `$FF` or the write is dropped. Only accesses which really are blocked on the model
   being emulated are reported. The LCD is on when a case starts, so a case which touches VRAM or OAM should turn it
   off first by clearing `LCDC` (`$FF40`), rather than rely on when its accesses happen to land.
+
+The emulator is given the program's memory map (its globals, constants, code and stack, as exported by the compiler
+for the linked ROM) for the checks to judge the run against. It is also used to name addresses when a case fails: the
+violations and the trace of the last instructions executed show which function or global each address falls in.
 
 ```bash
 cargo test --test emulator_tests

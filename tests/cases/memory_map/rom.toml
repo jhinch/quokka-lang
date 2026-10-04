@@ -1,0 +1,912 @@
+[[case]]
+name = "rom_constant"
+kind = "memory-map"
+source = """
+const TABLE: [u8; 20] = [1; 20];
+global OUT: u8;
+
+fn main() {
+    let i: u16 = 3;
+    OUT = TABLE[i];
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+  $0068..=$007B TABLE
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $007C..=$0089
+    main: $007C $007E $0080 $0083 $0084 $0085 $0088 $0089
+  $008A..=$0092
+    _@BOOTSTRAP: $008A $008D
+    _@BOOTSTRAP.bb2: $0090
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $008A
+  spin loop $0090
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "inlined_constant_is_not_stored"
+kind = "memory-map"
+optimize = true
+source = """
+const SMALL: u8 = 7;
+global OUT: u8;
+
+fn main() {
+    OUT = SMALL;
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$0070
+    _@BOOTSTRAP: $0068 $006B
+    _@BOOTSTRAP.bb2: $006E
+  $0071..=$0076
+    main: $0071 $0074 $0076
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0068
+  spin loop $006E
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "address_constant"
+kind = "memory-map"
+source = """
+#[address = 0x3000]
+const PINNED: [u8; 4] = [1, 2, 3, 4];
+const FLOATING: [u8; 3] = [5, 6, 7];
+global OUT: u8;
+
+fn main() {
+    let i: u16 = 1;
+    OUT = PINNED[i] + FLOATING[i];
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+  $0085..=$0087 FLOATING
+  $3000..=$3003 PINNED
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$007B
+    main: $0068 $006A $006C $006F $0070 $0071 $0074 $0075 $0076 $0077 $007A $007B
+  $007C..=$0084
+    _@BOOTSTRAP: $007C $007F
+    _@BOOTSTRAP.bb2: $0082
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $007C
+  spin loop $0082
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "romx_constant"
+kind = "memory-map"
+source = """
+#[region = romx]
+const BANKED: [u8; 4] = [1, 2, 3, 4];
+global OUT: u8;
+
+fn main() {
+    let i: u16 = 1;
+    OUT = BANKED[i];
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+  $4000..=$4003 BANKED
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$0075
+    main: $0068 $006A $006C $006F $0070 $0071 $0074 $0075
+  $0076..=$007E
+    _@BOOTSTRAP: $0076 $0079
+    _@BOOTSTRAP.bb2: $007C
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0076
+  spin loop $007C
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "several_functions_share_a_code_section"
+kind = "memory-map"
+source = """
+global OUT: u8;
+
+fn first() {
+    OUT = 1;
+}
+
+fn second() {
+    OUT = 2;
+}
+
+fn main() {
+    first();
+    second();
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$007C
+    first: $0068 $006A $006D $006E
+    second: $006F $0071 $0074 $0075
+    main: $0076
+    main.bb4: $0079
+    main.bb5: $007C
+  $007D..=$0085
+    _@BOOTSTRAP: $007D $0080
+    _@BOOTSTRAP.bb2: $0083
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $007D
+  spin loop $0083
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "address_function_has_its_own_code_section"
+kind = "memory-map"
+source = """
+global OUT: u8;
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0x4000]
+fn banked() {
+    OUT = 1;
+}
+
+fn main() {
+    banked();
+    checkpoint();
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$0070
+    _@BOOTSTRAP: $0068 $006B
+    _@BOOTSTRAP.bb2: $006E
+  $0071..=$0077
+    main: $0071
+    main.bb2: $0074
+    main.bb3: $0077
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+  $0150..=$0150
+    checkpoint: $0150
+  $4000..=$4006
+    banked: $4000 $4002 $4005 $4006
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0068
+  spin loop $006E
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "blocks_are_named_after_their_function"
+kind = "memory-map"
+source = """
+global IN: u8;
+global OUT: u8;
+
+fn main() {
+    if IN == 3 then {
+        OUT = 1;
+    } else {
+        OUT = 2;
+    }
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 OUT (8 bits)
+  $C001..=$C001 IN (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$0081
+    main: $0068 $006B $006C $006E $006F
+    main.bb3: $0072 $0074 $0077 $0078
+    main.bb2: $007B $007D $0080
+    main.bb4: $0081
+  $0082..=$008A
+    _@BOOTSTRAP: $0082 $0085
+    _@BOOTSTRAP.bb2: $0088
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0082
+  spin loop $0088
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "multi_byte_instructions"
+kind = "memory-map"
+source = """
+#[address = 0xFF40]
+global LCDC: u8;
+global WIDE: u16;
+
+fn main() {
+    WIDE = 0x1234;
+    LCDC = LCDC | 0x80;
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C001 WIDE (16 bits)
+  $FF40..=$FF40 LCDC (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$007C
+    main: $0068 $006A $006C $006F $0070 $0071 $0074 $0075 $0077 $0078 $007B $007C
+  $007D..=$0085
+    _@BOOTSTRAP: $007D $0080
+    _@BOOTSTRAP.bb2: $0083
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $007D
+  spin loop $0083
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "optimized"
+kind = "memory-map"
+optimize = true
+source = """
+const TABLE: [u8; 20] = [1; 20];
+global IN: u16;
+global OUT: u8;
+
+fn helper() {
+    OUT = TABLE[IN];
+}
+
+fn main() {
+    helper();
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C001 IN (16 bits)
+  $C002..=$C002 OUT (8 bits)
+constants:
+  $007C..=$008F TABLE
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$007B
+    helper: $0068 $006B $006C $006D $006E $0071 $0072 $0073 $0076 $0077
+    main: $0078
+    main.bb3: $007B
+  $0090..=$0098
+    _@BOOTSTRAP: $0090 $0093
+    _@BOOTSTRAP.bb2: $0096
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0090
+  spin loop $0096
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "non_ascii_names"
+kind = "memory-map"
+source = """
+global café: u8;
+
+fn naïve() {
+    café = 1;
+}
+
+fn main() {
+    naïve();
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C000 café (8 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$0072
+    naïve: $0068 $006A $006D $006E
+    main: $006F
+    main.bb3: $0072
+  $0073..=$007B
+    _@BOOTSTRAP: $0073 $0076
+    _@BOOTSTRAP.bb2: $0079
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $0073
+  spin loop $0079
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""

@@ -2,6 +2,7 @@
 //! data pointer.
 
 use crate::check::{Checker, Context, ReadKind, Registers, Violation};
+use crate::memory_map::MemoryMap;
 use crate::trace::Trace;
 use quokka_lang_sameboy_sys::*;
 use std::any::Any;
@@ -16,6 +17,8 @@ pub(crate) struct Hooks {
     pub(crate) checkers: Vec<Box<dyn Checker>>,
     pub(crate) violations: Vec<Violation>,
     pub(crate) trace: Trace,
+    /// The description of the program being run, if one was given.
+    pub(crate) memory_map: Option<MemoryMap>,
     /// The address of the instruction being executed.
     pc: u16,
     /// The opcode of the instruction being executed.
@@ -36,6 +39,7 @@ impl Hooks {
             checkers: Vec::new(),
             violations: Vec::new(),
             trace: Trace::new(Trace::DEFAULT_CAPACITY),
+            memory_map: None,
             pc: 0,
             opcode: 0,
             fetched: false,
@@ -103,7 +107,15 @@ impl Hooks {
     ) {
         for checker in &mut self.checkers {
             // SAFETY: the caller guarantees `gb` is valid and not otherwise borrowed
-            let mut cx = unsafe { Context::new(gb, self.pc, checker.name(), &mut self.violations) };
+            let mut cx = unsafe {
+                Context::new(
+                    gb,
+                    self.pc,
+                    checker.name(),
+                    self.memory_map.as_ref(),
+                    &mut self.violations,
+                )
+            };
             event(checker.as_mut(), &mut cx);
         }
     }

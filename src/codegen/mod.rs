@@ -19,30 +19,48 @@ pub mod regalloc;
 pub const CART_HEADER_START_ADDR: u16 = 0x0100;
 pub const CART_HEADER_END_ADDR: u16 = 0x014F;
 
+/// The value the bootstrap code loads into `SP` before calling the entrypoint.
+pub const INITIAL_SP: u16 = 0xFFFE;
+
+/// Prefix of every symbol the compiler defines for itself.
+///
+/// `rgblink` leaves a symbol out of its symbol file unless the name starts with a letter or an
+/// underscore, and `@` cannot appear in a Quokka identifier, so a name with this prefix is listed
+/// by the linker without being able to collide with one declared in source.
+pub const COMPILER_SYMBOL_PREFIX: &str = "_@";
+
+/// The bootstrap code: initializes `SP`, calls the entrypoint, then spins.
+pub const BOOTSTRAP_SYMBOL: &str = "_@BOOTSTRAP";
+/// The cartridge header's entry point at [`CART_HEADER_START_ADDR`], which jumps to the bootstrap
+/// code.
+pub const CART_HEADER_CODE_SYMBOL: &str = "_@CART_HEADER_CODE";
+/// The rest of the cartridge header, filled in by `rgbfix`.
+pub const CART_HEADER_DATA_SYMBOL: &str = "_@CART_HEADER_DATA";
+
 /// Size in bytes of each entry in the RST/interrupt jump vector table.
 ///
 /// See <https://gbdev.io/pandocs/Memory_Map.html#jump-vectors-in-first-rom-bank>
 const VECTOR_SLOT_LEN: u16 = 8;
 
 /// `RST` vector addresses, each handled with a bare `RET` stub.
-const RST_VECTOR_ADDRS: [(u16, &str); 8] = [
-    (0x0000, "@RST_00"),
-    (0x0008, "@RST_08"),
-    (0x0010, "@RST_10"),
-    (0x0018, "@RST_18"),
-    (0x0020, "@RST_20"),
-    (0x0028, "@RST_28"),
-    (0x0030, "@RST_30"),
-    (0x0038, "@RST_38"),
+pub const RST_VECTOR_ADDRS: [(u16, &str); 8] = [
+    (0x0000, "_@RST_00"),
+    (0x0008, "_@RST_08"),
+    (0x0010, "_@RST_10"),
+    (0x0018, "_@RST_18"),
+    (0x0020, "_@RST_20"),
+    (0x0028, "_@RST_28"),
+    (0x0030, "_@RST_30"),
+    (0x0038, "_@RST_38"),
 ];
 
 /// Interrupt vector addresses, each handled with a bare `RETI` stub.
-const INTERRUPT_VECTOR_ADDRS: [(u16, &str); 5] = [
-    (0x0040, "@INT_VBLANK"),
-    (0x0048, "@INT_LCD_STAT"),
-    (0x0050, "@INT_TIMER"),
-    (0x0058, "@INT_SERIAL"),
-    (0x0060, "@INT_JOYPAD"),
+pub const INTERRUPT_VECTOR_ADDRS: [(u16, &str); 5] = [
+    (0x0040, "_@INT_VBLANK"),
+    (0x0048, "_@INT_LCD_STAT"),
+    (0x0050, "_@INT_TIMER"),
+    (0x0058, "_@INT_SERIAL"),
+    (0x0060, "_@INT_JOYPAD"),
 ];
 
 pub struct CodeGen {
@@ -179,7 +197,7 @@ impl CodeGen {
         let header_code_section_id = self.lir.reserve_code_section();
 
         let _ = self.lir.insert_data_section(DataSectionData {
-            name: Identifier::from("@CART_HEADER_DATA"),
+            name: Identifier::from(CART_HEADER_DATA_SYMBOL),
             region: Some(RomRegionKind::Rom0),
             addr: Some(CART_HEADER_DATA_START_ADDR),
             data: vec![0; CART_HEADER_DATA_LEN],
@@ -188,11 +206,11 @@ impl CodeGen {
         let bootstrap_code_section_id = self.lir.reserve_code_section();
         let mut bootstrap_code = CodeSectionBuilder::default();
         bootstrap_code.set_region(RomRegionKind::Rom0);
-        let bootstrap_code_block = bootstrap_code.new_function(Identifier::from("@BOOTSTRAP"));
+        let bootstrap_code_block = bootstrap_code.new_function(Identifier::from(BOOTSTRAP_SYMBOL));
 
         let mut header_code = CodeSectionBuilder::default();
         header_code.set_region_and_addr(RomRegionKind::Rom0, CART_HEADER_START_ADDR);
-        let header_code_block = header_code.new_function(Identifier::from("@CART_HEADER_CODE"));
+        let header_code_block = header_code.new_function(Identifier::from(CART_HEADER_CODE_SYMBOL));
         // 1 byte opcode for nop
         header_code.insert_nop(header_code_block);
         // 3 byte opcode for JP
@@ -213,7 +231,7 @@ impl CodeGen {
             .expect("mir must have a resolved entrypoint function");
         let entrypoint_addr = functions[entrypoint];
 
-        bootstrap_code.insert_ld_sp_value(bootstrap_code_block, Ld16Source::Literal(0xFFFE));
+        bootstrap_code.insert_ld_sp_value(bootstrap_code_block, Ld16Source::Literal(INITIAL_SP));
         let spin_block = bootstrap_code.new_block();
         bootstrap_code.set_terminator(
             bootstrap_code_block,

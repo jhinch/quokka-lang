@@ -10,6 +10,7 @@ pub use oam::OamCorruptionHazard;
 pub use ppu::PpuBlockedAccess;
 
 use crate::hooks;
+use crate::memory_map::MemoryMap;
 use quokka_lang_sameboy_sys::GB_gameboy_t;
 use std::fmt;
 
@@ -111,6 +112,7 @@ pub struct Context<'a> {
     gb: *mut GB_gameboy_t,
     pc: u16,
     checker: &'static str,
+    memory_map: Option<&'a MemoryMap>,
     violations: &'a mut Vec<Violation>,
 }
 
@@ -123,12 +125,14 @@ impl<'a> Context<'a> {
         gb: *mut GB_gameboy_t,
         pc: u16,
         checker: &'static str,
+        memory_map: Option<&'a MemoryMap>,
         violations: &'a mut Vec<Violation>,
     ) -> Self {
         Context {
             gb,
             pc,
             checker,
+            memory_map,
             violations,
         }
     }
@@ -137,6 +141,13 @@ impl<'a> Context<'a> {
     #[must_use]
     pub fn pc(&self) -> u16 {
         self.pc
+    }
+
+    /// The description of the program being run, if the emulator was given one with
+    /// [`Sameboy::set_memory_map`](crate::Sameboy::set_memory_map).
+    #[must_use]
+    pub fn memory_map(&self) -> Option<&'a MemoryMap> {
+        self.memory_map
     }
 
     /// The current CPU registers. `pc` is the address of the instruction being executed

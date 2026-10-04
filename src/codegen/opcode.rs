@@ -1077,3 +1077,35 @@ pub const SET_7_L: u16 = 0xFDCB;
 pub const SET_7_HL: u16 = 0xFECB;
 /// `SET 7, A`
 pub const SET_7_A: u16 = 0xFFCB;
+
+/// The encoded length in bytes of the instruction starting with `opcode`.
+#[must_use]
+pub const fn instruction_len(opcode: u8) -> u8 {
+    match opcode {
+        // LD rr, n16
+        LD16_BC_N16 | LD16_DE_N16 | LD16_HL_N16 | LD16_SP_N16
+        // LD [a16], SP
+        | LD_A16_SP
+        // JP a16 / JP cc, a16
+        | JP_NZ_A16 | JP_A16 | JP_Z_A16 | JP_NC_A16 | JP_C_A16
+        // CALL a16 / CALL cc, a16
+        | CALL_NZ_A16 | CALL_Z_A16 | CALL_A16 | CALL_NC_A16 | CALL_C_A16
+        // LD [a16], A / LD A, [a16]
+        | LD_A16_A | LD_A_A16 => 3,
+        // LD r, n8
+        LD_B_N8 | LD_C_N8 | LD_D_N8 | LD_E_N8 | LD_H_N8 | LD_L_N8 | LD_HL_N8 | LD_A_N8
+        // STOP n8
+        | STOP_N8
+        // JR e8 / JR cc, e8
+        | JR_E8 | JR_NZ_E8 | JR_Z_E8 | JR_NC_E8 | JR_C_E8
+        // ALU A, n8
+        | ADD_A_N8 | ADC_A_N8 | SUB_A_N8 | SBC_A_N8 | AND_A_N8 | XOR_A_N8 | OR_A_N8 | CP_A_N8
+        // CB prefix
+        | 0xCB
+        // LDH [a8], A / LDH A, [a8]
+        | LDH_A8_A | LDH_A_A8
+        // ADD SP, e8 / LD HL, SP+e8
+        | ADD_SP_E8 | LD_HL_SP_E8 => 2,
+        _ => 1,
+    }
+}

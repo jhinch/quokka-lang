@@ -10,12 +10,14 @@
 
 mod check;
 mod hooks;
+mod memory_map;
 mod trace;
 
 pub use check::{
     Checker, Context, HaltHazard, OamCorruptionHazard, PpuBlockedAccess, ReadKind, Registers,
     Violation,
 };
+pub use memory_map::{MemoryMap, Region, RegionKind, Symbolized};
 pub use trace::{Trace, TraceEntry};
 
 use hooks::Hooks;
@@ -214,6 +216,18 @@ impl Sameboy {
     /// Add a checker, which observes every instruction and memory access from now on.
     pub fn add_checker(&mut self, checker: Box<dyn Checker>) {
         self.hooks_mut().checkers.push(checker);
+    }
+
+    /// Describe the program being run, for the checkers to judge it against. See
+    /// [`Context::memory_map`].
+    pub fn set_memory_map(&mut self, memory_map: MemoryMap) {
+        self.hooks_mut().memory_map = Some(memory_map);
+    }
+
+    /// The description of the program being run, if one was given.
+    #[must_use]
+    pub fn memory_map(&self) -> Option<&MemoryMap> {
+        self.hooks().memory_map.as_ref()
     }
 
     /// Run the end-of-run checks ([`Checker::on_finish`]) and return every violation recorded

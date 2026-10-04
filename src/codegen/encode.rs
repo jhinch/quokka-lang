@@ -172,10 +172,11 @@ impl ObjFileEncoder {
         });
         self.code_section_to_id.insert(id, current_section_id);
         let mut block_to_function = SecondaryMap::<lir::BlockId, lir::BlockId>::new();
-        for entry in code.functions.keys() {
+        let functions = code.function_entries();
+        for &entry in &functions {
             block_to_function.insert(entry, entry);
         }
-        for function in code.functions.keys() {
+        for function in functions {
             let mut queue = VecDeque::new();
             queue.push_back(function);
             while let Some(block) = queue.pop_front() {
@@ -195,8 +196,8 @@ impl ObjFileEncoder {
             let function = block_to_function.get(block).copied();
             let (name, exported) = match function {
                 Some(function) if function == block => (code.functions[function].to_string(), true),
-                Some(function) => (format!("{}{block}", code.functions[function]), false),
-                None => (format!("@DANGLING{block}"), false),
+                Some(function) => (block_symbol_name(&code.functions[function], block), false),
+                None => (format!("_@DANGLING{block}"), false),
             };
             let definition = SymbolDefinition {
                 node,
@@ -1466,9 +1467,16 @@ impl ObjFileEncoder {
     }
 }
 
+/// The name of the symbol the encoder defines for `block`, a block of `function` other than its
+/// entry block.
+#[must_use]
+pub fn block_symbol_name(function: &crate::ast::Identifier, block: lir::BlockId) -> String {
+    format!("{function}{block}")
+}
+
 fn calculate_block_order(code: &lir::CodeSectionData) -> IndexSet<lir::BlockId> {
     let mut ordered_blocks = IndexSet::new();
-    for function in code.functions.keys() {
+    for function in code.function_entries() {
         ordered_blocks.extend(reverse_postorder_blocks(code, function));
     }
     // handle dangling blocks
