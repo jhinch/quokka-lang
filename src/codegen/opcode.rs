@@ -416,7 +416,7 @@ pub const CP_A_A: u8 = 0xBF;
 
 /// `RET NZ`
 pub const RET_NZ: u8 = 0xC0;
-/// `STOP n8`
+/// `RET NC`
 pub const RET_NC: u8 = 0xD0;
 /// `LDH [a8], A`
 pub const LDH_A8_A: u8 = 0xE0;
