@@ -242,15 +242,16 @@ trait ObjFileReader: io::BufRead {
         let bank = self.read_optional_long()?;
         let alignment = self.read_byte()?;
         let alignment_offset = self.read_long()?;
+        let ram_size = u32::try_from(size).expect("section size should fit in a u32");
         let data = match type_bits {
-            0 => SectionData::WRam0(RamSectionData { size: size as u32 }),
-            1 => SectionData::VRam(RamSectionData { size: size as u32 }),
+            0 => SectionData::WRam0(RamSectionData { size: ram_size }),
+            1 => SectionData::VRam(RamSectionData { size: ram_size }),
             2 => SectionData::RomX(self.read_rom_section_data(size)?),
             3 => SectionData::Rom0(self.read_rom_section_data(size)?),
-            4 => SectionData::HRam(RamSectionData { size: size as u32 }),
-            5 => SectionData::WRamX(RamSectionData { size: size as u32 }),
-            6 => SectionData::SRam(RamSectionData { size: size as u32 }),
-            7 => SectionData::Oam(RamSectionData { size: size as u32 }),
+            4 => SectionData::HRam(RamSectionData { size: ram_size }),
+            5 => SectionData::WRamX(RamSectionData { size: ram_size }),
+            6 => SectionData::SRam(RamSectionData { size: ram_size }),
+            7 => SectionData::Oam(RamSectionData { size: ram_size }),
             unexpected => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,

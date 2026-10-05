@@ -21,25 +21,32 @@ impl Default for ObjFile {
 
 impl ObjFile {
     pub fn insert_source_node(&mut self, node: SourceNode) -> SourceNodeId {
-        let id = SourceNodeId(self.source_nodes.len() as u32);
+        let id = SourceNodeId(
+            u32::try_from(self.source_nodes.len()).expect("source node count should fit in a u32"),
+        );
         self.source_nodes.push(node);
         id
     }
 
     pub fn insert_symbol(&mut self, symbol: Symbol) -> SymbolId {
-        let id = SymbolId(self.symbols.len() as u32);
+        let id =
+            SymbolId(u32::try_from(self.symbols.len()).expect("symbol count should fit in a u32"));
         self.symbols.push(symbol);
         id
     }
 
     pub fn insert_section(&mut self, section: Section) -> SectionId {
-        let id = SectionId(self.sections.len() as u32);
+        let id = SectionId(
+            u32::try_from(self.sections.len()).expect("section count should fit in a u32"),
+        );
         self.sections.push(section);
         id
     }
 
     pub fn insert_assertion(&mut self, assertion: Assertion) -> AssertionId {
-        let id = AssertionId(self.assertions.len() as u32);
+        let id = AssertionId(
+            u32::try_from(self.assertions.len()).expect("assertion count should fit in a u32"),
+        );
         self.assertions.push(assertion);
         id
     }
@@ -49,6 +56,7 @@ impl ObjFile {
 pub struct SourceNodeId(pub(crate) u32);
 
 impl SourceNodeId {
+    #[must_use]
     pub fn index(self) -> usize {
         self.0 as usize
     }
@@ -73,6 +81,7 @@ pub enum SourceNodeData {
 pub struct SymbolId(pub(crate) u32);
 
 impl SymbolId {
+    #[must_use]
     pub fn index(self) -> usize {
         self.0 as usize
     }
@@ -92,6 +101,7 @@ pub enum SymbolData {
 }
 
 impl SymbolData {
+    #[must_use]
     pub fn as_definition(&self) -> Option<&SymbolDefinition> {
         match self {
             SymbolData::Local(definition) | SymbolData::Exported(definition) => Some(definition),
@@ -119,6 +129,7 @@ pub struct SymbolDefinition {
 pub struct SectionId(pub(crate) u32);
 
 impl SectionId {
+    #[must_use]
     pub fn index(self) -> usize {
         self.0 as usize
     }
@@ -150,6 +161,7 @@ pub enum SectionData {
 }
 
 impl SectionData {
+    #[must_use]
     pub fn as_ram_data(&self) -> Option<&RamSectionData> {
         match self {
             SectionData::WRam0(data)
@@ -173,6 +185,7 @@ impl SectionData {
         }
     }
 
+    #[must_use]
     pub fn as_rom_data(&self) -> Option<&RomSectionData> {
         match self {
             SectionData::RomX(data) | SectionData::Rom0(data) => Some(data),
@@ -301,6 +314,7 @@ pub enum PatchInstr {
 pub struct AssertionId(pub(crate) u32);
 
 impl AssertionId {
+    #[must_use]
     pub fn index(self) -> usize {
         self.0 as usize
     }

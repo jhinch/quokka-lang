@@ -572,17 +572,17 @@ impl Classifier {
             TokenKind::Global => self.context = Context::Declaring(Declaration::Global),
             TokenKind::Struct => self.context = Context::Declaring(Declaration::Struct),
             TokenKind::Colon if previous == Context::DeclaredName || self.in_struct_body => {
-                self.context = Context::Type
+                self.context = Context::Type;
             }
             TokenKind::LeftBrace if previous == Context::StructName => self.in_struct_body = true,
             TokenKind::RightBrace => self.in_struct_body = false,
             TokenKind::MinusGreaterThan => self.context = Context::Type,
             TokenKind::Hash => self.context = Context::Hash,
             TokenKind::LeftBracket if previous == Context::Hash => {
-                self.context = Context::AttributeOpen
+                self.context = Context::AttributeOpen;
             }
             TokenKind::Equal if previous == Context::AttributeName => {
-                self.context = Context::AttributeValue
+                self.context = Context::AttributeValue;
             }
             TokenKind::Ident => return self.classify_ident(previous),
             _ => {}
@@ -722,7 +722,10 @@ fn line_starts(text: &str) -> Vec<usize> {
 fn position(text: &str, line_starts: &[usize], offset: usize) -> (u32, u32) {
     let offset = text.floor_char_boundary(offset);
     let line = line_starts.partition_point(|&start| start <= offset) - 1;
-    (line as u32, utf16_len(&text[line_starts[line]..offset]))
+    (
+        u32::try_from(line).expect("line number should fit in a u32"),
+        utf16_len(&text[line_starts[line]..offset]),
+    )
 }
 
 fn lsp_position(text: &str, line_starts: &[usize], offset: usize) -> Position {
@@ -731,7 +734,7 @@ fn lsp_position(text: &str, line_starts: &[usize], offset: usize) -> Position {
 }
 
 fn utf16_len(s: &str) -> u32 {
-    s.encode_utf16().count() as u32
+    u32::try_from(s.encode_utf16().count()).expect("UTF-16 length should fit in a u32")
 }
 
 #[cfg(test)]

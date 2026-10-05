@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 #![deny(clippy::unnecessary_semicolon)]
 #![deny(clippy::needless_continue)]
 #![deny(clippy::semicolon_if_nothing_returned)]

@@ -37,7 +37,7 @@ pub(crate) trait ObjFileWriter: Write {
     }
 
     fn write_count(&mut self, value: usize) -> io::Result<()> {
-        self.write_long(value as u32)
+        self.write_long(u32::try_from(value).expect("count should fit in a u32"))
     }
 
     fn write_string(&mut self, value: &str) -> io::Result<()> {

@@ -7,6 +7,7 @@
 #![deny(clippy::cast_possible_truncation)]
 #![deny(clippy::manual_assert)]
 #![deny(clippy::undocumented_unsafe_blocks)]
+#![deny(clippy::missing_safety_doc)]
 
 mod check;
 mod hooks;
