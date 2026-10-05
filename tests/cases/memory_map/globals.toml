@@ -261,7 +261,7 @@ fn main() {
 """
 expected_memory_map = """
 globals:
-  $C000..=$C000 FLAG (1 bits)
+  $C000..=$C000 FLAG (1 bits, narrow +0)
 constants:
 reserved:
   $0001..=$0007 _@RST_00_PAD
@@ -628,7 +628,7 @@ fn main() {
 expected_memory_map = """
 globals:
   $FF40..=$FF40 LCDC (8 bits)
-  $FF40..=$FF40 LCDC_ENABLED (1 bits)
+  $FF40..=$FF40 LCDC_ENABLED (1 bits, narrow +0)
 constants:
 reserved:
   $0001..=$0007 _@RST_00_PAD
@@ -867,6 +867,113 @@ landmarks:
   header $0100..=$014F
   bootstrap $0072
   spin loop $0078
+  vector $0000 _@RST_00
+  vector $0008 _@RST_08
+  vector $0010 _@RST_10
+  vector $0018 _@RST_18
+  vector $0020 _@RST_20
+  vector $0028 _@RST_28
+  vector $0030 _@RST_30
+  vector $0038 _@RST_38
+  vector $0040 _@INT_VBLANK
+  vector $0048 _@INT_LCD_STAT
+  vector $0050 _@INT_TIMER
+  vector $0058 _@INT_SERIAL
+  vector $0060 _@INT_JOYPAD
+"""
+
+[[case]]
+name = "narrow_bytes_of_array_and_struct_globals"
+kind = "memory-map"
+source = """
+struct Flags {
+    a: u1,
+    b: u8,
+    c: u1,
+    d: u1,
+}
+
+#[address = 0xC000]
+global FLAGS: Flags;
+
+#[address = 0xC010]
+global BITS: [u1; 4];
+
+#[address = 0xC020]
+global NESTED: [Flags; 2];
+
+#[address = 0xC030]
+global WHOLE: [u16; 2];
+
+fn main() {
+    FLAGS.a = 1;
+    BITS[0] = 1;
+    NESTED[1].c = 1;
+    WHOLE[0] = 1;
+}
+"""
+expected_memory_map = """
+globals:
+  $C000..=$C003 FLAGS (32 bits, narrow +0 +2..=+3)
+  $C010..=$C013 BITS (32 bits, narrow +0..=+3)
+  $C020..=$C027 NESTED (64 bits, narrow +0 +2..=+4 +6..=+7)
+  $C030..=$C033 WHOLE (32 bits)
+constants:
+reserved:
+  $0001..=$0007 _@RST_00_PAD
+  $0009..=$000F _@RST_08_PAD
+  $0011..=$0017 _@RST_10_PAD
+  $0019..=$001F _@RST_18_PAD
+  $0021..=$0027 _@RST_20_PAD
+  $0029..=$002F _@RST_28_PAD
+  $0031..=$0037 _@RST_30_PAD
+  $0039..=$003F _@RST_38_PAD
+  $0041..=$0047 _@INT_VBLANK_PAD
+  $0049..=$004F _@INT_LCD_STAT_PAD
+  $0051..=$0057 _@INT_TIMER_PAD
+  $0059..=$005F _@INT_SERIAL_PAD
+  $0061..=$0067 _@INT_JOYPAD_PAD
+  $0104..=$014F _@CART_HEADER_DATA
+code:
+  $0000..=$0000
+    _@RST_00: $0000
+  $0008..=$0008
+    _@RST_08: $0008
+  $0010..=$0010
+    _@RST_10: $0010
+  $0018..=$0018
+    _@RST_18: $0018
+  $0020..=$0020
+    _@RST_20: $0020
+  $0028..=$0028
+    _@RST_28: $0028
+  $0030..=$0030
+    _@RST_30: $0030
+  $0038..=$0038
+    _@RST_38: $0038
+  $0040..=$0040
+    _@INT_VBLANK: $0040
+  $0048..=$0048
+    _@INT_LCD_STAT: $0048
+  $0050..=$0050
+    _@INT_TIMER: $0050
+  $0058..=$0058
+    _@INT_SERIAL: $0058
+  $0060..=$0060
+    _@INT_JOYPAD: $0060
+  $0068..=$00C0
+    main: $0068 $006A $006D $006E $0070 $0071 $0072 $0074 $0075 $0078 $0079 $007B $007D $007F $0082 $0083 $0084 $0086 $0087 $0088 $008A $008B $008E $008F $0090 $0092 $0094 $0096 $0099 $009A $009B $009C $009D $009E $009F $00A0 $00A2 $00A3 $00A4 $00A6 $00A7 $00AA $00AB $00AC $00AD $00AE $00AF $00B0 $00B1 $00B3 $00B5 $00B7 $00B9 $00BC $00BD $00BE $00BF $00C0
+  $00C1..=$00C9
+    _@BOOTSTRAP: $00C1 $00C4
+    _@BOOTSTRAP.bb2: $00C7
+  $0100..=$0103
+    _@CART_HEADER_CODE: $0100 $0101
+stack:
+  $FF80..$FFFE
+landmarks:
+  header $0100..=$014F
+  bootstrap $00C1
+  spin loop $00C7
   vector $0000 _@RST_00
   vector $0008 _@RST_08
   vector $0010 _@RST_10

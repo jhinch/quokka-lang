@@ -1,0 +1,118 @@
+# Programs which are clean under the uninitialized read checker for a reason particular to it:
+# memory the first access to is legitimately a read.
+
+# An I/O register is hardware state, so reading it before any write is how it is meant to be
+# used. `LY` cannot be written at all.
+[[case]]
+name = "io_register_is_read_before_it_is_written"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xFF44]
+global LY: u8;
+
+#[address = 0xFF42]
+global SCY: u8;
+
+#[address = 0xC000]
+global OUT: u8;
+
+fn main() {
+    OUT = LY & 0;
+    SCY = SCY | 1;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 0
+
+# The first store to a `u1` reads the byte it shares with seven undefined bits.
+[[case]]
+name = "first_store_to_a_u1_global"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global FLAG: u1;
+
+#[address = 0xC001]
+global OUT: u8;
+
+fn main() {
+    FLAG = 1;
+    if FLAG == 1 then {
+        OUT = 7;
+    }
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC001
+expected = 7
+
+# Every `u1` field has a byte to itself, each read by its own first store.
+[[case]]
+name = "first_store_to_each_u1_field_of_a_struct"
+source = """
+struct Flags {
+    a: u1,
+    b: u8,
+    c: u1,
+}
+
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global FLAGS: Flags;
+
+fn main() {
+    FLAGS.a = 1;
+    FLAGS.b = 5;
+    FLAGS.c = FLAGS.a;
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = [1, 5, 1]
+mask = [0b0000_0001, 0xFF, 0b0000_0001]
+
+[[case]]
+name = "first_store_to_a_u1_array_item_at_a_runtime_index"
+source = """
+#[address = 0x0150]
+fn checkpoint() {}
+
+#[address = 0xC000]
+global BITS: [u1; 4];
+
+#[address = 0xC010]
+global INDEX: u16;
+
+fn main() {
+    INDEX = 2;
+    BITS[INDEX] = 1;
+    BITS[0] = BITS[INDEX];
+    checkpoint();
+}
+"""
+await_pc = 0x0150
+[[case.assertion]]
+addr = 0xC000
+expected = 1
+mask = 0b0000_0001
+[[case.assertion]]
+addr = 0xC002
+expected = 1
+mask = 0b0000_0001

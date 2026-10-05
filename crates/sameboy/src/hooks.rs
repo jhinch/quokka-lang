@@ -267,6 +267,12 @@ unsafe extern "C" fn execution_callback(gb: *mut GB_gameboy_t, address: u16, opc
 }
 
 unsafe extern "C" fn read_memory_callback(gb: *mut GB_gameboy_t, addr: u16, data: u8) -> u8 {
+    // An OAM DMA transfer reads its source through the same path as the CPU. Those reads are
+    // the hardware's rather than the program's, and arrive between the CPU's own.
+    // SAFETY: SameBoy passes callbacks the initialized `GB_gameboy_t` they were installed on
+    if unsafe { in_dma_read(gb) } {
+        return data;
+    }
     // SAFETY: this is a callback installed by `install`, and SameBoy does not hold `gb`
     // through a Rust reference
     unsafe { with_hooks(gb, |hooks| hooks.on_read(gb, addr, data)) };
@@ -342,6 +348,17 @@ pub(crate) unsafe fn halt_bug(gb: *const GB_gameboy_t) -> bool {
     // SAFETY: the caller guarantees `gb` is initialized; the section unions only overlay a
     // marker byte on their fields
     unsafe { (*gb).__bindgen_anon_2.__bindgen_anon_1.halt_bug }
+}
+
+/// Whether the read being made is an OAM DMA transfer fetching a byte from its source.
+///
+/// # Safety
+///
+/// `gb` must point to an initialized `GB_gameboy_t`.
+unsafe fn in_dma_read(gb: *const GB_gameboy_t) -> bool {
+    // SAFETY: the caller guarantees `gb` is initialized; the section unions only overlay a
+    // marker byte on their fields
+    unsafe { (*gb).__bindgen_anon_11.__bindgen_anon_1.in_dma_read }
 }
 
 /// # Safety

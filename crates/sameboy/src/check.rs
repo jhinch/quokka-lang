@@ -4,10 +4,12 @@
 mod halt;
 mod oam;
 mod ppu;
+mod uninit;
 
 pub use halt::HaltHazard;
 pub use oam::OamCorruptionHazard;
 pub use ppu::PpuBlockedAccess;
+pub use uninit::UninitializedRead;
 
 use crate::hooks;
 use crate::memory_map::MemoryMap;

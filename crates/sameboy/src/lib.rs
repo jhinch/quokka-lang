@@ -15,7 +15,7 @@ mod trace;
 
 pub use check::{
     Checker, Context, HaltHazard, OamCorruptionHazard, PpuBlockedAccess, ReadKind, Registers,
-    Violation,
+    UninitializedRead, Violation,
 };
 pub use memory_map::{MemoryMap, Region, RegionKind, Symbolized};
 pub use trace::{Trace, TraceEntry};

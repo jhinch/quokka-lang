@@ -14,6 +14,7 @@ use std::fmt;
 pub struct MemoryMap {
     regions: Vec<Region>,
     instructions: BTreeSet<u16>,
+    narrow: BTreeSet<u16>,
     /// Sorted by address.
     labels: Vec<(u16, String)>,
     spin_loop: Option<u16>,
@@ -85,6 +86,12 @@ impl MemoryMap {
         self.instructions.insert(addr);
     }
 
+    /// Declare that the byte at `addr` holds a value narrower than a byte, which only defines
+    /// some of its bits.
+    pub fn add_narrow(&mut self, addr: u16) {
+        self.narrow.insert(addr);
+    }
+
     /// Name the code at `addr`, up to the next label.
     pub fn add_label(&mut self, addr: u16, name: impl Into<String>) {
         let index = self.labels.partition_point(|(other, _)| *other <= addr);
@@ -119,6 +126,12 @@ impl MemoryMap {
     #[must_use]
     pub fn is_instruction(&self, addr: u16) -> bool {
         self.instructions.contains(&addr)
+    }
+
+    /// Whether the byte at `addr` holds a value narrower than a byte.
+    #[must_use]
+    pub fn is_narrow(&self, addr: u16) -> bool {
+        self.narrow.contains(&addr)
     }
 
     /// The address of the loop the program spins in once it has finished.
@@ -213,6 +226,15 @@ mod tests {
         assert!(map.is_instruction(0x0150));
         assert!(!map.is_instruction(0x0151));
         assert!(map.is_instruction(0x0153));
+    }
+
+    #[test]
+    fn narrow_bytes_are_exact() {
+        let mut map = MemoryMap::new();
+        map.add_narrow(0xC001);
+        assert!(!map.is_narrow(0xC000));
+        assert!(map.is_narrow(0xC001));
+        assert!(!map.is_narrow(0xC002));
     }
 
     #[test]

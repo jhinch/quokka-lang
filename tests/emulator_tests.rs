@@ -27,7 +27,7 @@ use quokka_lang::memory_map::MemoryMap;
 use quokka_lang::pipeline::PipelineConfig;
 use quokka_lang_sameboy::{
     HaltHazard, Model, OamCorruptionHazard, PpuBlockedAccess, Region, RegionKind, RunOutcome,
-    Sameboy,
+    Sameboy, UninitializedRead,
 };
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -302,6 +302,7 @@ fn run_case(case: &TestCase, toggled: Option<PreviewFeature>) {
     emulator.add_checker(Box::new(OamCorruptionHazard::new()));
     emulator.add_checker(Box::new(HaltHazard::new()));
     emulator.add_checker(Box::new(PpuBlockedAccess::new()));
+    emulator.add_checker(Box::new(UninitializedRead::new()));
     match emulator.run_until_pc(case.await_pc, case.max_instructions) {
         RunOutcome::Reached => {}
         RunOutcome::InstructionLimit => panic!(
@@ -350,6 +351,9 @@ fn checker_memory_map(memory_map: &MemoryMap) -> quokka_lang_sameboy::MemoryMap 
             start: global.addr,
             len: global.len(),
         });
+        for offset in &global.narrow {
+            result.add_narrow(global.addr + offset);
+        }
     }
     let data = [
         (RegionKind::Constant, &memory_map.constants),

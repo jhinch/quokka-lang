@@ -13,7 +13,8 @@ use crate::codegen::{
     BOOTSTRAP_SYMBOL, CART_HEADER_END_ADDR, CART_HEADER_START_ADDR, COMPILER_SYMBOL_PREFIX,
     INITIAL_SP, INTERRUPT_VECTOR_ADDRS, RST_VECTOR_ADDRS,
 };
-use crate::ty::TyRegistry;
+use crate::num::u3;
+use crate::ty::{Ty, TyRegistry};
 use crate::{lir, mir};
 use quokka_lang_obj::ObjFile;
 use std::collections::HashMap;
@@ -54,6 +55,10 @@ pub struct Global {
     /// The size of the global's type. One which is not a whole number of bytes only defines
     /// the low bits of its last byte.
     pub bits: u32,
+    /// The offset of each byte of the global which holds a value narrower than a byte, in
+    /// order. Such a byte only defines its low bits, and is stored to by reading it, replacing
+    /// those bits and writing it back.
+    pub narrow: Vec<u16>,
 }
 
 impl Global {
@@ -125,7 +130,18 @@ impl fmt::Display for MemoryMap {
         for global in &self.globals {
             write!(f, "  ")?;
             write_range(f, global.addr, global.len())?;
-            writeln!(f, " {} ({} bits)", global.name, global.bits)?;
+            write!(f, " {} ({} bits", global.name, global.bits)?;
+            // each run of consecutive narrow bytes is listed as a range of offsets
+            let mut separator = ", narrow";
+            for run in global.narrow.chunk_by(|a, b| a + 1 == *b) {
+                match run {
+                    [offset] => write!(f, "{separator} +{offset}")?,
+                    [first, .., last] => write!(f, "{separator} +{first}..=+{last}")?,
+                    [] => {}
+                }
+                separator = "";
+            }
+            writeln!(f, ")")?;
         }
         for (title, ranges) in [("constants", &self.constants), ("reserved", &self.reserved)] {
             writeln!(f, "{title}:")?;
@@ -185,6 +201,34 @@ fn byte_len(bits: u32) -> u16 {
     u16::try_from(bits.div_ceil(8)).expect("a type is at most 64KiB")
 }
 
+/// Adds the offset of every byte of a `ty` placed at `offset` which holds a value narrower
+/// than a byte. Each such value has a byte to itself, as array items and struct fields are
+/// padded to whole bytes.
+fn narrow_offsets(ty: Ty, ty_registry: &TyRegistry, offset: u16, narrow: &mut Vec<u16>) {
+    if ty.is_array() {
+        let data = ty_registry.array_ty_data(ty);
+        let item_len = data.item_ty.bit_size(ty_registry).padded_bytes();
+        let start = narrow.len();
+        narrow_offsets(data.item_ty, ty_registry, offset, narrow);
+        // every item is narrow at the same offsets as the first
+        let item_narrow = narrow[start..].to_vec();
+        for index in 1..data.count.get() {
+            narrow.extend(item_narrow.iter().map(|first| first + index * item_len));
+        }
+    } else if ty.is_struct() {
+        for field in ty_registry.struct_ty_data(ty).fields.values() {
+            narrow_offsets(
+                field.ty,
+                ty_registry,
+                offset + field.bit_offset.bytes(),
+                narrow,
+            );
+        }
+    } else if ty.bit_size(ty_registry).bits() != u3::new(0) {
+        narrow.push(offset);
+    }
+}
+
 /// What a program declares, before the linker has placed it.
 #[derive(Debug, Clone, Default)]
 pub struct MemoryLayout {
@@ -200,6 +244,8 @@ pub struct MemoryLayout {
 pub struct DeclaredGlobal {
     name: String,
     bits: u32,
+    /// The offset of each byte which holds a value narrower than a byte.
+    narrow: Vec<u16>,
     mutable: bool,
     /// The address the declaration pins it to. The linker chooses otherwise.
     addr: Option<u16>,
@@ -214,6 +260,11 @@ impl DeclaredGlobal {
             .map(|global| DeclaredGlobal {
                 name: global.name.data.to_string(),
                 bits: global.ty.bit_size(ty_registry).into(),
+                narrow: {
+                    let mut narrow = Vec::new();
+                    narrow_offsets(global.ty, ty_registry, 0, &mut narrow);
+                    narrow
+                },
                 mutable: global.is_mutable(),
                 addr: match &global.attrs {
                     mir::GlobalAttributes::Rom(attrs) => attrs.address,
@@ -293,6 +344,7 @@ impl MemoryLayout {
                     name: global.name.clone(),
                     addr,
                     bits: global.bits,
+                    narrow: global.narrow.clone(),
                 });
             } else {
                 constants.push(DataRange {
