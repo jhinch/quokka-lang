@@ -8,7 +8,6 @@
 //! [`MemoryMap`].
 
 use crate::codegen::encode::block_symbol_name;
-use crate::codegen::opcode::instruction_len;
 use crate::codegen::{
     BOOTSTRAP_SYMBOL, CART_HEADER_END_ADDR, CART_HEADER_START_ADDR, COMPILER_SYMBOL_PREFIX,
     INITIAL_SP, INTERRUPT_VECTOR_ADDRS, RST_VECTOR_ADDRS,
@@ -17,6 +16,7 @@ use crate::num::u3;
 use crate::ty::{Ty, TyRegistry};
 use crate::{lir, mir};
 use quokka_lang_obj::ObjFile;
+use quokka_lang_opcodes::instruction_len;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;

@@ -30,6 +30,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["fmt"] }
 unicode-ident = "1.0.24"
 quokka-lang-obj = { path = "crates/obj" }
+quokka-lang-opcodes = { path = "crates/opcodes" }
 quokka-lang-sameboy = { path = "crates/sameboy" }
 quokka-lang-sameboy-sys = { path = "crates/sameboy-sys" }
 quokka-lang-slotkeyset = { path = "crates/slotkeyset" }
@@ -82,6 +83,7 @@ tracing-subscriber.workspace = true
 unicode-ident.workspace = true
 quokka-lang-slotkeyset.workspace = true
 quokka-lang-obj.workspace = true
+quokka-lang-opcodes.workspace = true
 
 [dev-dependencies]
 libtest-mimic.workspace = true

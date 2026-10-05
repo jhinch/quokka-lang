@@ -1,6 +1,7 @@
 //! Detects `HALT` instructions that trigger the HALT bug or that can never wake up.
 
 use super::{Checker, Context};
+use quokka_lang_opcodes::HALT;
 
 /// Reports every `HALT` that misbehaves because of the interrupt state it is executed in.
 ///
@@ -24,7 +25,6 @@ impl HaltHazard {
     }
 }
 
-const HALT: u8 = 0x76;
 const INTERRUPT_FLAGS: u16 = 0xFF0F;
 const INTERRUPT_ENABLE: u16 = 0xFFFF;
 /// The bits of `IE` and `IF` that correspond to an interrupt.

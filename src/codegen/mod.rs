@@ -12,7 +12,6 @@ use slotmap::SecondaryMap;
 pub mod encode;
 pub mod interference;
 mod lower;
-pub mod opcode;
 pub mod peephole;
 pub mod regalloc;
 

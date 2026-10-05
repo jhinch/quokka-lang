@@ -840,6 +840,7 @@ dependencies = [
  "owo-colors",
  "pulldown-cmark",
  "quokka-lang-obj",
+ "quokka-lang-opcodes",
  "quokka-lang-sameboy",
  "quokka-lang-slotkeyset",
  "ron",
@@ -859,9 +860,17 @@ name = "quokka-lang-obj"
 version = "0.2.0"
 
 [[package]]
+name = "quokka-lang-opcodes"
+version = "0.2.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "quokka-lang-sameboy"
 version = "0.2.0"
 dependencies = [
+ "quokka-lang-opcodes",
  "quokka-lang-sameboy-sys",
  "tracing",
 ]

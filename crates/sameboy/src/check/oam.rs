@@ -1,6 +1,7 @@
 //! Detects instructions that trigger the DMG/MGB OAM corruption bug.
 
 use super::{Checker, Context, ReadKind};
+use quokka_lang_opcodes::*;
 
 /// Reports every instruction that would corrupt OAM on a DMG or MGB if it ran while the PPU
 /// was scanning OAM (mode 2).
@@ -99,15 +100,17 @@ impl Checker for OamCorruptionHazard {
         };
 
         match opcode {
-            // INC rr / DEC rr
-            0x03 | 0x13 | 0x23 | 0x33 | 0x0B | 0x1B | 0x2B | 0x3B => {
-                let (name, value) = match opcode >> 4 {
-                    0 => ("BC", registers.bc),
-                    1 => ("DE", registers.de),
-                    2 => ("HL", hl),
+            INC_BC | INC_DE | INC_HL | INC_SP | DEC_BC | DEC_DE | DEC_HL | DEC_SP => {
+                let (name, value) = match opcode {
+                    INC_BC | DEC_BC => ("BC", registers.bc),
+                    INC_DE | DEC_DE => ("DE", registers.de),
+                    INC_HL | DEC_HL => ("HL", hl),
                     _ => ("SP", sp),
                 };
-                let mnemonic = if opcode & 0x08 == 0 { "INC" } else { "DEC" };
+                let mnemonic = match opcode {
+                    INC_BC | INC_DE | INC_HL | INC_SP => "INC",
+                    _ => "DEC",
+                };
                 if is_oam(value) {
                     cx.report(
                         "inc-dec",
@@ -116,43 +119,37 @@ impl Checker for OamCorruptionHazard {
                     );
                 }
             }
-            // LD [HL+], A / LD A, [HL+] / LD [HL-], A / LD A, [HL-]
-            0x22 | 0x2A | 0x32 | 0x3A if is_oam(hl) => {
+            LD_HLI_PTR_A | LD_A_HLI_PTR | LD_HLD_PTR_A | LD_A_HLD_PTR if is_oam(hl) => {
                 let mnemonic = match opcode {
-                    0x22 => "LD [HL+], A",
-                    0x2A => "LD A, [HL+]",
-                    0x32 => "LD [HL-], A",
+                    LD_HLI_PTR_A => "LD [HL+], A",
+                    LD_A_HLI_PTR => "LD A, [HL+]",
+                    LD_HLD_PTR_A => "LD [HL-], A",
                     _ => "LD A, [HL-]",
                 };
                 cx.report("hl-step", Some(hl), format!("{mnemonic} with HL=${hl:04X}"));
             }
-            // LD SP, HL
-            0xF9 if is_oam(hl) => {
+            LD_SP_HL if is_oam(hl) => {
                 cx.report("ld-sp-hl", Some(hl), format!("LD SP, HL with HL=${hl:04X}"));
             }
-            // PUSH rr
-            0xC5 | 0xD5 | 0xE5 | 0xF5 => push(cx, "PUSH"),
-            // CALL a16
-            0xCD => push(cx, "CALL"),
-            // CALL cc, a16
-            0xC4 | 0xCC | 0xD4 | 0xDC if condition_holds(opcode, registers.af) => {
+            PUSH_BC | PUSH_DE | PUSH_HL | PUSH_AF => push(cx, "PUSH"),
+            CALL_A16 => push(cx, "CALL"),
+            CALL_NZ_A16 | CALL_Z_A16 | CALL_NC_A16 | CALL_C_A16
+                if condition_holds(opcode, registers.af) =>
+            {
                 push(cx, "CALL");
             }
-            // RST
-            0xC7 | 0xCF | 0xD7 | 0xDF | 0xE7 | 0xEF | 0xF7 | 0xFF => push(cx, "RST"),
-            // POP rr
-            0xC1 | 0xD1 | 0xE1 | 0xF1 => pop(cx, "POP"),
-            // RET
-            0xC9 => pop(cx, "RET"),
-            // RETI
-            0xD9 => pop(cx, "RETI"),
-            // RET cc
-            0xC0 | 0xC8 | 0xD0 | 0xD8 if condition_holds(opcode, registers.af) => {
+            RST_00 | RST_08 | RST_10 | RST_18 | RST_20 | RST_28 | RST_30 | RST_38 => {
+                push(cx, "RST");
+            }
+            POP_BC | POP_DE | POP_HL | POP_AF => pop(cx, "POP"),
+            RET => pop(cx, "RET"),
+            RETI => pop(cx, "RETI"),
+            RET_NZ | RET_Z | RET_NC | RET_C if condition_holds(opcode, registers.af) => {
                 pop(cx, "RET");
             }
-            // JR r8 puts the address after its operand on the bus before adding the offset. Any
+            // JR e8 puts the address after its operand on the bus before adding the offset. Any
             // later address in OAM has already had the operand fetched from OAM.
-            0x18 if pc.wrapping_add(2) == 0xFE00 => {
+            JR_E8 if pc.wrapping_add(2) == 0xFE00 => {
                 cx.report("pc", Some(0xFE00), "JR with PC stepping into OAM");
             }
             _ => {}

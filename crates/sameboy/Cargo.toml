@@ -5,4 +5,5 @@ edition.workspace = true
 
 [dependencies]
 tracing.workspace = true
+quokka-lang-opcodes.workspace = true
 quokka-lang-sameboy-sys.workspace = true

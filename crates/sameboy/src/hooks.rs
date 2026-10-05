@@ -4,6 +4,7 @@
 use crate::check::{Checker, Context, ReadKind, Registers, Violation};
 use crate::memory_map::MemoryMap;
 use crate::trace::Trace;
+use quokka_lang_opcodes::{HALT, STOP_N8, instruction_len};
 use quokka_lang_sameboy_sys::*;
 use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -182,45 +183,14 @@ impl Hooks {
     }
 }
 
-/// The encoded length in bytes of the instruction starting with `opcode`.
-const fn instruction_len(opcode: u8) -> u8 {
-    match opcode {
-        // LD rr, d16
-        0x01 | 0x11 | 0x21 | 0x31
-        // LD [a16], SP
-        | 0x08
-        // JP a16 / JP cc, a16
-        | 0xC2 | 0xC3 | 0xCA | 0xD2 | 0xDA
-        // CALL a16 / CALL cc, a16
-        | 0xC4 | 0xCC | 0xCD | 0xD4 | 0xDC
-        // LD [a16], A / LD A, [a16]
-        | 0xEA | 0xFA => 3,
-        // LD r, d8
-        0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E
-        // STOP
-        | 0x10
-        // JR r8 / JR cc, r8
-        | 0x18 | 0x20 | 0x28 | 0x30 | 0x38
-        // ALU A, d8
-        | 0xC6 | 0xCE | 0xD6 | 0xDE | 0xE6 | 0xEE | 0xF6 | 0xFE
-        // CB prefix
-        | 0xCB
-        // LDH [a8], A / LDH A, [a8]
-        | 0xE0 | 0xF0
-        // ADD SP, r8 / LD HL, SP+r8
-        | 0xE8 | 0xF8 => 2,
-        _ => 1,
-    }
-}
-
 /// The most reads the CPU makes at `PC` after fetching `opcode`, before any read the
 /// instruction performs on its operands.
 const fn fetch_reads(opcode: u8) -> u8 {
     match opcode {
         // STOP looks at the byte after it once, then fetches it unless an interrupt is pending
-        0x10 => 2,
+        STOP_N8 => 2,
         // HALT looks at the byte after it without consuming it
-        0x76 => 1,
+        HALT => 1,
         _ => instruction_len(opcode) - 1,
     }
 }

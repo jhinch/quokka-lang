@@ -1,4 +1,3 @@
-use crate::codegen::opcode;
 use crate::feature::{PreviewFeature, PreviewFeatureSet};
 use crate::lir;
 use crate::reg::Color;
@@ -8,6 +7,7 @@ use quokka_lang_obj::{
     SectionId, SectionPatch, SectionPatchKind, SourceNode, SourceNodeData, SourceNodeId, Symbol,
     SymbolData, SymbolDefinition, SymbolId,
 };
+use quokka_lang_opcodes as opcode;
 use slotmap::SecondaryMap;
 use slotmap::secondary::Entry;
 use std::collections::VecDeque;
@@ -360,16 +360,16 @@ impl ObjFileEncoder {
                     .into_r16()
                     .map(|r16| code.r16_registers[r16].color.unwrap());
                 let opcode = match (code.r8_registers[*target].color.unwrap(), source_color) {
-                    (Color::B, Some(Color::HL)) => opcode::LD_B_HL,
-                    (Color::C, Some(Color::HL)) => opcode::LD_C_HL,
-                    (Color::D, Some(Color::HL)) => opcode::LD_D_HL,
-                    (Color::E, Some(Color::HL)) => opcode::LD_E_HL,
-                    (Color::H, Some(Color::HL)) => opcode::LD_H_HL,
-                    (Color::L, Some(Color::HL)) => opcode::LD_L_HL,
-                    (Color::A, Some(Color::HL)) => opcode::LD_A_HL,
-                    (Color::A, Some(Color::BC)) => opcode::LD_A_BC,
-                    (Color::A, Some(Color::DE)) => opcode::LD_A_DE,
-                    (Color::A, None) => opcode::LD_A_A16,
+                    (Color::B, Some(Color::HL)) => opcode::LD_B_HL_PTR,
+                    (Color::C, Some(Color::HL)) => opcode::LD_C_HL_PTR,
+                    (Color::D, Some(Color::HL)) => opcode::LD_D_HL_PTR,
+                    (Color::E, Some(Color::HL)) => opcode::LD_E_HL_PTR,
+                    (Color::H, Some(Color::HL)) => opcode::LD_H_HL_PTR,
+                    (Color::L, Some(Color::HL)) => opcode::LD_L_HL_PTR,
+                    (Color::A, Some(Color::HL)) => opcode::LD_A_HL_PTR,
+                    (Color::A, Some(Color::BC)) => opcode::LD_A_BC_PTR,
+                    (Color::A, Some(Color::DE)) => opcode::LD_A_DE_PTR,
+                    (Color::A, None) => opcode::LD_A_A16_PTR,
                     (unexpected_target, Some(unexpected_source)) => {
                         unimplemented!("LD {unexpected_target:?}, [{unexpected_source:?}]")
                     }
@@ -382,8 +382,8 @@ impl ObjFileEncoder {
                     .into_r8()
                     .map(|r8| code.r8_registers[r8].color.unwrap())
                 {
-                    Some(Color::C) => opcode::LDH_A_C,
-                    None => opcode::LDH_A_A8,
+                    Some(Color::C) => opcode::LDH_A_C_PTR,
+                    None => opcode::LDH_A_A8_PTR,
                     Some(unexpected) => unimplemented!("LDH A, [{unexpected:?}]"),
                 };
                 bytes.push(opcode);
@@ -392,22 +392,22 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::Ld8Inc { .. } => {
-                bytes.push(opcode::LD_A_HLI);
+                bytes.push(opcode::LD_A_HLI_PTR);
             }
             lir::Instr::Ld8Dec { .. } => {
-                bytes.push(opcode::LD_A_HLD);
+                bytes.push(opcode::LD_A_HLD_PTR);
             }
             lir::Instr::Ld16 { target, source } => {
                 let opcode = match code.r16_registers[*target].color.unwrap() {
-                    Color::BC => opcode::LD16_BC_N16,
-                    Color::DE => opcode::LD16_DE_N16,
-                    Color::HL => opcode::LD16_HL_N16,
+                    Color::BC => opcode::LD_BC_N16,
+                    Color::DE => opcode::LD_DE_N16,
+                    Color::HL => opcode::LD_HL_N16,
                     unexpected => unimplemented!("LD {unexpected:?}, n16"),
                 };
                 self.encode_ld16_source(node, id, opcode, source, bytes, patches);
             }
             lir::Instr::LdSPValue { source } => {
-                self.encode_ld16_source(node, id, opcode::LD16_SP_N16, source, bytes, patches);
+                self.encode_ld16_source(node, id, opcode::LD_SP_N16, source, bytes, patches);
             }
             lir::Instr::Store {
                 addr: target_addr,
@@ -417,16 +417,16 @@ impl ObjFileEncoder {
                     .into_r16()
                     .map(|r16| code.r16_registers[r16].color.unwrap());
                 let opcode = match (target_color, code.r8_registers[*source].color.unwrap()) {
-                    (Some(Color::HL), Color::B) => opcode::LD_HL_B,
-                    (Some(Color::HL), Color::C) => opcode::LD_HL_C,
-                    (Some(Color::HL), Color::D) => opcode::LD_HL_D,
-                    (Some(Color::HL), Color::E) => opcode::LD_HL_E,
-                    (Some(Color::HL), Color::H) => opcode::LD_HL_H,
-                    (Some(Color::HL), Color::L) => opcode::LD_HL_L,
-                    (Some(Color::HL), Color::A) => opcode::LD_HL_A,
-                    (Some(Color::BC), Color::A) => opcode::LD_BC_A,
-                    (Some(Color::DE), Color::A) => opcode::LD_DE_A,
-                    (None, Color::A) => opcode::LD_A_A16,
+                    (Some(Color::HL), Color::B) => opcode::LD_HL_PTR_B,
+                    (Some(Color::HL), Color::C) => opcode::LD_HL_PTR_C,
+                    (Some(Color::HL), Color::D) => opcode::LD_HL_PTR_D,
+                    (Some(Color::HL), Color::E) => opcode::LD_HL_PTR_E,
+                    (Some(Color::HL), Color::H) => opcode::LD_HL_PTR_H,
+                    (Some(Color::HL), Color::L) => opcode::LD_HL_PTR_L,
+                    (Some(Color::HL), Color::A) => opcode::LD_HL_PTR_A,
+                    (Some(Color::BC), Color::A) => opcode::LD_BC_PTR_A,
+                    (Some(Color::DE), Color::A) => opcode::LD_DE_PTR_A,
+                    (None, Color::A) => opcode::LD_A_A16_PTR,
                     (Some(unexpected_target), unexpected_source) => {
                         unimplemented!("LD [{unexpected_target:?}], {unexpected_source:?}")
                     }
@@ -439,8 +439,8 @@ impl ObjFileEncoder {
                     .into_r8()
                     .map(|r8| code.r8_registers[r8].color.unwrap())
                 {
-                    Some(Color::C) => opcode::LDH_C_A,
-                    None => opcode::LDH_A8_A,
+                    Some(Color::C) => opcode::LDH_C_PTR_A,
+                    None => opcode::LDH_A8_PTR_A,
                     Some(unexpected) => unimplemented!("LDH A, [{unexpected:?}]"),
                 };
                 bytes.push(opcode);
@@ -449,14 +449,14 @@ impl ObjFileEncoder {
                 }
             }
             lir::Instr::StoreValue { source, .. } => {
-                bytes.push(opcode::LD_HL_N8);
+                bytes.push(opcode::LD_HL_PTR_N8);
                 bytes.push(*source);
             }
             lir::Instr::StoreInc { .. } => {
-                bytes.push(opcode::LD_HLI_A);
+                bytes.push(opcode::LD_HLI_PTR_A);
             }
             lir::Instr::StoreDec { .. } => {
-                bytes.push(opcode::LD_HLI_A);
+                bytes.push(opcode::LD_HLI_PTR_A);
             }
             lir::Instr::Adc { right, .. } => {
                 let opcode = match right {
@@ -470,7 +470,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::ADC_A_A,
                         unexpected => unimplemented!("ADC A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::ADC_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::ADC_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::ADC_A_N8,
                 };
                 bytes.push(opcode);
@@ -490,7 +490,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::ADD_A_A,
                         unexpected => unimplemented!("ADD A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::ADD_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::ADD_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::ADD_A_N8,
                 };
                 bytes.push(opcode);
@@ -510,7 +510,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::CP_A_A,
                         unexpected => unimplemented!("CP A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::CP_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::CP_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::CP_A_N8,
                 };
                 bytes.push(opcode);
@@ -532,7 +532,7 @@ impl ObjFileEncoder {
                 bytes.push(opcode);
             }
             lir::Instr::DecPtr { .. } => {
-                bytes.push(opcode::DEC_HL);
+                bytes.push(opcode::DEC_HL_PTR);
             }
             lir::Instr::Inc { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -548,7 +548,7 @@ impl ObjFileEncoder {
                 bytes.push(opcode);
             }
             lir::Instr::IncPtr { .. } => {
-                bytes.push(opcode::INC_HL);
+                bytes.push(opcode::INC_HL_PTR);
             }
             lir::Instr::Sbc { right, .. } => {
                 let opcode = match right {
@@ -562,7 +562,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::SBC_A_A,
                         unexpected => unimplemented!("SBC A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::SBC_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::SBC_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::SBC_A_N8,
                 };
                 bytes.push(opcode);
@@ -582,7 +582,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::SUB_A_A,
                         unexpected => unimplemented!("SUB A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::SUB_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::SUB_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::SUB_A_N8,
                 };
                 bytes.push(opcode);
@@ -602,7 +602,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::AND_A_A,
                         unexpected => unimplemented!("AND A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::AND_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::AND_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::AND_A_N8,
                 };
                 bytes.push(opcode);
@@ -625,7 +625,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::OR_A_A,
                         unexpected => unimplemented!("OR A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::OR_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::OR_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::OR_A_N8,
                 };
                 bytes.push(opcode);
@@ -645,7 +645,7 @@ impl ObjFileEncoder {
                         Color::A => opcode::XOR_A_A,
                         unexpected => unimplemented!("XOR A, {unexpected:?}"),
                     },
-                    lir::Operand8::Ptr(_) => opcode::XOR_A_HL,
+                    lir::Operand8::Ptr(_) => opcode::XOR_A_HL_PTR,
                     lir::Operand8::Literal(_) => opcode::XOR_A_N8,
                 };
                 bytes.push(opcode);
@@ -719,14 +719,14 @@ impl ObjFileEncoder {
             }
             lir::Instr::BitPtr { bit, .. } => {
                 let opcode = match u8::from(*bit) {
-                    0 => opcode::BIT_0_HL,
-                    1 => opcode::BIT_1_HL,
-                    2 => opcode::BIT_2_HL,
-                    3 => opcode::BIT_3_HL,
-                    4 => opcode::BIT_4_HL,
-                    5 => opcode::BIT_5_HL,
-                    6 => opcode::BIT_6_HL,
-                    7 => opcode::BIT_7_HL,
+                    0 => opcode::BIT_0_HL_PTR,
+                    1 => opcode::BIT_1_HL_PTR,
+                    2 => opcode::BIT_2_HL_PTR,
+                    3 => opcode::BIT_3_HL_PTR,
+                    4 => opcode::BIT_4_HL_PTR,
+                    5 => opcode::BIT_5_HL_PTR,
+                    6 => opcode::BIT_6_HL_PTR,
+                    7 => opcode::BIT_7_HL_PTR,
                     unexpected => unimplemented!("BIT {unexpected}, [HL]"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -797,14 +797,14 @@ impl ObjFileEncoder {
             }
             lir::Instr::ResPtr { bit, .. } => {
                 let opcode = match u8::from(*bit) {
-                    0 => opcode::RES_0_HL,
-                    1 => opcode::RES_1_HL,
-                    2 => opcode::RES_2_HL,
-                    3 => opcode::RES_3_HL,
-                    4 => opcode::RES_4_HL,
-                    5 => opcode::RES_5_HL,
-                    6 => opcode::RES_6_HL,
-                    7 => opcode::RES_7_HL,
+                    0 => opcode::RES_0_HL_PTR,
+                    1 => opcode::RES_1_HL_PTR,
+                    2 => opcode::RES_2_HL_PTR,
+                    3 => opcode::RES_3_HL_PTR,
+                    4 => opcode::RES_4_HL_PTR,
+                    5 => opcode::RES_5_HL_PTR,
+                    6 => opcode::RES_6_HL_PTR,
+                    7 => opcode::RES_7_HL_PTR,
                     unexpected => unimplemented!("RES {unexpected}, [HL]"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -875,14 +875,14 @@ impl ObjFileEncoder {
             }
             lir::Instr::SetPtr { bit, .. } => {
                 let opcode = match u8::from(*bit) {
-                    0 => opcode::SET_0_HL,
-                    1 => opcode::SET_1_HL,
-                    2 => opcode::SET_2_HL,
-                    3 => opcode::SET_3_HL,
-                    4 => opcode::SET_4_HL,
-                    5 => opcode::SET_5_HL,
-                    6 => opcode::SET_6_HL,
-                    7 => opcode::SET_7_HL,
+                    0 => opcode::SET_0_HL_PTR,
+                    1 => opcode::SET_1_HL_PTR,
+                    2 => opcode::SET_2_HL_PTR,
+                    3 => opcode::SET_3_HL_PTR,
+                    4 => opcode::SET_4_HL_PTR,
+                    5 => opcode::SET_5_HL_PTR,
+                    6 => opcode::SET_6_HL_PTR,
+                    7 => opcode::SET_7_HL_PTR,
                     unexpected => unimplemented!("SET {unexpected}, [HL]"),
                 };
                 bytes.extend(opcode.to_le_bytes());
@@ -901,7 +901,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::RlPtr { .. } => {
-                bytes.extend(opcode::RL_HL.to_le_bytes());
+                bytes.extend(opcode::RL_HL_PTR.to_le_bytes());
             }
             lir::Instr::Rlc { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -917,7 +917,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::RlcPtr { .. } => {
-                bytes.extend(opcode::RLC_HL.to_le_bytes());
+                bytes.extend(opcode::RLC_HL_PTR.to_le_bytes());
             }
             lir::Instr::Rr { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -933,7 +933,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::RrPtr { .. } => {
-                bytes.extend(opcode::RR_HL.to_le_bytes());
+                bytes.extend(opcode::RR_HL_PTR.to_le_bytes());
             }
             lir::Instr::Rrc { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -949,7 +949,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::RrcPtr { .. } => {
-                bytes.extend(opcode::RRC_HL.to_le_bytes());
+                bytes.extend(opcode::RRC_HL_PTR.to_le_bytes());
             }
             lir::Instr::Rla { .. } => {
                 bytes.push(opcode::RLA);
@@ -977,7 +977,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::SlaPtr { .. } => {
-                bytes.extend(opcode::SLA_HL.to_le_bytes());
+                bytes.extend(opcode::SLA_HL_PTR.to_le_bytes());
             }
             lir::Instr::Sra { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -993,7 +993,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::SraPtr { .. } => {
-                bytes.extend(opcode::SRA_HL.to_le_bytes());
+                bytes.extend(opcode::SRA_HL_PTR.to_le_bytes());
             }
             lir::Instr::Srl { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -1009,7 +1009,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::SrlPtr { .. } => {
-                bytes.extend(opcode::SRL_HL.to_le_bytes());
+                bytes.extend(opcode::SRL_HL_PTR.to_le_bytes());
             }
             lir::Instr::Swap { source, .. } => {
                 let opcode = match code.r8_registers[*source].color.unwrap() {
@@ -1025,7 +1025,7 @@ impl ObjFileEncoder {
                 bytes.extend(opcode.to_le_bytes());
             }
             lir::Instr::SwapPtr { .. } => {
-                bytes.extend(opcode::SWAP_HL.to_le_bytes());
+                bytes.extend(opcode::SWAP_HL_PTR.to_le_bytes());
             }
             lir::Instr::Ccf { .. } => {
                 bytes.push(opcode::CCF);
@@ -1052,18 +1052,18 @@ impl ObjFileEncoder {
             }
             lir::Instr::Dec16 { source } => {
                 let opcode = match code.r16_registers[*source].color.unwrap() {
-                    Color::BC => opcode::DEC16_BC,
-                    Color::DE => opcode::DEC16_DE,
-                    Color::HL => opcode::DEC16_HL,
+                    Color::BC => opcode::DEC_BC,
+                    Color::DE => opcode::DEC_DE,
+                    Color::HL => opcode::DEC_HL,
                     unexpected => unimplemented!("DEC {unexpected:?}"),
                 };
                 bytes.push(opcode);
             }
             lir::Instr::Inc16 { source } => {
                 let opcode = match code.r16_registers[*source].color.unwrap() {
-                    Color::BC => opcode::INC16_BC,
-                    Color::DE => opcode::INC16_DE,
-                    Color::HL => opcode::INC16_HL,
+                    Color::BC => opcode::INC_BC,
+                    Color::DE => opcode::INC_DE,
+                    Color::HL => opcode::INC_HL,
                     unexpected => unimplemented!("INC {unexpected:?}"),
                 };
                 bytes.push(opcode);
@@ -1143,10 +1143,10 @@ impl ObjFileEncoder {
                     "BulkCopy count expected BC"
                 );
                 let loop_start = bytes.len();
-                bytes.push(opcode::LD_A_HLI);
-                bytes.push(opcode::LD_DE_A);
-                bytes.push(opcode::INC16_DE);
-                bytes.push(opcode::DEC16_BC);
+                bytes.push(opcode::LD_A_HLI_PTR);
+                bytes.push(opcode::LD_DE_PTR_A);
+                bytes.push(opcode::INC_DE);
+                bytes.push(opcode::DEC_BC);
                 bytes.push(opcode::LD_A_C);
                 bytes.push(opcode::OR_A_B);
                 let jr_pos = bytes.len();
@@ -1167,8 +1167,8 @@ impl ObjFileEncoder {
                     "BulkCopy scratch expected D"
                 );
                 let loop_start = bytes.len();
-                bytes.push(opcode::LD_HLI_A);
-                bytes.push(opcode::DEC16_BC);
+                bytes.push(opcode::LD_HLI_PTR_A);
+                bytes.push(opcode::DEC_BC);
                 bytes.push(opcode::LD_D_A);
                 bytes.push(opcode::LD_A_C);
                 bytes.push(opcode::OR_A_B);

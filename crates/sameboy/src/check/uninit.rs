@@ -1,6 +1,7 @@
 //! Detects reads of RAM the program has not written.
 
 use super::{Checker, Context, ReadKind};
+use quokka_lang_opcodes::*;
 use std::collections::BTreeMap;
 
 /// Reports data reads of RAM which holds nothing the program put there, by keeping a shadow
@@ -75,17 +76,21 @@ const fn tracked(addr: u16) -> Option<u16> {
 const fn released(opcode: u8, before: u16, after: u16) -> u16 {
     let releases = matches!(
         opcode,
-        // INC SP
-        0x33
-        // POP rr
-        | 0xC1 | 0xD1 | 0xE1 | 0xF1
-        // RET / RETI / RET cc
-        | 0xC9 | 0xD9 | 0xC0 | 0xC8 | 0xD0 | 0xD8
-        // ADD SP, r8
-        | 0xE8
+        INC_SP
+            | POP_BC
+            | POP_DE
+            | POP_HL
+            | POP_AF
+            | RET
+            | RETI
+            | RET_NZ
+            | RET_Z
+            | RET_NC
+            | RET_C
+            | ADD_SP_E8
     );
     let moved = after.wrapping_sub(before);
-    // `ADD SP, r8` moves `SP` up by at most 127, and anything larger is a move down
+    // `ADD SP, e8` moves `SP` up by at most 127, and anything larger is a move down
     if releases && moved <= 0x7F { moved } else { 0 }
 }
 
@@ -237,20 +242,18 @@ mod tests {
 
     #[test]
     fn only_instructions_which_pop_release_stack() {
-        // POP BC, RET, INC SP
-        assert_eq!(released(0xC1, 0xFFF0, 0xFFF2), 2);
-        assert_eq!(released(0xC9, 0xFFF0, 0xFFF2), 2);
-        assert_eq!(released(0x33, 0xFFF0, 0xFFF1), 1);
-        // RET Z not taken
-        assert_eq!(released(0xC8, 0xFFF0, 0xFFF0), 0);
+        assert_eq!(released(POP_BC, 0xFFF0, 0xFFF2), 2);
+        assert_eq!(released(RET, 0xFFF0, 0xFFF2), 2);
+        assert_eq!(released(INC_SP, 0xFFF0, 0xFFF1), 1);
+        // not taken
+        assert_eq!(released(RET_Z, 0xFFF0, 0xFFF0), 0);
         // ADD SP, 4 and ADD SP, -4
-        assert_eq!(released(0xE8, 0xFFF0, 0xFFF4), 4);
-        assert_eq!(released(0xE8, 0xFFF0, 0xFFEC), 0);
-        // LD SP, d16 and LD SP, HL switch stacks
-        assert_eq!(released(0x31, 0xFFF0, 0xFFF8), 0);
-        assert_eq!(released(0xF9, 0xFFF0, 0xFFF8), 0);
-        // PUSH BC
-        assert_eq!(released(0xC5, 0xFFF0, 0xFFEE), 0);
+        assert_eq!(released(ADD_SP_E8, 0xFFF0, 0xFFF4), 4);
+        assert_eq!(released(ADD_SP_E8, 0xFFF0, 0xFFEC), 0);
+        // these switch stacks
+        assert_eq!(released(LD_SP_N16, 0xFFF0, 0xFFF8), 0);
+        assert_eq!(released(LD_SP_HL, 0xFFF0, 0xFFF8), 0);
+        assert_eq!(released(PUSH_BC, 0xFFF0, 0xFFEE), 0);
     }
 
     #[test]

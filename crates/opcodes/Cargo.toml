@@ -1,0 +1,9 @@
+[package]
+name = "quokka-lang-opcodes"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[build-dependencies]
+serde_json.workspace = true
