@@ -74,21 +74,8 @@ const fn tracked(addr: u16) -> Option<u16> {
 /// How many bytes of stack the instruction starting with `opcode` released, having moved `SP`
 /// from `before` to `after`.
 const fn released(opcode: u8, before: u16, after: u16) -> u16 {
-    let releases = matches!(
-        opcode,
-        INC_SP
-            | POP_BC
-            | POP_DE
-            | POP_HL
-            | POP_AF
-            | RET
-            | RETI
-            | RET_NZ
-            | RET_Z
-            | RET_NC
-            | RET_C
-            | ADD_SP_E8
-    );
+    let releases = matches!(stack_effect(opcode), Some(StackEffect::Pop))
+        || matches!(opcode, INC_SP | ADD_SP_E8);
     let moved = after.wrapping_sub(before);
     // `ADD SP, e8` moves `SP` up by at most 127, and anything larger is a move down
     if releases && moved <= 0x7F { moved } else { 0 }

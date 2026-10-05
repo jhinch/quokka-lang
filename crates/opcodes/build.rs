@@ -28,6 +28,9 @@ fn main() {
     write_table(&mut out, "INSTRUCTION_LEN", "u8", &unprefixed, |instr| {
         instr.len.to_string()
     });
+    write_table(&mut out, "MNEMONIC", "&str", &unprefixed, |instr| {
+        format!("{:?}", instr.mnemonic)
+    });
     write_table(&mut out, "CYCLES", "Cycles", &unprefixed, |instr| {
         format!(
             "Cycles {{ min: {}, max: {} }}",
@@ -47,6 +50,7 @@ fn main() {
 }
 
 struct Instr {
+    mnemonic: String,
     /// The name of the instruction's constant.
     name: String,
     /// The instruction as it is written in assembly.
@@ -162,6 +166,7 @@ fn read_instr(opcode: &str, instr: &Value) -> Instr {
     }
 
     Instr {
+        mnemonic: mnemonic.to_owned(),
         name,
         asm,
         len,

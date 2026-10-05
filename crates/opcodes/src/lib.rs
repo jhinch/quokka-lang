@@ -24,6 +24,86 @@ pub struct Cycles {
     pub max: u8,
 }
 
+/// The condition a conditional jump, call or return tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Condition {
+    /// `NZ`
+    NotZero,
+    /// `Z`
+    Zero,
+    /// `NC`
+    NoCarry,
+    /// `C`
+    Carry,
+}
+
+/// The zero flag's bit in the `F` register.
+pub const ZERO_FLAG: u8 = 0x80;
+/// The carry flag's bit in the `F` register.
+pub const CARRY_FLAG: u8 = 0x10;
+
+impl Condition {
+    /// Whether the condition holds when the `F` register is `flags`.
+    #[must_use]
+    pub const fn holds(self, flags: u8) -> bool {
+        match self {
+            Condition::NotZero => flags & ZERO_FLAG == 0,
+            Condition::Zero => flags & ZERO_FLAG != 0,
+            Condition::NoCarry => flags & CARRY_FLAG == 0,
+            Condition::Carry => flags & CARRY_FLAG != 0,
+        }
+    }
+}
+
+/// What an instruction does to the stack.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StackEffect {
+    /// Two bytes are written below `SP`, which moves down to them.
+    Push,
+    /// Two bytes are read at `SP`, which moves up past them.
+    Pop,
+}
+
+/// The mnemonic of the instruction starting with `opcode`. An opcode which is not an
+/// instruction has a mnemonic of its own, such as `ILLEGAL_D3`.
+#[must_use]
+pub const fn mnemonic(opcode: u8) -> &'static str {
+    MNEMONIC[opcode as usize]
+}
+
+/// The condition the instruction starting with `opcode` tests, or `None` if it is
+/// unconditional.
+#[must_use]
+pub const fn condition(opcode: u8) -> Option<Condition> {
+    match opcode {
+        JR_NZ_E8 | JP_NZ_A16 | CALL_NZ_A16 | RET_NZ => Some(Condition::NotZero),
+        JR_Z_E8 | JP_Z_A16 | CALL_Z_A16 | RET_Z => Some(Condition::Zero),
+        JR_NC_E8 | JP_NC_A16 | CALL_NC_A16 | RET_NC => Some(Condition::NoCarry),
+        JR_C_E8 | JP_C_A16 | CALL_C_A16 | RET_C => Some(Condition::Carry),
+        _ => None,
+    }
+}
+
+/// What the instruction starting with `opcode` does to the stack, or `None` if it neither
+/// pushes nor pops. A conditional call or return only has its effect when its [`condition`]
+/// holds.
+///
+/// Instructions which move `SP` without reading or writing the stack, such as `INC SP` and
+/// `ADD SP, e8`, have no effect.
+#[must_use]
+pub const fn stack_effect(opcode: u8) -> Option<StackEffect> {
+    match opcode {
+        PUSH_BC | PUSH_DE | PUSH_HL | PUSH_AF => Some(StackEffect::Push),
+        CALL_A16 | CALL_NZ_A16 | CALL_Z_A16 | CALL_NC_A16 | CALL_C_A16 => Some(StackEffect::Push),
+        RST_00 | RST_08 | RST_10 | RST_18 | RST_20 | RST_28 | RST_30 | RST_38 => {
+            Some(StackEffect::Push)
+        }
+        POP_BC | POP_DE | POP_HL | POP_AF => Some(StackEffect::Pop),
+        RET | RETI | RET_NZ | RET_Z | RET_NC | RET_C => Some(StackEffect::Pop),
+        _ => None,
+    }
+}
+
 /// The encoded length in bytes of the instruction starting with `opcode`. For [`PREFIX`] this
 /// counts the byte following it.
 #[must_use]
@@ -101,6 +181,103 @@ mod tests {
         assert_eq!(cycles(JP_C_A16), Cycles { min: 3, max: 4 });
         assert_eq!(cycles(CALL_Z_A16), Cycles { min: 3, max: 6 });
         assert_eq!(cycles(RET_NC), Cycles { min: 2, max: 5 });
+    }
+
+    #[test]
+    fn mnemonics() {
+        assert_eq!(mnemonic(NOP), "NOP");
+        assert_eq!(mnemonic(LD_HL_PTR_N8), "LD");
+        assert_eq!(mnemonic(RET_NC), "RET");
+        assert_eq!(mnemonic(RST_38), "RST");
+        assert_eq!(mnemonic(ILLEGAL_D3), "ILLEGAL_D3");
+    }
+
+    /// The opcodes whose mnemonic is `mnemonic`.
+    fn with_mnemonic(name: &str) -> impl Iterator<Item = u8> {
+        (0..=u8::MAX).filter(move |&opcode| mnemonic(opcode) == name)
+    }
+
+    #[test]
+    fn conditions() {
+        assert_eq!(condition(JR_NZ_E8), Some(Condition::NotZero));
+        assert_eq!(condition(JP_Z_A16), Some(Condition::Zero));
+        assert_eq!(condition(CALL_NC_A16), Some(Condition::NoCarry));
+        assert_eq!(condition(RET_C), Some(Condition::Carry));
+        for opcode in [
+            JR_E8,
+            JP_A16,
+            JP_HL,
+            CALL_A16,
+            RET,
+            RETI,
+            LD_A_C,
+            LDH_A_C_PTR,
+        ] {
+            assert_eq!(condition(opcode), None, "{opcode:#04X}");
+        }
+    }
+
+    #[test]
+    fn only_jumps_calls_and_returns_are_conditional() {
+        let conditional = (0..=u8::MAX).filter(|&opcode| condition(opcode).is_some());
+        // an unconditional and four conditional forms each, less the unconditional ones,
+        // `JP HL` and `RETI`
+        assert_eq!(conditional.clone().count(), 16);
+        for opcode in conditional {
+            assert!(
+                matches!(mnemonic(opcode), "JR" | "JP" | "CALL" | "RET"),
+                "{opcode:#04X}"
+            );
+            let Cycles { min, max } = cycles(opcode);
+            assert!(min < max, "{opcode:#04X}");
+        }
+    }
+
+    #[test]
+    fn conditions_hold_by_flag() {
+        assert!(Condition::Zero.holds(ZERO_FLAG));
+        assert!(!Condition::Zero.holds(CARRY_FLAG));
+        assert!(Condition::NotZero.holds(CARRY_FLAG));
+        assert!(!Condition::NotZero.holds(ZERO_FLAG));
+        assert!(Condition::Carry.holds(CARRY_FLAG));
+        assert!(!Condition::Carry.holds(ZERO_FLAG));
+        assert!(Condition::NoCarry.holds(ZERO_FLAG));
+        assert!(!Condition::NoCarry.holds(CARRY_FLAG));
+    }
+
+    #[test]
+    fn stack_effects() {
+        for name in ["PUSH", "CALL", "RST"] {
+            for opcode in with_mnemonic(name) {
+                assert_eq!(
+                    stack_effect(opcode),
+                    Some(StackEffect::Push),
+                    "{opcode:#04X}"
+                );
+            }
+        }
+        for name in ["POP", "RET", "RETI"] {
+            for opcode in with_mnemonic(name) {
+                assert_eq!(
+                    stack_effect(opcode),
+                    Some(StackEffect::Pop),
+                    "{opcode:#04X}"
+                );
+            }
+        }
+        let affecting = (0..=u8::MAX).filter(|&opcode| stack_effect(opcode).is_some());
+        assert_eq!(affecting.count(), 4 + 5 + 8 + 4 + 5 + 1);
+        for opcode in [
+            INC_SP,
+            DEC_SP,
+            ADD_SP_E8,
+            LD_SP_HL,
+            LD_SP_N16,
+            LD_A16_PTR_SP,
+            JP_A16,
+        ] {
+            assert_eq!(stack_effect(opcode), None, "{opcode:#04X}");
+        }
     }
 
     #[test]

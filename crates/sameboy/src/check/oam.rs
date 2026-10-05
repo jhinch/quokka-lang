@@ -35,22 +35,9 @@ impl OamCorruptionHazard {
     }
 }
 
-const ZERO_FLAG: u16 = 0x80;
-const CARRY_FLAG: u16 = 0x10;
-
 /// Whether an address on the bus is seen by the PPU as an OAM access.
 const fn is_oam(addr: u16) -> bool {
     matches!(addr, 0xFE00..=0xFEFF)
-}
-
-/// Whether the condition encoded in a `JR cc` / `CALL cc` / `RET cc` opcode holds for `af`.
-const fn condition_holds(opcode: u8, af: u16) -> bool {
-    match (opcode >> 3) & 0x3 {
-        0 => af & ZERO_FLAG == 0,
-        1 => af & ZERO_FLAG != 0,
-        2 => af & CARRY_FLAG == 0,
-        _ => af & CARRY_FLAG != 0,
-    }
 }
 
 /// The first OAM address a push with the stack pointer at `sp` puts on the bus: `SP` and
@@ -79,25 +66,7 @@ impl Checker for OamCorruptionHazard {
         let registers = cx.registers();
         let sp = registers.sp;
         let hl = registers.hl;
-
-        let push = |cx: &mut Context<'_>, mnemonic: &str| {
-            if let Some(address) = push_hazard(sp) {
-                cx.report(
-                    "stack",
-                    Some(address),
-                    format!("{mnemonic} with SP=${sp:04X}"),
-                );
-            }
-        };
-        let pop = |cx: &mut Context<'_>, mnemonic: &str| {
-            if let Some(address) = pop_hazard(sp) {
-                cx.report(
-                    "stack",
-                    Some(address),
-                    format!("{mnemonic} with SP=${sp:04X}"),
-                );
-            }
-        };
+        let [flags, _] = registers.af.to_le_bytes();
 
         match opcode {
             INC_BC | INC_DE | INC_HL | INC_SP | DEC_BC | DEC_DE | DEC_HL | DEC_SP => {
@@ -131,26 +100,25 @@ impl Checker for OamCorruptionHazard {
             LD_SP_HL if is_oam(hl) => {
                 cx.report("ld-sp-hl", Some(hl), format!("LD SP, HL with HL=${hl:04X}"));
             }
-            PUSH_BC | PUSH_DE | PUSH_HL | PUSH_AF => push(cx, "PUSH"),
-            CALL_A16 => push(cx, "CALL"),
-            CALL_NZ_A16 | CALL_Z_A16 | CALL_NC_A16 | CALL_C_A16
-                if condition_holds(opcode, registers.af) =>
-            {
-                push(cx, "CALL");
-            }
-            RST_00 | RST_08 | RST_10 | RST_18 | RST_20 | RST_28 | RST_30 | RST_38 => {
-                push(cx, "RST");
-            }
-            POP_BC | POP_DE | POP_HL | POP_AF => pop(cx, "POP"),
-            RET => pop(cx, "RET"),
-            RETI => pop(cx, "RETI"),
-            RET_NZ | RET_Z | RET_NC | RET_C if condition_holds(opcode, registers.af) => {
-                pop(cx, "RET");
-            }
             // JR e8 puts the address after its operand on the bus before adding the offset. Any
             // later address in OAM has already had the operand fetched from OAM.
             JR_E8 if pc.wrapping_add(2) == 0xFE00 => {
                 cx.report("pc", Some(0xFE00), "JR with PC stepping into OAM");
+            }
+            // a conditional call or return only touches the stack when it is taken
+            _ if condition(opcode).is_none_or(|condition| condition.holds(flags)) => {
+                let hazard = match stack_effect(opcode) {
+                    Some(StackEffect::Push) => push_hazard(sp),
+                    Some(StackEffect::Pop) => pop_hazard(sp),
+                    None => None,
+                };
+                if let Some(address) = hazard {
+                    cx.report(
+                        "stack",
+                        Some(address),
+                        format!("{} with SP=${sp:04X}", mnemonic(opcode)),
+                    );
+                }
             }
             _ => {}
         }
