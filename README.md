@@ -4,10 +4,19 @@
 
 A high level language designed for developing Game Boy games.
 
-WARNING: This is in the early stages of development and large portions
-of the compiler are not written yet
+> [!WARNING]
+> The compiler and language are both in the early stages of development.
+> Both are missing many features which would allow for Quokka to be a viable language for Game Boy game development.
 
-# Internals
+# Motivations
+
+I have always been fascinated with programming language design and wanted to create my own. I was however never
+going to be able to create a production-grade language to compete with modern languages. Rather than compete it
+made more sense to explore this in a niche which also interested me, namely game development for retro consoles.
+
+The primary goal was for my own education and fulfilment.
+
+# Compiler development
 
 ## Compiler structure
 
@@ -24,7 +33,13 @@ The compilation goes through following phases:
 - Object file creation
 - Linking (Currently delegates to RGBDS)
 
-## Spec Tests
+## Testing
+
+The Quokka compiler primarily relies on an integration test suite to validate the behaviour of the compiler
+and conformance to the specification. Unit tests are only used for testing the invariants expected of units
+irrespective of the language's design.
+
+### Spec Tests
 
 The conformity to the language specification defined in the [Quokka Lang Reference](docs/src/reference) is validated
 via the spec test suites.
@@ -37,7 +52,7 @@ Test suites are defined in TOML files grouped by category within [tests/cases](t
 take the form `<category>::<suite>::<case>`, where the category is the directory and the suite is the file name
 without its extension.
 
-### TOML file format
+#### TOML file format
 
 The TOML file specifies one or more test cases. A file can contain cases of different kinds as specified
 below. Regardless of the kind of test, the name of the test must be unique within the file, which the suite's
@@ -219,7 +234,7 @@ expected_memory_map = """
 expected_errors = []
 ```
 
-### Regenerate expectations
+#### Regenerate expectations
 
 It is common that the expectations in test suites no longer match the compiler's internal and that the expectations
 need to be updated rather than it being a bug in the compiler. This can be achieved by running the tests using
@@ -242,7 +257,7 @@ REGENERATE_EXPECTATIONS=1 FORCE_REGENERATE_EXPECTATIONS=1 cargo test --test spec
 
 Only reach for `FORCE_REGENERATE_EXPECTATIONS` once you've confirmed the change in behaviour is intentional.
 
-## Optimization Soundness Tests
+### Optimization Soundness Tests
 
 The MIR optimizer is validated via differential execution rather than by comparing against known output. Each case
 compiles a small program twice, once without and once with optimization, interprets both resulting MIRs using the
@@ -279,7 +294,7 @@ Matching results prove nothing if the optimization under test never fired. A cas
 `expect_rewrite`: the test for each listed optimization also fails if toggling it alone leaves the optimized MIR
 unchanged. For an opt-out such as `no-canonicalize`, that means the pass it disables must change the MIR.
 
-### TOML file format
+#### TOML file format
 
 The name of each case must be unique within the file. Unknown fields are rejected.
 
@@ -342,7 +357,7 @@ fn main() {
 # ...
 ```
 
-## Emulator Tests
+### Emulator Tests
 
 The emulator tests validate the generated code by executing it. Each case compiles a program all the way to a Game Boy
 ROM, runs it in the [SameBoy](https://github.com/LIJI32/SameBoy) emulator via a [headless bridging crate](crates/sameboy)
@@ -388,7 +403,7 @@ address using `#[address]` and use that address as the `await_pc`. Likewise, val
 in globals pinned to a fixed address (e.g. in WRAM at `0xC000`). This gives a stable checkpoint which does not depend
 on incidental codegen layout.
 
-### TOML file format
+#### TOML file format
 
 The name of each case must be unique within the file, which the suite's `_lint_cases` test enforces. Unknown fields
 are rejected.
@@ -452,7 +467,7 @@ mask = 0b0000_0001
 # ...
 ```
 
-## Documentation Example Tests
+### Documentation Example Tests
 
 Every ` ```quokka ` code block in the [mdBook sources](docs/src) is compiled to ensure the examples in the
 documentation stay in sync with the compiler. Each example goes through the same pipeline as `quokka build`, up to
@@ -463,10 +478,18 @@ fragments demonstrating items can be compiled on their own.
 cargo test --test doc_tests
 ```
 
-Each test is named after the markdown file and line of the opening code fence, e.g. `reference/items/structs.md:15`.
+Each test is named after the Markdown file and line of the opening code fence, e.g. `reference/items/structs.md:15`.
 Code blocks are configured through comma-separated attributes in the fence's info string:
 
 - ` ```quokka ` the example must compile
 - ` ```quokka,preview=narrow-int ` the example must compile with the given preview feature enabled. Repeat the
   attribute to enable multiple preview features
 - ` ```quokka,ignore ` the example is illustrative only and is not compiled
+
+## AI policy
+
+The Quokka compiler has used a mix of handwritten and AI assisted code. As the primary goal was my own education,
+generating the code for parts I find interesting runs antithetical to this. Initially, AI assistance was used for
+building out the AI testing suite as an adversarial reviewer. As the compiler has come together it has been used
+for addressing bugs, improving UI and implementing features which are useful for using the language but less
+interesting to write manually.
