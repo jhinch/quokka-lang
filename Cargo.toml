@@ -4,6 +4,9 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.2.0"
 edition = "2024"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/jhinch/quokka-lang"
+publish = false
 
 [workspace.dependencies]
 assert_cmd = "2.2.2"
@@ -37,8 +40,12 @@ quokka-lang-slotkeyset = { path = "crates/slotkeyset" }
 
 [package]
 name = "quokka-lang"
+description = "A high level language and compiler for developing Game Boy games"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
 
 [[bin]]
 name = "quokka"

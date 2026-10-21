@@ -1300,7 +1300,7 @@ _@BOOTSTRAP::
 END_SECTION
 """
 
-# `BulkCopy`/`BulkFill` (QUOK-86) hard-precolor every general-purpose register (HL, DE, BC, A) for
+# `BulkCopy`/`BulkFill` hard-precolor every general-purpose register (HL, DE, BC, A) for
 # their whole duration, so *any* value live across one - even just a single local - forces a
 # spill. See `tests/emulator_cases/bulk_copy_fill.toml`'s
 # `bulk_copy_forces_register_spill_across_it` for the equivalent runtime-correctness check; this

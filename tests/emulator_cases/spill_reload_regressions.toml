@@ -1,4 +1,4 @@
-# Two related register-allocator soundness bugs (QUOK-109), both found while writing the
+# Two related register-allocator soundness bugs, both found while writing the
 # per-operand corruption checks in `operators_arithmetic.toml`. Checking that *both* operands of a
 # u16 binary operator survive the operation (i.e. both `let` locals are read again afterwards) is
 # enough register pressure on the Game Boy's small register file to force a spill of one of the

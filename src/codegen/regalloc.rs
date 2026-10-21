@@ -1043,7 +1043,7 @@ fn resolve_current(
 /// and always clobbers the flags - so if some other already-precolored `HL`/`A`/`Fz`/`Fc`
 /// register (found live in `live_here`) spans this exact point, it is first evicted with a
 /// `PUSH` and restored afterward via [`end_spill_slot_address`], rather than being left to
-/// silently collide with the fresh precolored registers this instruction needs. See QUOK-109.
+/// silently collide with the fresh precolored registers this instruction needs.
 fn begin_spill_slot_address(
     code: &mut CodeSectionData,
     block_id: BlockId,

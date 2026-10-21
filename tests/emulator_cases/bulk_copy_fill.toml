@@ -1,4 +1,4 @@
-# QUOK-86: emulator behavioral coverage for whole-aggregate bulk copy/fill (the
+# Emulator behavioral coverage for whole-aggregate bulk copy/fill (the
 # `lir::Instr::BulkCopy`/`BulkFill` macro instructions), confirming the encoded loop actually
 # moves/fills the right bytes on real hardware semantics - not just that the LIR/regalloc output
 # looks right (see tests/cases/codegen/bulk_copy_fill.toml for that). Each case includes a

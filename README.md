@@ -20,7 +20,7 @@ The primary goal was for my own education and fulfilment.
 
 ## Compiler structure
 
-The compilation goes through following phases:
+The compilation goes through the following phases:
 
 - Lexing (Lexical analysis)
 - Parsing (Syntactic analysis)
@@ -490,6 +490,11 @@ Code blocks are configured through comma-separated attributes in the fence's inf
 
 The Quokka compiler has used a mix of handwritten and AI assisted code. As the primary goal was my own education,
 generating the code for parts I find interesting runs antithetical to this. Initially, AI assistance was used for
-building out the AI testing suite as an adversarial reviewer. As the compiler has come together it has been used
+building out the testing suite as an adversarial reviewer. As the compiler has come together it has been used
 for addressing bugs, improving UI and implementing features which are useful for using the language but less
 interesting to write manually.
+
+# Contributing
+
+Quokka is still in the earliest stages of development, so contributions are not being accepted at this point in
+time.

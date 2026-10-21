@@ -1,4 +1,4 @@
-# QUOK-86: golden codegen coverage for whole-aggregate bulk copy/fill, lowered to the
+# Golden codegen coverage for whole-aggregate bulk copy/fill, lowered to the
 # `lir::Instr::BulkCopy`/`BulkFill` macro instructions (see `src/lir.rs`). The `allocate_registers`
 # cases confirm the macro instruction's operands resolve to the expected physical registers
 # (HL/DE/BC/A, plus D for the fill's zero-test scratch) through regalloc.
