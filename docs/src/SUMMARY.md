@@ -2,6 +2,12 @@
 
 [Introduction](introduction.md)
 
+# User guide
+
+- [Getting started](guide/getting-started.md)
+  - [Installation](guide/installation.md)
+  - [Hello, Quokka!](guide/hello-quokka.md)
+
 # Reference
 
 - [Lexical Structure](reference/lexical-structure.md)
