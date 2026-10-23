@@ -4,6 +4,7 @@ authors = ["Jason Hinch"]
 language = "en"
 
 [output.html]
+git-repository-url = "https://github.com/jhinch/quokka-lang"
 
 additional-js = [
     "assets/js/highlightjs-language-ebnf.js",
