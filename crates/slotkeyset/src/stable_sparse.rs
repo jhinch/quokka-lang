@@ -31,7 +31,6 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.capacity()
     }
 
-    #[must_use]
     pub fn iter(&self) -> impl FusedIterator<Item = K> + ExactSizeIterator + Clone + '_ {
         self.set.iter().copied()
     }
@@ -58,7 +57,6 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.clear();
     }
 
-    #[must_use]
     pub fn difference<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -66,7 +64,6 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.difference(&other.set).copied()
     }
 
-    #[must_use]
     pub fn symmetric_difference<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -74,7 +71,6 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.symmetric_difference(&other.set).copied()
     }
 
-    #[must_use]
     pub fn intersection<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,
@@ -82,7 +78,6 @@ impl<K: Key> StableSparseSlotKeySet<K> {
         self.set.intersection(&other.set).copied()
     }
 
-    #[must_use]
     pub fn union<'a>(
         &'a self,
         other: &'a StableSparseSlotKeySet<K>,

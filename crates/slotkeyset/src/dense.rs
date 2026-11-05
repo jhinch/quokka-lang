@@ -30,7 +30,6 @@ impl<K: Key> SlotKeySet<K> {
         self.map.capacity()
     }
 
-    #[must_use]
     pub fn iter(&self) -> impl FusedIterator<Item = K> + ExactSizeIterator + Clone + '_ {
         self.map.keys()
     }
@@ -57,7 +56,6 @@ impl<K: Key> SlotKeySet<K> {
         self.map.clear();
     }
 
-    #[must_use]
     pub fn difference<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -65,7 +63,6 @@ impl<K: Key> SlotKeySet<K> {
         self.map.keys().filter(|&k| !other.contains(k))
     }
 
-    #[must_use]
     pub fn symmetric_difference<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -73,7 +70,6 @@ impl<K: Key> SlotKeySet<K> {
         self.difference(other).chain(other.difference(self))
     }
 
-    #[must_use]
     pub fn intersection<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
@@ -86,7 +82,6 @@ impl<K: Key> SlotKeySet<K> {
         this.map.keys().filter(|&k| other.contains(k))
     }
 
-    #[must_use]
     pub fn union<'a>(
         &'a self,
         other: &'a SlotKeySet<K>,
