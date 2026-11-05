@@ -1,5 +1,9 @@
 [![CI](https://github.com/jhinch/quokka-lang/actions/workflows/main.yml/badge.svg)](https://github.com/jhinch/quokka-lang/actions/workflows/main.yml)
 
+<p align="center">
+  <img src="docs/src/images/quokka-lang-logo.svg" alt="Quokka Lang: a pixel art quokka next to the words QUOKKA LANG" width="474">
+</p>
+
 # Quokka Lang
 
 A high level language designed for developing Game Boy games.

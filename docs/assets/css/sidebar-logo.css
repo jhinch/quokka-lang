@@ -1,12 +1,13 @@
-/* Quokka logo above the sidebar table of contents. The second selector covers the
+/* Quokka Lang logo above the sidebar table of contents. The second selector covers the
    iframe sidebar mdBook falls back to when JavaScript is disabled. */
 .sidebar .sidebar-scrollbox::before,
 .sidebar-iframe-inner::before {
     content: "";
     display: block;
-    /* 8x the 16x16 pixel art keeps every source pixel a whole number of screen pixels */
-    width: 128px;
-    height: 128px;
+    /* 1.5x the 158x56 pixel art: 2x doesn't fit the sidebar, and on 2x displays 1.5x still maps
+       every source pixel to a whole number (3) of device pixels */
+    width: 237px;
+    height: 84px;
     margin: 8px auto 16px;
-    background: url("../../images/quokka-logo.svg") center / contain no-repeat;
+    background: url("../../images/quokka-lang-logo.svg") center / contain no-repeat;
 }

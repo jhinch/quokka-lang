@@ -27,7 +27,7 @@ You'll need a 160×144 pixel image, which is the size of the Game Boy's screen. 
 [Image requirements](#image-requirements)) or download the one used in this tutorial,
 [`hello-quokka.png`](hello-quokka.png), into the project directory:
 
-![A hand-drawn black and white image with the text "Hello, Quokka!"](hello-quokka.png)
+![A pixel art quokka next to the words "QUOKKA LANG" in chunky block letters](hello-quokka.png)
 
 ## How the Game Boy draws the background
 
@@ -65,7 +65,7 @@ The options mean:
   dark gray 2 and black 3. Without it, `rgbgfx` chooses the order itself, and the picture could come out with its
   shades swapped. Fixing the order means the palette can map each color number straight to the matching shade.
 - `-u` stores each distinct tile only once. A 160×144 image is 20 × 18 = 360 tiles, but most of them are repeats
-  (the blank background is the same tile over and over), so the example image needs only 116 tiles.
+  (the blank background is the same tile over and over), so the example image needs only 90 tiles.
 - `-o hello-quokka.2bpp` writes the tile data, in the 2bpp format, to `hello-quokka.2bpp`.
 - `-t hello-quokka.tilemap` writes the tilemap, one byte per tile, to `hello-quokka.tilemap`.
 
@@ -73,12 +73,12 @@ Check the sizes of the two files:
 
 ```console
 $ wc -c hello-quokka.2bpp hello-quokka.tilemap
-    1856 hello-quokka.2bpp
+    1440 hello-quokka.2bpp
      360 hello-quokka.tilemap
-    2216 total
+    1800 total
 ```
 
-The tile data is 116 tiles × 16 bytes = 1856 bytes. The tilemap is 20 × 18 = 360 bytes, one byte for each tile on
+The tile data is 90 tiles × 16 bytes = 1440 bytes. The tilemap is 20 × 18 = 360 bytes, one byte for each tile on
 the screen. You'll need both sizes when declaring the arrays in Quokka.
 
 ### Image requirements
@@ -113,17 +113,19 @@ The format string after `-e` is applied over and over until the file runs out:
 The `-v` option matters. By default, `hexdump` replaces repeated lines with a single `*`, which would silently drop
 tiles that happen to be identical to the one before.
 
-The output starts with the blank tile, followed by the start of the "H":
+The output starts with the blank tile, followed by the top of the quokka's left ear:
 
 ```text
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-0x00, 0x00, 0x01, 0x01, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
+0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x7e, 0x71, 0x7e, 0x71, 0x7e, 0x71, 0x7f, 0x70, 0x7f, 0x70,
 ...
 ```
 
-Read the second line two bytes at a time. Row 0 of that tile is `0x00, 0x00`, so all 8 pixels are color 0 (white).
-Row 1 is `0x01, 0x01`: the last pixel has both its low and high bits set, so it is color 3 (black), the start of
-the "H"'s left stroke.
+Read the second line two bytes at a time. Row 0 of that tile is `0x0f, 0x0f`: the first four pixels have neither bit
+set, so they are color 0 (white), and the last four have both their low and high bits set, so they are color 3
+(black), the outline of the ear. Row 3 is `0x7e, 0x71`, which mixes all four colors: the first pixel is white, the
+next three are black, the next three have only their low bit set, so they are color 1 (light gray), and the last
+pixel has only its high bit set, so it is color 2 (dark gray).
 
 ### The tilemap
 
@@ -140,12 +142,14 @@ matter which tile they point at. The output is 18 lines of 32 entries, 576 bytes
 
 ```text
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x04, 0x05, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+...
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x08, 0x09, 0x0c, 0x0d, 0x0c, 0x0e, 0x0f, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ...
 ```
 
-You can see the picture's layout in the numbers. The top row of tiles is blank (tile 0), and the second row starts
-with tiles 1, 2 and 3, which are the top of the "H".
+You can see the picture's layout in the numbers. The top six rows of tiles are blank (tile 0). The seventh row starts
+with a blank tile, then tiles 1 to 6, which are the tops of the quokka's ears, and then the top of "QUOKKA". The two
+"K"s are identical, so tiles 8 and 9 appear twice in a row, which is the `-u` option at work.
 
 ## Writing the program
 
@@ -197,7 +201,7 @@ cover the parts of VRAM that the program fills, with the sizes you measured earl
 
 ```quokka
 #[address = 0x9000]
-global BG_TILES: [u8; 1856];
+global BG_TILES: [u8; 1440];
 #[address = 0x9800]
 global BG_TILEMAP: [u8; 576];
 ```
@@ -207,14 +211,14 @@ global BG_TILEMAP: [u8; 576];
 Next, add two array constants and paste the `hexdump` output between the brackets:
 
 ```quokka,ignore
-const TILES: [u8; 1856] = [
+const TILES: [u8; 1440] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x01, 0x01, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
+    0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x7e, 0x71, 0x7e, 0x71, 0x7e, 0x71, 0x7f, 0x70, 0x7f, 0x70,
     // ... the rest of the hexdump output for hello-quokka.2bpp
 ];
 const TILEMAP: [u8; 576] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x04, 0x05, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     // ... the rest of the hexdump output for hello-quokka.tilemap
 ];
 ```
@@ -259,7 +263,7 @@ Step by step:
 1. **Turn the audio off.** The program doesn't play any sound, so there's no reason to leave the audio hardware
    running.
 2. **Wait for vertical blanking.** While the PPU is drawing the screen, it has VRAM to itself, and the CPU can't
-   read or write it reliably. Copying 2432 bytes takes far longer than the short gap between frames, so the program
+   read or write it reliably. Copying 2016 bytes takes far longer than the short gap between frames, so the program
    turns the LCD off for the copy instead. The LCD may only be turned off during the vertical blanking period
    ("vblank"), because turning it off at any other time can damage a real Game Boy's screen. The
    [`loop`](../reference/expressions/loops.md) keeps reading `rLY` until the LCD reaches line 144, which is where
@@ -299,11 +303,11 @@ global rBGP: u8;
 const BG_PALETTE: u8 = 0b1110_0100;
 
 #[address = 0x9000]
-global BG_TILES: [u8; 1856];
+global BG_TILES: [u8; 1440];
 #[address = 0x9800]
 global BG_TILEMAP: [u8; 576];
 
-const TILES: [u8; 1856] = [
+const TILES: [u8; 1440] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // ...
 ];
