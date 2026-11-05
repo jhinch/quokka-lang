@@ -1,0 +1,12 @@
+/* Quokka logo above the sidebar table of contents. The second selector covers the
+   iframe sidebar mdBook falls back to when JavaScript is disabled. */
+.sidebar .sidebar-scrollbox::before,
+.sidebar-iframe-inner::before {
+    content: "";
+    display: block;
+    /* 8x the 16x16 pixel art keeps every source pixel a whole number of screen pixels */
+    width: 128px;
+    height: 128px;
+    margin: 8px auto 16px;
+    background: url("../../images/quokka-logo.svg") center / contain no-repeat;
+}
